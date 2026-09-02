@@ -1,0 +1,116 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build a release for (e.g. v26.09.02)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Install Lazarus / FPC
+        uses: gcarreno/setup-lazarus@v3
+        with:
+          lazarus-version: "stable"
+          with-cache: true
+
+      - name: Generate version unit
+        shell: pwsh
+        run: ./tools/gen-version.ps1
+
+      - name: Register project package links
+        shell: pwsh
+        run: |
+          lazbuild --add-package-link `
+            common/uocommon.lpk uo/uoengine.lpk parser/euoparser.lpk
+
+      - name: Build (Release)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($proj in 'uo.lpi', 'EasyUOReforged.lpi', 'EUOUpdtr.lpi') {
+            Write-Host "::group::lazbuild $proj"
+            lazbuild --build-mode=Release $proj
+            if ($LASTEXITCODE -ne 0) { throw "lazbuild $proj failed ($LASTEXITCODE)" }
+            Write-Host "::endgroup::"
+          }
+
+      # A release is only cut if the full suite passes on the tagged commit.
+      - name: Run test suite
+        shell: pwsh
+        run: ./tests/run_tests.ps1
+
+      - name: Package + checksums + notes
+        id: pkg
+        shell: pwsh
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag  = if ($env:INPUT_TAG) { $env:INPUT_TAG } else { $env:GITHUB_REF_NAME }
+          $name = "EasyUOReforged-$tag-win64"
+
+          New-Item -ItemType Directory -Force -Path "dist/$name" | Out-Null
+          Copy-Item EasyUOReforged.exe, uo.dll, EUOUpdtr.exe, LICENSE, NOTICE, README.md "dist/$name/"
+          Compress-Archive -Path "dist/$name/*" -DestinationPath "dist/$name.zip"
+
+          Push-Location dist
+          # Checksum of the archive itself...
+          ((Get-FileHash "$name.zip" -Algorithm SHA256).Hash.ToLower() + "  $name.zip") |
+            Set-Content -Encoding ascii "$name.zip.sha256"
+          # ...and of every file inside it, for post-extraction / AV-report verification.
+          Get-ChildItem $name -File | Get-FileHash -Algorithm SHA256 |
+            ForEach-Object { $_.Hash.ToLower() + "  " + (Split-Path $_.Path -Leaf) } |
+            Set-Content -Encoding ascii "SHA256SUMS.txt"
+          Pop-Location
+
+          $notes = @(
+            "Automated Windows x64 build of ``$tag``, produced by this workflow"
+            "(``.github/workflows/release.yml``) from the tagged commit -- nothing is uploaded by hand."
+            ""
+            "**Zip contents:** ``EasyUOReforged.exe``, ``uo.dll``, ``EUOUpdtr.exe`` + ``LICENSE`` / ``NOTICE`` / ``README.md``."
+            ""
+            "**Antivirus / SmartScreen:** this program reads and writes another process's memory"
+            "and patches small code hooks into it (the same techniques a debugger uses), so"
+            "Windows may flag it heuristically. This is expected for this class of tool. Verify"
+            "your download against ``$name.zip.sha256`` (and ``SHA256SUMS.txt`` for the extracted"
+            "files), scan it yourself, or build from source. See the README's"
+            "'Antivirus & SmartScreen' section."
+            ""
+            "Drives both 32-bit and 64-bit Ultima Online clients."
+          ) -join "`n"
+          Set-Content -Path "dist/NOTES.md" -Value $notes -Encoding utf8
+
+          "name=$name" >> $env:GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag  = if ($env:INPUT_TAG) { $env:INPUT_TAG } else { $env:GITHUB_REF_NAME }
+          $name = "${{ steps.pkg.outputs.name }}"
+          gh release create $tag `
+            "dist/$name.zip" `
+            "dist/$name.zip.sha256" `
+            "dist/SHA256SUMS.txt" `
+            --title $tag `
+            --notes-file "dist/NOTES.md" `
+            --verify-tag

@@ -98,6 +98,54 @@ below as unverified.
   returns its contents with line breaks folded back to `$`. Used by
   [`docs/report-diagnostics.euo`](docs/report-diagnostics.euo).
 
+## Download & run
+
+Prebuilt Windows x64 binaries are on the
+[**Releases**](https://github.com/ilpersi/EasyUOReforged/releases) page. Download
+`EasyUOReforged-<version>-win64.zip`, unzip it anywhere, and run
+`EasyUOReforged.exe` — no installer. Keep `uo.dll` next to it. `EUOUpdtr.exe` is
+only needed if you're adding support for a new client version
+([guide](docs/adding-client-support.md)).
+
+Start your Ultima Online client and log in first; EasyUO Reforged detects running
+clients on its own. Then paste a script into a tab and press Play. There is no
+32-bit build — but it drives both 32-bit and 64-bit UO clients.
+
+Each release is built entirely in public by GitHub Actions
+([`release.yml`](.github/workflows/release.yml)) from the tagged commit, and ships
+with SHA-256 checksums (`…zip.sha256` for the archive, `SHA256SUMS.txt` for the
+files inside).
+
+### Antivirus & SmartScreen
+
+EasyUO Reforged automates the game by **reading and writing the UO client's
+process memory and patching small code hooks into it** — the same techniques a
+debugger or a game trainer uses. Because of that:
+
+- **Windows SmartScreen** will warn that the app is unrecognized (the binaries
+  are not code-signed). Choose *More info → Run anyway* if you trust the
+  download.
+- **Windows Defender or third-party AV** may flag the executable heuristically.
+  This is expected for this class of tool and is not, by itself, evidence the
+  binary is malicious.
+
+What you can do:
+
+1. **Verify the checksum.** Compare your download against the `.sha256` file
+   published with the release:
+   ```
+   Get-FileHash EasyUOReforged-<version>-win64.zip -Algorithm SHA256
+   ```
+2. **Check the build is reproducible-in-public.** Every release is compiled by
+   the workflow above on GitHub's runners from a specific tagged commit — nothing
+   is uploaded by hand.
+3. **Scan it yourself** (e.g. VirusTotal) and, if you believe a detection is a
+   false positive, report it to your AV vendor.
+4. **Build from source** (below) if you'd rather not trust a prebuilt binary at
+   all.
+
+See also [`SECURITY.md`](SECURITY.md).
+
 ## Building
 
 Requires Lazarus/FPC targeting `x86_64-win64` (Win32 widgetset); developed against **Lazarus 3.6
