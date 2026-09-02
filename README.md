@@ -202,8 +202,8 @@ shard, and other environment details we need.
 
 **EasyUO Reforged is not an official or endorsed replacement for the original EasyUO.** It is an
 independent, community-driven port, not affiliated with the original author. It is offered as-is,
-under the same Simplified BSD license as the original (see `LICENSE` in this repository), with
-no warranty of any kind.
+under the BSD 2-Clause License, the same license as the original (see `LICENSE` and `NOTICE`
+in this repository), with no warranty of any kind.
 
 This is an **evolving, work-in-progress project**. Most of it has not been exhaustively tested,
 some features are known to be incomplete or behave differently from the original (see "Known
