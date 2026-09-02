@@ -1,0 +1,33 @@
+# Normalize all text files to LF in the repository; Git converts to the
+# platform's native line ending on checkout (Windows contributors with
+# core.autocrlf=true get CRLF working copies).
+* text=auto
+
+# Explicit text types (Pascal / Lazarus / docs / data).
+*.pas   text
+*.pp    text
+*.inc   text
+*.lpr   text
+*.lpi   text
+*.lpk   text
+*.lfm   text
+*.hlr   text
+*.euo   text
+*.md    text
+*.txt   text
+*.yml   text
+*.yaml  text
+*.json  text
+
+# Windows scripts: keep CRLF so they run under all shells/hosts.
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+
+# Binary assets — never touch line endings, never diff as text.
+*.res   binary
+*.ico   binary
+*.mul   binary
+*.uop   binary
+*.exe   binary
+*.dll   binary

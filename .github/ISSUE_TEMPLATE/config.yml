@@ -1,0 +1,13 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Known limitations & project status
+    url: https://github.com/lpersichetti/EasyUOReforged/blob/main/README.md#known-limitations
+    about: >-
+      EasyUO Reforged is a work-in-progress port. Please check the README's
+      "Known limitations" and "Status" sections first - your issue may already
+      be documented there.
+  - name: Adding support for a newer UO client
+    url: https://github.com/lpersichetti/EasyUOReforged/blob/main/docs/adding-client-support.md
+    about: >-
+      "Client not supported" / wrong memory offsets for a recent client is
+      expected. See this guide for how new client versions get added.

@@ -1,0 +1,271 @@
+<UniHighlighter version="1.8">
+  <Info>
+    <General Name="" Extensions=""/>
+    <Author Name="" Email="" Web="" Copyright="" Company="" Remark=""/>
+    <Version Version="0" Revision="0" Date="0"/>
+    <History>
+    </History>
+    <Sample>
+    </Sample>
+  </Info>
+  <Scheme File="" Name=""/>
+  <Range Name="Root" Attributes="536870911,16777215;False:False." Style=""
+         Delimiters=";">
+    <Rule OpenSymbolPartOfTerm="Left"/>
+    <Keywords Name="Operators" Attributes="255,16777215;False:False." Style="">
+      <word value="! "/>
+      <word value="ABS"/>
+      <word value="* "/>
+      <word value="/"/>
+      <word value="% "/>
+      <word value="+"/>
+      <word value="-"/>
+      <word value="="/>
+      <word value="&lt;&gt;"/>
+      <word value="&gt;"/>
+      <word value="&lt;"/>
+      <word value="&lt;="/>
+      <word value="=&lt;"/>
+      <word value="&gt;="/>
+      <word value="=&gt;"/>
+      <word value="IN"/>
+      <word value="NOTIN"/>
+      <word value="&amp;&amp;"/>
+      <word value="||"/>
+      <word value="¦¦"/>
+      <word value="."/>
+      <word value=","/>
+    </Keywords>
+    <Keywords Name="Command" Attributes="0,16777215;False:False.B" Style="">
+      <word value="BREAK"/>
+      <word value="CALL"/>
+      <word value="CHOOSESKILL"/>
+      <word value="CLICK"/>
+      <word value="CMPPIX"/>
+      <word value="CONTINUE"/>
+      <word value="CONTPOS"/>
+      <word value="DELETEJOURNAL"/>
+      <word value="DELETEVAR"/>
+      <word value="DISPLAY"/>
+      <word value="ELSE"/>
+      <word value="EVENT"/>
+      <word value="EXECUTE"/>
+      <word value="EXEVENT"/>
+      <word value="EXIT"/>
+      <word value="FINDITEM"/>
+      <word value="FOR"/>
+      <word value="GETSHOPINFO"/>
+      <word value="GETUOTITLE"/>
+      <word value="GOSUB"/>
+      <word value="GOTO"/>
+      <word value="HALT"/>
+      <word value="HIDEITEM"/>
+      <word value="IF"/>
+      <word value="IGNORECONT"/>
+      <word value="IGNOREITEM"/>
+      <word value="KEY"/>
+      <word value="MENU"/>
+      <word value="MOVE"/>
+      <word value="MSG"/>
+      <word value="NAMESPACE"/>
+      <word value="NEXTCPOS"/>
+      <word value="ONHOTKEY"/>
+      <word value="PAUSE"/>
+      <word value="REPEAT"/>
+      <word value="RETURN"/>
+      <word value="SAVEPIX"/>
+      <word value="SCANJOURNAL"/>
+      <word value="SEND"/>
+      <word value="SET"/>
+      <word value="SETSHOPITEM"/>
+      <word value="SETUOTITLE"/>
+      <word value="SHUTDOWN"/>
+      <word value="SLEEP"/>
+      <word value="SOUND"/>
+      <word value="STOP"/>
+      <word value="STR"/>
+      <word value="SUB"/>
+      <word value="TARGET"/>
+      <word value="TERMINATE"/>
+      <word value="TILE"/>
+      <word value="UNTIL"/>
+      <word value="UOXL"/>
+      <word value="WAIT"/>
+      <word value="WHILE"/>
+    </Keywords>
+    <Keywords Name="System" Attributes="12615680,16777215;False:False." Style="">
+      <word value="#AR"/>
+      <word value="#BACKPACKID"/>
+      <word value="#CHARDIR"/>
+      <word value="#CHARGHOST"/>
+      <word value="#CHARID"/>
+      <word value="#CHARNAME"/>
+      <word value="#CHARPOSX"/>
+      <word value="#CHARPOSY"/>
+      <word value="#CHARPOSZ"/>
+      <word value="#CHARSTATUS"/>
+      <word value="#CLICNT"/>
+      <word value="#CLILANG"/>
+      <word value="#CLILEFT"/>
+      <word value="#CLILOGGED"/>
+      <word value="#CLINR"/>
+      <word value="#CLITOP"/>
+      <word value="#CLIVER"/>
+      <word value="#CLIXRES"/>
+      <word value="#CLIYRES"/>
+      <word value="#CONTHP"/>
+      <word value="#CONTID"/>
+      <word value="#CONTKIND"/>
+      <word value="#CONTNAME"/>
+      <word value="#CONTPOSX"/>
+      <word value="#CONTPOSY"/>
+      <word value="#CONTSIZEX"/>
+      <word value="#CONTSIZEY"/>
+      <word value="#CONTTYPE"/>
+      <word value="#CR"/>
+      <word value="#CURPATH"/>
+      <word value="#CURSKIND"/>
+      <word value="#CURSORX"/>
+      <word value="#CURSORY"/>
+      <word value="#DATE"/>
+      <word value="#DEX"/>
+      <word value="#DISPRES"/>
+      <word value="#DOT"/>
+      <word value="#ENEMYHITS"/>
+      <word value="#ENEMYID"/>
+      <word value="#ER"/>
+      <word value="#EUOVER"/>
+      <word value="#FALSE"/>
+      <word value="#FINDBAGID"/>
+      <word value="#FINDCNT"/>
+      <word value="#FINDCOL"/>
+      <word value="#FINDDIST"/>
+      <word value="#FINDID"/>
+      <word value="#FINDINDEX"/>
+      <word value="#FINDKIND"/>
+      <word value="#FINDMOD"/>
+      <word value="#FINDREP"/>
+      <word value="#FINDSTACK"/>
+      <word value="#FINDTYPE"/>
+      <word value="#FINDX"/>
+      <word value="#FINDY"/>
+      <word value="#FINDZ"/>
+      <word value="#FOLLOWERS"/>
+      <word value="#FR"/>
+      <word value="#GOLD"/>
+      <word value="#HITS"/>
+      <word value="#INT"/>
+      <word value="#JCOLOR"/>
+      <word value="#JINDEX"/>
+      <word value="#JOURNAL"/>
+      <word value="#LHANDID"/>
+      <word value="#LLIFTEDID"/>
+      <word value="#LLIFTEDKIND"/>
+      <word value="#LLIFTEDTYPE"/>
+      <word value="#LOBJECTID"/>
+      <word value="#LOBJECTTYPE"/>
+      <word value="#LPC"/>
+      <word value="#LSHARD"/>
+      <word value="#LSKILL"/>
+      <word value="#LSPELL"/>
+      <word value="#LTARGETID"/>
+      <word value="#LTARGETKIND"/>
+      <word value="#LTARGETTILE"/>
+      <word value="#LTARGETX"/>
+      <word value="#LTARGETY"/>
+      <word value="#LTARGETZ"/>
+      <word value="#LUCK"/>
+      <word value="#MANA"/>
+      <word value="#MAXDMG"/>
+      <word value="#MAXFOL"/>
+      <word value="#MAXHITS"/>
+      <word value="#MAXMANA"/>
+      <word value="#MAXSTAM"/>
+      <word value="#MAXSTATS"/>
+      <word value="#MENUBUTTON"/>
+      <word value="#MENURES"/>
+      <word value="#MINDMG"/>
+      <word value="#NEXTCPOSX"/>
+      <word value="#NEXTCPOSY"/>
+      <word value="#NSNAME"/>
+      <word value="#NSTYPE"/>
+      <word value="#OPTS"/>
+      <word value="#OSVER"/>
+      <word value="#PIXCOL"/>
+      <word value="#PR"/>
+      <word value="#PROPERTY"/>
+      <word value="#RANDOM"/>
+      <word value="#RESULT"/>
+      <word value="#RHANDID"/>
+      <word value="#SCNT"/>
+      <word value="#SCNT2"/>
+      <word value="#SENDHEADER"/>
+      <word value="#SEX"/>
+      <word value="#SHARD"/>
+      <word value="#SHOPCNT"/>
+      <word value="#SHOPCURPOS"/>
+      <word value="#SHOPITEMID"/>
+      <word value="#SHOPITEMMAX"/>
+      <word value="#SHOPITEMNAME"/>
+      <word value="#SHOPITEMPRICE"/>
+      <word value="#SHOPITEMTYPE"/>
+      <word value="#SKILL"/>
+      <word value="#SKILLCAP"/>
+      <word value="#SKILLLOCK"/>
+      <word value="#SMC"/>
+      <word value="#SPC"/>
+      <word value="#STAMINA"/>
+      <word value="#STR"/>
+      <word value="#STRMAX"/>
+      <word value="#STRRES"/>
+      <word value="#SYSMSG"/>
+      <word value="#SYSMSGCOL"/>
+      <word value="#SYSTIME"/>
+      <word value="#TARGCURS"/>
+      <word value="#TILECNT"/>
+      <word value="#TILEFLAGS"/>
+      <word value="#TILENAME"/>
+      <word value="#TILETYPE"/>
+      <word value="#TILEZ"/>
+      <word value="#TIME"/>
+      <word value="#TP"/>
+      <word value="#TRUE"/>
+      <word value="#WEIGHT"/>
+    </Keywords>
+    <Keywords Name="Bracket" Attributes="255,16777215;False:False.B" Style="">
+      <word value="{"/>
+      <word value="}"/>
+      <word value="("/>
+      <word value=")"/>
+      <word value="["/>
+      <word value="]"/>
+    </Keywords>
+    <Set Name="Number" Attributes="54528,536870911;False:False." Style="" Symbols="+-0123456789"/>
+    <Range Name="Comment" Attributes="8421504,16777215;False:False.I" Style=""
+           Delimiters="">
+      <Rule OpenSymbol=";" CloseOnEol="True"/>
+    </Range>
+    <Range Name="String" Attributes="54528,16777215;False:False." Style=""
+           Delimiters="&quot;">
+      <Rule OpenSymbol="&quot;" CloseSymbol="&quot;" CloseOnEol="True"/>
+    </Range>
+    <Range Name="User" Attributes="12615680,16777215;False:False." Style=""
+           Delimiters="">
+      <Rule OpenSymbol="%" CloseOnTerm="True" CloseOnEol="True"/>
+    </Range>
+    <Range Name="Persistent" Attributes="12615680,16777215;False:False." Style=""
+           Delimiters="">
+      <Rule OpenSymbol="*" CloseOnTerm="True" CloseOnEol="True"/>
+    </Range>
+    <Range Name="Namespace" Attributes="12615680,16777215;False:False." Style=""
+           Delimiters="">
+      <Rule OpenSymbol="!" CloseOnTerm="True" CloseOnEol="True"/>
+    </Range>
+    <Range Name="Hex" Attributes="536870911,536870911;False:False." Style=""
+           Delimiters="">
+      <Rule OpenSymbol="$" CloseOnTerm="True" CloseOnEol="True"/>
+      <Set Name="Number" Attributes="54528,536870911;False:False." Style="" Symbols="0123456789ABCDEFabcdef"/>
+    </Range>
+  </Range>
+  <CopyRight>Rule file for UniHighlighter Delphi component (Copyright(C) Fantasist(walking_in_the_sky@yahoo.com), Vit(nevzorov@yahoo.com), Vitalik(vetal-x@mail.ru), 2002-2004)</CopyRight>
+</UniHighlighter>

@@ -1,0 +1,41 @@
+# FPC/Lazarus build artifacts -- never source, always regenerable via lazbuild/fpc.
+*.o
+*.obj
+*.ppu
+*.a
+*.compiled
+*.or
+*.res
+lib/
+
+# ...except the one hand-built Windows resource we DO version: the EasyUO Reforged
+# application icon, linked via {$R easyuo\appicon.res} in EasyUOReforged.lpr. Rebuilt from
+# the committed appicon.rc / appicon.ico, not from the .lpi, so lazbuild never
+# regenerates it.
+!easyuo/appicon.res
+
+# Compiled executables/libraries produced by this project's own .lpr/.lpi targets.
+# (Deliberately extension-based, not by bare name -- a bare "uo" entry here would
+# also match the Lazarus\uo\ SOURCE directory and silently drop it from version
+# control, which is exactly what happened on the first pass of this file.)
+*.exe
+*.dll
+
+# Lazarus IDE session-local state (not part of the project's checked-in configuration).
+*.lps
+*.identcache
+
+# lazbuild's package-link database -- machine-local (absolute paths + timestamps).
+# lazbuild writes it to the working directory; it is regenerated from the
+# --add-package-link step in run_tests.ps1 / CI.
+packagefiles.xml
+
+# Build-time generated version unit (see tools\gen-version.ps1). Its value is
+# YY.MM.DD.<git commit>, so it necessarily changes between commits -- it is
+# regenerated before every build and must never be committed.
+common/ReforgedVersion.pas
+
+# Backup files Lazarus/the editor may leave behind.
+*.bak
+*~
+backup/

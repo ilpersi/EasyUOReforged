@@ -1,0 +1,38 @@
+; ============================================================================
+;  EasyUO Reforged - bug report diagnostics
+; ============================================================================
+;  Purpose: collect the environment details we need on a bug report.
+;
+;  How to use:
+;    1. Start your Ultima Online client and log your character in.
+;    2. In EasyUO Reforged, open a new tab, paste this whole script, press Play.
+;    3. A window opens with a multi-line text box. Click inside it, press
+;       Ctrl+A to select all, Ctrl+C to copy, then paste it into the
+;       "Diagnostics output" field of your GitHub bug report.
+;    4. Also copy the exact title-bar text of the EasyUO Reforged window
+;       (e.g. "EasyUO Reforged 1 Beta") - it carries the build stage that the
+;       ReforgedVer line does not.
+;
+;  If a value is blank or 0, that usually means no client is attached or your
+;  character is not logged in yet. Attach/log in and run it again.
+; ============================================================================
+
+set %r ReforgedVer: , #SPC , #ReforgedVer
+set %r %r , $ , OS: , #SPC , #OSVer
+set %r %r , $ , Clients_detected: , #SPC , #CliCnt
+set %r %r , $ , Active_client_slot: , #SPC , #CliNr
+set %r %r , $ , Client_version: , #SPC , #CliVer
+set %r %r , $ , Client_language: , #SPC , #CliLang
+set %r %r , $ , Logged_in_(1=yes): , #SPC , #CliLogged
+set %r %r , $ , Shard: , #SPC , #Shard
+set %r %r , $ , Character: , #SPC , #CharName
+set %r %r , $ , Char_position: , #SPC , #CharPosX , _/_ , #CharPosY , _/_ , #CharPosZ
+
+menu Clear
+menu Window Title EasyUO Reforged diagnostics
+menu Window Size 500 300
+menu Text t1 12 8 Click inside the box and press Ctrl+A then Ctrl+C to copy.
+menu Text t2 12 28 Paste into the bug report. Also copy the window title bar text.
+menu Memo euo_diag 12 52 476 236 %r
+menu Show
+halt

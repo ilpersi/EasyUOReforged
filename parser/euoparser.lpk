@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <Package Version="4">
+    <PathDelim Value="\"/>
+    <Name Value="euoparser"/>
+    <Type Value="RunTime"/>
+    <Description Value="EasyUO's own scripting language: the tokenizer/expression evaluator (EuoTokens, EuoExpression), value conversion (EuoConversion), thread-safe script variables (EuoVariables), the loaded-script/call-return model (EuoScriptStack), the command registry and no-live-client commands (EuoCommandRegistry, EuoStdCommands), Send (EuoComm), the MENU command driving real LCL controls (EuoMenu), the interpreter itself (EuoInterpreter) and the background execution engine with breakpoints/stepping (EuoExecutor, EuoBreakCondition, EuoCallStackFormat). Ported from the original Delphi 7 parser\ folder."/>
+    <CompilerOptions>
+      <Version Value="11"/>
+      <PathDelim Value="\"/>
+      <SearchPaths>
+        <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
+      </SearchPaths>
+      <Other>
+        <CompilerPath Value="$(CompPath)"/>
+      </Other>
+    </CompilerOptions>
+    <Files Count="13">
+      <Item1>
+        <Filename Value="EuoConversion.pas"/>
+        <UnitName Value="EuoConversion"/>
+      </Item1>
+      <Item2>
+        <Filename Value="EuoTokens.pas"/>
+        <UnitName Value="EuoTokens"/>
+      </Item2>
+      <Item3>
+        <Filename Value="EuoExpression.pas"/>
+        <UnitName Value="EuoExpression"/>
+      </Item3>
+      <Item4>
+        <Filename Value="EuoVariables.pas"/>
+        <UnitName Value="EuoVariables"/>
+      </Item4>
+      <Item5>
+        <Filename Value="EuoScriptStack.pas"/>
+        <UnitName Value="EuoScriptStack"/>
+      </Item5>
+      <Item6>
+        <Filename Value="EuoCommandRegistry.pas"/>
+        <UnitName Value="EuoCommandRegistry"/>
+      </Item6>
+      <Item7>
+        <Filename Value="EuoStdCommands.pas"/>
+        <UnitName Value="EuoStdCommands"/>
+      </Item7>
+      <Item8>
+        <Filename Value="EuoComm.pas"/>
+        <UnitName Value="EuoComm"/>
+      </Item8>
+      <Item9>
+        <Filename Value="EuoMenu.pas"/>
+        <UnitName Value="EuoMenu"/>
+      </Item9>
+      <Item10>
+        <Filename Value="EuoInterpreter.pas"/>
+        <UnitName Value="EuoInterpreter"/>
+      </Item10>
+      <Item11>
+        <Filename Value="EuoBreakCondition.pas"/>
+        <UnitName Value="EuoBreakCondition"/>
+      </Item11>
+      <Item12>
+        <Filename Value="EuoCallStackFormat.pas"/>
+        <UnitName Value="EuoCallStackFormat"/>
+      </Item12>
+      <Item13>
+        <Filename Value="EuoExecutor.pas"/>
+        <UnitName Value="EuoExecutor"/>
+      </Item13>
+    </Files>
+    <i18n>
+      <EnableI18N LFM="False"/>
+    </i18n>
+    <RequiredPkgs Count="4">
+      <Item1>
+        <PackageName Value="uoengine"/>
+      </Item1>
+      <Item2>
+        <PackageName Value="uocommon"/>
+      </Item2>
+      <Item3>
+        <PackageName Value="LCL"/>
+      </Item3>
+      <Item4>
+        <PackageName Value="FCL"/>
+      </Item4>
+    </RequiredPkgs>
+    <UsageOptions>
+      <UnitPath Value="$(PkgOutDir)"/>
+    </UsageOptions>
+    <PublishOptions>
+      <Version Value="2"/>
+    </PublishOptions>
+  </Package>
+</CONFIG>

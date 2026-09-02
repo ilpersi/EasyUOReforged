@@ -1,0 +1,182 @@
+name: Bug report
+description: Report something that behaves incorrectly in EasyUO Reforged
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a report.
+
+        **Please read this first:**
+
+        - **An issue has to be reproducible to be fixed.** If we cannot make the
+          bug happen on our side, we cannot investigate it. The single most
+          useful thing you can provide is a **short script that triggers the
+          bug on a fresh run**.
+        - **Attach a minimal snippet, not a full script.** Cut your script down
+          to the fewest lines that still show the problem - ideally under ~20
+          lines. Long, complex, multi-file scripts with your whole setup in
+          them will usually be closed with a request to minimize first.
+        - Check the README's
+          [Known limitations](https://github.com/lpersichetti/EasyUOReforged/blob/main/README.md#known-limitations)
+          section - the behavior you are seeing may already be documented.
+        - This is a port of a **deprecated** EasyUO version. If the original
+          EasyUO also behaves this way, that is likely intended and not a bug
+          in the port.
+
+  - type: input
+    id: euo-version
+    attributes:
+      label: EasyUO Reforged version
+      description: >-
+        The version shown in the title bar / Help > About (format
+        YY.MM.DD.<git commit>, e.g. "26.09.02.e25a4d9"). The diagnostics script
+        below also reports it as the "ReforgedVer" line.
+      placeholder: "26.09.02.e25a4d9"
+    validations:
+      required: true
+
+  - type: input
+    id: client-version
+    attributes:
+      label: Ultima Online client version
+      description: >-
+        The client build you were driving (e.g. 7.0.117.0). The diagnostics
+        script below reports this as "Client_version".
+      placeholder: "7.0.117.0"
+    validations:
+      required: true
+
+  - type: input
+    id: shard
+    attributes:
+      label: Shard / server
+      description: Which server the client was connected to, if relevant.
+      placeholder: "e.g. Official / OSI, or a private shard name"
+    validations:
+      required: false
+
+  - type: input
+    id: os
+    attributes:
+      label: Windows version
+      placeholder: "e.g. Windows 11 Pro 24H2"
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happens / what you expected
+      description: >-
+        A brief, plain description of the bug: what you did, what actually
+        happened, and what you expected instead.
+      placeholder: |
+        When I run the snippet below, FindItem returns 0 even though the item
+        is in my backpack. I expected #FindCnt to be 1.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro-script
+    attributes:
+      label: Minimal script to reproduce
+      description: >-
+        The smallest self-contained script that reproduces the bug. Paste the
+        script text itself (not a screenshot, not a .zip). It will be formatted
+        automatically.
+      render: text
+      placeholder: |
+        ; keep this as short as possible
+        finditem DF0 C_ , #backpackID
+        display OK #findCnt
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro-steps
+    attributes:
+      label: Steps to reproduce
+      description: >-
+        Exactly what you do, in order, starting from "client open, character
+        logged in". Include anything about game state that matters (what's in
+        the backpack, where you're standing, which gump is open, etc.).
+      placeholder: |
+        1. Log in, stand in Britain bank.
+        2. Put one dagger (type DF0) in the backpack.
+        3. Run the snippet above.
+        4. Message box shows 0 instead of 1.
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics output
+      description: >-
+        Run `docs/report-diagnostics.euo` (copied below) with your client
+        attached and character logged in. It opens a window with a multi-line
+        text box - click inside it, press Ctrl+A then Ctrl+C, and paste it here.
+      render: text
+      placeholder: |
+        ReforgedVer: 26.09.02.e25a4d9
+        OS: Windows_11...
+        Client_version: 7.0.117.0
+        ...
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        <details>
+        <summary><b>report-diagnostics.euo</b> — paste into a new tab and press Play</summary>
+
+        ```
+        ; ============================================================================
+        ;  EasyUO Reforged - bug report diagnostics
+        ; ============================================================================
+        ;  1. Start your Ultima Online client and log your character in.
+        ;  2. Paste this whole script into a new tab and press Play.
+        ;  3. A window opens with a multi-line text box. Click inside it, press
+        ;     Ctrl+A then Ctrl+C, and paste it into the "Diagnostics output" field
+        ;     above.
+        ;  4. Also copy the exact EasyUO Reforged window title-bar text.
+        ; ============================================================================
+
+        set %r ReforgedVer: , #SPC , #ReforgedVer
+        set %r %r , $ , OS: , #SPC , #OSVer
+        set %r %r , $ , Clients_detected: , #SPC , #CliCnt
+        set %r %r , $ , Active_client_slot: , #SPC , #CliNr
+        set %r %r , $ , Client_version: , #SPC , #CliVer
+        set %r %r , $ , Client_language: , #SPC , #CliLang
+        set %r %r , $ , Logged_in_(1=yes): , #SPC , #CliLogged
+        set %r %r , $ , Shard: , #SPC , #Shard
+        set %r %r , $ , Character: , #SPC , #CharName
+        set %r %r , $ , Char_position: , #SPC , #CharPosX , _/_ , #CharPosY , _/_ , #CharPosZ
+
+        menu Clear
+        menu Window Title EasyUO Reforged diagnostics
+        menu Window Size 500 300
+        menu Text t1 12 8 Click inside the box and press Ctrl+A then Ctrl+C to copy.
+        menu Text t2 12 28 Paste into the bug report. Also copy the window title bar text.
+        menu Memo euo_diag 12 52 476 236 %r
+        menu Show
+        halt
+        ```
+        </details>
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I reduced my script to a minimal snippet that still reproduces the bug.
+          required: true
+        - label: I confirmed the bug happens on a fresh run, not only after a long session.
+          required: true
+        - label: I checked the README "Known limitations" section and this isn't listed there.
+          required: true
+        - label: I believe this is a regression from the original EasyUO, not existing behavior.
+          required: false

@@ -1,0 +1,19 @@
+EasyUO Reforged
+===============
+
+This project is a derivative work: a port of the original EasyUO, written by
+Cheffe, from Delphi 7 to Lazarus/Free Pascal (targeting 64-bit Windows).
+
+  Original EasyUO:  Copyright (c) 2000-2015 by Cheffe
+  EasyUO Reforged:  Copyright (c) 2026 the EasyUO Reforged contributors
+
+Both the original and this port are licensed under the Simplified BSD License
+(2-clause). The full license text is in the LICENSE file. Cheffe's original
+copyright notice is retained there, as required by clause 1 of that license.
+
+EasyUO Reforged is an independent, community-driven port. It is not affiliated
+with, endorsed by, or an official continuation of the original EasyUO project.
+
+The port is based on the last publicly released EasyUO source
+(http://www.easyuo.com/cheffe/EasyUO_Source.zip), which its author has stated
+is deprecated.

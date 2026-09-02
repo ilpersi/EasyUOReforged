@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Local development uses Lazarus 3.6 / FPC 3.2.2. "stable" tracks the
+      # current Lazarus release; pin to a specific version here (e.g. "3.6.0")
+      # if CI and local ever need to be locked together.
+      - name: Install Lazarus / FPC
+        uses: gcarreno/setup-lazarus@v3
+        with:
+          lazarus-version: "stable"
+          with-cache: true
+
+      - name: Generate version unit
+        shell: pwsh
+        run: ./tools/gen-version.ps1
+
+      - name: Register project package links
+        shell: pwsh
+        run: |
+          lazbuild --add-package-link `
+            common/uocommon.lpk uo/uoengine.lpk parser/euoparser.lpk
+
+      - name: Build (Release)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($proj in 'uo.lpi', 'EasyUOReforged.lpi', 'EUOUpdtr.lpi') {
+            Write-Host "::group::lazbuild $proj"
+            lazbuild --build-mode=Release $proj
+            if ($LASTEXITCODE -ne 0) { throw "lazbuild $proj failed ($LASTEXITCODE)" }
+            Write-Host "::endgroup::"
+          }
+
+      - name: Run test suite
+        shell: pwsh
+        run: ./tests/run_tests.ps1
+
+      - name: Upload Release binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: easyuo-reforged-win64
+          path: |
+            EasyUOReforged.exe
+            uo.dll
+            EUOUpdtr.exe
+          if-no-files-found: error

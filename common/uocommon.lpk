@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<CONFIG>
+  <Package Version="4">
+    <PathDelim Value="\"/>
+    <Name Value="uocommon"/>
+    <Type Value="RunTime"/>
+    <Description Value="Low-level, OS-facing primitives shared by the EasyUO engine, the interpreter and the tools: process memory access (ReadMem/WriteMem/SearchMem), shared types (TTargetAddr, TDelayFunc) and a generic sorted-list container (EuoSortedList). Ported from the original Delphi 7 common\ folder."/>
+    <CompilerOptions>
+      <Version Value="11"/>
+      <PathDelim Value="\"/>
+      <SearchPaths>
+        <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
+      </SearchPaths>
+      <Other>
+        <ExecuteBefore>
+          <Command Value="powershell -NoProfile -ExecutionPolicy Bypass -File ..\tools\gen-version.ps1"/>
+          <ScanForFPCMsgs Value="False"/>
+          <ScanForMakeMsgs Value="False"/>
+        </ExecuteBefore>
+        <CompilerPath Value="$(CompPath)"/>
+      </Other>
+    </CompilerOptions>
+    <Files Count="4">
+      <Item1>
+        <Filename Value="uotypes.pas"/>
+        <UnitName Value="uotypes"/>
+      </Item1>
+      <Item2>
+        <Filename Value="access.pas"/>
+        <UnitName Value="access"/>
+      </Item2>
+      <Item3>
+        <Filename Value="EuoSortedList.pas"/>
+        <UnitName Value="EuoSortedList"/>
+      </Item3>
+      <Item4>
+        <Filename Value="ReforgedVersion.pas"/>
+        <UnitName Value="ReforgedVersion"/>
+      </Item4>
+    </Files>
+    <i18n>
+      <EnableI18N LFM="False"/>
+    </i18n>
+    <RequiredPkgs Count="1">
+      <Item1>
+        <PackageName Value="FCL"/>
+      </Item1>
+    </RequiredPkgs>
+    <UsageOptions>
+      <UnitPath Value="$(PkgOutDir)"/>
+    </UsageOptions>
+    <PublishOptions>
+      <Version Value="2"/>
+    </PublishOptions>
+  </Package>
+</CONFIG>

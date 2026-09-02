@@ -1,0 +1,90 @@
+<?xml version="1.0"?>
+<CONFIG>
+  <Package Version="4">
+    <PathDelim Value="\"/>
+    <Name Value="uoengine"/>
+    <Type Value="RunTime"/>
+    <Description Value="The Ultima Online client-automation engine: client fingerprinting (uoscanver) and per-version memory offset data (TCstDB in uoclidata), the client-window selector (uoselector), named state reads/writes (uovariables), higher-level actions (uocommands, with tiles/uopfile for legacy + UOP tile data), code-caving (uoevents), the stack-machine dispatch primitives (stack, tables) and the flat stdcall surface exported by uo.dll (uodef, uowrap). Ported from the original Delphi 7 uo\ folder; compiled into both EasyUOReforged.exe and uo.dll from the same sources, matching the original architecture."/>
+    <CompilerOptions>
+      <Version Value="11"/>
+      <PathDelim Value="\"/>
+      <SearchPaths>
+        <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
+      </SearchPaths>
+      <Other>
+        <CompilerPath Value="$(CompPath)"/>
+      </Other>
+    </CompilerOptions>
+    <Files Count="13">
+      <Item1>
+        <Filename Value="uoclidata.pas"/>
+        <UnitName Value="uoclidata"/>
+      </Item1>
+      <Item2>
+        <Filename Value="stack.pas"/>
+        <UnitName Value="stack"/>
+      </Item2>
+      <Item3>
+        <Filename Value="tables.pas"/>
+        <UnitName Value="tables"/>
+      </Item3>
+      <Item4>
+        <Filename Value="wearables.pas"/>
+        <UnitName Value="wearables"/>
+      </Item4>
+      <Item5>
+        <Filename Value="tiles.pas"/>
+        <UnitName Value="tiles"/>
+      </Item5>
+      <Item6>
+        <Filename Value="uopfile.pas"/>
+        <UnitName Value="uopfile"/>
+      </Item6>
+      <Item7>
+        <Filename Value="uoscanver.pas"/>
+        <UnitName Value="uoscanver"/>
+      </Item7>
+      <Item8>
+        <Filename Value="uoselector.pas"/>
+        <UnitName Value="uoselector"/>
+      </Item8>
+      <Item9>
+        <Filename Value="uovariables.pas"/>
+        <UnitName Value="uovariables"/>
+      </Item9>
+      <Item10>
+        <Filename Value="uocommands.pas"/>
+        <UnitName Value="uocommands"/>
+      </Item10>
+      <Item11>
+        <Filename Value="uoevents.pas"/>
+        <UnitName Value="uoevents"/>
+      </Item11>
+      <Item12>
+        <Filename Value="uodef.pas"/>
+        <UnitName Value="uodef"/>
+      </Item12>
+      <Item13>
+        <Filename Value="uowrap.pas"/>
+        <UnitName Value="uowrap"/>
+      </Item13>
+    </Files>
+    <i18n>
+      <EnableI18N LFM="False"/>
+    </i18n>
+    <RequiredPkgs Count="2">
+      <Item1>
+        <PackageName Value="uocommon"/>
+      </Item1>
+      <Item2>
+        <PackageName Value="FCL"/>
+      </Item2>
+    </RequiredPkgs>
+    <UsageOptions>
+      <UnitPath Value="$(PkgOutDir)"/>
+    </UsageOptions>
+    <PublishOptions>
+      <Version Value="2"/>
+    </PublishOptions>
+  </Package>
+</CONFIG>

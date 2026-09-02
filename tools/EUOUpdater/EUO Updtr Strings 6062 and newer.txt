@@ -1,0 +1,87 @@
+B820180000E8                           ; 11; +00; X ; +00; {BLOCKINFO}
+881D11111111891D                       ; 11; +02; C ; +00; {CLILOGGED}
+992BC2D1F8C3                           ; 11; -04; C ; +00; {CLIXRES}
+8B111100000039111111111175118B         ; 11; +08; C ; +00; {ENEMYID}
+08885002B8                             ; 11; +05; C ; +00; {SHARDPOS}
+406A0057518B0D                         ; 11; +07; C ; +00; {NEXTCPOS}
+3B11C74424584001                       ; 11; -04; C ; +00; {SYSMSG}
+// Added during the Lazarus/FPC migration: fallback pattern for client builds
+// where the line above isn't found. Anchors "mov edx,[C_SYSMSG]" at the top
+// of the shared "add system message" routine. Validated as the ONLY match
+// across the entire scanned client.exe image on BOTH client 7.0.108.0 (live
+// disassembly, python3+capstone attached via ReadProcessMemory to a running
+// process -- see uoclidata.pas's SysVar701080 comment) and client 7.0.99.1
+// (static analysis of a downloaded, not-yet-launched client.exe, reconstructing
+// the same address space from the PE section table instead of a live process --
+// works because this whole client generation loads at a fixed, non-relocated
+// ImageBase=$400000, which is also why SearchMem's own hardcoded
+// $400000-$650000 scan window works at all). Resolved correctly on both:
+// $008DAC34 on 7.0.108.0, $0098FA84 on 7.0.99.1 -- different addresses, same
+// pattern, exactly as expected across builds. Safe to leave in permanently as
+// a second attempt -- if the line above already matches on an older client,
+// this one is simply skipped (StartButtonClick's own de-dup logic drops
+// whichever {SYSMSG} result came first when two lines share the same name).
+  898DE000000075648B15111111118BC23BC3 ; 11; +10; C ; +00; {SYSMSG}
+// Diagnostic, not a direct field value like the others above -- copy its
+// result into the notes on whichever version block you're adding, don't paste
+// it straight into uoclidata.pas. Reads back the byte-copy offset the same
+// "add system message" routine uses to store the message text (the
+// "lea eax,[obj+OFFSET]" feeding the text-copy call a few instructions later):
+//   $00000100 -> old layout: B_SYSMSGSTR=$100, F_SYSMSGDIRECT=0 (text lives
+//     behind a SECOND pointer at that offset).
+//   $00000800 -> new layout: B_SYSMSGSTR=$800, F_SYSMSGDIRECT=1 (text is
+//     embedded directly at that offset, no second pointer -- see
+//     uovariables.pas's TUOVar.SysMsg).
+//   anything else -> this struct layout has changed again; needs fresh live
+//     disassembly, the same way 7.0.108.0's did.
+// Confirmed reading $00000800 (the NEW layout) on BOTH 7.0.108.0 (live
+// disassembly) and 7.0.99.1 (same static-analysis method as the fallback
+// {SYSMSG} pattern above) -- so the direct-embed layout was already in place
+// at least as early as 7.0.99.1, not something introduced specifically by
+// 7.0.108.0 as first assumed. 7.0.99.1 is not currently a version this table
+// supports at all (it falls in the untouched gap between the closest known
+// older version, 7.0.47.0, and 7.0.108.0), so this is a leftover open
+// question, not a contradiction: something between 7.0.47.0 (B_SYSMSGSTR=$100,
+// itself never independently disassembly-verified, only carried forward by
+// convention like every other BASE CONSTANTS field) and 7.0.99.1 made this
+// switch. Still nothing confirms $00000100 is ACTUALLY correct for any real
+// client -- it's the inherited default, not a verified fact -- so treat a
+// $00000100 result with the same scrutiny as any other value here, not as
+// confirmation of the status quo.
+  81FE000400007E05BE00040000568D85111111115750 ; 11; +16; C ; +00; {SYSMSGSTR_CHECK}
+6A01C64673018B0D                       ; 11; +08; C ; +00; {CONTPOS}
+C780BC0000000200                       ; 11; -04; C ; +00; {ENEMYHITS}
+0FB74E3856890D                         ; 11; +07; C ; -08; {LHANDID}
+B9111111118944241C8379040075           ; 11; +01; C ; +00; {CHARDIR}
+
+8A5424118815                           ; 11; +06; C ; +00; {CURSORKIND}
+20578BF9837F7C007511A1                 ; 11; +11; C ; +00; {TARGETCURS}
+00895638A1                             ; 11; +05; C ; +00; {CLILEFT}
+0FBF4E118B151111111103C10FBF4A1183C105 ; 11; +06; C ; +00; {CHARPTR}
+578B7C2408393D                         ; 11; +07; C ; +00; {LLIFTEDID}
+0FB714418915                           ; 11; +06; C ; +00; {LSHARD}
+008D4C24086A1351A3                     ; 11; +09; C ; +00; {POPUPID}
+8B15111111118BC28996                   ; 11; +02; C ; +00; {JOURNALPTR}
+33C0B91B000000BF11111111F3AB6A376A0068 ; 11; +08; C ; +00; {SKILLCAPS}
+  33C06A3A50B91D                       ; 11; +11; C ; +00; {SKILLCAPS}
+33C0B91B000000BF11111111F3AB6A376A0068 ; 11; +19; C ; +00; {SKILLLOCK}
+  33C06A3A50B91D                       ; 11; +16; C ; +00; {SKILLLOCK}
+33C0B91B000000BF11111111F3AB6A376A0068 ; 11; +38; C ; +00; {SKILLSPOS}
+  33C06A3A50B91D                       ; 11; +38; C ; +00; {SKILLSPOS}
+
+33DB535350E8                           ; 11; +05; X ; +00; {REDIR}
+33DB535350E8                           ; 11; +06; CB; +00; {OLDDIR}
+50506A03506811111111E8                 ; 11; +11; CB; +00; {EXMSGADDR}
+3B3D1111111175116A01E8                 ; 11; +02; C ; +00; {ITEMPROPID}
+558D4C2428518BCEE8                     ; 11; +09; CB; +00; {ITEMNAMEADDR}
+558D542428528BCEE8                     ; 11; +09; CB; +00; {ITEMPROPADDR}
+85C074028BE855E8                       ; 11; +08; CB; +00; {ITEMCHECKADDR}
+C40484C0740955E8                       ; 11; +08; CB; +00; {ITEMREQADDR}
+0FBF502653                             ; 11; +00; X ; +00; {PATHFINDADDR}
+24044C000000FF25                       ; 11; +08; C ; +00; {SLEEPADDR}
+83C408899ED4                           ; 11; -04; CB; +00; {DRAGADDR}
+6A0168B20300                           ; 11; +08; CB; +00; {SYSMSGADDR}
+15111111115152E81111111183C408         ; 11; +08; CB; +00; {MACROADDR}
+8D4C243051E8                           ; 11; +06; CB; +00; {SENDPACKET}
+83EC24578BF98B078B90                   ; 11; +00; X ; +00; {CONTTOP}
+2064A3000000008BF9A1                   ; 11; -30; X ; +00; {STATBAR}
