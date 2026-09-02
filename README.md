@@ -108,8 +108,12 @@ only needed if you're adding support for a new client version
 ([guide](docs/adding-client-support.md)).
 
 Start your Ultima Online client and log in first; EasyUO Reforged detects running
-clients on its own. Then paste a script into a tab and press Play. There is no
-32-bit build — but it drives both 32-bit and 64-bit UO clients.
+clients on its own. Then paste a script into a tab and press Play. (EasyUO
+Reforged is `x86_64-win64` only — see *Known limitations* on client bitness.)
+
+New to it? See [**`docs/getting-started.md`**](docs/getting-started.md) for a
+first-run walkthrough (window layout, running and debugging a script, multiple
+clients).
 
 Each release is built entirely in public by GitHub Actions
 ([`release.yml`](.github/workflows/release.yml)) from the tagged commit, and ships
@@ -145,6 +149,24 @@ What you can do:
    all.
 
 See also [`SECURITY.md`](SECURITY.md).
+
+## Writing scripts
+
+The scripting language itself — every command, every `#variable`, the expression
+syntax — is **not** re-documented in this repository. It is the same language as
+the original EasyUO, documented on the **EasyUO wiki**:
+
+- **Command / variable reference:** <http://wiki.easyuo.com>
+- **Script help, examples, community:** <http://www.easyuo.com>
+
+This port aims to run existing `.euo` scripts unchanged. `#EUOVer` still returns
+the original value (`1_50_00`) so version checks keep working; `#ReforgedVer`
+is this port's own build version. Anywhere behaviour intentionally differs, or a
+command is incomplete, is listed under *Known limitations* and *Additions beyond
+the original* above.
+
+[`docs/getting-started.md`](docs/getting-started.md) covers running and debugging
+scripts in the app.
 
 ## Building
 
