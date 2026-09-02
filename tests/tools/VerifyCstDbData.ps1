@@ -23,13 +23,25 @@
   getters against this same fixture. That is a completely independent, stronger check than
   a static text diff ever was.
 
-  Usage: pwsh -File VerifyCstDbData.ps1
+  Usage: pwsh -File VerifyCstDbData.ps1 -OrigFile <path to the original Delphi 7 uoclidata.pas>
 #>
+
+param(
+    # The UNTOUCHED original Delphi 7 uo\uoclidata.pas. This file is NOT part of
+    # this repository -- it lives in the private archive of the pre-port source.
+    # Pass its path explicitly.
+    [Parameter(Mandatory = $true)]
+    [string]$OrigFile
+)
 
 $ErrorActionPreference = 'Stop'
 
-$OrigFile = "D:\Dropbox\Delphi\EasyUOLazarus\uo\uoclidata.pas"
-$OutJson  = "D:\Dropbox\Delphi\EasyUOLazarus\Lazarus\tests\fixtures\uoclidata_golden.json"
+if (-not (Test-Path -LiteralPath $OrigFile)) {
+    throw "Original source not found: $OrigFile"
+}
+
+# tests\fixtures\uoclidata_golden.json, relative to this script (tests\tools\).
+$OutJson = Join-Path (Split-Path $PSScriptRoot -Parent) 'fixtures\uoclidata_golden.json'
 
 function Parse-CstDbFile {
     param([string]$Path)

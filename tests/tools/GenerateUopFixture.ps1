@@ -26,8 +26,10 @@
 #>
 
 $ErrorActionPreference = 'Stop'
-$MulDir = "D:\Dropbox\Delphi\EasyUOLazarus\Lazarus\tests\fixtures\mul"
-$UopDir = "D:\Dropbox\Delphi\EasyUOLazarus\Lazarus\tests\fixtures\uop"
+# tests\fixtures\{mul,uop}, relative to this script (tests\tools\).
+$FixturesDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'fixtures'
+$MulDir = Join-Path $FixturesDir 'mul'
+$UopDir = Join-Path $FixturesDir 'uop'
 New-Item -ItemType Directory -Force -Path $UopDir | Out-Null
 
 foreach ($f in 'staidx0.mul', 'statics0.mul', 'tiledata.mul') {

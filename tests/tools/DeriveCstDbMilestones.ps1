@@ -45,8 +45,11 @@
 
 $ErrorActionPreference = 'Stop'
 
-$SrcFile = "D:\Dropbox\Delphi\EasyUOLazarus\Lazarus\uo\uoclidata.pas"
-$OutFile = "D:\Dropbox\Delphi\EasyUOLazarus\Lazarus\tests\tools\uoclidata_generated_block.txt"
+# Relative to this script (tests\tools\): the port's own uoclidata.pas, and a
+# generated-block output file dropped next to this script.
+$RepoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+$SrcFile = Join-Path $RepoRoot 'uo\uoclidata.pas'
+$OutFile = Join-Path $PSScriptRoot 'uoclidata_generated_block.txt'
 
 # ---- 1. Parse (same approach as VerifyCstDbData.ps1's Parse-CstDbFile) ----
 function Parse-CstDbFile {

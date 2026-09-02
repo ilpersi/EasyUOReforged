@@ -16,7 +16,8 @@
 #>
 
 $ErrorActionPreference = 'Stop'
-$Dir = "D:\Dropbox\Delphi\EasyUOLazarus\Lazarus\tests\fixtures\mul"
+# tests\fixtures\mul, relative to this script (tests\tools\).
+$Dir = Join-Path (Split-Path $PSScriptRoot -Parent) 'fixtures\mul'
 New-Item -ItemType Directory -Force -Path $Dir | Out-Null
 
 function WriteBytesAt([byte[]]$buf, [int]$offset, [byte[]]$data) {

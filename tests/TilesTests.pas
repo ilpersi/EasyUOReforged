@@ -33,9 +33,18 @@ type
 
 implementation
 
-const
-  FixtureDir = 'D:\Dropbox\Delphi\EasyUOLazarus\Lazarus\tests\fixtures\mul\';
-  UopFixtureDir = 'D:\Dropbox\Delphi\EasyUOLazarus\Lazarus\tests\fixtures\uop\';
+// Resolved relative to the test executable (which runs from tests\), so the
+// suite works from any checkout location -- not just the machine it was
+// written on. Fixtures are committed under tests\fixtures\.
+function FixtureDir : String;
+begin
+  Result := ExtractFilePath(ParamStr(0)) + 'fixtures' + PathDelim + 'mul' + PathDelim;
+end;
+
+function UopFixtureDir : String;
+begin
+  Result := ExtractFilePath(ParamStr(0)) + 'fixtures' + PathDelim + 'uop' + PathDelim;
+end;
 
 procedure TTilesTests.SetUp;
 begin

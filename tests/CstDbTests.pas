@@ -4,7 +4,7 @@ unit CstDbTests;
 
   TestAllVersionsAgainstGoldenFixture is the main event: it loads
   tests\fixtures\uoclidata_golden.json (extracted from the ORIGINAL source's data
-  tables by Lazarus\tests\tools\VerifyCstDbData.ps1, independently of anything written
+  tables by tests\tools\VerifyCstDbData.ps1, independently of anything written
   here) and, for every one of the 220 real client versions, calls the real, running
   TCstDB.Update(version) and checks every one of the 82 getters against the golden
   value. This exercises the rewritten single-pass Update() logic end to end -- the
@@ -43,8 +43,13 @@ type
 
 implementation
 
-const
-  GoldenFixturePath = 'D:\Dropbox\Delphi\EasyUOLazarus\Lazarus\tests\fixtures\uoclidata_golden.json';
+// Resolved relative to the test executable (which runs from tests\), so the
+// suite works from any checkout location. The fixture is committed under
+// tests\fixtures\; regenerate it with tests\tools\VerifyCstDbData.ps1.
+function GoldenFixturePath : String;
+begin
+  Result := ExtractFilePath(ParamStr(0)) + 'fixtures' + PathDelim + 'uoclidata_golden.json';
+end;
 
 // Maps a raw TConstantNames identifier (as it appears in the original source's data
 // tables, e.g. 'C_BLOCKINFO'/'B_TARGPROC'/'E_REDIR'/'F_EXTSTAT') to the matching public
