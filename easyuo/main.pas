@@ -720,7 +720,7 @@ begin
    102 : ShowMessage('EasyUO Reforged '+REFORGED_VERSION+#13#10#13#10+
            'A community port of EasyUO (originally by Cheffe) to Lazarus/'+
            'Free Pascal.'+#13#10+
-           'https://github.com/lpersichetti/EasyUOReforged');
+           'https://github.com/ilpersi/EasyUOReforged');
 
     // New additions (not present in the original app): breakpoint debugging
     // support. Tags deliberately far outside every range the original ever

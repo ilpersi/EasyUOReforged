@@ -19,7 +19,7 @@ body:
           lines. Long, complex, multi-file scripts with your whole setup in
           them will usually be closed with a request to minimize first.
         - Check the README's
-          [Known limitations](https://github.com/lpersichetti/EasyUOReforged/blob/main/README.md#known-limitations)
+          [Known limitations](https://github.com/ilpersi/EasyUOReforged/blob/main/README.md#known-limitations)
           section - the behavior you are seeing may already be documented.
         - This is a port of a **deprecated** EasyUO version. If the original
           EasyUO also behaves this way, that is likely intended and not a bug
