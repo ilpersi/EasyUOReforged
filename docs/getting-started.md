@@ -110,6 +110,19 @@ own build version. Where behaviour intentionally differs, or a feature is
 incomplete, it's listed under the README's *Known limitations* and *Additions
 beyond the original*.
 
+## If the client freezes
+
+If a UO client freezes (and only Task Manager can end it) after Reforged was closed and
+reopened, run [`tools/Check-EventHook.ps1`](../tools/Check-EventHook.ps1) against it while
+it is frozen:
+
+```
+powershell -ExecutionPolicy Bypass -File tools\Check-EventHook.ps1
+```
+
+It only reads the client's memory and reports whether the event hook is absent, healthy, or
+the "poisoned" state older builds could leave behind. Include its output in your bug report.
+
 ## Getting help / reporting bugs
 
 Open a GitHub issue with the **Bug report** template. Include a **minimal** script
