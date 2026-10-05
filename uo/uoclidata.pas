@@ -58,6 +58,12 @@ unit uoclidata;
   applicable milestone instead of being treated as unrecognized -- this is the actual new
   capability the milestone redesign was asked to provide.
 
+  Re-attach fix (see RecoverPatchedEventHook): the E_OLDDIR scan reads the target of the
+  client's own `call` at E_REDIR, which uoevents.pas's InitEvents rewrites to point at its
+  code cave. A second session scanning an already-hooked client therefore used to resolve
+  E_OLDDIR to the cave itself, and the cave then jumped to itself forever, freezing the
+  client. ScanMemory now recovers the genuine value from the cave (or disables the hook).
+
   SupportedCli (the flat space-joined-string client-picker gate consumed by
   uoselector.pas's TimerProc) is REMOVED by this redesign and replaced with
   CliVerSupported(CliVer): Boolean, which wraps this same two-pass logic as a boolean,
@@ -73,6 +79,12 @@ interface
 
 uses
   SysUtils, access;
+
+const
+  // Where uoevents.pas's TUOEvent.InitEvents installs its code cave in the client (its
+  // BaseAddr). Mirrored here, not shared, so uoevents.pas stays byte-for-byte as ported;
+  // ScanMemory needs it to recognise a hook an earlier session already installed.
+  EVENT_CAVE_BASE = $400600;
 
 type
   TConstantNames = (
@@ -173,6 +185,7 @@ type
     CS     : TMultiReadExclusiveWriteSynchronizer;
     Values : array[TConstantNames] of Cardinal;
     procedure ScanMemory(PHnd : Cardinal; const NormVer : String);
+    procedure RecoverPatchedEventHook(PHnd : Cardinal);
   public
     constructor Create;
     procedure   Free;
@@ -5409,6 +5422,39 @@ begin
       Values[Table^.Expr] := TargetVal + Cardinal(Table^.AddOffset2);
     end;
     Inc(Table);
+  end;
+
+  RecoverPatchedEventHook(PHnd);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// E_OLDDIR is scanned as the target of the client's own `call` at E_REDIR. If an earlier
+// Reforged session already ran an event command, that call has been rewritten to point at
+// the code cave (uoevents.pas InitEvents), so the scan above resolves E_OLDDIR to the cave
+// itself. The cave ends with `push E_OLDDIR; ret`, so installing it on top of that value
+// makes it jump to its own first instruction forever -- the client's main thread spins
+// and the process has to be killed. The cave's own `push imm32` still holds the genuine
+// original target, so read it back from there. If the cave can't be read back sensibly,
+// zero E_REDIR so InitEvents' patch lands on a null address and fails harmlessly instead
+// of installing a self-loop; events then simply time out.
+procedure TCstDB.RecoverPatchedEventHook(PHnd : Cardinal);
+var
+  Cave : array[0..4] of Byte;
+  Orig : Cardinal;
+begin
+  if (Values[E_REDIR] = 0) or (Values[E_OLDDIR] <> EVENT_CAVE_BASE) then Exit;
+
+  Orig := 0;
+  if ReadMem(PHnd, EVENT_CAVE_BASE, PChar(@Cave[0]), SizeOf(Cave)) and (Cave[0] = $68) then
+  begin
+    Move(Cave[1], Orig, 4);
+    if Orig = EVENT_CAVE_BASE then Orig := 0;
+  end;
+
+  if Orig <> 0 then Values[E_OLDDIR] := Orig
+  else begin
+    Values[E_REDIR] := 0;
+    Values[E_OLDDIR] := 0;
   end;
 end;
 

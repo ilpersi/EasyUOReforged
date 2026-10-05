@@ -8,7 +8,7 @@ uses
               // EuoMenu.pas's real LCL controls -- matching EasyUOReforged.lpr's own
               // uses clause, which needs it for the same reason.
   Classes, consoletestrunner,
-  StackTests, TablesTests, WearablesTests, AccessTests, CstDbTests, TilesTests,
+  StackTests, TablesTests, WearablesTests, AccessTests, CstDbTests, CstDbEventHookTests, TilesTests,
   EuoConversionTests, EuoTokensTests, EuoVariablesTests, EuoScriptStackTests,
   EuoCallStackFormatTests,
   EuoExpressionTests, EuoCommandRegistryTests, EuoInterpreterTests,
