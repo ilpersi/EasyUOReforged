@@ -6,11 +6,18 @@ unit uoselector;
   100ms timer and lets callers pick/switch which running client instance to
   drive; multiple TUOSel instances (one per open script tab) share one process-
   wide window/version list, kept in sync by a single background poller and
-  protected by one TMultiReadExclusiveWriteSynchronizer (RCS) -- concurrent
-  reads from many TUOSel.Nr/Cnt/GetTitle/etc. calls, exclusive writes only while
-  the poller refreshes the list. This genuinely needs multi-reader/single-writer
-  semantics (not just inertia from the original), so RCS is kept as-is rather
-  than simplified to a plain TCriticalSection.
+  protected by one lock (RCS) taken by every TUOSel.Nr/Cnt/GetTitle/etc. call and,
+  exclusively, while the poller refreshes the list.
+
+  RCS was a TMultiReadExclusiveWriteSynchronizer in the port's first revisions, kept
+  deliberately for its concurrent readers. It is now a TEuoLock (common\EuoLock.pas): a
+  recursive critical section with the same Begin/End surface. Reason: Nr runs on every
+  executed script line, and FPC's MREW costs two to three kernel event calls plus a heap
+  allocation per outermost lock (see tests\PerfBenchTests.pas, tests\tools\RunBench.ps1).
+  Readers are therefore no longer concurrent with each other. The one place that matters:
+  SelectClient holds RCS across CstDB.Update, which can scan client memory, so another
+  tab's TUOSel.Nr/Cnt/... call made during that moment waits for the attach to finish
+  (previously it ran alongside). Every other holder is a few list lookups.
 
   Modernization applied per the migration plan: the original's raw BeginThread +
   TerminateThread singleton poller is replaced with a proper TThread descendant
@@ -47,7 +54,7 @@ unit uoselector;
 {$mode delphi}{$H+}
 
 interface
-uses Windows, SysUtils, Classes, uoclidata, uoscanver;
+uses Windows, SysUtils, Classes, uoclidata, uoscanver, EuoLock;
 
 type
   TUOSel        = class(TObject)
@@ -83,7 +90,7 @@ type
 var
   WndList     : TStringList;
   VerList     : TStringList;
-  RCS         : TMultiReadExclusiveWriteSynchronizer;
+  RCS         : TEuoLock;
   Insts       : TList;
   Poller      : TUOSelPoller;
 
@@ -98,6 +105,10 @@ var
   vList  : TStringList;
 begin
   wList:=TStringList.Create;
+  // Entries are decimal window handles, so a case-insensitive Unicode compare (the
+  // TStringList default, used by Nr's IndexOf on every script line) buys nothing.
+  wList.CaseSensitive:=True;
+  wList.UseLocale:=False;
   wList.Sorted:=True;
   EnumWindows(@EnumCliWnd,Cardinal(wList));
 
@@ -270,7 +281,10 @@ end;
 function TUOSel.Nr : Cardinal;
 begin
   RCS.BeginRead;
-  Result:=WndList.IndexOf(IntToStr(CliHWnd))+1;
+  // Nr runs on every script line. With no client selected (CliHWnd=0) the answer is
+  // always 0 -- WndList only ever holds real window handles -- so skip the list search.
+  if CliHWnd=0 then Result:=0
+  else Result:=WndList.IndexOf(IntToStr(CliHWnd))+1;
   RCS.EndRead;
   if Result>0 then Exit;
   if PHandle>0 then
@@ -304,9 +318,11 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 initialization
   WndList:=TStringList.Create;
+  WndList.CaseSensitive:=True;
+  WndList.UseLocale:=False;
   VerList:=TStringList.Create;
   Insts:=TList.Create;
-  RCS:=TMultiReadExclusiveWriteSynchronizer.Create;
+  RCS:=TEuoLock.Create;
   TimerProc;
   Poller:=TUOSelPoller.Create(False);
 finalization

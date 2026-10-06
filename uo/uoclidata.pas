@@ -78,7 +78,7 @@ unit uoclidata;
 interface
 
 uses
-  SysUtils, access;
+  SysUtils, access, EuoLock;
 
 const
   // Where uoevents.pas's TUOEvent.InitEvents installs its code cave in the client (its
@@ -182,7 +182,7 @@ type
 
   TCstDB = class(TObject)
   private
-    CS     : TMultiReadExclusiveWriteSynchronizer;
+    CS     : TEuoLock;
     Values : array[TConstantNames] of Cardinal;
     procedure ScanMemory(PHnd : Cardinal; const NormVer : String);
     procedure RecoverPatchedEventHook(PHnd : Cardinal);
@@ -5286,7 +5286,7 @@ const
 constructor TCstDB.Create;
 begin
   inherited Create;
-  CS:=TMultiReadExclusiveWriteSynchronizer.Create;
+  CS:=TEuoLock.Create;
   Update('');
 end;
 

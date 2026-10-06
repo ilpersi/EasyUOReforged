@@ -71,6 +71,15 @@ constructor TEuoCommandRegistry.Create;
 begin
   inherited Create;
   Names:=TStringList.Create;
+  // Register and Dispatch both UpperCase the name, so every key and every probe is already
+  // upper-case and a plain ordinal compare gives the same answer as the default
+  // case-insensitive, locale-aware one. That default is AnsiCompareText ->
+  // LazUTF8.UTF8CompareText -> UTF-16 conversion + Win32 CompareStringEx, run about six
+  // times per executed script line (tests\PerfBenchTests.pas). CaseSensitive alone is not
+  // enough: with UseLocale still on, Find calls AnsiCompareStr, the same Unicode path.
+  // Both must be set before Sorted so the list is ordered by the comparison Find uses.
+  Names.CaseSensitive:=True;
+  Names.UseLocale:=False;
   Names.Sorted:=True;    // safe here: only ever populated via AddObject, never
   Names.Duplicates:=dupError;  // Insert-at-a-Find-returned-index -- see EuoSortedList.pas
 end;

@@ -8,7 +8,7 @@ unit uocommon;
 interface
 
 uses
-  uotypes, access, EuoSortedList, ReforgedVersion;
+  uotypes, access, EuoSortedList, ReforgedVersion, EuoLock;
 
 implementation
 

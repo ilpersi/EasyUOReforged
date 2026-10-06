@@ -39,3 +39,7 @@ common/ReforgedVersion.pas
 *.bak
 *~
 backup/
+
+# Output of tests\tools\RunBench.ps1 (the opt-in interpreter benchmark / sampling profiler).
+tests/perf_results.txt
+tests/perf_samples_*.txt

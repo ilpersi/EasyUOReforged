@@ -53,7 +53,7 @@ uses
   Windows, SysUtils, Classes, Graphics,
   EuoTokens, EuoConversion, EuoExpression, EuoVariables, EuoScriptStack,
   EuoSortedList, EuoCommandRegistry, EuoStdCommands, EuoComm, EuoMenu,
-  uotypes, access, ReforgedVersion, uoselector, uovariables, uocommands, uoevents;
+  uotypes, access, ReforgedVersion, uoselector, uovariables, uocommands, uoevents, EuoLock;
 
 const
   RES_OK    = 0;
@@ -172,7 +172,7 @@ type
     procedure    ExEventProc;
     procedure    EventProc;
   public
-    CS           : TMultiReadExclusiveWriteSynchronizer;
+    CS           : TEuoLock;
     UOSel        : TUOSel;
     UOCmd        : TUOCmd; //public for access to OpenClient command
     ScrList      : TScriptList;
@@ -363,7 +363,7 @@ begin
   CommObj:=TCommObj.Create;
   ParWnd:=Wnd;
 
-  CS:=TMultiReadExclusiveWriteSynchronizer.Create;
+  CS:=TEuoLock.Create;
 
   Par:=TStringList.Create;
   Par2:=TStringList.Create;
