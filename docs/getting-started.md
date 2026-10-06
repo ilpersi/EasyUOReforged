@@ -96,6 +96,12 @@ While paused, the variable inspector shows the live state, and
   `#variables`, and your own variables, plus **Find/Replace** (Ctrl+F).
 - **Ctrl+Shift+R / Ctrl+Shift+P** record and play back a *keystroke* macro in the
   editor (a text-editing convenience, not a game-action recorder).
+- **Building a big `MENU` window?** A script runs `#LPC` lines (default 10) and
+  then pauses 50 ms, so a menu with a hundred controls takes about half a second
+  to appear at the default. Put `set #LPC 1000` before the build (and, if you want
+  the old pacing back afterwards, `set #LPC 10` once it is on screen). Rebuilding
+  a window that is already showing is also drawn in one go rather than piece by
+  piece.
 
 ## Learning the language
 

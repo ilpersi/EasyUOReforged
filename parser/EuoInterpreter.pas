@@ -130,6 +130,7 @@ type
     procedure    ReturnProc;
     procedure    MenuProc;
     procedure    MenuProcSync;
+    procedure    MenuFontProc;
     procedure    NameSpaceProc;
     procedure    StrProc;
     procedure    SoundProc;
@@ -1598,11 +1599,86 @@ begin
   // confirmed via win32object.inc/win32callback.inc) has run it -- preserving
   // the "script sees synchronous effects" behavior every MENU command relies
   // on (e.g. MENU GET followed immediately by reading #MenuRes).
+  //
+  // MENU FONT * is the exception: it only stores the defaults the next
+  // *Create will use in plain TMenuObj fields and touches no control, so it
+  // runs right here with no thread hop. This is safe because the script thread
+  // is blocked for the whole of every Synchronize call above, so the main
+  // thread never reads those fields while this thread writes them.
+  if (ParList.Count>1) and (ParList[1].StrU='FONT') then
+  begin
+    MenuFontProc;
+    Exit;
+  end;
+
   CS.EndWrite;
   try
     TThread.Synchronize(TThread.CurrentThread, MenuProcSync);
   finally
     CS.BeginWrite;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// MENU FONT <NAME|ALIGN|SIZE|COLOR|BGCOLOR|STYLE|TRANSPARENT> ... -- called
+// directly from MenuProc (script thread), never via Synchronize.
+procedure TEuoInterpreter.MenuFontProc;
+var
+  iBuf    : Integer;
+  ConvRes : Boolean;
+begin
+  if ParList.Count<3 then Exit;
+
+  if ParList[2].StrU='NAME' then
+  begin
+    if ParList.Count>3 then MenuObj.FontName:=GetParStr(3);
+  end
+
+  else if ParList[2].StrU='ALIGN' then
+  begin
+    if ParList.Count<4 then Exit;
+    if ParList[3].StrU='LEFT' then MenuObj.FontAlign:=taLeftJustify;
+    if ParList[3].StrU='RIGHT' then MenuObj.FontAlign:=taRightJustify;
+    if ParList[3].StrU='CENTER' then MenuObj.FontAlign:=taCenter;
+  end
+
+  else if ParList[2].StrU='SIZE' then
+  begin
+    if ParList.Count>3 then
+      if ParList[3].CardValid then
+        MenuObj.FontSize:=ParList[3].Int;
+  end
+
+  else if ParList[2].StrU='COLOR' then
+  begin
+    if ParList.Count<4 then Exit;
+    iBuf:=SToCol(ParList[3].Str,ConvRes);
+    if ConvRes then MenuObj.FontColor:=iBuf;
+  end
+
+  else if ParList[2].StrU='BGCOLOR' then
+  begin
+    if ParList.Count<4 then Exit;
+    iBuf:=SToCol(ParList[3].Str,ConvRes);
+    if ConvRes then MenuObj.FontBG:=iBuf;
+  end
+
+  else if ParList[2].StrU='STYLE' then
+    with MenuObj do
+  begin
+    FontStyle:=[];
+    if ParList.Count<4 then Exit;
+    if Pos('B',ParList[3].StrU)>0 then FontStyle:=FontStyle+[fsBold];
+    if Pos('I',ParList[3].StrU)>0 then FontStyle:=FontStyle+[fsItalic];
+    if Pos('U',ParList[3].StrU)>0 then FontStyle:=FontStyle+[fsUnderline];
+    if Pos('S',ParList[3].StrU)>0 then FontStyle:=FontStyle+[fsStrikeOut];
+  end
+
+  else if ParList[2].StrU='TRANSPARENT' then
+  begin
+    if ParList.Count>3 then
+      if ParList[3].IntValid then
+        MenuObj.FontTrans:=ParList[3].Int<>0;
   end;
 end;
 
@@ -1615,6 +1691,14 @@ var
 begin
     if ParList.Count<2 then Exit;
 
+    // Commands that change what the window looks like join the current repaint
+    // burst (see TMenuObj.BurstBegin); SHOW/HIDE/HIDEEUO end it so the window
+    // is painted in a consistent state; reads (GET/GETNUM/ACTIVATE) leave it be.
+    if (ParList[1].StrU<>'SHOW') and (ParList[1].StrU<>'HIDE') and
+       (ParList[1].StrU<>'HIDEEUO') and (ParList[1].StrU<>'GET') and
+       (ParList[1].StrU<>'GETNUM') and (ParList[1].StrU<>'ACTIVATE') then
+      MenuObj.BurstBegin;
+
     if ParList[1].StrU='SHOW' then
     begin
       repeat
@@ -1625,11 +1709,20 @@ begin
         MenuObj.Form.Top:=ParList[3].Int;
       until True;
       MenuObj.Form.Show;
+      MenuObj.BurstFlush;
     end
 
-    else if ParList[1].StrU='HIDE' then MenuObj.Form.Close
+    else if ParList[1].StrU='HIDE' then
+    begin
+      MenuObj.BurstFlush;
+      MenuObj.Form.Close;
+    end
 
-    else if ParList[1].StrU='HIDEEUO' then MenuObj.Form.HideEUO
+    else if ParList[1].StrU='HIDEEUO' then
+    begin
+      MenuObj.BurstFlush;
+      MenuObj.Form.HideEUO;
+    end
 
     else if ParList[1].StrU='CLEAR' then MenuObj.Clear
 
@@ -1693,62 +1786,7 @@ begin
       end;
     end
 
-    else if ParList[1].StrU='FONT' then
-    begin
-      if ParList.Count<3 then Exit;
-
-      if ParList[2].StrU='NAME' then
-      begin
-        if ParList.Count>3 then MenuObj.FontName:=GetParStr(3);
-      end
-
-      else if ParList[2].StrU='ALIGN' then
-      begin
-        if ParList.Count<4 then Exit;
-        if ParList[3].StrU='LEFT' then MenuObj.FontAlign:=taLeftJustify;
-        if ParList[3].StrU='RIGHT' then MenuObj.FontAlign:=taRightJustify;
-        if ParList[3].StrU='CENTER' then MenuObj.FontAlign:=taCenter;
-      end
-
-      else if ParList[2].StrU='SIZE' then
-      begin
-        if ParList.Count>3 then
-          if ParList[3].CardValid then
-            MenuObj.FontSize:=ParList[3].Int;
-      end
-
-      else if ParList[2].StrU='COLOR' then
-      begin
-        if ParList.Count<4 then Exit;
-        iBuf:=SToCol(ParList[3].Str,ConvRes);
-        if ConvRes then MenuObj.FontColor:=iBuf;
-      end
-
-      else if ParList[2].StrU='BGCOLOR' then
-      begin
-        if ParList.Count<4 then Exit;
-        iBuf:=SToCol(ParList[3].Str,ConvRes);
-        if ConvRes then MenuObj.FontBG:=iBuf;
-      end
-
-      else if ParList[2].StrU='STYLE' then
-        with MenuObj do
-      begin
-        FontStyle:=[];
-        if ParList.Count<4 then Exit;
-        if Pos('B',ParList[3].StrU)>0 then FontStyle:=FontStyle+[fsBold];
-        if Pos('I',ParList[3].StrU)>0 then FontStyle:=FontStyle+[fsItalic];
-        if Pos('U',ParList[3].StrU)>0 then FontStyle:=FontStyle+[fsUnderline];
-        if Pos('S',ParList[3].StrU)>0 then FontStyle:=FontStyle+[fsStrikeOut];
-      end
-
-      else if ParList[2].StrU='TRANSPARENT' then
-      begin
-        if ParList.Count>3 then
-          if ParList[3].IntValid then
-            MenuObj.FontTrans:=ParList[3].Int<>0;
-      end;
-    end
+    else if ParList[1].StrU='FONT' then MenuFontProc
 
     else if ParList[1].StrU='TEXT' then
     begin

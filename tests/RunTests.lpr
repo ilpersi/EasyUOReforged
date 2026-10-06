@@ -13,7 +13,8 @@ uses
   EuoCallStackFormatTests,
   EuoExpressionTests, EuoCommandRegistryTests, EuoInterpreterTests,
   EuoExecutorTests, UoScanVerTests, UoSelectorTests, UoVariablesTests,
-  UoCommandsTests, UoEventsTests, LiveClientTests, EuoLockTests, PerfBenchTests;
+  UoCommandsTests, UoEventsTests, LiveClientTests, EuoLockTests, PerfBenchTests,
+  MenuBenchTests;
 
 type
   TEasyUOTestRunner = class(TTestRunner)

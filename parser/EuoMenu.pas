@@ -89,8 +89,8 @@ unit EuoMenu;
 
 interface
 uses
-  Classes, SysUtils, Graphics, Controls, Forms, StdCtrls, ExtCtrls, LCLType,
-  LazUTF8, EuoConversion;
+  Windows, Classes, SysUtils, Graphics, Controls, Forms, StdCtrls, ExtCtrls,
+  LCLType, LazUTF8, EuoConversion;
 
 type
   TEuoMenuForm  = class(TForm)
@@ -130,6 +130,11 @@ type
   TMenuObj      = class(TObject)
   private
     Ctrls       : TStringList;
+    RedrawOff   : Boolean;     // WM_SETREDRAW(False) currently in force on Form
+    BurstStart  : QWord;       // GetTickCount64 when RedrawOff was last set
+    BurstTimer  : TTimer;      // fires once the command burst has gone quiet
+    procedure   BurstTimerFire(Sender : TObject);
+    procedure   AttachCtrl(C : TControl);
     procedure   MyButtonClick(Sender : TObject);
     procedure   MyComboSelect(Sender : TObject);
   public
@@ -145,6 +150,8 @@ type
     MenuRes     : String;
     constructor Create;
     procedure   Free;
+    procedure   BurstBegin;
+    procedure   BurstFlush;
     procedure   Clear;
     procedure   Del(sName : String);
     procedure   Get(sName : String);
@@ -174,6 +181,10 @@ type
   end;
 
 implementation
+
+const
+  BURST_QUIET_MS = 30;    // repaint once no MENU command arrived for this long
+  BURST_MAX_MS   = 100;   // ...but never hold painting longer than this
 
 ////////////////////////////////////////////////////////////////////////////////
 // Added during this migration -- not present in (or needed by) the original
@@ -415,14 +426,26 @@ constructor TMenuObj.Create;
 begin
   inherited Create;
   Ctrls:=TStringList.Create;
+  // Every key is stored and looked up already upper-cased (see the *Create
+  // methods, Get and Activate), so IndexOf can use a plain ordinal compare
+  // instead of the default locale-aware, case-insensitive one.
+  Ctrls.CaseSensitive:=True;
+  Ctrls.UseLocale:=False;
   Form:=TEuoMenuForm.Create(nil);
   Form.MenuObj:=self;
+  BurstTimer:=TTimer.Create(nil);
+  BurstTimer.Enabled:=False;
+  BurstTimer.Interval:=BURST_QUIET_MS;
+  BurstTimer.OnTimer:=BurstTimerFire;
   Clear;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
 procedure TMenuObj.Free;
 begin
+  BurstTimer.Enabled:=False;
+  BurstFlush;
+  BurstTimer.Free;
   Clear;
   Ctrls.Free;
   Form.Free;
@@ -430,12 +453,81 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Repaint coalescing. While a script streams MENU commands at an already
+// visible window (typically CLEAR followed by a rebuild), painting is held off
+// with WM_SETREDRAW so the user never sees a half-built frame, then released
+// in one repaint once the commands go quiet (BURST_QUIET_MS after the last
+// one) -- or after BURST_MAX_MS regardless, so a long-running build still
+// shows progress. Everything here runs on the main thread (MenuProcSync).
+// A window that is not shown yet is skipped: nothing is on screen to flicker.
+procedure TMenuObj.BurstBegin;
+begin
+  if not (Form.Visible and Form.HandleAllocated) then Exit;
+
+  if not RedrawOff then
+  begin
+    SendMessage(Form.Handle,WM_SETREDRAW,0,0);
+    RedrawOff:=True;
+    BurstStart:=GetTickCount64;
+  end
+  else if GetTickCount64-BurstStart>BURST_MAX_MS then
+  begin
+    BurstFlush;
+    Exit;
+  end;
+
+  // Restart the quiet-period timer.
+  BurstTimer.Enabled:=False;
+  BurstTimer.Enabled:=True;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TMenuObj.BurstFlush;
+begin
+  BurstTimer.Enabled:=False;
+  if not RedrawOff then Exit;
+  RedrawOff:=False;
+  if not Form.HandleAllocated then Exit;
+  SendMessage(Form.Handle,WM_SETREDRAW,1,0);
+  RedrawWindow(Form.Handle,nil,0,
+    RDW_INVALIDATE or RDW_ERASE or RDW_ALLCHILDREN or RDW_UPDATENOW);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TMenuObj.BurstTimerFire(Sender : TObject);
+begin
+  BurstFlush;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TMenuObj.AttachCtrl(C : TControl);
+begin
+  // Every *Create method fully configures its control while it is still
+  // parent-less and only then calls this, so the one place the form can
+  // react is here. Holding auto-sizing off around the insert makes the
+  // form/children re-layout once when released rather than once per
+  // intermediate step of the parenting.
+  Form.DisableAutoSizing;
+  try
+    C.Parent:=Form;
+  finally
+    Form.EnableAutoSizing;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 procedure TMenuObj.Clear;
 var
   Cnt : Integer;
 begin
-  for Cnt:=0 to Ctrls.Count-1 do
-    Ctrls.Objects[Cnt].Free;
+  // Same idea as AttachCtrl: free the whole set under one auto-size hold.
+  Form.DisableAutoSizing;
+  try
+    for Cnt:=0 to Ctrls.Count-1 do
+      Ctrls.Objects[Cnt].Free;
+  finally
+    Form.EnableAutoSizing;
+  end;
   Ctrls.Clear;
   FontName:='Arial';
   FontAlign:=taLeftJustify;
@@ -556,7 +648,7 @@ begin
     NewLabel.Font.CharSet:=SYMBOL_CHARSET;
 
   NewLabel.Caption:=RemapForSymbolFont(ReplaceStr(Str,'$',#13#10),FontName);
-  NewLabel.Parent:=Form;
+  AttachCtrl(NewLabel);
 
   Ctrls.AddObject(UpperCase(sName),NewLabel);
 end;
@@ -580,7 +672,7 @@ begin
   if IsSymbolFontName(FontName) then
     NewButton.Font.CharSet:=SYMBOL_CHARSET;
   NewButton.Caption:=RemapForSymbolFont(Str,FontName);
-  NewButton.Parent:=Form;
+  AttachCtrl(NewButton);
   NewButton.OnClick:=MyButtonClick;
 
   Ctrls.AddObject(UpperCase(sName),NewButton);
@@ -602,7 +694,7 @@ begin
   NewEdit.Color:=FontBG;
   NewEdit.Font.Style:=FontStyle;
   NewEdit.Text:=Str;
-  NewEdit.Parent:=Form;
+  AttachCtrl(NewEdit);
 
   Ctrls.AddObject(UpperCase(sName),NewEdit);
 end;
@@ -631,7 +723,7 @@ begin
   NewMemo.WordWrap:=False;
   NewMemo.WantTabs:=False;
   NewMemo.Text:=ReplaceStr(Str,'$',#13#10);
-  NewMemo.Parent:=Form;
+  AttachCtrl(NewMemo);
 
   Ctrls.AddObject(UpperCase(sName),NewMemo);
 end;
@@ -672,7 +764,7 @@ begin
   if IsSymbolFontName(FontName) then
     NewCheck.Font.CharSet:=SYMBOL_CHARSET;
   NewCheck.Caption:=RemapForSymbolFont(Str,FontName);
-  NewCheck.Parent:=Form;
+  AttachCtrl(NewCheck);
 
   Ctrls.AddObject(UpperCase(sName),NewCheck);
 end;
@@ -695,7 +787,7 @@ begin
   NewCombo.Style:=csDropDownList;
   NewCombo.Tag:=-1;
   NewCombo.OnSelect:=MyComboSelect;
-  NewCombo.Parent:=Form;
+  AttachCtrl(NewCombo);
 
   Ctrls.AddObject(UpperCase(sName),NewCombo);
 end;
@@ -716,7 +808,7 @@ begin
   NewList.Font.Color:=FontColor;
   NewList.Color:=FontBG;
   NewList.Font.Style:=FontStyle;
-  NewList.Parent:=Form;
+  AttachCtrl(NewList);
 
   Ctrls.AddObject(UpperCase(sName),NewList);
 end;
@@ -828,7 +920,7 @@ begin
   else NewShape.Brush.Style:=bsSolid;
   end;
 
-  NewShape.Parent:=Form;
+  AttachCtrl(NewShape);
 
   Ctrls.AddObject(UpperCase(sName),NewShape);
 end;
@@ -852,7 +944,7 @@ begin
   NewImage.Canvas.Brush.Color:=$FEEEED;
   NewImage.Canvas.Rectangle(-10,-10,W+10,H+10);
 
-  NewImage.Parent:=Form;
+  AttachCtrl(NewImage);
   Ctrls.AddObject(UpperCase(sName),NewImage);
 end;
 

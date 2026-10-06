@@ -35,6 +35,8 @@ type
     procedure TestVersionVarsAreDistinct;
     procedure TestDiagnosticsReportBuildsAsMultilineBlock;
     procedure TestMenuMemoRoundTripsThroughGet;
+    procedure TestMenuNamesAreCaseInsensitive;
+    procedure TestMenuFontLinesAreHarmlessAndLeaveStateAlone;
     procedure TestClientGatedCommandIsSilentNoOpWithNoClient;
 
     procedure TestIfTrueRunsBodyAndSkipsElse;
@@ -191,6 +193,58 @@ begin
     'menu Get m' + #13#10 +
     'HALT');
   AssertEquals('alpha$beta$gamma', Copy(Interp.GetVar('#menuRes'), 1, 16));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoInterpreterTests.TestMenuNamesAreCaseInsensitive;
+begin
+  // TMenuObj keeps its controls in an ordinal, case-sensitive list and upper-cases
+  // every name on the way in and on lookup; a script must still be able to create a
+  // control as "MyEd" and address it as "myed"/"MYED".
+  PlayScript(
+    'menu Clear' + #13#10 +
+    'menu Edit MyEd 0 0 100 first' + #13#10 +
+    'menu Get myed' + #13#10 +
+    'set %a #menuRes' + #13#10 +
+    'menu Set MYED second' + #13#10 +
+    'menu Get MyEd' + #13#10 +
+    'set %b #menuRes' + #13#10 +
+    'menu Get nosuchname' + #13#10 +
+    'set %c #menuRes' + #13#10 +
+    'HALT');
+  AssertEquals('first', Interp.GetVar('%a'));
+  AssertEquals('second', Interp.GetVar('%b'));
+  AssertEquals('N/A', Interp.GetVar('%c'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoInterpreterTests.TestMenuFontLinesAreHarmlessAndLeaveStateAlone;
+begin
+  // MENU FONT * is handled inline on the script thread (no GUI hop). It only sets
+  // defaults for later creates, so it must not disturb a previously read
+  // #menuRes, must stay a silent no-op on bad arguments, and a control created
+  // afterwards must still work normally.
+  PlayScript(
+    'menu Clear' + #13#10 +
+    'menu Edit e 0 0 100 keep' + #13#10 +
+    'menu Get e' + #13#10 +
+    'menu Font Name Courier New' + #13#10 +
+    'menu Font Size 14' + #13#10 +
+    'menu Font Style BI' + #13#10 +
+    'menu Font Color Red' + #13#10 +
+    'menu Font BGColor Yellow' + #13#10 +
+    'menu Font Align Center' + #13#10 +
+    'menu Font Transparent 1' + #13#10 +
+    'menu Font' + #13#10 +                  // too few parameters
+    'menu Font Size notanumber' + #13#10 +  // invalid -> ignored
+    'menu Font Color notacolor' + #13#10 +  // invalid -> ignored
+    'set %a #menuRes' + #13#10 +
+    'menu Edit e2 0 30 100 later' + #13#10 +
+    'menu Get e2' + #13#10 +
+    'set %b #menuRes' + #13#10 +
+    'HALT');
+  AssertEquals('keep', Interp.GetVar('%a'));
+  AssertEquals('later', Interp.GetVar('%b'));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
