@@ -120,8 +120,12 @@ it is frozen:
 powershell -ExecutionPolicy Bypass -File tools\Check-EventHook.ps1
 ```
 
-It only reads the client's memory and reports whether the event hook is absent, healthy, or
-the "poisoned" state older builds could leave behind. Include its output in your bug report.
+It reads the client's memory and reports whether the event hook is absent, healthy, or
+the "poisoned" state older builds could leave behind. It also reports any thread burning CPU
+and which module it is executing in, which tells a hook freeze apart from one caused by
+something else in the client (for example another injected DLL). To do that it briefly
+suspends and resumes the busy thread a few times; add `-NoThreadCheck` to skip that and stay
+strictly read-only. Include its output in your bug report.
 
 ## Getting help / reporting bugs
 
