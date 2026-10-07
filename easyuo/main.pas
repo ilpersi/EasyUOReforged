@@ -128,7 +128,21 @@ var
   UpdateCnt  : Cardinal = 0;
 
 implementation
-uses text;
+uses text, uoselector;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition: a client running elevated can't be opened by a non-elevated
+// EasyUO, which otherwise looks exactly like "unsupported client".
+function NoClientMessage(Sel : TUOSel) : String;
+begin
+  if Sel.DeniedCnt>0 then
+    Result:='A UO client was found, but EasyUO Reforged is not allowed to access it.'+#13#10#13#10+
+            'The client is running with higher privileges (as administrator). '+
+            'Restart EasyUO Reforged with "Run as administrator", or start the '+
+            'client without administrator rights.'
+  else
+    Result:='No supported UO client found!';
+end;
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -666,7 +680,7 @@ begin
     60 : begin
            if CExec.Parser.UOSel.Cnt<1 then
            begin
-             ShowMessage('No supported UO client found!');
+             ShowMessage(NoClientMessage(CExec.Parser.UOSel));
              Exit;
            end;
            MarkOK:=True;
@@ -733,7 +747,7 @@ begin
    201 : begin // Run to Cursor
            if CExec.Parser.UOSel.Cnt<1 then
            begin
-             ShowMessage('No supported UO client found!');
+             ShowMessage(NoClientMessage(CExec.Parser.UOSel));
              Exit;
            end;
            MarkOK:=True;

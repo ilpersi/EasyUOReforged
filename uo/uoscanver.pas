@@ -37,6 +37,7 @@ uses Windows, SysUtils, Classes, access;
 
   function GetExePath(PHnd : Cardinal) : String;
   function ScanVer(Wnd : Cardinal) : String;
+  function ClientAccessDenied(Wnd : Cardinal) : Boolean;
   function EnumCliWnd(Wnd, Obj : Cardinal) : Boolean; stdcall;
 
 implementation
@@ -171,6 +172,25 @@ begin
   end;
 
   CloseHandle(PHnd);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (not in the original): True when the client behind Wnd cannot be
+// opened because it runs with higher privileges than this process (ERROR_ACCESS_DENIED).
+// ScanVer returns '' in that case, which is otherwise indistinguishable from a client
+// build that is genuinely unsupported -- callers use this to give a useful message.
+function ClientAccessDenied(Wnd : Cardinal) : Boolean;
+var
+  PHnd : Cardinal;
+begin
+  GetWindowThreadProcessID(Wnd,PHnd);
+  PHnd:=OpenProcess(PROCESS_ALL_ACCESS,False,PHnd);
+  if PHnd<>0 then
+  begin
+    CloseHandle(PHnd);
+    Result:=False;
+  end
+  else Result:=GetLastError=ERROR_ACCESS_DENIED;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

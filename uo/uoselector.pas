@@ -70,6 +70,7 @@ type
     function    GetVer(Nr : Cardinal) : String;
     function    SelectClient(Nr : Cardinal; Version : String = '') : Boolean;
     function    Cnt : Cardinal;
+    function    DeniedCnt : Cardinal;
     function    Nr : Cardinal;
     function    Ver : String;
     function    ExePath : String;
@@ -274,6 +275,23 @@ function TUOSel.Cnt : Cardinal;
 begin
   RCS.BeginRead;
   Result:=WndList.Count; //WndList might get freed and reassigned meanwhile!
+  RCS.EndRead;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition: number of UO client windows that are running but could not be
+// opened for lack of privileges (client elevated, this process not). They have an
+// empty version and are therefore never in WndList/Cnt. Not on any hot path -- only
+// called when building a "no client found" message.
+function TUOSel.DeniedCnt : Cardinal;
+var
+  Cnt : Integer;
+begin
+  Result:=0;
+  RCS.BeginRead;
+  for Cnt:=0 to VerList.Count-1 do
+    if (VerList[Cnt]='')and ClientAccessDenied(Cardinal(VerList.Objects[Cnt])) then
+      Inc(Result);
   RCS.EndRead;
 end;
 
