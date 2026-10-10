@@ -1,0 +1,51 @@
+; ============================================================================
+;  call-helper.euo - callee for all-commands-test.euo
+; ============================================================================
+;  Do not run this file on its own.  all-commands-test.euo CALLs it in four
+;  modes (the first parameter, %1):
+;     probe   set %call_probe and EXIT                 (used to find the file)
+;     exit    record %0..%4, run a gosub, then EXIT    (code after EXIT must NOT run)
+;     eof     same, but NO exit: running off the end of the file must return
+;     nested  CALL this file again (mode exit), then EXIT
+;  Everything it reports goes through plain variables, which are shared with
+;  the caller (EasyUO has no local variables).
+; ============================================================================
+goto h_start
+
+sub h_inner
+  return inner_ok_ , %1 , _ , %2
+
+h_start:
+set %call_mode %1
+set %call_argc %0
+if %1 = probe
+{
+  set %call_probe ok
+  exit
+}
+if %1 = nested
+{
+  call %HELPER_DIR , call-helper.euo exit n1 n2 n3
+  set %call_nested_after ok
+  exit
+}
+set %call_a1 %1
+set %call_a2 %2
+set %call_a3 %3
+set %call_a4 %4
+set %call_sees_main %main_marker
+set %call_set_in_callee set_by_callee
+set %main_marker changed_by_callee
+gosub h_inner x y
+set %call_inner_result #result
+; the caller defines a sub called t_leak_probe; this file does not, and a
+; gosub only searches the script it is written in, so this must do nothing
+gosub t_leak_probe
+if %call_mode = exit
+{
+  set %call_exit_ran ok
+  exit
+  set %call_after_exit SHOULD_NOT_RUN
+}
+; mode "eof": no exit here - falling off the end of the file must return too
+set %call_eof_ran ok

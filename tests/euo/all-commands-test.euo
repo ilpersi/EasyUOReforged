@@ -1,0 +1,3140 @@
+; ============================================================================
+;  EasyUO Reforged - all-commands / all-variables self-test
+; ============================================================================
+;  WHAT IT DOES
+;    Exercises every script command and every #variable of the port and prints
+;    one line per check:  what was EXPECTED next to what the engine ACTUALLY
+;    returned, so you can read the report and see for yourself whether they
+;    match.  The report opens in a scrollable window (Ctrl+A, Ctrl+C copies it)
+;    and a summary message box closes the run.
+;
+;  HOW TO RUN
+;    1. (Optional) start a UO client and log a character in.  The script works
+;       with NO client too: client commands are silent no-ops in that case and
+;       every client #variable must read N/A - that is checked as well.
+;    2. Make  call-helper.euo  (same folder as this file) findable: leave both
+;       files in  <exe folder>\tests\euo\ , or copy call-helper.euo next to
+;       the exe, or put its folder into %CFG_TEST_DIR below.  Without it only
+;       the CALL tests are skipped.
+;    3. Open this file in a tab of EasyUO Reforged and press Play.
+;    4. A run takes a few seconds without a client, longer with one (the
+;       read-only client checks wait for gumps and for a target timeout).
+;
+;  HOW TO READ THE REPORT
+;    [PASS]  check succeeded
+;    [FAIL]  expected and actual differ   <- the interesting ones
+;    [NOTE]  a "soft" check (depends on live client data) or a known place
+;            where the old wiki documentation and the engine disagree; both
+;            values are printed so you can decide which side is right
+;    [INFO]  a live value, printed only so you can eyeball it
+;    [SKIP]  not run (flag off, no client, no helper file, ...)
+;
+;  SAFETY
+;    Everything that changes game state or the machine is OFF by default and
+;    sits behind the %DO_* flags below.  Read-only client checks run
+;    automatically when a character is logged in.  ShutDown is NEVER executed.
+;    Side effects of a default run: it opens the status gump / paperdoll /
+;    backpack in the client, and it writes a few  *euo_selftest_*  persistent
+;    variables to HKCU\Software\EasyUO (the language cannot delete them).
+;
+;  EASYUO QUIRKS THIS SCRIPT RESPECTS
+;    - tokens are split on spaces: a value with spaces is built with  , #spc ,
+;    - a ';' only starts a comment at the beginning of a token
+;    - single-line "if" bodies must not contain another "if": use { } blocks
+;    - gosub arguments are tokens, not expressions: compute into a variable first
+;    - all subs live below the final "halt"; "exit" is never used in this file
+;    - items marked [Reforged] exist only in EasyUO Reforged, not in the original
+; ============================================================================
+
+; ---------------------------------------------------------------------------
+;  CONFIGURATION  (1 = on, 0 = off)
+; ---------------------------------------------------------------------------
+set %CFG_QUIET 0
+; 1 = no window and no message boxes (used for unattended dry runs)
+set %CFG_TEST_DIR
+; folder that holds call-helper.euo, with trailing backslash.  Blank = look in
+; the folder of the exe (#curpath) and in its  tests\euo\  sub folder.
+; Spaces in the path must be written as  , #spc ,
+set %CFG_PET_ID
+; id of one of your pets.  Only used by %DO_ITEMS: the pet is RENAMED to
+; EUOTest (the old name cannot be read back, so it is not restored)
+set %CFG_EQUIP_ID
+; id of ONE wearable item from your backpack (only used by %DO_ITEMS: it is
+; equipped with exevent equip, and also dragged onto the paperdoll)
+
+set %DO_MENU 1
+; build/read every menu control type (no window is shown until the very end)
+set %DO_TIMING 1
+; wait / sleep timing checks (about 3 seconds)
+set %DO_TILE 1
+; Tile Init/Cnt/Get - needs a logged-in client with readable map files.  It runs
+; LAST (a failure inside Tile stops the script, the report is already on screen)
+
+set %DO_CLIENT_WRITES 1
+; write every read/write client variable and restore it; contPos/nextCPos/setUOTitle
+set %DO_INPUT 1
+; click (cursor-only variants), key esc, msg (TYPES INTO CHAT), move, pathfind, event macro say
+set %DO_ITEMS 1
+; event drag, exevent drag/dropc/popup/renamepet/equip, hideItem  (moves ONE backpack item and puts it back)
+set %DO_LOCKS 1
+; exevent skillLock (restored) and statLock (cannot be read back or restored by a script)
+set %DO_SHOP 0
+; getShopInfo / setShopItem - open a vendor "buy" gump first
+set %DO_EXECUTE 1
+; execute cmd.exe /c exit
+set %DO_SEND 1
+; send HTTPPost to euo-selftest.invalid (a host name that can never resolve,
+; so no connection is made and nothing can answer)
+set %DO_UOXL_NEW 0
+; uoXL new - STARTS ANOTHER UO CLIENT
+set %DO_TERMINATE_UO 0
+; terminate uo - CLOSES THE CURRENT UO CLIENT
+set %DO_TERMINATE_EUO 0
+; terminate euo - CLOSES EASYUO REFORGED itself (last thing the script does)
+set %DO_INTERACTIVE 1
+; message boxes, beep, pause (press Play), onHotKey (press F9), menu clicks
+
+; ---------------------------------------------------------------------------
+;  INITIALISATION
+; ---------------------------------------------------------------------------
+set %lpc_orig #lpc
+set #lpc 1000
+set %n_run 0
+set %n_pass 0
+set %n_fail 0
+set %n_note 0
+set %n_skip 0
+set %n_info 0
+set %log
+set %fails
+set %tile_note
+set %c_soft 0
+
+; "return" with no active gosub is a true no-op (it does not even touch #result)
+set #result keep
+return 99
+set %top_return_result #result
+
+; ---- mode detection --------------------------------------------------------
+set %HAVE_CLIENT 0
+set %LOGGED 0
+if #cliNr > 0
+{
+  set %HAVE_CLIENT 1
+}
+if %HAVE_CLIENT = 1
+{
+  if #cliLogged = 1
+  {
+    set %LOGGED 1
+  }
+}
+; @@mode-detect-end
+
+; ---------------------------------------------------------------------------
+;  MAIN FLOW
+; ---------------------------------------------------------------------------
+gosub sec_banner
+gosub sec_variables
+gosub sec_operators
+gosub sec_control
+gosub sec_subs
+gosub sec_call
+gosub sec_strings
+gosub sec_namespaces
+gosub sec_misc
+gosub sec_sysvars
+if %DO_MENU = 1
+{
+  gosub sec_menu
+}
+else
+{
+  gosub t_skip menu_controls flag_DO_MENU_off
+}
+if %DO_TIMING = 1
+{
+  gosub sec_timing
+}
+else
+{
+  gosub t_skip wait_sleep_timing flag_DO_TIMING_off
+}
+gosub sec_hotkey
+gosub sec_vartable
+
+if %LOGGED = 1
+{
+  gosub sec_client_ro
+}
+else
+{
+  gosub t_skip client_read_only_tier no_logged_in_client
+}
+
+if %DO_CLIENT_WRITES = 1
+{
+  if %LOGGED = 1
+  {
+    gosub sec_client_writes
+  }
+  else
+  {
+    gosub t_skip client_writes no_logged_in_client
+  }
+}
+else
+{
+  gosub t_skip client_writes flag_DO_CLIENT_WRITES_off
+}
+
+if %DO_INPUT = 1
+{
+  if %LOGGED = 1
+  {
+    gosub sec_input
+  }
+  else
+  {
+    gosub t_skip input_click_key_msg_move no_logged_in_client
+  }
+}
+else
+{
+  gosub t_skip input_click_key_msg_move flag_DO_INPUT_off
+}
+
+if %DO_ITEMS = 1
+{
+  if %LOGGED = 1
+  {
+    gosub sec_items
+  }
+  else
+  {
+    gosub t_skip item_drag_drop_popup no_logged_in_client
+  }
+}
+else
+{
+  gosub t_skip item_drag_drop_popup flag_DO_ITEMS_off
+}
+
+if %DO_LOCKS = 1
+{
+  if %LOGGED = 1
+  {
+    gosub sec_locks
+  }
+  else
+  {
+    gosub t_skip skill_stat_locks no_logged_in_client
+  }
+}
+else
+{
+  gosub t_skip skill_stat_locks flag_DO_LOCKS_off
+}
+
+if %DO_SHOP = 1
+{
+  if %LOGGED = 1
+  {
+    gosub sec_shop
+  }
+  else
+  {
+    gosub t_skip shop_commands no_logged_in_client
+  }
+}
+else
+{
+  gosub t_skip shop_commands flag_DO_SHOP_off
+}
+
+if %DO_EXECUTE = 1
+{
+  gosub sec_execute
+}
+else
+{
+  gosub t_skip execute_command flag_DO_EXECUTE_off
+}
+
+if %DO_SEND = 1
+{
+  gosub sec_send
+}
+else
+{
+  gosub t_skip send_http_post flag_DO_SEND_off
+}
+
+if %DO_UOXL_NEW = 1
+{
+  gosub sec_uoxl_new
+}
+else
+{
+  gosub t_skip uoxl_new flag_DO_UOXL_NEW_off
+}
+
+if %DO_INTERACTIVE = 1
+{
+  gosub sec_interactive
+}
+else
+{
+  gosub t_skip interactive_display_sound_pause_hotkey flag_DO_INTERACTIVE_off
+}
+
+gosub t_skip shutdown_command NOT_TESTED_by_design_it_would_power_off_the_PC
+
+; ignoreCont is checked last of the client tests: "ignoreCont reset" empties
+; the client-gump ignore list for the rest of this run
+if %LOGGED = 1
+{
+  gosub sec_ignorecont
+}
+else
+{
+  gosub t_skip ignorecont_command no_logged_in_client
+}
+
+if %DO_TERMINATE_UO = 1
+{
+  gosub sec_terminate_uo
+}
+else
+{
+  gosub t_skip terminate_uo flag_DO_TERMINATE_UO_off
+}
+
+; ---- report window (shown BEFORE tile, which may stop the script) ---------
+if %DO_TILE = 1
+{
+  if %LOGGED = 1
+  {
+    set %tile_note TILE_section_pending:_if_this_is_the_last_line_the_script_stopped_inside_Tile_Init
+  }
+}
+gosub sec_report
+
+; ---- tile (last: a missing map file makes Tile Init abort the script) -----
+if %DO_TILE = 1
+{
+  if %LOGGED = 1
+  {
+    gosub sec_tile
+    set %tile_note
+    gosub sec_report_refresh
+  }
+  else
+  {
+    gosub t_skip tile_command no_logged_in_client
+    gosub sec_report_refresh
+  }
+}
+else
+{
+  gosub t_skip tile_command flag_DO_TILE_off
+  gosub sec_report_refresh
+}
+
+; ---- the end ---------------------------------------------------------------
+set #lpc %lpc_orig
+if %CFG_QUIET = 0
+{
+  display ok %summary
+}
+if %DO_TERMINATE_EUO = 1
+{
+  terminate euo
+}
+halt
+
+; ###########################################################################
+;  SECTIONS  (each one is a sub called from the main flow above)
+; ###########################################################################
+
+; ===========================================================================
+;  00  environment banner
+; ===========================================================================
+sub sec_banner
+  gosub t_head 00_environment
+  gosub t_info reforged_version #reforgedver
+  gosub t_info euo_version #euover
+  gosub t_info os_version #osver
+  gosub t_info clients_detected #clicnt
+  gosub t_info active_client_slot #clinr
+  if %HAVE_CLIENT = 1
+  {
+    gosub t_info mode CLIENT_ATTACHED
+    gosub t_info client_version #cliver
+    gosub t_info client_language #clilang
+    gosub t_info logged_in #clilogged
+    gosub t_info shard #shard
+    gosub t_info character #charname
+  }
+  else
+  {
+    gosub t_info mode NO_CLIENT_(client_commands_are_no-ops_and_client_variables_read_N/A)
+  }
+  if %LOGGED = 1
+  {
+    gosub t_info client_tier READ-ONLY_CLIENT_CHECKS_WILL_RUN
+  }
+  else
+  {
+    gosub t_info client_tier SKIPPED_(no_logged_in_character)
+  }
+return
+
+; ===========================================================================
+;  01  variables
+; ===========================================================================
+sub sec_variables
+  gosub t_head 01_variables
+  set %v_a hello
+  gosub t_eq set_and_read %v_a hello
+  set %v_name Bob
+  set %v_NAME Joe
+  gosub t_eq variable_names_are_case_insensitive %v_name Joe
+  set %v_blank
+  str len %v_blank
+  gosub t_eq set_without_value_gives_empty_string_len #strres 0
+  gosub t_eq undefined_variable_reads_N/A %v_never_set N/A
+  set %v_copy %v_a
+  gosub t_eq copy_variable_to_variable %v_copy hello
+  set %v_us_1x ok
+  gosub t_eq name_with_underscore_and_digits %v_us_1x ok
+  set %v_sum 2 + 2
+  gosub t_eq set_evaluates_expression %v_sum 4
+  set %v_neg -5 + 2
+  gosub t_eq negative_literal_arithmetic %v_neg -3
+  set %v_big 123456789012345678 + 1
+  gosub t_eq int64_arithmetic_18_digits %v_big 123456789012345679
+  set %v_q hello + 1
+  gosub t_eq QUIRK_non_numeric_operand_counts_as_0 %v_q 1
+
+  ; ---- hexadecimal ------------------------------------------------------
+  set %v_hex $ff
+  set %v_r %v_hex + 0
+  gosub t_eq hex_literal_ff_plus_0 %v_r 255
+  set %v_r $ff + $01
+  gosub t_eq hex_plus_hex %v_r 256
+  set %w_a 2
+  set %w_b $a
+  set %w_c ( %w_a * %w_b ) + 1
+  gosub t_eq wiki_set_example_c_equals_21 %w_c 21
+  set %w_d %w_a * ( %w_b + 1 )
+  gosub t_eq wiki_set_example_d_equals_22 %w_d 22
+  set %w_e %w_a * %w_b + 1
+  gosub t_eq wiki_set_example_e_equals_21 %w_e 21
+
+  ; ---- the set shorthand forms ---------------------------------------------
+  set %v_n 5 -
+  gosub t_eq set_n_minus_decrements %v_n 4
+  set %v_n 5 +
+  gosub t_eq set_n_plus_increments %v_n 6
+  set %v_n -5 abs
+  gosub t_eq set_n_abs_postfix %v_n 5
+  set %v_n abs -5
+  gosub t_eq set_abs_n_prefix %v_n 5
+  set %v_n 7
+  set %v_n %v_n + 1
+  gosub t_eq increment_idiom %v_n 8
+
+  ; ---- deleteVar -----------------------------------------------------------
+  set %v_del x
+  deleteVar v_del
+  gosub t_eq deletevar_removes_the_variable %v_del N/A
+
+  ; ---- constants ------------------------------------------------------------
+  gosub t_eq true_constant_is_minus_one #true -1
+  gosub t_eq false_constant_is_zero #false 0
+  set %v_sp a , #spc , b
+  str pos %v_sp b
+  gosub t_eq spc_constant_is_one_space #strres 3
+  set %v_sm a , #smc , b
+  str pos %v_sm #smc
+  gosub t_eq smc_constant_is_a_semicolon #strres 2
+  set %v_dt a , #dot , b
+  str pos %v_dt #dot
+  gosub t_eq dot_constant_is_a_dot #strres 2
+
+  ; ---- concatenation and the array operator ------------------------------------
+  set %v_cat1 A , B , C
+  gosub t_eq comma_concatenates %v_cat1 ABC
+  set %c_var1 3
+  set %c_var2 spotNumber
+  set %c_var23 Tada!
+  set %c_test1 %c_var2 , %c_var1
+  set %c_test2 %c_var2 . %c_var1
+  gosub t_eq wiki_comma_left_associative %c_test1 spotNumber3
+  gosub t_eq wiki_dot_right_associative_builds_a_name %c_test2 Tada!
+  set %q_a 3
+  set %q_z3 8
+  set %q_w8 1337
+  set %v_chain %q_w . %q_z . %q_a
+  gosub t_eq wiki_array_chain_w_z_a %v_chain 1337
+  for %k 1 3
+  {
+    set %v_arr . %k %k * 10
+  }
+  gosub t_eq array_idiom_write_element_1 %v_arr1 10
+  gosub t_eq array_idiom_write_element_3 %v_arr3 30
+  set %k 2
+  set %v_got %v_arr . %k
+  gosub t_eq array_idiom_read_element_2 %v_got 20
+
+  ; ---- line continuation -----------------------------------------------------------
+  set %v_lc1 foo
++bar
+  gosub t_eq line_continuation_without_space %v_lc1 foobar
+  set %v_lc2 A ,
++ B ,
++ C
+  gosub t_eq line_continuation_with_space %v_lc2 ABC
+
+  ; ---- persistent variables (registry HKCU\Software\EasyUO) ----------------------------
+  set *euo_selftest_a hello
+  gosub t_eq persistent_variable_round_trip *euo_selftest_a hello
+  set *euo_selftest_n 42
+  set %v_pn *euo_selftest_n + 1
+  gosub t_eq persistent_variable_is_usable_in_expressions %v_pn 43
+  gosub t_eq persistent_variable_never_set *euo_selftest_never_set_xyz N/A
+return
+
+; ===========================================================================
+;  02  operators and expressions
+; ===========================================================================
+sub sec_operators
+  gosub t_head 02_operators
+  ; ---- arithmetic: precedence and associativity -----------------------------
+  set %o 5 + 3 * 2
+  gosub t_eq mul_before_add_5_plus_3_times_2 %o 11
+  set %o 8 - 3 - 2
+  gosub t_eq subtraction_is_left_associative %o 3
+  set %o 10 - 4 + 2
+  gosub t_eq add_and_sub_same_level_left_to_right %o 8
+  set %o 1 + 2 * 2 * 4
+  gosub t_eq wiki_1_plus_2_times_2_times_4 %o 17
+  set %o ( 1 + 2 ) * 2 * 4
+  gosub t_eq wiki_parentheses_first %o 24
+  set %o ( 2 + 2 ) * ( 3 - 1 )
+  gosub t_eq wiki_two_paren_groups %o 8
+  set %o ( ( 1 + 2 ) * ( 3 + 4 ) ) - 1
+  gosub t_eq nested_parentheses %o 20
+  set %o 2 + 3 * 4 - 6 / 2
+  gosub t_eq mixed_precedence %o 11
+  set %o 100 / 10 / 5
+  gosub t_eq division_is_left_associative %o 2
+  set %o 100 / ( 10 / 5 )
+  gosub t_eq division_with_parentheses %o 50
+  set %o 17 % 5 * 2
+  gosub t_eq modulo_and_multiply_left_to_right %o 4
+  set %o 5 - -3
+  gosub t_eq minus_a_negative_literal %o 8
+
+  ; ---- integer division and modulo --------------------------------------------
+  set %o 7 / 2
+  gosub t_eq integer_division_drops_remainder %o 3
+  set %o -7 / 2
+  gosub t_eq integer_division_truncates_toward_zero %o -3
+  set %o 7 % 3
+  gosub t_eq modulo %o 1
+  set %o -7 % 3
+  gosub t_eq modulo_sign_follows_dividend %o -1
+  set %o 5 / 0
+  gosub t_eq division_by_zero_gives_0 %o 0
+  set %o 5 % 0
+  gosub t_eq modulo_by_zero_gives_0 %o 0
+
+  ; ---- ABS -----------------------------------------------------------------------
+  set %o abs -12
+  gosub t_eq abs_prefix %o 12
+  set %o 3 - 10 abs
+  gosub t_eq abs_postfix_applies_to_the_whole_set_expression %o 7
+
+  ; ---- comparisons: numeric ------------------------------------------------------------
+  set %o 10 > 9
+  gosub t_eq numeric_greater_10_9 %o -1
+  set %o 9 > 10
+  gosub t_eq numeric_not_greater_9_10_not_a_string_compare %o 0
+  set %o 9 < 10
+  gosub t_eq numeric_less %o -1
+  set %o 5 <= 5
+  gosub t_eq less_or_equal_true %o -1
+  set %o 5 >= 6
+  gosub t_eq greater_or_equal_false %o 0
+  set %o 5 =< 5
+  gosub t_eq undocumented_alias_equal_or_less %o -1
+  set %o 6 => 5
+  gosub t_eq undocumented_alias_equal_or_greater %o -1
+  set %o 5 = 5
+  gosub t_eq equal_numbers %o -1
+  set %o 5 = 05
+  gosub t_eq equal_numbers_ignore_leading_zero %o -1
+  set %o 5 <> 6
+  gosub t_eq not_equal_numbers %o -1
+  set %o $ff = 255
+  gosub t_eq hex_equals_decimal %o -1
+
+  ; ---- comparisons: text ------------------------------------------------------------------
+  set %o abc = ABC
+  gosub t_eq text_equality_ignores_case %o -1
+  set %o abc = abd
+  gosub t_eq text_inequality %o 0
+  set %o abc <> ABC
+  gosub t_eq text_not_equal_ignores_case %o 0
+  set %o hello > 33
+  gosub t_eq wiki_text_greater_than_number_is_false %o 0
+  set %o hello < 33
+  gosub t_eq text_less_than_number_is_false_too %o 0
+  set %o 33 >= hello
+  gosub t_eq number_ge_text_is_false %o 0
+
+  ; ---- in / notIn ----------------------------------------------------------------------------
+  set %o ell in hello
+  gosub t_eq in_true %o -1
+  set %o xyz in hello
+  gosub t_eq in_false %o 0
+  set %o ELL in hello
+  gosub t_eq in_is_case_insensitive %o -1
+  set %o xyz notin hello
+  gosub t_eq notin_true %o -1
+  set %o ell notin hello
+  gosub t_eq notin_false %o 0
+
+  ; ---- logical -------------------------------------------------------------------------------------
+  set %o #true && #true
+  gosub t_eq and_true_true %o -1
+  set %o #true && #false
+  gosub t_eq and_true_false %o 0
+  set %o #false || #true
+  gosub t_eq or_false_true %o -1
+  set %o #false || #false
+  gosub t_eq or_false_false %o 0
+  set %o ! #true
+  gosub t_eq not_true %o 0
+  set %o ! #false
+  gosub t_eq not_false %o -1
+  set %o ! ! #true
+  gosub t_eq double_not %o -1
+  set %o ! ( 1 = 2 )
+  gosub t_eq not_of_parenthesised_comparison %o -1
+  set %o #true || #false && #false
+  gosub t_eq and_binds_tighter_than_or %o -1
+  set %o ( #true || #false ) && #false
+  gosub t_eq parentheses_override_precedence %o 0
+  set %o ( 1 = 1 ) + 5
+  gosub t_eq true_is_minus_one_so_true_plus_5_is_4 %o 4
+  set %o ( 1 = 2 ) + 5
+  gosub t_eq false_is_zero_so_false_plus_5_is_5 %o 5
+  set %o ( 3 > 2 ) && ( 5 > 4 ) && ( 7 > 6 )
+  gosub t_eq wiki_three_way_and %o -1
+
+  ; ---- wiki: "is this a number?" trick ----------------------------------------------------------
+  set %cnt invalid
+  if ! ( %cnt > 0 || %cnt < 1 )
+  {
+    set %cnt 0
+  }
+  set %cnt %cnt + 1
+  gosub t_eq wiki_number_validity_trick %cnt 1
+
+  ; ---- QUIRKS preserved from the original engine -----------------------------------------------------
+  set %o ! 5
+  gosub t_eq QUIRK_not_is_bitwise_not_5_gives_minus_6 %o -6
+  set %o 5 && 3
+  gosub t_eq QUIRK_and_is_bitwise_5_and_3_is_1 %o 1
+  set %o 5 || 2
+  gosub t_eq QUIRK_or_is_bitwise_5_or_2_is_7 %o 7
+
+  ; ---- wiki: "if ! %var = world" ---------------------------------------------------------------------
+  set %var hello
+  set %o no
+  if ! %var = world
+  {
+    set %o yes
+  }
+  gosub t_dd wiki_if_not_var_equals_world_without_parentheses %o yes no
+  set %o no
+  if ! ( %var = world )
+  {
+    set %o yes
+  }
+  gosub t_eq if_not_with_parentheses_works_as_documented %o yes
+  set %o no
+  if %var <> world
+  {
+    set %o yes
+  }
+  gosub t_eq if_not_equal_operator %o yes
+return
+
+; ===========================================================================
+;  03  control flow: if / else, for, while, repeat..until, goto
+; ===========================================================================
+sub sec_control
+  gosub t_head 03_control_flow
+
+  ; ---- if / else ------------------------------------------------------------
+  set %r none
+  if 1 = 1
+    set %r then
+  else
+    set %r else
+  gosub t_eq if_true_single_line_runs_then %r then
+  set %r none
+  if 1 = 2
+    set %r then
+  else
+    set %r else
+  gosub t_eq if_false_single_line_runs_else %r else
+  set %r none
+  if 1 = 1
+  {
+    set %r a
+    set %r %r , b
+  }
+  else
+  {
+    set %r wrong
+  }
+  gosub t_eq if_true_block %r ab
+  set %r none
+  if 1 = 2
+  {
+    set %r wrong
+  }
+  else
+  {
+    set %r c
+    set %r %r , d
+  }
+  gosub t_eq if_false_block_runs_else_block %r cd
+  set %a 2
+  set %r none
+  if %a = 1
+  {
+    set %r One
+  }
+  else
+  {
+    if %a = 2
+    {
+      set %r Two
+    }
+    else
+    {
+      set %r Three
+    }
+  }
+  gosub t_eq wiki_nested_if_else_chain %r Two
+  set %r 0
+  if 1 = 2 2
+    set %r %r + 1
+    set %r %r + 10
+  set %r %r + 100
+  gosub t_eq wiki_if_with_skip_count_condition_false %r 100
+  set %r 0
+  if 1 = 1 2
+    set %r %r + 1
+    set %r %r + 10
+  set %r %r + 100
+  gosub t_eq wiki_if_with_skip_count_condition_true %r 111
+  set %r none
+  if 1 = 2
+    set %r then
+
+  ; a blank line and a comment between the if-body and the else
+
+  else
+    set %r else
+  gosub t_eq else_after_blank_and_comment_lines %r else
+  set %r
+  if 1 = 1
+    set %r %r , a
+  else
+    set %r %r , X
+  if 1 = 2
+    set %r %r , Y
+  else
+    set %r %r , b
+  gosub t_eq sequential_if_else_pairs_do_not_interfere %r ab
+  set %r no
+  if ! ( 1 = 2 )
+    set %r yes
+  gosub t_eq if_not_parenthesised_comparison %r yes
+  set %r no
+  if ! #false
+    set %r yes
+  gosub t_eq if_not_false %r yes
+  set %r no
+  if #true
+    set %r yes
+  gosub t_eq if_true_constant %r yes
+  set %r no
+  if #false
+    set %r yes
+  gosub t_eq if_false_constant_skips %r no
+  set %v_flag #true
+  set %r no
+  if %v_flag
+    set %r yes
+  gosub t_eq wiki_if_boolean_variable %r yes
+  set %r no
+  if 1
+    set %r yes
+  gosub t_eq QUIRK_only_minus_1_counts_as_true_if_1_is_false %r no
+
+  ; ---- for ---------------------------------------------------------------------
+  set %sum 0
+  for %i 1 5
+    set %sum %sum + %i
+  gosub t_eq for_count_up_single_line_body %sum 15
+  gosub t_eq for_variable_after_loop_is_end_plus_1 %i 6
+  set %sum 0
+  for %i 3 1
+    set %sum %sum + %i
+  gosub t_eq for_count_down %sum 6
+  gosub t_eq for_variable_after_down_loop_is_end_minus_1 %i 0
+  set %cnt 0
+  for %i 7 7
+  {
+    set %cnt %cnt + 1
+  }
+  gosub t_eq for_equal_bounds_run_once %cnt 1
+  gosub t_eq for_variable_after_equal_bounds %i 8
+  set %cnt 0
+  set %sum 0
+  for %i -2 2
+  {
+    set %cnt %cnt + 1
+    set %sum %sum + %i
+  }
+  gosub t_eq for_negative_start_iterations %cnt 5
+  gosub t_eq for_negative_start_sum %sum 0
+  set %lo 2
+  set %hi 4
+  set %r
+  for %i %lo %hi
+  {
+    set %r %r , %i
+  }
+  gosub t_eq for_bounds_from_variables %r 234
+  set %cnt 0
+  for %i 1 3
+  {
+    for %j 1 3
+    {
+      set %cnt %cnt + 1
+    }
+  }
+  gosub t_eq for_nested_3_by_3 %cnt 9
+  set %cnt 0
+  for %i 1 3
+  {
+    for %j 1 %i
+    {
+      set %cnt %cnt + 1
+    }
+  }
+  gosub t_eq for_nested_inner_bound_depends_on_outer %cnt 6
+  set %r
+  for %i 1 5
+  {
+    if %i = 4
+      break
+    if %i = 2
+      continue
+    set %r %r , %i
+  }
+  gosub t_eq for_with_break_and_continue %r 13
+
+  ; ---- while ----------------------------------------------------------------------
+  set %i 0
+  while %i < 5
+  {
+    set %i %i + 1
+  }
+  gosub t_eq while_loop %i 5
+  set %w 0
+  while 1 = 2
+  {
+    set %w 1
+  }
+  gosub t_eq while_false_first_never_runs_body %w 0
+  set %i 0
+  set %odd 0
+  while %i < 10
+  {
+    set %i %i + 1
+    if %i = 8
+      break
+    if %i % 2 = 0
+      continue
+    set %odd %odd + 1
+  }
+  gosub t_eq while_break_stops_the_loop %i 8
+  gosub t_eq while_continue_skips_rest_of_body %odd 4
+  set %k 0
+  while %k < 3
+    set %k %k + 1
+  gosub t_eq while_single_line_body %k 3
+  set %cnt 0
+  set %i 0
+  while %i < 3
+  {
+    set %i %i + 1
+    set %j 0
+    while %j < 3
+    {
+      set %j %j + 1
+      if %j = 2
+        break
+      set %cnt %cnt + 1
+    }
+  }
+  gosub t_eq while_break_leaves_only_the_inner_loop %cnt 3
+
+  ; ---- repeat .. until ------------------------------------------------------------------
+  set %i 0
+  repeat
+  {
+    set %i %i + 1
+  }
+  until %i >= 5
+  gosub t_eq repeat_until_counts_up %i 5
+  set %i 10
+  repeat
+  {
+    set %i %i + 1
+  }
+  until %i > 0
+  gosub t_eq repeat_body_runs_at_least_once %i 11
+  set %i 0
+  set %odd 0
+  repeat
+  {
+    set %i %i + 1
+    if %i = 9
+      break
+    if %i % 2 = 0
+      continue
+    set %odd %odd + 1
+  }
+  until %i >= 20
+  gosub t_eq repeat_break_leaves_the_loop %i 9
+  gosub t_eq repeat_continue_goes_to_the_until_test %odd 4
+  set %str Hello , #spc , World
+  repeat
+  {
+    set %str %str , !
+    str len %str
+  }
+  until #strres >= 30
+  str len %str
+  gosub t_eq wiki_repeat_until_str_len #strres 30
+
+  ; ---- goto / labels ------------------------------------------------------------------------
+  set %r
+  goto g_fwd1
+  set %r %r , SKIPPED
+g_fwd1:
+  set %r %r , reached
+  gosub t_eq goto_forward %r reached
+  set %n 0
+g_back1:
+  set %n %n + 1
+  if %n < 3
+    goto g_back1
+  gosub t_eq goto_backward_loop %n 3
+  set %r no
+  goto G_Colon1:
+  set %r SKIPPED
+g_colon1:
+  set %r yes
+  gosub t_eq goto_label_case_and_trailing_colon %r yes
+  set %k 2
+  set %r
+  goto g_case , %k
+g_case1:
+  set %r one
+  goto g_case_end
+g_case2:
+  set %r two
+  goto g_case_end
+g_case3:
+  set %r three
+g_case_end:
+  gosub t_eq wiki_goto_switch_emulation %r two
+  set %r before
+  goto g_does_not_exist
+  set %r %r , after
+  gosub t_eq goto_to_missing_label_is_a_noop %r beforeafter
+  set %r none
+  goto gn_start1
+gn_t1:
+  set %r above
+  goto gn_end1
+gn_start1:
+  goto gn_t1
+  set %r SKIPPED_1
+  set %r SKIPPED_2
+  set %r SKIPPED_3
+gn_t1:
+  set %r below
+gn_end1:
+  gosub t_eq goto_duplicate_label_equal_distance_below_wins %r below
+  set %r none
+  goto gn_start2
+gn_t2:
+  set %r above
+  goto gn_end2
+gn_start2:
+  goto gn_t2
+  set %r SKIPPED_1
+  set %r SKIPPED_2
+  set %r SKIPPED_3
+  set %r SKIPPED_4
+gn_t2:
+  set %r below
+gn_end2:
+  gosub t_eq goto_duplicate_label_nearest_one_wins %r above
+
+  ; ---- unknown words, blocks and the no-op commands ---------------------------------------------------
+  set %r start
+  xyzzy_not_a_command 1 2 3
+  initEvents
+  stopCD
+  playCD
+  {
+    set %r %r , block
+  }
+  set %r %r , end
+  gosub t_eq unknown_words_initevents_stopcd_playcd_and_bare_blocks_are_noops %r startblockend
+return
+
+; ===========================================================================
+;  04  gosub / sub / return
+; ===========================================================================
+sub sec_subs
+  gosub t_head 04_gosub_sub_return
+  gosub t_eq top_level_return_is_a_noop_and_keeps_result %top_return_result keep
+  gosub s_add 3 4
+  gosub t_eq gosub_return_expression_goes_to_result #result 7
+  gosub s_args one two three
+  gosub t_eq gosub_percent_0_is_the_parameter_count %sa_0 3
+  gosub t_eq gosub_percent_1 %sa_1 one
+  gosub t_eq gosub_percent_2 %sa_2 two
+  gosub t_eq gosub_percent_3 %sa_3 three
+  gosub s_args
+  gosub t_eq gosub_without_parameters_gives_0 %sa_0 0
+  gosub s_ten 1 2 3 4 5 6 7 8 9 ten
+  gosub t_eq gosub_ten_parameters_percent_10 #result ten
+  gosub s_ret_bare
+  gosub t_eq return_without_value_resets_result_to_NA #result N/A
+  gosub s_ret_text
+  gosub t_eq return_text_value #result hello
+  set %trace
+  gosub s_lvl1
+  gosub t_eq gosub_nested_three_levels %trace a1_a2_a3_b3_b2_b1_
+  gosub s_dup
+  gosub t_eq gosub_duplicate_sub_names_last_definition_wins #result second
+  set %r before
+  gosub s_does_not_exist
+  set %r %r , after
+  gosub t_eq gosub_to_missing_sub_is_a_noop %r beforeafter
+  gosub s_case_probe
+  gosub t_eq sub_and_gosub_names_are_case_insensitive #result found
+  set %rs_depth 0
+  gosub s_rsum 50
+  gosub t_eq recursion_sum_1_to_50 #result 1275
+  gosub t_eq recursion_depth_counter_back_to_0 %rs_depth 0
+  gosub s_xor 1875 618
+  gosub t_eq wiki_return_expression_bitwise_xor_1875_618 #result 1337
+  gosub s_blockbody 5
+  gosub t_eq sub_with_braces_and_early_return #result big
+  gosub s_blockbody 1
+  gosub t_eq sub_with_braces_falls_to_the_second_return #result small
+return
+
+; ###########################################################################
+;  test subs used by the control-flow and gosub sections
+; ###########################################################################
+sub s_add
+  return %1 + %2
+
+sub s_args
+  set %sa_0 %0
+  set %sa_1 %1
+  set %sa_2 %2
+  set %sa_3 %3
+return
+
+sub s_ten
+  return %10
+
+sub s_ret_bare
+  return
+
+sub s_ret_text
+  return hello
+
+sub s_lvl1
+  set %trace %trace , a1_
+  gosub s_lvl2
+  set %trace %trace , b1_
+return
+
+sub s_lvl2
+  set %trace %trace , a2_
+  gosub s_lvl3
+  set %trace %trace , b2_
+return
+
+sub s_lvl3
+  set %trace %trace , a3_
+  set %trace %trace , b3_
+return
+
+sub s_dup
+  return first
+
+sub s_dup
+  return second
+
+sub S_CASE_probe
+  return found
+
+sub s_rsum
+  if %1 <= 0
+  {
+    return 0
+  }
+  set %rs_depth %rs_depth + 1
+  set %rs_n . %rs_depth %1
+  set %rs_m %1 - 1
+  gosub s_rsum %rs_m
+  set %rs_sub #result
+  set %rs_cur %rs_n . %rs_depth
+  set %rs_depth %rs_depth - 1
+  return %rs_cur + %rs_sub
+
+sub s_xor
+  return %1 && ! %2 || ! %1 && %2
+
+sub s_blockbody
+{
+  if %1 > 3
+  {
+    return big
+  }
+  return small
+}
+
+; ===========================================================================
+;  05  call / exit  (needs call-helper.euo)
+; ===========================================================================
+sub sec_call
+  gosub t_head 05_call_and_exit
+  gosub find_helper
+  if %HELPER_DIR = N/A
+  {
+    gosub t_skip call_tests call-helper.euo_not_found_tried:_ , %tried
+    return
+  }
+  gosub t_info call_helper_folder %HELPER_DIR
+  gosub t_eq call_finds_the_file_without_its_extension %call_probe ok
+
+  set %main_marker from_main
+  call %HELPER_DIR , call-helper.euo exit alpha beta gamma
+  gosub t_eq call_parameter_count_percent_0 %call_argc 4
+  gosub t_eq call_parameter_1 %call_a1 exit
+  gosub t_eq call_parameter_2 %call_a2 alpha
+  gosub t_eq call_parameter_3 %call_a3 beta
+  gosub t_eq call_parameter_4 %call_a4 gamma
+  gosub t_eq call_callee_sees_callers_variables %call_sees_main from_main
+  gosub t_eq call_callee_variable_visible_to_caller %call_set_in_callee set_by_callee
+  gosub t_eq call_callee_can_change_callers_variable %main_marker changed_by_callee
+  gosub t_eq call_gosub_inside_callee_uses_the_callees_sub %call_inner_result inner_ok_x_y
+  gosub t_eq call_exit_returns_to_the_caller %call_exit_ran ok
+  gosub t_eq call_code_after_exit_does_not_run %call_after_exit N/A
+  gosub t_eq call_callee_cannot_gosub_a_sub_of_the_caller %call_leak N/A
+
+  set %call_eof_ran N/A
+  call %HELPER_DIR , call-helper.euo eof
+  gosub t_eq call_running_off_the_end_of_the_file_returns %call_eof_ran ok
+  set %after_eof_call reached
+  gosub t_eq call_caller_continues_after_eof_return %after_eof_call reached
+
+  set %call_exit_ran N/A
+  set %call_nested_after N/A
+  call %HELPER_DIR , call-helper.euo nested
+  gosub t_eq call_nested_inner_call_ran %call_exit_ran ok
+  gosub t_eq call_nested_outer_continues_after_inner_returns %call_nested_after ok
+
+  set %r before
+  call %HELPER_DIR , no-such-helper-file-xyz.euo
+  set %r %r , after
+  gosub t_eq call_of_a_missing_file_is_a_noop %r beforeafter
+return
+
+sub find_helper
+  set %HELPER_DIR N/A
+  set %tried
+  set %cfg_dir %CFG_TEST_DIR
+  str len %cfg_dir
+  if #strres > 0
+  {
+    str right %cfg_dir 1
+    if #strres <> \
+    {
+      set %cfg_dir %cfg_dir , \
+    }
+    gosub call_try %cfg_dir
+  }
+  if %HELPER_DIR = N/A
+  {
+    gosub call_try #curpath
+  }
+  if %HELPER_DIR = N/A
+  {
+    gosub call_try #curpath , tests\euo\
+  }
+return
+
+sub call_try
+  set %_ct %1
+  set %tried %tried , %_ct , _|_
+  set %call_probe N/A
+  call %_ct , call-helper probe
+  if %call_probe = ok
+  {
+    set %HELPER_DIR %_ct
+  }
+return
+
+; ===========================================================================
+;  06  str command
+; ===========================================================================
+sub sec_strings
+  gosub t_head 06_str_command
+  ; NOTE: text comparison in this report is case-insensitive, so the CASE of
+  ; the lower/upper results is something you check by reading actual[...]
+  set %s HELLO
+  str len %s
+  gosub t_eq str_len #strres 5
+  set %e
+  str len %e
+  gosub t_eq str_len_of_empty_string #strres 0
+  set %sp a , #spc , b , #spc , c
+  str len %sp
+  gosub t_eq str_len_counts_spaces #strres 5
+  str pos %s LL
+  gosub t_eq str_pos #strres 3
+  str pos %s ll
+  gosub t_eq str_pos_ignores_case #strres 3
+  str pos %s ZZ
+  gosub t_eq str_pos_not_found_gives_0 #strres 0
+  str left %s 4
+  gosub t_eq str_left #strres HELL
+  str left %s 99
+  gosub t_eq str_left_longer_than_the_string #strres HELLO
+  str right %s 2
+  gosub t_eq str_right #strres LO
+  str mid %s 2 3
+  gosub t_eq str_mid #strres ELL
+  str lower %s
+  gosub t_eq str_lower_(check_the_case_in_actual) #strres hello
+  set %s2 Hello
+  str upper %s2
+  gosub t_eq str_upper_[Reforged]_(check_the_case_in_actual) #strres HELLO
+  str ins %s I 3
+  gosub t_dd wiki_str_ins_HELLO_I_3 #strres HELILO HEILLO
+  str del %s 3 2
+  gosub t_eq str_del #strres HEO
+  str count %s L
+  gosub t_eq str_count #strres 2
+  str count %s ZZ
+  gosub t_eq str_count_without_match #strres 0
+  set %tt _this_is_a_test_and_tests_are_cool_
+  str count %tt _
+  gosub t_eq wiki_str_count_underscores_in_the_cheffe_sample #strres 9
+  str pos %tt _ 1
+  gosub t_eq str_pos_with_index_1 #strres 1
+  str pos %tt _ 2
+  gosub t_eq str_pos_with_index_2 #strres 6
+  str pos %tt _ 3
+  gosub t_eq str_pos_with_index_3 #strres 9
+  str left abc xyz
+  gosub t_eq str_with_a_bad_numeric_argument_leaves_NA #strres N/A
+  str len
+  gosub t_eq str_with_too_few_parameters_gives_NA #strres N/A
+return
+
+; ===========================================================================
+;  07  namespaces
+; ===========================================================================
+sub sec_namespaces
+  gosub t_head 07_namespaces
+  gosub t_eq default_namespace_name #nsname std
+  gosub t_eq default_namespace_type #nstype local
+  set !t std_value
+  gosub t_eq namespace_variable_in_the_default_namespace !t std_value
+
+  namespace local nsA
+  gosub t_eq namespace_local_sets_the_name #nsname nsA
+  gosub t_eq namespace_local_sets_the_type #nstype local
+  gosub t_eq namespace_variable_is_empty_in_a_new_namespace !t N/A
+  set !t A_value
+  namespace local nsB
+  set !t B_value
+  namespace local nsA
+  gosub t_eq namespace_variables_are_isolated_A !t A_value
+  namespace local NSB
+  gosub t_eq namespace_names_are_case_insensitive_B !t B_value
+  namespace local std
+  gosub t_eq namespace_std_still_holds_its_value !t std_value
+
+  ; ---- push / pop and global ------------------------------------------------
+  namespace global nsG
+  namespace clear
+  namespace local nsA
+  namespace push
+  namespace local nsB
+  namespace push
+  namespace global nsG
+  gosub t_eq namespace_global_sets_the_type #nstype global
+  gosub t_eq namespace_global_sets_the_name #nsname nsG
+  set !g_val G_value
+  gosub t_eq namespace_global_variable !g_val G_value
+  namespace pop
+  gosub t_eq pop_restores_name_nsB #nsname nsB
+  gosub t_eq pop_restores_type_local #nstype local
+  gosub t_eq pop_restores_visible_variables !t B_value
+  namespace pop
+  gosub t_eq pop_restores_name_nsA #nsname nsA
+  gosub t_eq pop_restores_variables_nsA !t A_value
+  gosub t_eq global_variable_is_not_visible_from_a_local_namespace !g_val N/A
+  namespace global nsG
+  gosub t_eq global_variable_survives_switching_namespaces !g_val G_value
+  namespace clear
+  gosub t_eq namespace_clear_on_global_namespace !g_val N/A
+  namespace local nsA
+  namespace pop
+  gosub t_dd wiki_pop_with_nothing_pushed_goes_back_to_STD #nsname std nsA
+
+  ; ---- clear -------------------------------------------------------------------
+  namespace local nsC
+  set !x 1
+  set !y 2
+  namespace clear
+  gosub t_eq namespace_clear_removes_x !x N/A
+  gosub t_eq namespace_clear_removes_y !y N/A
+  namespace local nsA
+  gosub t_eq namespace_clear_leaves_other_namespaces_alone !t A_value
+
+  ; ---- copy ------------------------------------------------------------------------
+  namespace local nsSrc
+  set !ret_a 1
+  set !ret_b 2
+  set !other 3
+  namespace local nsDst
+  namespace copy ret* from local nsSrc
+  gosub t_eq copy_from_local_star_filter_ret_a !ret_a 1
+  gosub t_eq copy_from_local_star_filter_ret_b !ret_b 2
+  gosub t_eq copy_skips_names_that_do_not_match !other N/A
+  namespace clear
+  namespace copy * from local nsSrc
+  gosub t_eq copy_star_copies_everything_other !other 3
+  gosub t_eq copy_star_copies_everything_ret_a !ret_a 1
+  namespace clear
+  namespace copy r*_a from local nsSrc
+  gosub t_eq copy_filter_with_text_before_and_after_the_star_matches !ret_a 1
+  gosub t_eq copy_filter_with_text_before_and_after_the_star_skips_ret_b !ret_b N/A
+  namespace clear
+  ; a filter that STARTS with * looks like a persistent variable (*_a) to the
+  ; parser and is replaced by that variable's value (N/A) before the command
+  ; sees it, so nothing matches
+  namespace copy *_a from local nsSrc
+  gosub t_eq QUIRK_a_leading_star_filter_is_read_as_a_persistent_variable_so_nothing_is_copied !ret_a N/A
+  namespace local nsSrc
+  namespace copy ret* to local nsTo1
+  namespace local nsTo1
+  gosub t_eq copy_to_local_creates_the_target_ret_b !ret_b 2
+  gosub t_eq copy_to_local_filter_skips_other !other N/A
+  namespace local nsSrc
+  namespace copy ret* to global nsG2
+  namespace local nsDst3
+  namespace copy * from global nsG2
+  gosub t_eq copy_via_global_ret_a !ret_a 1
+  gosub t_eq copy_via_global_ret_b !ret_b 2
+  gosub t_eq copy_via_global_filter_skips_other !other N/A
+  namespace global nsG2
+  namespace clear
+  gosub t_eq cleanup_of_the_global_test_namespace !ret_a N/A
+  namespace local std
+return
+
+; ===========================================================================
+;  08  misc commands that need neither a client nor a window
+; ===========================================================================
+sub sec_misc
+  gosub t_head 08_misc_commands
+  ; ---- linesPerCycle <-> #lpc -------------------------------------------------
+  linesPerCycle 77
+  gosub t_eq linespercycle_command_sets_lpc #lpc 77
+  set #lpc 123
+  gosub t_eq lpc_variable_is_writable #lpc 123
+  set #lpc 0
+  gosub t_eq lpc_zero_is_ignored #lpc 123
+  set #lpc abc
+  gosub t_eq lpc_non_numeric_value_is_ignored #lpc 123
+  set #lpc 1000
+
+  ; ---- writable result variables ----------------------------------------------------
+  set #result abc
+  gosub t_eq result_is_writable #result abc
+  set #strRes xyz
+  gosub t_eq strres_is_writable #strres xyz
+  set #sendHeader X-Test:_abc
+  gosub t_eq sendheader_round_trip #sendheader X-Test:_abc
+  set #sendHeader N/A
+  gosub t_eq sendheader_reset_to_NA #sendheader N/A
+  set #menuButton Nothing
+  gosub t_eq menubutton_is_writable #menubutton Nothing
+
+  ; ---- send: bad arguments never touch the network --------------------------------------
+  set %r before
+  send HTTPPost 127.0.0.1
+  send nonsense a b c d
+  send
+  set %r %r , after
+  gosub t_eq send_with_bad_arguments_is_a_noop %r beforeafter
+
+  ; ---- sleep / wait with bad arguments are no-ops ----------------------------------------
+  set %r before
+  sleep abc
+  sleep -5
+  sleep
+  wait
+  wait abc
+  set %r %r , after
+  gosub t_eq sleep_and_wait_with_bad_arguments_are_noops %r beforeafter
+
+  ; ---- deleteVar of something that does not exist ---------------------------------------------
+  deleteVar v_surely_not_defined
+  deleteVar
+  gosub t_eq deletevar_of_an_undefined_variable_is_harmless %v_surely_not_defined N/A
+
+  ; ---- unknown variables ------------------------------------------------------------------------------
+  gosub t_eq unknown_system_variable_reads_NA #foo_bar_baz N/A
+  gosub t_eq strmax_is_in_the_editor_keyword_list_but_not_implemented #strmax N/A
+  gosub t_skip menu_test_command internal_developer_hook_not_part_of_the_scripting_API
+return
+
+; ===========================================================================
+;  09  system variables that need no client
+; ===========================================================================
+sub sec_sysvars
+  gosub t_head 09_system_variables_without_a_client
+  gosub t_eq euover_stays_at_the_original_value #euover 1_50_00
+  set %rv #reforgedver
+  str count %rv #dot
+  gosub t_eq reforgedver_is_YY.MM.DD.commit_so_3_dots #strres 3
+  gosub t_info reforgedver #reforgedver
+  set %d #date
+  gosub c_digits date_is_yymmdd %d 6
+  set %tm #time
+  gosub c_digits time_is_hhmmss %tm 6
+
+  set %st1 #systime
+  set %ok %st1 >= 1000000000000
+  gosub t_chk systime_is_milliseconds_since_1980 %st1 >=_1000000000000 %ok
+  set %st2 #systime
+  set %ok %st2 >= %st1
+  gosub t_chk systime_never_goes_backwards %st2 >=_previous_read %ok
+
+  set #sCnt 1000
+  set %v #sCnt
+  gosub c_range scnt_after_set_1000 %v 1000 1002
+  set #sCnt2 5000
+  set %v #sCnt2
+  gosub c_range scnt2_after_set_5000 %v 5000 5003
+
+  set %rmin 1000
+  set %rmax -1
+  set %rbad 0
+  for %k 1 40
+  {
+    set %rv #random
+    if %rv < %rmin
+      set %rmin %rv
+    if %rv > %rmax
+      set %rmax %rv
+    if %rv < 0 || %rv > 999
+      set %rbad %rbad + 1
+  }
+  gosub t_eq random_stays_within_0_and_999 %rbad 0
+  set %ok %rmax > %rmin
+  set %act min , %rmin , _max , %rmax
+  gosub t_chk random_is_not_constant_over_40_reads %act max_greater_than_min %ok
+
+  set %ov #osver
+  str count %ov _
+  gosub t_eq osver_is_platform_major_minor_joined_by_underscores #strres 2
+  gosub t_info osver %ov
+  set %o EXEC in #opts
+  gosub t_eq opts_contains_EXEC %o -1
+  set %o SEND in #opts
+  gosub t_eq opts_contains_SEND %o -1
+  gosub t_info opts #opts
+  str right #curpath 1
+  gosub t_str curpath_ends_with_a_backslash #strres \
+  gosub t_info curpath #curpath
+
+  set %cc #clicnt
+  set %cn #clinr
+  set %ok ( %cc >= 0 ) && ( %cn >= 0 ) && ( %cn <= %cc )
+  set %act clinr , _ , %cn , _of_clicnt_ , %cc
+  gosub t_chk clinr_is_between_0_and_clicnt %act 0..clicnt %ok
+  gosub c_num cursorx_is_an_integer #cursorx
+  gosub c_num cursory_is_an_integer #cursory
+  gosub t_info dispres_before_any_display #dispres
+return
+
+; ===========================================================================
+;  11  wait / sleep timing
+; ===========================================================================
+sub sec_timing
+  gosub t_head 11_wait_and_sleep_timing
+  set %t0 #systime
+  sleep 100
+  set %dt #systime - %t0
+  set %ok ( %dt >= 90 ) && ( %dt <= 1500 )
+  gosub t_chk sleep_100_elapsed_ms %dt 90..1500 %ok
+
+  set %t0 #systime
+  wait 5
+  set %dt #systime - %t0
+  set %ok ( %dt >= 225 ) && ( %dt <= 1500 )
+  gosub t_chk wait_5_ticks_is_about_250_ms %dt 225..1500 %ok
+
+  set %t0 #systime
+  wait 1s
+  set %dt #systime - %t0
+  set %ok ( %dt >= 950 ) && ( %dt <= 2500 )
+  gosub t_chk wait_1s_is_about_1000_ms %dt 950..2500 %ok
+
+  set %t0 #systime
+  wait 2 2
+  set %dt #systime - %t0
+  set %ok ( %dt >= 90 ) && ( %dt <= 1500 )
+  gosub t_chk wait_2_ticks_plus_up_to_2_random_ticks %dt 90..1500 %ok
+
+  set %t0 #systime
+  wait 0
+  set %dt #systime - %t0
+  set %ok %dt <= 300
+  gosub t_chk wait_0_returns_at_once %dt 0..300 %ok
+
+  set %c0 #sCnt
+  set %t0 #sCnt2
+  wait 1s
+  set %c1 #sCnt
+  set %t1 #sCnt2
+  set %dc %c1 - %c0
+  set %dt %t1 - %t0
+  gosub c_range scnt_advances_by_about_1_per_second %dc 1 2
+  gosub c_range scnt2_advances_by_about_10_per_second %dt 9 12
+return
+
+; ===========================================================================
+;  12  onHotKey (negative checks: nothing is pressed)
+; ===========================================================================
+sub sec_hotkey
+  gosub t_head 12_onhotkey_without_a_key_press
+  ; keep your hands off F9 during this run.  When the key is NOT pressed the
+  ; line (or block) after onHotKey is skipped.
+  set %hk 0
+  onhotkey F9
+    set %hk 1
+  gosub t_eq onhotkey_not_pressed_skips_the_next_line %hk 0
+  set %hk 0
+  onhotkey F9 ctrl alt shift
+    set %hk 1
+  gosub t_eq onhotkey_with_modifiers_not_pressed_skips_the_next_line %hk 0
+  set %hk 0
+  onhotkey F9
+  {
+    set %hk 1
+    set %hk 2
+  }
+  gosub t_eq onhotkey_not_pressed_skips_the_whole_block %hk 0
+  set %hk 0
+  onhotkey nosuchkey
+    set %hk 1
+  gosub t_eq onhotkey_with_an_unknown_key_never_fires %hk 0
+return
+
+; ===========================================================================
+;  10  menu controls  (nothing is shown until the final report window)
+; ===========================================================================
+sub sec_menu
+  gosub t_head 10_menu_controls
+  menu Clear
+  menu Window Title EUO selftest menu
+  menu Window Size 320 420
+  menu Window Color btnface
+  menu Window Transparent 100
+  menu Font Name Arial
+  menu Font Size 9
+  menu Font Style BI
+  menu Font Color black
+  menu Font BGColor white
+  menu Font Align left
+  menu Font Transparent #false
+  menu Font Style
+  menu Font BGColor btnface
+
+  ; ---- edit -----------------------------------------------------------------------
+  menu Edit ed1 10 60 150 initial
+  menu Get ed1
+  gosub t_eq menu_edit_initial_text #menures initial
+  menu Font Size notanumber
+  menu Font Color notacolor
+  menu Font
+  menu Get ed1
+  gosub t_eq menu_font_with_bad_arguments_changes_nothing #menures initial
+  menu Set ed1 changed
+  menu Get ed1
+  gosub t_eq menu_set_then_get_edit #menures changed
+  menu Get ED1
+  gosub t_eq menu_names_are_case_insensitive #menures changed
+  menu GetNum ed1 99
+  gosub t_eq menu_getnum_returns_the_default_for_non_numeric_text #menures 99
+  menu Set ed1 42
+  menu GetNum ed1 99
+  gosub t_eq menu_getnum_returns_the_number #menures 42
+  menu GetNum nosuchcontrol 5
+  gosub t_eq menu_getnum_of_an_unknown_name_returns_the_default #menures 5
+  menu Get nosuchcontrol
+  gosub t_eq menu_get_of_an_unknown_name_gives_NA #menures N/A
+  set #menuRes forty
+  gosub t_dd wiki_menures_is_read_only #menures N/A forty
+
+  ; ---- label and button (not readable with menu get) ------------------------------------------
+  menu Text lbl1 10 10 A label with several words
+  menu Get lbl1
+  gosub t_eq menu_get_of_a_label_gives_NA #menures N/A
+  menu Set lbl1 Another caption
+  menu Button btn1 10 30 80 25 Click me
+  menu Set btn1 New caption
+  menu Get btn1
+  gosub t_eq menu_get_of_a_button_gives_NA #menures N/A
+
+  ; ---- memo [Reforged] ---------------------------------------------------------------------------
+  menu Memo mm1 10 90 150 60 line1$line2$line3
+  menu Get mm1
+  set %mm #menures
+  str count %mm $
+  gosub t_eq menu_memo_dollar_is_a_line_break_that_folds_back #strres 2
+  str left %mm 5
+  gosub t_eq menu_memo_first_line #strres line1
+  menu Set mm1 a$b
+  menu Get mm1
+  str len #menures
+  gosub t_eq menu_memo_set_then_get_length #strres 3
+
+  ; ---- checkboxes ---------------------------------------------------------------------------------
+  menu Check chk1 10 160 120 20 #true Checked box
+  menu Check chk2 10 180 120 20 #false Unchecked box
+  menu Get chk1
+  gosub t_eq menu_check_created_checked #menures -1
+  menu Get chk2
+  gosub t_eq menu_check_created_unchecked #menures 0
+  menu Set chk2 1
+  menu Get chk2
+  gosub t_eq menu_set_check_to_1 #menures -1
+  menu Set chk1 0
+  menu Get chk1
+  gosub t_eq menu_set_check_to_0 #menures 0
+
+  ; ---- combo box (index is 1-based, 0 = nothing selected) ---------------------------------------------
+  menu Combo Create cmb1 10 205 120
+  menu Combo Add cmb1 One
+  menu Combo Add cmb1 Two
+  menu Combo Add cmb1 Three
+  menu Get cmb1
+  gosub t_eq menu_combo_nothing_selected_is_0 #menures 0
+  menu Combo Select cmb1 2
+  menu Get cmb1
+  gosub t_eq menu_combo_select_2_reads_back_2 #menures 2
+  menu Combo Select cmb1 3
+  menu Get cmb1
+  gosub t_eq menu_combo_select_3_reads_back_3 #menures 3
+  menu Combo Clear cmb1
+  menu Get cmb1
+  gosub t_eq menu_combo_clear_selects_nothing_Reforged #menures 0
+
+  ; ---- list box (index is 1-based, 0 = nothing selected) -------------------------------------------------
+  menu List Create lst1 10 235 120 60
+  menu List Add lst1 First
+  menu List Add lst1 Second
+  menu List Add lst1 Third
+  menu Get lst1
+  gosub t_eq menu_list_nothing_selected_is_0 #menures 0
+  menu List Select lst1 3
+  menu Get lst1
+  gosub t_eq menu_list_select_3_reads_back_3 #menures 3
+  menu List Select lst1 1
+  menu Get lst1
+  gosub t_eq menu_list_select_1_reads_back_1 #menures 1
+  menu List Clear lst1
+  menu Get lst1
+  gosub t_soft menu_list_clear_selects_nothing_Reforged #menures 0
+
+  ; ---- shapes (all 6 shape types, with line and fill styles) -----------------------------------------------
+  for %st 1 6
+  {
+    menu Shape shp , %st 200 10 40 40 %st %st 1 blue %st green
+  }
+  menu Shape shp9 250 10 40 40 3 7 2 $0000FF 7 $00FFFF
+  menu Get shp1
+  gosub t_eq menu_get_of_a_shape_gives_NA #menures N/A
+
+  ; ---- images (nothing to read back: these must simply not fail) ------------------------------------------------
+  menu Image Create img1 200 60 100 100
+  menu Image Rectangle img1 0 0 99 99 white #true
+  menu Image Rectangle img1 5 5 94 94 black #false 2
+  menu Image Ellipse img1 10 10 60 60 red #true
+  menu Image Ellipse img1 10 10 60 60 blue #false 2
+  menu Image Line img1 0 0 99 99 green
+  menu Image Line img1 0 99 99 0 green 3
+  menu Image Pix img1 50 50 red
+  menu Image PixLine img1 0 90 AAAPPP666999AAP
+  menu Image FloodFill img1 70 20 yellow
+  menu Image Pos img1 200 60
+  menu Image Pos img1 200 60 120 120
+  set %r images_ok
+  gosub t_eq menu_image_commands_ran_without_stopping_the_script %r images_ok
+  gosub t_skip menu_image_file needs_an_image_file_on_disk
+
+  ; ---- delete --------------------------------------------------------------------------------------------------------
+  menu Delete ed1
+  menu Get ed1
+  gosub t_eq menu_delete_removes_the_control #menures N/A
+  menu Delete ed1
+  menu Delete nosuchcontrol
+  set %r delete_ok
+  gosub t_eq menu_delete_of_a_missing_control_is_harmless %r delete_ok
+return
+
+; ===========================================================================
+;  13  every variable, listed once
+; ===========================================================================
+;  Variables that work with or without a client are only listed (their exact
+;  behaviour is asserted in the sections above).  Every client variable is
+;  asserted to be N/A when no client is attached; with a client it is listed.
+sub sec_vartable
+  gosub t_head 13_every_variable_listed_once
+  gosub t_info client_attached_(1=yes) %HAVE_CLIENT
+
+  ; ---- work without a client --------------------------------------------------
+  gosub v_any cliCnt
+  gosub v_any cliNr
+  gosub v_any time
+  gosub v_any date
+  gosub v_any sysTime
+  gosub v_any random
+  gosub v_any osVer
+  gosub v_any cursorX
+  gosub v_any cursorY
+  gosub v_any dispRes
+  gosub v_any nsName
+  gosub v_any nsType
+  gosub v_any true
+  gosub v_any false
+  gosub v_any spc
+  gosub v_any smc
+  gosub v_any dot
+  gosub v_any euoVer
+  gosub v_any opts
+  gosub v_any curPath
+  gosub v_any reforgedVer
+  gosub v_any sCnt
+  gosub v_any sCnt2
+  gosub v_any result
+  gosub v_any strRes
+  gosub v_any menuButton
+  gosub v_any menuRes
+  gosub v_any lpc
+  gosub v_any sendHeader
+
+  ; ---- character -------------------------------------------------------------------
+  gosub v_cli charPosX
+  gosub v_cli charPosY
+  gosub v_cli charPosZ
+  gosub v_cli charDir
+  gosub v_cli charStatus
+  gosub v_cli charID
+  gosub v_cli charGhost
+  gosub v_cli backpackID
+  gosub v_cli charType
+  ; ---- status bar ------------------------------------------------------------------------
+  gosub v_cli charName
+  gosub v_cli sex
+  gosub v_cli str
+  gosub v_cli hits
+  gosub v_cli maxHits
+  gosub v_cli dex
+  gosub v_cli stamina
+  gosub v_cli maxStam
+  gosub v_cli int
+  gosub v_cli mana
+  gosub v_cli maxMana
+  gosub v_cli maxStats
+  gosub v_cli luck
+  gosub v_cli weight
+  gosub v_cli maxWeight
+  gosub v_cli minDmg
+  gosub v_cli maxDmg
+  gosub v_cli gold
+  gosub v_cli followers
+  gosub v_cli maxFol
+  gosub v_cli aR
+  gosub v_cli fR
+  gosub v_cli cR
+  gosub v_cli pR
+  gosub v_cli eR
+  gosub v_cli tP
+  ; ---- container / gump -------------------------------------------------------------------
+  gosub v_cli nextCPosX
+  gosub v_cli nextCPosY
+  gosub v_cli contSize
+  gosub v_cli contSizeX
+  gosub v_cli contSizeY
+  gosub v_cli contPosX
+  gosub v_cli contPosY
+  gosub v_cli contKind
+  gosub v_cli contID
+  gosub v_cli contType
+  gosub v_cli contName
+  gosub v_cli contHP
+  ; ---- last action -----------------------------------------------------------------------------
+  gosub v_cli lObjectID
+  gosub v_cli lObjectType
+  gosub v_cli lTargetID
+  gosub v_cli lTargetX
+  gosub v_cli lTargetY
+  gosub v_cli lTargetZ
+  gosub v_cli lTargetKind
+  gosub v_cli lTargetTile
+  gosub v_cli lLiftedID
+  gosub v_cli lLiftedType
+  gosub v_cli lLiftedKind
+  gosub v_cli lSkill
+  gosub v_cli lSpell
+  ; ---- findItem ------------------------------------------------------------------------------------
+  gosub v_cli findID
+  gosub v_cli findType
+  gosub v_cli findX
+  gosub v_cli findY
+  gosub v_cli findZ
+  gosub v_cli findDist
+  gosub v_cli findKind
+  gosub v_cli findStack
+  gosub v_cli findBagID
+  gosub v_cli findMod
+  gosub v_cli findRep
+  gosub v_cli findCol
+  gosub v_cli findIndex
+  gosub v_cli findCnt
+  ; ---- shop ----------------------------------------------------------------------------------------------
+  gosub v_cli shopCurPos
+  gosub v_cli shopCnt
+  gosub v_cli shopItemType
+  gosub v_cli shopItemID
+  gosub v_cli shopItemName
+  gosub v_cli shopItemPrice
+  gosub v_cli shopItemMax
+  ; ---- skills / journal / messages / target ----------------------------------------------------------------
+  gosub v_cli skill
+  gosub v_cli skillCap
+  gosub v_cli skillLock
+  gosub v_cli journal
+  gosub v_cli jIndex
+  gosub v_cli jColor
+  gosub v_cli sysMsg
+  gosub v_cli sysMsgCol
+  gosub v_cli targCurs
+  gosub v_cli cursKind
+  ; ---- client --------------------------------------------------------------------------------------------------
+  gosub v_cli cliVer
+  gosub v_cli cliLang
+  gosub v_cli cliXRes
+  gosub v_cli cliYRes
+  gosub v_cli cliLeft
+  gosub v_cli cliTop
+  gosub v_cli cliLogged
+  gosub v_cli cliTitle
+  ; ---- combat -----------------------------------------------------------------------------------------------------
+  gosub v_cli lHandID
+  gosub v_cli rHandID
+  gosub v_cli enemyHits
+  gosub v_cli enemyID
+  ; ---- misc client-bound ---------------------------------------------------------------------------------------------
+  gosub v_cli shard
+  gosub v_cli lShard
+  gosub v_cli pixCol
+  gosub v_cli property
+  ; ---- tile ----------------------------------------------------------------------------------------------------------------
+  gosub v_cli tileType
+  gosub v_cli tileZ
+  gosub v_cli tileCnt
+  gosub v_cli tileName
+  gosub v_cli tileFlags
+return
+
+; ###########################################################################
+;  CLIENT TIER - read only  (runs automatically when a character is logged in)
+; ###########################################################################
+;  Most numbers here cannot be known in advance, so the "expected" column
+;  shows the CRITERION that was checked.  Checks that depend on what is
+;  happening in the game right now are "soft": a miss is a [NOTE], not a [FAIL].
+sub sec_client_ro
+  gosub t_head 14_client_read_only
+  ; open the status bar (needed for the #hits/#str/... variables), the
+  ; paperdoll and the backpack
+  event macro 8 2
+  wait 5
+  event macro 8 1
+  wait 5
+  event macro 8 7
+  wait 5
+
+  ; ---- character ---------------------------------------------------------------
+  gosub c_nonneg char_pos_x_is_>=_0 #charposx
+  gosub c_nonneg char_pos_y_is_>=_0 #charposy
+  gosub c_num char_pos_z_is_a_number #charposz
+  gosub c_range char_dir_is_0..7 #chardir 0 7
+  set %g #charghost
+  set %ok ( %g = yes ) || ( %g = no )
+  gosub t_chk char_ghost_is_yes_or_no %g yes_or_no %ok
+  gosub t_info char_status_(C=poisoned_H=hidden_B=female_G=war_D=lethal_A=frozen) #charstatus
+  gosub c_has char_id_is_a_base26_id #charid
+  gosub c_has backpack_id_is_a_base26_id #backpackid
+  gosub c_has char_type_[Reforged] #chartype
+
+  ; ---- status bar ------------------------------------------------------------------
+  gosub c_has char_name #charname
+  gosub c_range sex_is_0_male_or_1_female #sex 0 1
+  gosub c_nonneg str_is_>=_0 #str
+  gosub c_nonneg dex_is_>=_0 #dex
+  gosub c_nonneg int_is_>=_0 #int
+  set %h #hits
+  set %mh #maxhits
+  set %ok ( %h >= 0 ) && ( %h <= %mh )
+  set %act %h , _of_ , %mh
+  gosub t_chk hits_between_0_and_maxhits %act 0..maxhits %ok
+  set %h #stamina
+  set %mh #maxstam
+  set %ok ( %h >= 0 ) && ( %h <= %mh )
+  set %act %h , _of_ , %mh
+  gosub t_chk stamina_between_0_and_maxstam %act 0..maxstam %ok
+  set %h #mana
+  set %mh #maxmana
+  set %ok ( %h >= 0 ) && ( %h <= %mh )
+  set %act %h , _of_ , %mh
+  gosub t_chk mana_between_0_and_maxmana %act 0..maxmana %ok
+  gosub c_nonneg weight_is_>=_0 #weight
+  gosub c_nonneg maxweight_is_>=_0 #maxweight
+  gosub c_nonneg maxstats_is_>=_0 #maxstats
+  gosub c_num luck_is_a_number #luck
+  set %a #mindmg
+  set %b #maxdmg
+  set %ok ( %a >= 0 ) && ( %a <= %b )
+  set %act %a , _.._ , %b
+  gosub t_chk mindmg_<=_maxdmg %act 0<=mindmg<=maxdmg %ok
+  gosub c_nonneg gold_is_>=_0 #gold
+  gosub c_nonneg followers_is_>=_0 #followers
+  gosub c_nonneg maxfol_is_>=_0 #maxfol
+  gosub c_num armor_rating_is_a_number #ar
+  gosub c_num fire_resist_is_a_number #fr
+  gosub c_num cold_resist_is_a_number #cr
+  gosub c_num poison_resist_is_a_number #pr
+  gosub c_num energy_resist_is_a_number #er
+  gosub c_nonneg tithing_points_>=_0 #tp
+
+  ; ---- client info ------------------------------------------------------------------------
+  gosub c_has cliver_is_not_empty #cliver
+  gosub t_info clilang_[Reforged] #clilang
+  gosub t_eq cliLogged_is_1 #clilogged 1
+  gosub t_info shard_name #shard
+  gosub c_range curskind_is_a_facet_0..5 #curskind 0 5
+  gosub c_nonneg clixres_>=_0 #clixres
+  gosub c_nonneg cliyres_>=_0 #cliyres
+  gosub c_num clileft_is_a_number #clileft
+  gosub c_num clitop_is_a_number #clitop
+
+  ; ---- container / gump (the backpack was opened last) ------------------------------------------
+  ; what the "top gump" is depends on what the client is doing: soft checks
+  set %c_soft 1
+  gosub t_soft contname_of_the_top_gump_is_container_gump #contname container_gump
+  gosub c_has contid_is_not_empty #contid
+  gosub c_has contkind_is_not_empty #contkind
+  gosub c_has conttype_is_not_empty #conttype
+  gosub c_num contposx_is_a_number #contposx
+  gosub c_num contposy_is_a_number #contposy
+  gosub c_nonneg contsizex_>=_0_[Reforged] #contsizex
+  gosub c_nonneg contsizey_>=_0_[Reforged] #contsizey
+  set %cs #contsizex , _ , #contsizey
+  gosub t_soft contsize_is_contsizex_underscore_contsizey #contsize %cs
+  gosub c_num conthp_is_a_number_[Reforged] #conthp
+  gosub t_info contname_after_opening_the_backpack #contname
+  set %c_soft 0
+
+  ; ---- combat ---------------------------------------------------------------------------------------
+  gosub t_info enemyid_(N/A_when_nobody_attacks_you) #enemyid
+  gosub t_info enemyhits #enemyhits
+  gosub t_info lhandid #lhandid
+  gosub t_info rhandid #rhandid
+
+  gosub sec_skills
+  gosub sec_finditem
+  gosub sec_journal
+  gosub sec_client_events
+  gosub sec_client_misc
+return
+
+; ---------------------------------------------------------------------------
+;  findItem helper: #findcnt must be >= 1 (soft: depends on what is in the world)
+sub fi_atleast1
+  set %_fn %1
+  set %_fc #findcnt
+  set %_fk %_fc >= 1
+  gosub t_softchk %_fn %_fc at_least_1 %_fk
+return
+
+; ---------------------------------------------------------------------------
+sub sec_skills
+  gosub t_head 14a_chooseskill
+  chooseSkill mage
+  gosub c_nonneg skill_mage_is_>=_0 #skill
+  set %sk #skill
+  set %sc #skillcap
+  set %ok ( %sk >= 0 ) && ( %sc >= %sk )
+  set %act skill_ , %sk , _cap_ , %sc
+  gosub t_chk skillcap_is_not_below_skill %act skill<=skillcap %ok
+  set %sl #skilllock
+  set %ok ( %sl = up ) || ( %sl = down ) || ( %sl = locked )
+  gosub t_chk skilllock_is_up_down_or_locked %sl up_down_or_locked %ok
+  chooseSkill mage real
+  gosub c_nonneg skill_mage_real_is_>=_0 #skill
+  chooseSkill anil
+  gosub c_nonneg skill_animal_lore_(anil)_is_>=_0 #skill
+  chooseSkill stlt
+  gosub c_nonneg skill_stealth_(stlt)_is_>=_0 #skill
+  chooseSkill swor
+  gosub c_nonneg skill_swordsmanship_is_>=_0 #skill
+return
+
+; ---------------------------------------------------------------------------
+sub sec_finditem
+  gosub t_head 14b_finditem_and_ignoreitem
+  set %bp #backpackid
+  findItem * C_ , %bp
+  set %cnt_bp #findcnt
+  gosub c_nonneg finditem_C_backpack_count_is_>=_0 %cnt_bp
+  gosub t_info finditem_items_in_the_open_backpack %cnt_bp
+  if %cnt_bp > 0
+  {
+    set %id1 #findid
+    set %ty1 #findtype
+    gosub c_has finditem_first_item_id %id1
+    gosub c_has finditem_first_item_type %ty1
+    gosub t_eq finditem_C_item_kind_is_0_(in_a_container) #findkind 0
+    gosub t_soft finditem_C_item_is_inside_the_backpack #findbagid %bp
+    gosub c_nonneg finditem_stack_>=_0 #findstack
+    gosub c_num finditem_x_is_a_number #findx
+    gosub c_num finditem_y_is_a_number #findy
+    gosub c_num finditem_color_is_a_number #findcol
+    findItem * 1 C_ , %bp
+    gosub t_soft finditem_index_1_is_the_default_item #findid %id1
+    gosub t_eq finditem_index_sets_findindex #findindex 1
+    set %seen 0
+    findItem * C_ , %bp
+    for #findindex 1 #findcnt
+    {
+      set %seen %seen + 1
+    }
+    gosub t_eq finditem_for_findindex_visits_every_item %seen %cnt_bp
+    if %cnt_bp > 1
+    {
+      findItem * 2 C_ , %bp
+      set %id2 #findid
+      set %ok %id2 <> %id1
+      set %act %id1 , _vs_ , %id2
+      gosub t_chk finditem_index_2_is_a_different_item %act different_ids %ok
+    }
+    else
+    {
+      gosub t_skip finditem_index_2 only_one_item_in_the_backpack
+    }
+    findItem * C_ , %bp
+    set %x0 #findx
+    set %y0 #findy
+    set #findMod 10_20
+    set %x1 #findx
+    set %y1 #findy
+    set %ex %x0 + 10
+    set %ey %y0 + 20
+    gosub t_eq findmod_adds_the_x_displacement %x1 %ex
+    gosub t_eq findmod_adds_the_y_displacement %y1 %ey
+    gosub t_eq findmod_reads_back_x_underscore_y #findmod 10_20
+    set #findMod 0_0
+    findItem %id1
+    gosub t_soft finditem_by_id_finds_exactly_that_item #findid %id1
+    findItem %ty1
+    gosub fi_atleast1 finditem_by_type_finds_at_least_one
+
+    ; ---- ignoreItem (wiki: ignoring hides from findItem used with a matching parameter) ----
+    ignoreItem %id1 1
+    findItem %id1
+    gosub t_soft ignoreitem_id_in_list_1_hides_it_from_finditem_by_id #findcnt 0
+    ignoreItem reset 1
+    findItem %id1
+    gosub fi_atleast1 ignoreitem_reset_1_makes_it_findable_again
+    ignoreItem %id1
+    ignoreItem %id1
+    findItem %id1
+    gosub fi_atleast1 ignoreitem_twice_toggles_the_item_off_again
+    ignoreItem %ty1 2
+    findItem %ty1
+    gosub t_soft ignoreitem_type_hides_that_type_from_finditem_by_type #findcnt 0
+    findItem %id1
+    gosub fi_atleast1 wiki_ignored_type_is_still_found_when_searching_by_id
+    ignoreItem reset 2
+    ignoreItem %id1 , _ , %ty1 3
+    findItem %id1
+    gosub t_soft ignoreitem_id_underscore_type_list_hides_the_id #findcnt 0
+    ignoreItem reset
+    findItem %id1
+    gosub fi_atleast1 ignoreitem_reset_without_list_clears_everything
+  }
+  else
+  {
+    gosub t_skip finditem_item_checks_and_ignoreitem open_backpack_is_empty_or_not_open
+  }
+
+  findItem BBBBBBB
+  gosub t_eq finditem_of_a_missing_id_finds_nothing #findcnt 0
+  gosub t_eq finditem_of_a_missing_id_sets_findkind_minus_1 #findkind -1
+  findItem * G_30
+  set %cnt_g #findcnt
+  gosub c_nonneg finditem_G_30_ground_count_is_>=_0 %cnt_g
+  if %cnt_g > 0
+  {
+    gosub t_soft finditem_G_item_kind_is_1_(on_the_ground) #findkind 1
+    set %fd #finddist
+    set %c_soft 1
+    gosub c_range finditem_G_30_distance_is_within_30 %fd 0 30
+    set %c_soft 0
+    gosub c_num finditem_G_world_x_is_a_number #findx
+  }
+  findItem #charid
+  gosub fi_atleast1 finditem_can_find_the_own_character
+  findItem * CA_ , %bp
+  gosub t_info finditem_CA_hidden_items_in_the_backpack #findcnt
+  findItem * A
+  gosub t_info finditem_A_all_items_including_hidden #findcnt
+  ignoreItem reset
+return
+
+; ---------------------------------------------------------------------------
+sub sec_journal
+  gosub t_head 14c_journal_and_system_messages
+  set %j0 #jindex
+  gosub c_nonneg jindex_is_a_number %j0
+  event sysmessage EUO_SELFTEST_MARKER_1
+  wait 3
+  scanJournal 1
+  set %jl #journal
+  set %ok EUO_SELFTEST_MARKER_1 in %jl
+  gosub t_softchk scanjournal_1_sees_the_sysmessage_marker %jl contains_EUO_SELFTEST_MARKER_1 %ok
+  gosub c_num jcolor_is_a_number #jcolor
+  set %j1 #jindex
+  set %ok %j1 > %j0
+  set %act %j0 , _then_ , %j1
+  gosub t_softchk jindex_grows_after_a_new_message %act second>first %ok
+  scanJournal %j1
+  set %jl #journal
+  set %ok EUO_SELFTEST_MARKER_1 in %jl
+  gosub t_softchk scanjournal_with_a_jindex_value_(>=1000)_finds_the_same_line %jl contains_EUO_SELFTEST_MARKER_1 %ok
+  scanJournal 1
+  deleteJournal
+  scanJournal 1
+  gosub t_soft deletejournal_hides_the_already_read_lines #journal N/A
+  event sysmessage EUO_SELFTEST_MARKER_2
+  wait 3
+  set %sm #sysmsg
+  set %ok EUO_SELFTEST_MARKER_2 in %sm
+  gosub t_softchk sysmsg_holds_the_latest_system_message %sm contains_EUO_SELFTEST_MARKER_2 %ok
+  scanJournal 1
+  set %jl #journal
+  set %ok EUO_SELFTEST_MARKER_2 in %jl
+  gosub t_softchk new_lines_after_deletejournal_are_visible_again %jl contains_EUO_SELFTEST_MARKER_2 %ok
+return
+
+; ---------------------------------------------------------------------------
+sub sec_client_events
+  gosub t_head 14d_events_that_only_read_or_display
+  event exmsg #charid 3 0 EUO_selftest_overhead_text
+  wait 3
+  event exmsg #charid 1 33 Second_font_and_colour
+  set %r event_exmsg_ok
+  gosub t_eq event_exmsg_ran_without_stopping_the_script %r event_exmsg_ok
+  event property #backpackid
+  wait 3
+  gosub t_info event_property_of_the_backpack_(lines_are_joined_by_dollar_signs) #property
+  set %t0 #systime
+  event sleep 100
+  set %dt #systime - %t0
+  set %ok %dt >= 80
+  gosub t_softchk event_sleep_100_keeps_the_client_busy_about_100_ms %dt >=_80 %ok
+  ; gump macros: close / maximize / minimize / open the paperdoll
+  event macro 9 1
+  wait 3
+  gosub t_info contname_after_closing_the_paperdoll #contname
+  event macro 8 1
+  wait 3
+  gosub t_info contname_after_opening_the_paperdoll #contname
+  event macro 10 1
+  wait 3
+  event macro 11 1
+  wait 3
+  gosub t_info contname_after_minimize_and_maximize #contname
+  event macro 12
+  set %r event_macro_ok
+  gosub t_eq event_macro_with_only_one_parameter_is_accepted %r event_macro_ok
+  event conttop 0
+  event statbar #charid
+  wait 3
+  set %r reforged_events_ok
+  gosub t_eq event_conttop_and_statbar_[Reforged]_ran_without_stopping_the_script %r reforged_events_ok
+  event skilllock
+  event sysmessage
+  set %r bad_arguments_ok
+  gosub t_eq event_with_missing_arguments_is_a_noop %r bad_arguments_ok
+return
+
+; ---------------------------------------------------------------------------
+sub sec_client_misc
+  gosub t_head 14e_target_pixels_title_clients
+  ; ---- target ----
+  set %t0 #systime
+  target 1s
+  set %dt #systime - %t0
+  set %ok ( %dt >= 900 ) && ( %dt <= 3000 )
+  gosub t_softchk target_1s_without_a_cursor_waits_about_1000_ms %dt 900..3000 %ok
+  gosub t_soft targcurs_is_0_when_no_target_cursor_is_up #targcurs 0
+
+  ; ---- savePix / cmpPix ----
+  savePix 5 5 1 $123456
+  set %hit no
+  cmpPix 1 f
+    set %hit yes
+  gosub t_soft cmppix_f_runs_the_next_line_when_the_pixel_differs %hit yes
+  set %hit no
+  cmpPix 1 t
+    set %hit yes
+  gosub t_soft cmppix_t_skips_the_next_line_when_the_pixel_differs %hit no
+  set %hit no
+  cmpPix 1 false
+    set %hit yes
+  gosub t_dd wiki_cmppix_false_option_runs_the_next_line_when_different %hit yes no
+  set %hit no
+  cmpPix 1
+  {
+    set %hit yes
+    set %hit yes_in_block
+  }
+  gosub t_soft cmppix_without_option_is_the_same_as_t %hit no
+  savePix 5 5 2
+  gosub c_num pixcol_after_savepix_is_a_number #pixcol
+
+  ; ---- getUOTitle ----
+  getUOTitle
+  gosub c_has getuotitle_returns_the_client_window_title #strres
+  set %title #strres
+  set %clt #clititle
+  gosub t_soft clititle_variable_equals_getuotitle %clt %title
+  gosub t_info client_window_title %title
+
+  ; ---- uoXL swap ----
+  ; (with NO client attached "uoXL swap" divides by zero - Nr mod Cnt with
+  ; Cnt = 0 - and stops the script, so it is only tried when a client exists)
+  set %cnt0 #clicnt
+  set %nr0 #clinr
+  if %cnt0 >= 1
+  {
+    uoXL swap
+    set %nr1 #clinr
+    set %exp %nr0 % %cnt0 + 1
+    gosub t_eq uoxl_swap_selects_the_next_client %nr1 %exp
+    set %k 1
+    while %k < %cnt0
+    {
+      uoXL swap
+      set %k %k + 1
+    }
+    gosub t_eq uoxl_swapping_through_all_clients_returns_to_the_start #clinr %nr0
+  }
+  else
+  {
+    gosub t_skip uoxl_swap no_client_is_registered_in_clicnt
+  }
+return
+
+; ---------------------------------------------------------------------------
+sub sec_ignorecont
+  gosub t_head 21_ignorecont_[Reforged]
+  ignoreCont dumb_gump
+  ignoreCont 12345
+  ignoreCont reset
+  set %r ignorecont_ok
+  gosub t_eq ignorecont_add_and_reset_ran_without_stopping_the_script %r ignorecont_ok
+return
+
+; ###########################################################################
+;  OPT-IN GROUPS
+; ###########################################################################
+
+; ---------------------------------------------------------------------------
+;  %DO_CLIENT_WRITES - write every read/write client variable, then restore
+; ---------------------------------------------------------------------------
+sub sec_client_writes
+  gosub t_head 15_client_variable_writes_(restored_afterwards)
+  event macro 8 1
+  wait 5
+  gosub w_num lShard strict
+  gosub w_num contPosX soft
+  gosub w_num contPosY soft
+  gosub w_num nextCPosX strict
+  gosub w_num nextCPosY strict
+  gosub w_num targCurs soft
+  gosub w_num cliXRes soft
+  gosub w_num cliYRes soft
+  gosub w_num cliLeft soft
+  gosub w_num cliTop soft
+  gosub w_num lSpell strict
+  gosub w_num lSkill strict
+  gosub w_num lTargetKind strict
+  gosub w_num lTargetTile strict
+  gosub w_num lTargetX strict
+  gosub w_num lTargetY strict
+  gosub w_num lTargetZ strict
+  gosub w_num sysMsgCol strict
+  gosub w_id lTargetID
+  gosub w_id lHandID
+  gosub w_id rHandID
+  gosub w_id lObjectID
+
+  ; findIndex / findMod
+  set %o_fi #findindex
+  set #findIndex 1
+  gosub t_eq write_findindex_1 #findindex 1
+  set #findIndex %o_fi
+  set #findMod 5_6
+  gosub t_eq write_findmod_5_6 #findmod 5_6
+  set #findMod 0_0
+
+  ; cliTitle (Reforged) and setUOTitle / getUOTitle
+  set %o_ct #clititle
+  set #cliTitle EUO_selftest_title_A
+  gosub t_eq write_clititle #clititle EUO_selftest_title_A
+  set #cliTitle %o_ct
+  getUOTitle
+  set %title0 #strres
+  setUOTitle EUO_selftest_title_B
+  getUOTitle
+  gosub t_eq setuotitle_then_getuotitle #strres EUO_selftest_title_B
+  setUOTitle %title0
+  getUOTitle
+  gosub t_eq setuotitle_restores_the_original_title #strres %title0
+
+  ; jColor is documented read/write but is read-only in the engine
+  set %o_jc #jcolor
+  set #jColor 5
+  gosub t_dd wiki_jcolor_is_writable #jcolor 5 %o_jc
+
+  ; contPos / nextCPos commands
+  contPos 120 80
+  wait 2
+  gosub t_soft contpos_command_moves_the_top_gump_x #contposx 120
+  gosub t_soft contpos_command_moves_the_top_gump_y #contposy 80
+  nextCPos 55 66
+  gosub t_eq nextcpos_command_sets_nextcposx #nextcposx 55
+  gosub t_eq nextcpos_command_sets_nextcposy #nextcposy 66
+return
+
+; read/write round trip of one numeric client variable, then restore it
+sub w_num
+  set %_wn %1
+  set %_wm %2
+  set %_wo # . %_wn
+  set %_wv 7
+  set %_wk ( %_wo >= 0 ) || ( %_wo < 0 )
+  if %_wk
+  {
+    set %_wv %_wo + 1
+  }
+  set # . %_wn %_wv
+  set %_wr # . %_wn
+  if %_wm = soft
+  {
+    gosub t_soft write_ , %_wn %_wr %_wv
+  }
+  else
+  {
+    gosub t_eq write_ , %_wn %_wr %_wv
+  }
+  set # . %_wn %_wo
+  set %_wb # . %_wn
+  gosub t_soft restore_ , %_wn %_wb %_wo
+return
+
+; same for an id variable: write the character id, read it back, restore
+sub w_id
+  set %_wn %1
+  set %_wo # . %_wn
+  set # . %_wn #charid
+  set %_wr # . %_wn
+  gosub t_eq write_ , %_wn %_wr #charid
+  set # . %_wn %_wo
+  set %_wb # . %_wn
+  gosub t_soft restore_ , %_wn %_wb %_wo
+return
+
+; ---------------------------------------------------------------------------
+;  %DO_INPUT - click (cursor only), key, msg, move, pathfind, event macro say
+; ---------------------------------------------------------------------------
+sub sec_input
+  gosub t_head 16_input_synthesis
+  ; "click x y n" only moves the cursor - nothing is pressed
+  click 15 25 n
+  wait 2
+  gosub t_soft click_n_moves_the_cursor_x #cursorx 15
+  gosub t_soft click_n_moves_the_cursor_y #cursory 25
+  click 40 50 n dmc
+  click 41 51 n mc
+  click 42 52 n f
+  click 43 53 n x 2
+  wait 2
+  gosub t_soft click_with_modifiers_still_ends_at_the_last_position_x #cursorx 43
+  set %r click_ok
+  gosub t_eq click_modifier_variants_ran_without_stopping_the_script %r click_ok
+  key esc
+  key esc shift
+  set %r key_ok
+  gosub t_eq key_esc_with_and_without_modifier_ran %r key_ok
+  ; msg types into the chat line and presses Enter ($): this SPEAKS in the game
+  msg EUO selftest msg$
+  wait 3
+  scanJournal 1
+  set %jl #journal
+  set %ok EUO in %jl
+  gosub t_softchk msg_text_shows_up_in_the_journal %jl contains_EUO %ok
+  ; walking to the position you already stand on
+  set %px #charposx
+  set %py #charposy
+  move %px %py 2 2s
+  gosub t_soft move_to_the_current_position_keeps_x #charposx %px
+  gosub t_soft move_to_the_current_position_keeps_y #charposy %py
+  event pathfind %px %py
+  wait 5
+  gosub t_soft pathfind_to_the_current_position_keeps_x #charposx %px
+  event macro 1 0 EUO selftest macro say
+  wait 3
+  set %r input_ok
+  gosub t_eq event_macro_say_ran %r input_ok
+  gosub t_skip event_macro_20_(quit_game) NEVER_run_by_this_script
+return
+
+; ---------------------------------------------------------------------------
+;  %DO_ITEMS - move ONE backpack item out and back, context menu, equip, hide
+; ---------------------------------------------------------------------------
+sub sec_items
+  gosub t_head 17_item_drag_drop_popup_hide
+  event macro 8 7
+  wait 5
+  findItem * C_ , #backpackid
+  if #findcnt < 1
+  {
+    gosub t_skip exevent_drag_dropc open_backpack_is_empty_or_not_open
+  }
+  else
+  {
+    set %bp #backpackid
+    set %id1 #findid
+    exevent drag %id1 1
+    wait 5
+    gosub t_soft exevent_drag_lifts_the_item #lliftedid %id1
+    gosub t_soft exevent_drag_puts_an_object_on_the_cursor #lliftedkind 1
+    exevent dropc %bp
+    wait 10
+    gosub t_soft exevent_dropc_puts_it_back_nothing_left_on_the_cursor #lliftedkind 0
+    findItem %id1
+    gosub t_soft the_item_is_in_the_backpack_again #findbagid %bp
+    exevent drag %id1 1
+    wait 5
+    exevent dropc %bp 80 80
+    wait 10
+    gosub t_soft exevent_dropc_with_x_y_also_returns_it #lliftedkind 0
+  }
+  gosub t_skip event_drag NOT_run_wiki:_mixing_it_with_exevent_dropc_leaves_a_ghost_item
+  gosub t_skip exevent_dropg NOT_run_it_would_put_an_item_on_the_ground
+  exevent popup #charid
+  wait 5
+  key esc
+  set %r popup_ok
+  gosub t_eq exevent_popup_on_the_own_character_ran %r popup_ok
+  str len %CFG_PET_ID
+  if #strres > 0
+  {
+    exevent renamePet %CFG_PET_ID EUOTest
+    wait 5
+    set %r rename_ok
+    gosub t_eq exevent_renamepet_ran_(check_the_pets_name_in_game) %r rename_ok
+  }
+  else
+  {
+    gosub t_skip exevent_renamepet set_%CFG_PET_ID_(it_renames_the_pet_to_EUOTest)
+  }
+  str len %CFG_EQUIP_ID
+  if #strres > 0
+  {
+    exevent equip %CFG_EQUIP_ID
+    wait 10
+    exevent drag %CFG_EQUIP_ID 1
+    wait 5
+    exevent droppd
+    wait 10
+    set %r equip_ok
+    gosub t_eq exevent_equip_and_droppd_ran_(check_the_paperdoll) %r equip_ok
+  }
+  else
+  {
+    gosub t_skip exevent_equip_and_droppd set_%CFG_EQUIP_ID_to_a_wearable_item_id
+  }
+  findItem * G_12
+  if #findcnt > 0
+  {
+    hideItem #findid
+    wait 3
+    set %r hide_ok
+    gosub t_eq hideitem_on_a_ground_item_ran_(it_disappears_until_redraw) %r hide_ok
+  }
+  else
+  {
+    gosub t_skip hideitem no_item_on_the_ground_within_12_tiles
+  }
+return
+
+; ---------------------------------------------------------------------------
+;  %DO_LOCKS
+; ---------------------------------------------------------------------------
+sub sec_locks
+  gosub t_head 17b_skill_and_stat_locks
+  chooseSkill mage
+  set %lock0 #skilllock
+  gosub t_info mage_lock_before_the_test %lock0
+  exevent skillLock mage locked
+  wait 20
+  chooseSkill mage
+  gosub t_soft exevent_skilllock_mage_locked #skilllock locked
+  exevent skillLock mage down
+  wait 20
+  chooseSkill mage
+  gosub t_soft exevent_skilllock_mage_down #skilllock down
+  event skillLock mage up
+  wait 20
+  chooseSkill mage
+  gosub t_soft event_skilllock_(rerouted_to_exevent)_mage_up #skilllock up
+  exevent skillLock mage %lock0
+  wait 20
+  chooseSkill mage
+  gosub t_soft mage_lock_restored #skilllock %lock0
+  ; stat locks cannot be read back: Str is left UP (the usual default)
+  exevent statLock str up
+  wait 10
+  set %r statlock_ok
+  gosub t_eq exevent_statlock_str_up_ran_(str_lock_is_now_UP) %r statlock_ok
+return
+
+; ---------------------------------------------------------------------------
+;  %DO_SHOP - open a vendor buy gump first
+; ---------------------------------------------------------------------------
+sub sec_shop
+  gosub t_head 17c_shop_commands
+  getShopInfo
+  gosub t_info shopcurpos #shopcurpos
+  gosub t_info shopcnt #shopcnt
+  gosub t_info shopitemtype #shopitemtype
+  gosub t_info shopitemid #shopitemid
+  gosub t_info shopitemname #shopitemname
+  gosub t_info shopitemprice #shopitemprice
+  gosub t_info shopitemmax #shopitemmax
+  setShopItem #shopitemid 1
+  set %r shop_ok
+  gosub t_eq setshopitem_ran_without_stopping_the_script %r shop_ok
+return
+
+; ---------------------------------------------------------------------------
+;  %DO_EXECUTE / %DO_SEND / %DO_UOXL_NEW / %DO_TERMINATE_UO
+; ---------------------------------------------------------------------------
+sub sec_execute
+  gosub t_head 18_execute
+  set %t0 #systime
+  execute cmd.exe /c exit
+  set %dt #systime - %t0
+  set %ok %dt >= 1800
+  gosub t_softchk execute_includes_the_built_in_2_second_wait %dt >=_1800_ms %ok
+return
+
+sub sec_send
+  gosub t_head 19_send_http_post
+  set #sendHeader X-Test:_1$
+  set %t0 #systime
+  send HTTPPost euo-selftest.invalid /euo-selftest a=1
+  set %dt #systime - %t0
+  set %ok %dt <= 15000
+  gosub t_chk send_to_an_unresolvable_host_returns_and_runs_nothing %dt 0..15000_ms %ok
+  set #sendHeader N/A
+return
+
+sub sec_uoxl_new
+  gosub t_head 20_uoxl_new
+  set %c0 #clicnt
+  uoXL new
+  wait 10s
+  set %c1 #clicnt
+  set %ok %c1 > %c0
+  set %act %c0 , _to_ , %c1
+  gosub t_softchk uoxl_new_starts_another_client %act clicnt_grows %ok
+return
+
+sub sec_terminate_uo
+  gosub t_head 22_terminate_uo
+  set %c0 #clicnt
+  terminate uo
+  wait 5
+  set %c1 #clicnt
+  set %ok %c1 < %c0
+  set %act %c0 , _to_ , %c1
+  gosub t_softchk terminate_uo_closes_the_client %act clicnt_shrinks %ok
+return
+
+; ###########################################################################
+;  TILE  (runs last: a missing map file makes Tile Init stop the script)
+; ###########################################################################
+sub sec_tile
+  gosub t_head 23_tile
+  set %c_soft 1
+  tile init
+  tile cnt #charposx #charposy #curskind
+  set %tc #tilecnt
+  gosub c_nonneg tile_cnt_at_the_characters_position_is_>=_0 %tc
+  if %tc > 0
+  {
+    tile get #charposx #charposy 1 #curskind
+    gosub c_num tile_type_is_a_number #tiletype
+    gosub c_num tile_z_is_a_number #tilez
+    gosub c_has tile_name_is_not_empty #tilename
+    gosub t_info tile_flags #tileflags
+    for %ti 1 %tc
+    {
+      tile get #charposx #charposy %ti #curskind
+      set %tl #tiletype , _z= , #tilez , _name= , #tilename
+      gosub t_info tile_layer_ , %ti %tl
+    }
+  }
+  else
+  {
+    gosub t_skip tile_get no_tiles_reported_at_the_characters_position
+  }
+  tile init noOverrides
+  tile cnt #charposx #charposy #curskind
+  gosub t_soft tile_init_noOverrides_gives_the_same_tile_count #tilecnt %tc
+  set %c_soft 0
+return
+
+; ---------------------------------------------------------------------------
+;  %DO_INTERACTIVE - message boxes, beep, pause, hotkey, menu clicks
+;  (you have to act: every step tells you what to click)
+; ---------------------------------------------------------------------------
+sub sec_interactive
+  gosub t_head 24_interactive_(you_click_things)
+
+  ; ---- display ---------------------------------------------------------------
+  display ok Interactive 1 of 10:$Click OK.
+  gosub t_eq display_ok_gives_Ok #dispres Ok
+  display okcancel Interactive 2 of 10:$Click CANCEL.
+  gosub t_eq display_okcancel_cancel_gives_Cancel #dispres Cancel
+  display yesno Interactive 3 of 10:$Click YES.
+  gosub t_eq display_yesno_yes_gives_Yes #dispres Yes
+  display yesno Interactive 4 of 10:$Click NO.
+  gosub t_eq display_yesno_no_gives_No #dispres No
+  display yesnocancel Interactive 5 of 10:$Click CANCEL.
+  gosub t_eq display_yesnocancel_cancel_gives_Cancel #dispres Cancel
+  display Interactive 6 of 10: a display line without a type keyword.$Click OK.
+  gosub t_eq display_without_a_type_is_a_plain_ok_box #dispres Ok
+
+  ; ---- sound -------------------------------------------------------------------------
+  sound
+  display yesno Interactive 7 of 10:$Did you just hear a beep?
+  gosub t_soft sound_without_a_file_plays_the_default_beep #dispres Yes
+
+  ; ---- pause ---------------------------------------------------------------------------
+  display ok Interactive 8 of 10:$After you click OK the script PAUSES.$Press the PLAY button of EasyUO Reforged to continue.
+  set %resumed no
+  pause
+  set %resumed yes
+  gosub t_eq pause_waits_until_play_is_pressed %resumed yes
+
+  ; ---- onHotKey ----------------------------------------------------------------------------
+  display ok Interactive 9 of 10:$After you click OK press and HOLD the F9 key (you have 10 seconds).
+  set %hk 0
+  set %lim #scnt + 10
+  repeat
+  {
+    onhotkey F9
+      set %hk 1
+    wait 1
+  }
+  until %hk = 1 || #scnt > %lim
+  gosub t_eq onhotkey_fires_while_the_key_is_down %hk 1
+
+  ; ---- menu: buttons, check box, close button ----------------------------------------------------
+  display ok Interactive 10 of 10:$A small window opens.$Click the button TWO, tick the check box, then CLOSE the window.
+  menu Clear
+  menu Window Title EUO selftest - click TWO, tick, close
+  menu Window Size 330 130
+  menu Text t1 10 10 Click TWO, tick the box, close the window.
+  menu Button b1 10 40 80 30 One
+  menu Button b2 100 40 80 30 Two
+  menu Check c1 10 80 140 20 #false Tick me
+  set #menuButton none
+  menu Show 200 200
+  set %lim #scnt + 60
+  repeat
+  {
+    wait 1
+  }
+  until #menubutton = b2 || #menubutton = CLOSED || #scnt > %lim
+  gosub t_eq menu_button_click_sets_menubutton #menubutton b2
+  menu Get c1
+  gosub t_info menu_check_box_state_when_you_clicked_TWO_(-1=ticked) #menures
+  set %lim #scnt + 60
+  repeat
+  {
+    wait 1
+  }
+  until #menubutton = CLOSED || #scnt > %lim
+  gosub t_eq closing_the_menu_window_sets_menubutton_to_CLOSED #menubutton CLOSED
+
+  ; ---- menu hide / show ----------------------------------------------------------------------------
+  menu Clear
+  menu Window Size 260 60
+  menu Text t1 10 10 Hide / show test window
+  menu Show 200 200
+  menu Hide
+  display yesno Interactive:$The small test window should be HIDDEN now.$Is it?
+  gosub t_soft menu_hide_hides_the_window #dispres Yes
+  menu Show 200 200
+  display yesno Interactive:$The small test window should be VISIBLE again.$Is it?
+  gosub t_soft menu_show_shows_the_window_again #dispres Yes
+
+  ; ---- gallery: shapes and images (visual check) -----------------------------------------------------------
+  menu Clear
+  menu Window Title EUO selftest - gallery
+  menu Window Size 340 210
+  menu Window Color white
+  for %st 1 6
+  {
+    set %gx %st * 50 - 40
+    menu Shape gs , %st %gx 10 40 40 %st 7 1 red 7 yellow
+  }
+  menu Image Create gi 10 70 150 100
+  menu Image Rectangle gi 0 0 149 99 blue #true
+  menu Image Ellipse gi 40 20 100 80 red #true
+  menu Image Line gi 0 0 149 99 green 3
+  menu Image PixLine gi 0 90 AAAPPP666999AAP
+  menu Text gt 180 80 Text with a $ line break
+  menu Show 200 200
+  display yesno Interactive:$Do you see 6 yellow shapes (circle, ellipse, rectangle, rounded rectangle, rounded square, square) with red outlines,$and below them a blue rectangle with a red circle and a green diagonal line?
+  gosub t_soft menu_shape_and_image_commands_draw_what_they_should #dispres Yes
+  menu Hide
+
+  ; ---- menu HideEUO -------------------------------------------------------------------------------------------
+  menu Clear
+  menu Window Size 300 60
+  menu Text t1 10 10 Close this window to bring the main window back
+  menu Show 200 200
+  menu HideEUO
+  display yesno Interactive:$The MAIN EasyUO Reforged window should be minimised now.$Is it?   (afterwards close the small window to restore it)
+  gosub t_soft menu_hideeuo_minimises_the_main_window #dispres Yes
+  menu Hide
+return
+; ###########################################################################
+;  HELPER SUBS  (everything below the final "halt" - never fall through)
+; ###########################################################################
+;  %1..%n are overwritten by every gosub, so each helper copies its
+;  parameters to _h* variables before it does anything else.
+
+; ---- section header --------------------------------------------------------
+sub t_head
+  set %log %log , $=== , %1 , ===$
+return
+
+; ---- t_eq name actual expected ---------------------------------------------
+;  numeric compare when both sides are numbers, else case-insensitive text
+sub t_eq
+  set %n_run %n_run + 1
+  set %_hn %1
+  set %_ha %2
+  set %_he %3
+  if %_ha = %_he
+  {
+    set %n_pass %n_pass + 1
+    set %_hl [PASS] , #spc , %_hn , #spc , | , #spc , expected[ , %_he , ] , #spc , actual[ , %_ha , ]$
+  }
+  else
+  {
+    set %n_fail %n_fail + 1
+    set %_hl [FAIL] , #spc , %_hn , #spc , | , #spc , expected[ , %_he , ] , #spc , actual[ , %_ha , ]$
+    set %fails %fails , %_hl
+  }
+  set %log %log , %_hl
+return
+
+; ---- t_str name actual expected ---------------------------------------------
+;  same, but both sides are wrapped in [ ] first so a value such as  -  (  in
+;  abs  cannot be mistaken for an operator by the "if" evaluator
+sub t_str
+  set %n_run %n_run + 1
+  set %_hn %1
+  set %_ha %2
+  set %_he %3
+  set %_hwa [ , %_ha , ]
+  set %_hwe [ , %_he , ]
+  if %_hwa = %_hwe
+  {
+    set %n_pass %n_pass + 1
+    set %_hl [PASS] , #spc , %_hn , #spc , | , #spc , expected[ , %_he , ] , #spc , actual[ , %_ha , ]$
+  }
+  else
+  {
+    set %n_fail %n_fail + 1
+    set %_hl [FAIL] , #spc , %_hn , #spc , | , #spc , expected[ , %_he , ] , #spc , actual[ , %_ha , ]$
+    set %fails %fails , %_hl
+  }
+  set %log %log , %_hl
+return
+
+; ---- t_chk name actual criterion bool ----------------------------------------
+;  for values that cannot be known in advance: the caller computes the boolean
+;  (#true/#false) and passes a readable criterion that is printed as "expected"
+sub t_chk
+  set %n_run %n_run + 1
+  set %_hn %1
+  set %_ha %2
+  set %_he %3
+  set %_hb %4
+  if %_hb = -1
+  {
+    set %n_pass %n_pass + 1
+    set %_hl [PASS] , #spc , %_hn , #spc , | , #spc , expected[ , %_he , ] , #spc , actual[ , %_ha , ]$
+  }
+  else
+  {
+    set %n_fail %n_fail + 1
+    set %_hl [FAIL] , #spc , %_hn , #spc , | , #spc , expected[ , %_he , ] , #spc , actual[ , %_ha , ]$
+    set %fails %fails , %_hl
+  }
+  set %log %log , %_hl
+return
+
+; ---- t_soft name actual expected -----------------------------------------------
+;  like t_eq, but a mismatch is only a [NOTE] (depends on live client data)
+sub t_soft
+  set %n_run %n_run + 1
+  set %_hn %1
+  set %_ha %2
+  set %_he %3
+  if %_ha = %_he
+  {
+    set %n_pass %n_pass + 1
+    set %_hl [PASS] , #spc , %_hn , #spc , | , #spc , expected[ , %_he , ] , #spc , actual[ , %_ha , ]$
+  }
+  else
+  {
+    set %n_note %n_note + 1
+    set %_hl [NOTE] , #spc , %_hn , #spc , | , #spc , soft_check_expected[ , %_he , ] , #spc , actual[ , %_ha , ]$
+  }
+  set %log %log , %_hl
+return
+
+; ---- t_softchk name actual criterion bool ---------------------------------------
+sub t_softchk
+  set %n_run %n_run + 1
+  set %_hn %1
+  set %_ha %2
+  set %_he %3
+  set %_hb %4
+  if %_hb = -1
+  {
+    set %n_pass %n_pass + 1
+    set %_hl [PASS] , #spc , %_hn , #spc , | , #spc , expected[ , %_he , ] , #spc , actual[ , %_ha , ]$
+  }
+  else
+  {
+    set %n_note %n_note + 1
+    set %_hl [NOTE] , #spc , %_hn , #spc , | , #spc , soft_check_expected[ , %_he , ] , #spc , actual[ , %_ha , ]$
+  }
+  set %log %log , %_hl
+return
+
+; ---- t_dd name actual wiki_says code_does ---------------------------------------
+;  a place where the old wiki text and the engine disagree.  Matching the
+;  engine = [NOTE] (the port is a faithful copy of the original, so the wiki is
+;  presumably wrong); matching the wiki = [PASS]; neither = [FAIL].
+sub t_dd
+  set %n_run %n_run + 1
+  set %_hn %1
+  set %_ha %2
+  set %_hd %3
+  set %_hc %4
+  if %_ha = %_hc
+  {
+    set %n_note %n_note + 1
+    set %_hl [NOTE] , #spc , %_hn , #spc , | , #spc , engine_does[ , %_hc , ] , #spc , wiki_says[ , %_hd , ] , #spc , actual[ , %_ha , ]$
+  }
+  else
+  {
+    if %_ha = %_hd
+    {
+      set %n_pass %n_pass + 1
+      set %_hl [PASS] , #spc , %_hn , #spc , | , #spc , matches_the_wiki[ , %_hd , ] , #spc , actual[ , %_ha , ]$
+    }
+    else
+    {
+      set %n_fail %n_fail + 1
+      set %_hl [FAIL] , #spc , %_hn , #spc , | , #spc , engine_does[ , %_hc , ] , #spc , wiki_says[ , %_hd , ] , #spc , actual[ , %_ha , ]$
+      set %fails %fails , %_hl
+    }
+  }
+  set %log %log , %_hl
+return
+
+; ---- t_info name value ----------------------------------------------------------
+sub t_info
+  set %n_info %n_info + 1
+  set %_hn %1
+  set %_ha %2
+  set %log %log , [INFO] , #spc , %_hn , #spc , = , #spc , [ , %_ha , ]$
+return
+
+; ---- t_skip name reason ---------------------------------------------------------
+sub t_skip
+  set %n_skip %n_skip + 1
+  set %_hn %1
+  set %_hr %2
+  set %log %log , [SKIP] , #spc , %_hn , #spc , | , #spc , %_hr , $
+return
+
+; ---- v_cli varname ----------------------------------------------------------------
+;  reads  #varname  dynamically (the "# . name" array idiom).  Client variable:
+;  without a client it must be N/A, with a client the value is just listed.
+sub v_cli
+  set %_vn %1
+  set %_vv # . %_vn
+  if %HAVE_CLIENT = 1
+  {
+    gosub t_info # , %_vn %_vv
+  }
+  else
+  {
+    gosub t_eq no_client_na_# , %_vn %_vv N/A
+  }
+return
+
+; ---- v_any varname ----------------------------------------------------------------
+;  variable that works with or without a client: value is only listed
+sub v_any
+  set %_vn %1
+  set %_vv # . %_vn
+  gosub t_info # , %_vn %_vv
+return
+
+; ---- c_num name value --------------------------------------------------------------
+;  value must be a number (the "( v > 0 || v < 1 )" trick from the wiki)
+sub c_num
+  set %_cn %1
+  set %_cv %2
+  set %_ck ( %_cv >= 0 ) || ( %_cv < 0 )
+  if %c_soft = 1
+  {
+    gosub t_softchk %_cn %_cv a_number %_ck
+  }
+  else
+  {
+    gosub t_chk %_cn %_cv a_number %_ck
+  }
+return
+
+; ---- c_nonneg name value -------------------------------------------------------------
+sub c_nonneg
+  set %_cn %1
+  set %_cv %2
+  set %_ck %_cv >= 0
+  if %c_soft = 1
+  {
+    gosub t_softchk %_cn %_cv number_>=_0 %_ck
+  }
+  else
+  {
+    gosub t_chk %_cn %_cv number_>=_0 %_ck
+  }
+return
+
+; ---- c_range name value lo hi ----------------------------------------------------------
+sub c_range
+  set %_cn %1
+  set %_cv %2
+  set %_cl %3
+  set %_ch %4
+  set %_ck ( %_cv >= %_cl ) && ( %_cv <= %_ch )
+  if %c_soft = 1
+  {
+    gosub t_softchk %_cn %_cv number_ , %_cl , .. , %_ch %_ck
+  }
+  else
+  {
+    gosub t_chk %_cn %_cv number_ , %_cl , .. , %_ch %_ck
+  }
+return
+
+; ---- c_has name value ---------------------------------------------------------------------
+;  value must not be empty and not N/A
+sub c_has
+  set %_cn %1
+  set %_cv %2
+  str len %_cv
+  set %_ck ( #strres > 0 ) && ( %_cv <> N/A )
+  if %c_soft = 1
+  {
+    gosub t_softchk %_cn %_cv not_empty_and_not_N/A %_ck
+  }
+  else
+  {
+    gosub t_chk %_cn %_cv not_empty_and_not_N/A %_ck
+  }
+return
+
+; ---- c_digits name value length ---------------------------------------------------------------
+sub c_digits
+  set %_cn %1
+  set %_cv %2
+  set %_cl %3
+  str len %_cv
+  set %_ck ( #strres = %_cl ) && ( %_cv >= 0 )
+  if %c_soft = 1
+  {
+    gosub t_softchk %_cn %_cv numeric_ , %_cl , _characters %_ck
+  }
+  else
+  {
+    gosub t_chk %_cn %_cv numeric_ , %_cl , _characters %_ck
+  }
+return
+
+; ###########################################################################
+;  REPORT
+; ###########################################################################
+sub sec_report
+  gosub build_report
+  if %CFG_QUIET = 0
+  {
+    menu Clear
+    menu Window Title EasyUO Reforged self-test report
+    menu Window Size 960 660
+    menu Font Name Courier New
+    menu Font Size 9
+    menu Memo rpt 8 8 940 610 %report
+    menu Show 30 30
+    menu Activate rpt
+  }
+return
+
+sub sec_report_refresh
+  gosub build_report
+  if %CFG_QUIET = 0
+  {
+    menu Set rpt %report
+  }
+return
+
+sub build_report
+  if %n_fail = 0
+  {
+    set %verdict ALL_CHECKS_PASSED
+  }
+  else
+  {
+    set %verdict SOME_CHECKS_FAILED
+  }
+  set %summary RESULT: , #spc , %verdict , $ , checks , #spc , = , #spc , %n_run , $ , pass , #spc , = , #spc , %n_pass , $ , fail , #spc , = , #spc , %n_fail , $ , note , #spc , = , #spc , %n_note , #spc , (soft_checks_and_wiki_differences) , $ , skip , #spc , = , #spc , %n_skip , $ , info , #spc , = , #spc , %n_info
+  if %HAVE_CLIENT = 1
+  {
+    if %LOGGED = 1
+    {
+      set %modetxt client_attached_and_logged_in
+    }
+    else
+    {
+      set %modetxt client_attached_but_not_logged_in
+    }
+  }
+  else
+  {
+    set %modetxt NO_client_attached
+  }
+  set %report EasyUO , #spc , Reforged , #spc , self-test , #spc , - , #spc , ReforgedVer , #spc , #reforgedver , #spc , - , #spc , EUOVer , #spc , #euover , #spc , - , #spc , %modetxt , $ , %summary , $
+  set %report %report , Legend: , #spc , [PASS]_ok , #spc , [FAIL]_expected<>actual , #spc , [NOTE]_soft/wiki_difference , #spc , [INFO]_live_value , #spc , [SKIP]_not_run , $
+  set %report %report , $ , FAILURES: , $
+  str len %fails
+  if #strres > 0
+  {
+    set %report %report , %fails
+  }
+  else
+  {
+    set %report %report , (none) , $
+  }
+  str len %tile_note
+  if #strres > 0
+  {
+    set %report %report , $ , %tile_note , $
+  }
+  set %report %report , $ , FULL_LOG: , %log
+return
+
+; ---- used by call-helper.euo to prove a callee cannot gosub the caller's subs ----
+sub t_leak_probe
+  set %call_leak BAD_the_callee_reached_a_sub_of_the_caller
+return
