@@ -42,6 +42,12 @@ unit EuoMenu;
     (WndParent:=GetDesktopWindow) is NOT restored -- WS_EX_TOPMOST alone is
     sufficient for "stay on top" and doesn't touch how LCL tracks this form's
     parent/owner relationships.
+    The ownership half IS needed, though, for a different reason: with the
+    LCL default owner (the hidden Application window) minimizing/restoring the
+    editor window minimized/restored the MENU window with it, so scripts like
+    Claw whose menu is meant to be shrunk or minimized independently (it shows
+    live status) could not be managed separately. TEuoMenuForm.Create now sets
+    ShowInTaskBar:=stAlways, which leaves the window owner at 0 -- see there.
   - SetTransparency's manual GetProcAddress('SetLayeredWindowAttributes')
     dance is replaced with LCL's native AlphaBlend/AlphaBlendValue form
     properties, which wrap the same underlying Win32 call on this target.
@@ -277,6 +283,15 @@ begin
   Font.Name:='Arial';
   Position:=poDesigned;         // honor explicit Left/Top, don't auto-center
   Visible:=False;                // hidden until "MENU SHOW" -- matches original
+
+  // Make this an independent top-level window. By default LCL/Win32 makes every
+  // non-main form owned by the hidden Application window, and minimizing the
+  // main form minimizes that Application window -- which Windows applies to
+  // every window it owns, so the MENU window used to vanish and reappear in
+  // lock-step with the editor. stAlways makes LCL leave the owner at 0 (the
+  // same effect as the original's WndParent:=GetDesktopWindow), and gives the
+  // window its own taskbar button so it can be minimized/restored on its own.
+  ShowInTaskBar:=stAlways;
 
   // The main editor window's TMainMenu carries Ctrl+A/C/X/V/Z shortcuts, and
   // LCL's TApplication.IsShortcut falls back to the MainForm's menu for any key
