@@ -48,6 +48,16 @@ unit EuoMenu;
     Claw whose menu is meant to be shrunk or minimized independently (it shows
     live status) could not be managed separately. TEuoMenuForm.Create now sets
     ShowInTaskBar:=stAlways, which leaves the window owner at 0 -- see there.
+    Staying on top of ANOTHER PROCESS's window (the UO client) needs one more
+    thing. LCL's Win32 layer answers WM_ACTIVATEAPP(deactivate) by stripping
+    WS_EX_TOPMOST from every window of the thread (RemoveStayOnTopFlags: sent
+    to HWND_BOTTOM, then HWND_TOP -- by design, so an LCL application's
+    stay-on-top forms never cover other programs), however the flag got there
+    (FormStyle or CreateParams alike), and only puts it back when the
+    application is re-activated. So the moment the client was focused the MENU
+    window dropped behind it. TEuoMenuForm.AppDeactivated re-applies
+    HWND_TOPMOST from Application's deactivate handler list, which LCL runs
+    (queued) after that demotion.
   - SetTransparency's manual GetProcAddress('SetLayeredWindowAttributes')
     dance is replaced with LCL's native AlphaBlend/AlphaBlendValue form
     properties, which wrap the same underlying Win32 call on this target.
@@ -104,10 +114,12 @@ type
     MenuObj     : TObject;
     procedure   MyFormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure   MyFormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure   AppDeactivated(Sender: TObject);
   protected
     procedure   CreateParams(var Params: TCreateParams); override;
   public
     constructor Create(AOwner : TComponent); override;
+    destructor  Destroy; override;
     procedure   SetTransparency(Value : Byte);
     procedure   ShowEUO;
     procedure   HideEUO;
@@ -304,6 +316,30 @@ begin
 
   OnClose:=MyFormClose;
   OnKeyDown:=MyFormKeyDown;
+  Application.AddOnDeactivateHandler(AppDeactivated);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+destructor TEuoMenuForm.Destroy;
+begin
+  if Application<>nil then
+    Application.RemoveOnDeactivateHandler(AppDeactivated);
+  inherited Destroy;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Runs (queued) after LCL's WM_ACTIVATEAPP handling has stripped WS_EX_TOPMOST
+// from this window because another process's window -- typically the UO client
+// -- took the focus; see the unit header. Putting it back keeps the MENU window
+// above the client. Skipped while a modal dialog is up: LCL deliberately lowers
+// stay-on-top windows then so the dialog is not covered, and restores them
+// itself once the dialog closes.
+procedure TEuoMenuForm.AppDeactivated(Sender: TObject);
+begin
+  if not (HandleAllocated and Visible) then Exit;
+  if Application.ModalLevel>0 then Exit;
+  SetWindowPos(Handle,HWND_TOPMOST,0,0,0,0,
+    SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
