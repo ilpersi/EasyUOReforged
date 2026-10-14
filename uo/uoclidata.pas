@@ -101,7 +101,7 @@ type
     B_LLIFTEDTYPE,B_LLIFTEDKIND,B_LANG,B_TITHE,B_FINDREP,
     B_SHOPPRICE,B_GUMPPTR,B_ITEMSLOT,B_MEMBASE,B_PACKETVER,B_LTARGTILE,
     B_LTARGX,B_STAT1,
-    // Added alongside F_JOURNALDIRECT (see FEATURES section below and milestone 0's
+    // Added alongside F_JOURNALDIRECT (see FEATURES section below and milestone 1's
     // comment) -- new-layout journal-node field offsets, only meaningful when
     // F_JOURNALDIRECT=1. Zero (unused) for every other version.
     B_JCOL,B_JKIND,B_JNEXTPTR,
@@ -115,13 +115,13 @@ type
     F_EXTSTAT,F_EVPROPERTY,F_MACROMAP,F_EXCHARSTATC, F_PACKETVER,
     F_PATHFINDVER,F_FLAGS,
     // Added during the original Lazarus migration (not present in the original Delphi 7
-    // source) -- see milestone 0's comment below for why this exists: on client 7.0.108.0
+    // source) -- see milestone 1's comment below for why this exists: on client 7.0.108.0
     // the system-message object embeds its text directly at B_SYSMSGSTR rather than
     // holding a further pointer there, so TUOVar.SysMsg must skip one level of pointer
     // indirection when this is set. Defaults to 0 (old two-level-indirection behavior,
     // unchanged) for every one of the ~220 pre-existing client versions.
     F_SYSMSGDIRECT,
-    // Added alongside F_SYSMSGDIRECT (see milestone 0's comment below) -- on client
+    // Added alongside F_SYSMSGDIRECT (see milestone 1's comment below) -- on client
     // 7.0.108.0 the journal (chat/system-message history) is a doubly-linked chain of
     // objects that embed their own text directly, rather than the old fixed-size TItem
     // record (Pos/Col/Kind/Fill/Next) TUOCmd.ScanJournal otherwise walks. B_JCOL/B_JKIND/
@@ -309,7 +309,84 @@ const
 // See TCstDB.Update's header comment for the exact cumulative-apply algorithm.
 ////////////////////////////////////////////////////////////////////////////////
 
-// Milestone 0 -- first introduced at client '7.0.108.0' (normalized '007.000.108.000')
+// Milestone 0 -- first introduced at client '7.0.117.1' (normalized '007.000.117.001')
+//
+// Added to support Ultima Online client 7.0.117.1, requested by the user after a new client
+// release made tools\EUOUpdater report N/A for every field. (That turned out to be a
+// privilege problem, not a pattern problem: the client ran elevated and EUOUpdtr.exe did
+// not, so OpenProcess was denied and every SearchMem failed its first read. Run elevated
+// and every line resolves.)
+//
+// All C_*/E_* values below come from running tools\EUOUpdater\"EUO Updtr Strings 6062 and
+// newer.txt" against a live, running instance of this exact client build, by an
+// independent reimplementation of that tool's GetAddr/SearchMem (Python + ReadProcessMemory,
+// run elevated), scanning both SearchMem's own $400000-$650000 window and the whole
+// $400000-$1AF8000 image -- both gave identical results, so the hardcoded window is still
+// fine for this build. Every line resolved; the primary {SYSMSG}, {SKILLCAPS}, {SKILLLOCK}
+// and {SKILLSPOS} patterns come back N/A and the file's own fallback lines supply them,
+// exactly as on 7.0.108.0. Only the 36 fields that differ from milestone 1 (7.0.108.0) are
+// listed; the other 2 (E_ITEMCHECKADDR, E_ITEMREQADDR) resolved to the same value as
+// 7.0.108.0 and so inherit.
+//
+// {SYSMSGSTR_CHECK} reads $00000800 -- unchanged, so B_SYSMSGSTR=$800/F_SYSMSGDIRECT=1
+// (inherited from milestone 2) stay correct. C_SYSMSG itself pointed at null at scan time
+// (no system message pending), so the message object's contents were NOT read back live
+// for this build; only the structural check above supports that layout.
+//
+// JOURNAL LAYOUT: verified live on this build (unlike 7.0.99.1), so milestone 1's
+// F_JOURNALDIRECT=1 / B_JCOL=$800 / B_JKIND=$804 / B_JNEXTPTR=$818 inherit unchanged.
+// C_JOURNALPTR ($01E248CC) was dereferenced and a 12-node chain walked through +$818 back to
+// the login message: text embedded at node offset 0 (UTF-16 for player/cliloc-style lines,
+// ANSI for server text), hue at +$800, a font/kind field at +$804 that is exactly $12 on
+// every Unicode line and $F on every ANSI line (matching ScanJournal's $12 check), and the
+// previous-node link at +$814 consistent with the chain. +$80C was 1 for Unicode and 0 for
+// ANSI nodes.
+//
+// C_TARGETCNT: not covered by any scan string -- $00000000, same reasoning as before.
+//
+// Every other field not called out above (B_*, F_*, E_SKILLLOCKADDR/E_SENDLEN/E_SENDECX):
+// inherited from the older milestones -- a reasonable-but-unverified default.
+SysVarMS0 : array[0..36] of TSysVarList = (
+  (Expr: C_BLOCKINFO; Val: $005A74B0),
+  (Expr: C_CHARDIR; Val: $00A02C90),
+  (Expr: C_CHARPTR; Val: $00A590C4),
+  (Expr: C_CLILEFT; Val: $00A08430),
+  (Expr: C_CLILOGGED; Val: $0071D3C8),
+  (Expr: C_CLIXRES; Val: $0071DC0C),
+  (Expr: C_CONTPOS; Val: $008DD458),
+  (Expr: C_CURSORKIND; Val: $00A083A5),
+  (Expr: C_ENEMYHITS; Val: $009A564C),
+  (Expr: C_ENEMYID; Val: $008D69A4),
+  (Expr: C_JOURNALPTR; Val: $01E248CC),
+  (Expr: C_LHANDID; Val: $00A01DD4),
+  (Expr: C_LLIFTEDID; Val: $00A59110),
+  (Expr: C_LSHARD; Val: $00A5D768),
+  (Expr: C_NEXTCPOS; Val: $008DC9A4),
+  (Expr: C_POPUPID; Val: $00A5D8DC),
+  (Expr: C_SHARDPOS; Val: $008DC7F8),
+  (Expr: C_SKILLCAPS; Val: $01ECB318),
+  (Expr: C_SKILLLOCK; Val: $01ECB2DC),
+  (Expr: C_SKILLSPOS; Val: $01ECB390),
+  (Expr: C_SYSMSG; Val: $008DD434),
+  (Expr: C_TARGETCURS; Val: $00A08404),
+  (Expr: E_CONTTOP; Val: $004EA450),
+  (Expr: E_DRAGADDR; Val: $005BE790),
+  (Expr: E_EXMSGADDR; Val: $005BCF00),
+  (Expr: E_ITEMNAMEADDR; Val: $0058B3F0),
+  (Expr: E_ITEMPROPADDR; Val: $0058B2F0),
+  (Expr: E_ITEMPROPID; Val: $009F9B6C),
+  (Expr: E_MACROADDR; Val: $00596760),
+  (Expr: E_OLDDIR; Val: $0063BB40),
+  (Expr: E_PATHFINDADDR; Val: $00513419),
+  (Expr: E_REDIR; Val: $005AFC6D),
+  (Expr: E_SENDPACKET; Val: $00462940),
+  (Expr: E_SLEEPADDR; Val: $006A20FC),
+  (Expr: E_STATBAR; Val: $00557D10),
+  (Expr: E_SYSMSGADDR; Val: $005ECAE0),
+  (Expr: LISTEND; Val: 0)
+);
+
+// Milestone 1 -- first introduced at client '7.0.108.0' (normalized '007.000.108.000')
 //
 // Added during the Lazarus/FPC migration (not present in the original Delphi 7 source)
 // to support Ultima Online Stygian Abyss client 7.0.108.0, which the flat table's then-
@@ -390,7 +467,7 @@ const
 // forward from 7.0.47.0's resolved state (this table only lists what changed relative
 // to that -- i.e. everything below IS the actual delta) -- a reasonable, standard
 // assumption, not a verified fact for every field.
-SysVarMS0 : array[0..42] of TSysVarList = (
+SysVarMS1 : array[0..42] of TSysVarList = (
   (Expr: B_JCOL; Val: $00000800),
   (Expr: B_JKIND; Val: $00000804),
   (Expr: B_JNEXTPTR; Val: $00000818),
@@ -436,7 +513,7 @@ SysVarMS0 : array[0..42] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 1 -- first introduced at client '7.0.99.1' (normalized '007.000.099.001')
+// Milestone 2 -- first introduced at client '7.0.99.1' (normalized '007.000.099.001')
 //
 // Added during the Lazarus/FPC migration to support Ultima Online client 7.0.99.1, which
 // sits in the gap between 7.0.47.0 and 7.0.108.0 and was previously unsupported.
@@ -455,12 +532,12 @@ SysVarMS0 : array[0..42] of TSysVarList = (
 // 7.0.108.0's original {SYSMSG} pattern.
 //
 // C_TARGETCNT: not covered by any scan string, same as every other version in this
-// table -- $00000000, per the same "likely vestigial" reasoning as milestone 0's comment.
+// table -- $00000000, per the same "likely vestigial" reasoning as milestone 1's comment.
 //
 // B_SYSMSGSTR/F_SYSMSGDIRECT: NOT left at the old-layout $100/0 default. The
 // {SYSMSGSTR_CHECK} scan reads back $00000800 on this build too -- confirmed via the same
 // static-analysis method as the C_*/E_* values above (re-deriving the same byte pattern
-// milestone 0's live disassembly found, and validating it as the ONLY match in the
+// milestone 1's live disassembly found, and validating it as the ONLY match in the
 // scanned image). This means the direct-embed system-message layout was ALREADY in place
 // at least as early as 7.0.99.1 -- it was not something 7.0.108.0 itself introduced,
 // contrary to what was assumed when that entry was first written. (That in turn means
@@ -474,12 +551,12 @@ SysVarMS0 : array[0..42] of TSysVarList = (
 // worse than an honest, flagged gap:
 //   - Live disassembly of the code walking from C_JOURNALPTR shows a genuine doubly-
 //     linked node walk with text embedded inline at the node's own start -- structurally
-//     the SAME kind of change milestone 0's F_JOURNALDIRECT=1 layout uses.
-//   - But the confirmed "next" pointer offset here is +$814, not milestone 0's +$818 --
+//     the SAME kind of change milestone 1's F_JOURNALDIRECT=1 layout uses.
+//   - But the confirmed "next" pointer offset here is +$814, not milestone 1's +$818 --
 //     a real, different offset, not a typo.
-//   - The ANSI-vs-Unicode decoding field sits at +$80C (not milestone 0's +$804) and the
+//   - The ANSI-vs-Unicode decoding field sits at +$80C (not milestone 1's +$804) and the
 //     compiled code branches on whether it's zero/nonzero, not on whether it equals
-//     exactly $12 the way ScanJournal's hardcoded check (and milestone 0's B_JKIND field)
+//     exactly $12 the way ScanJournal's hardcoded check (and milestone 1's B_JKIND field)
 //     assumes. Whether the actual VALUE for a real Unicode message still happens to be
 //     $12 could not be confirmed without observing real traffic against a file that was
 //     never run.
@@ -488,12 +565,12 @@ SysVarMS0 : array[0..42] of TSysVarList = (
 // Net effect: #JIndex/#JColor/#JournalGetText are very likely INCORRECT for this specific
 // client, same as they silently were for 7.0.108.0 before its own dedicated
 // investigation -- a known, flagged gap. Resolving it needs the same live-disassembly
-// approach milestone 0 used, against an actually-running 7.0.99.1 client.
+// approach milestone 1 used, against an actually-running 7.0.99.1 client.
 //
 // Every other field not called out above: copied forward from 7.0.47.0's resolved state
 // (unchanged, so it does NOT appear in this delta at all) -- a reasonable-but-unverified
 // default, not a proven fact.
-SysVarMS1 : array[0..40] of TSysVarList = (
+SysVarMS2 : array[0..40] of TSysVarList = (
   (Expr: B_SYSMSGSTR; Val: $00000800),
   (Expr: C_BLOCKINFO; Val: $0059C050),
   (Expr: C_CHARDIR; Val: $00AB52A0),
@@ -537,8 +614,8 @@ SysVarMS1 : array[0..40] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 2 -- first introduced at client '7.0.47.0' (normalized '007.000.047.000')
-SysVarMS2 : array[0..11] of TSysVarList = (
+// Milestone 3 -- first introduced at client '7.0.47.0' (normalized '007.000.047.000')
+SysVarMS3 : array[0..11] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $005901B0),
   (Expr: E_DRAGADDR; Val: $005A72F0),
   (Expr: E_EXMSGADDR; Val: $005A5BB0),
@@ -553,8 +630,8 @@ SysVarMS2 : array[0..11] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 3 -- first introduced at client '7.0.46.24' (normalized '007.000.046.024')
-SysVarMS3 : array[0..35] of TSysVarList = (
+// Milestone 4 -- first introduced at client '7.0.46.24' (normalized '007.000.046.024')
+SysVarMS4 : array[0..35] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $00590160),
   (Expr: C_CHARDIR; Val: $00A96E78),
   (Expr: C_CHARPTR; Val: $00ADC2BC),
@@ -593,14 +670,14 @@ SysVarMS3 : array[0..35] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 4 -- first introduced at client '7.0.46.0' (normalized '007.000.046.000')
-SysVarMS4 : array[0..1] of TSysVarList = (
+// Milestone 5 -- first introduced at client '7.0.46.0' (normalized '007.000.046.000')
+SysVarMS5 : array[0..1] of TSysVarList = (
   (Expr: E_OLDDIR; Val: $0061DE70),
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 5 -- first introduced at client '7.0.45.89' (normalized '007.000.045.089')
-SysVarMS5 : array[0..11] of TSysVarList = (
+// Milestone 6 -- first introduced at client '7.0.45.89' (normalized '007.000.045.089')
+SysVarMS6 : array[0..11] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $005900C0),
   (Expr: E_DRAGADDR; Val: $005A7200),
   (Expr: E_EXMSGADDR; Val: $005A5AC0),
@@ -615,8 +692,8 @@ SysVarMS5 : array[0..11] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 6 -- first introduced at client '7.0.45.77' (normalized '007.000.045.077')
-SysVarMS6 : array[0..12] of TSysVarList = (
+// Milestone 7 -- first introduced at client '7.0.45.77' (normalized '007.000.045.077')
+SysVarMS7 : array[0..12] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $00590040),
   (Expr: E_CONTTOP; Val: $004DC130),
   (Expr: E_DRAGADDR; Val: $005A7180),
@@ -632,8 +709,8 @@ SysVarMS6 : array[0..12] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 7 -- first introduced at client '7.0.45.65' (normalized '007.000.045.065')
-SysVarMS7 : array[0..38] of TSysVarList = (
+// Milestone 8 -- first introduced at client '7.0.45.65' (normalized '007.000.045.065')
+SysVarMS8 : array[0..38] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $0058FFF0),
   (Expr: C_CHARDIR; Val: $00A95E78),
   (Expr: C_CHARPTR; Val: $00ADB2BC),
@@ -675,8 +752,8 @@ SysVarMS7 : array[0..38] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 8 -- first introduced at client '7.0.40.10' (normalized '007.000.040.010')
-SysVarMS8 : array[0..32] of TSysVarList = (
+// Milestone 9 -- first introduced at client '7.0.40.10' (normalized '007.000.040.010')
+SysVarMS9 : array[0..32] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $0058DD20),
   (Expr: C_CHARDIR; Val: $00A774C0),
   (Expr: C_CHARPTR; Val: $00ABC8F4),
@@ -712,8 +789,8 @@ SysVarMS8 : array[0..32] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 9 -- first introduced at client '7.0.38.0' (normalized '007.000.038.000')
-SysVarMS9 : array[0..12] of TSysVarList = (
+// Milestone 10 -- first introduced at client '7.0.38.0' (normalized '007.000.038.000')
+SysVarMS10 : array[0..12] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $0058DDB0),
   (Expr: E_CONTTOP; Val: $004DA0D0),
   (Expr: E_DRAGADDR; Val: $005A3740),
@@ -729,8 +806,8 @@ SysVarMS9 : array[0..12] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 10 -- first introduced at client '7.0.35.23' (normalized '007.000.035.023')
-SysVarMS10 : array[0..12] of TSysVarList = (
+// Milestone 11 -- first introduced at client '7.0.35.23' (normalized '007.000.035.023')
+SysVarMS11 : array[0..12] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $0058DD60),
   (Expr: E_CONTTOP; Val: $004DA080),
   (Expr: E_DRAGADDR; Val: $005A36F0),
@@ -746,8 +823,8 @@ SysVarMS10 : array[0..12] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 11 -- first introduced at client '7.0.35.3' (normalized '007.000.035.003')
-SysVarMS11 : array[0..17] of TSysVarList = (
+// Milestone 12 -- first introduced at client '7.0.35.3' (normalized '007.000.035.003')
+SysVarMS12 : array[0..17] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $0058DC30),
   (Expr: C_CLILOGGED; Val: $006D8BDC),
   (Expr: C_CLIXRES; Val: $006D9184),
@@ -768,8 +845,8 @@ SysVarMS11 : array[0..17] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 12 -- first introduced at client '7.0.34.23' (normalized '007.000.034.023')
-SysVarMS12 : array[0..12] of TSysVarList = (
+// Milestone 13 -- first introduced at client '7.0.34.23' (normalized '007.000.034.023')
+SysVarMS13 : array[0..12] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $00591210),
   (Expr: E_CONTTOP; Val: $004DD570),
   (Expr: E_DRAGADDR; Val: $005A6BA0),
@@ -785,8 +862,8 @@ SysVarMS12 : array[0..12] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 13 -- first introduced at client '7.0.34.15' (normalized '007.000.034.015')
-SysVarMS13 : array[0..12] of TSysVarList = (
+// Milestone 14 -- first introduced at client '7.0.34.15' (normalized '007.000.034.015')
+SysVarMS14 : array[0..12] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $005911D0),
   (Expr: E_CONTTOP; Val: $004DD4F0),
   (Expr: E_DRAGADDR; Val: $005A6B60),
@@ -802,8 +879,8 @@ SysVarMS13 : array[0..12] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 14 -- first introduced at client '7.0.34.6' (normalized '007.000.034.006')
-SysVarMS14 : array[0..12] of TSysVarList = (
+// Milestone 15 -- first introduced at client '7.0.34.6' (normalized '007.000.034.006')
+SysVarMS15 : array[0..12] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $00591170),
   (Expr: E_CONTTOP; Val: $004DD490),
   (Expr: E_DRAGADDR; Val: $005A6B00),
@@ -819,8 +896,8 @@ SysVarMS14 : array[0..12] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 15 -- first introduced at client '7.0.34.2' (normalized '007.000.034.002')
-SysVarMS15 : array[0..33] of TSysVarList = (
+// Milestone 16 -- first introduced at client '7.0.34.2' (normalized '007.000.034.002')
+SysVarMS16 : array[0..33] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $00591120),
   (Expr: C_CHARDIR; Val: $00A774A0),
   (Expr: C_CHARPTR; Val: $00ABC8D4),
@@ -857,8 +934,8 @@ SysVarMS15 : array[0..33] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 16 -- first introduced at client '7.0.33.1' (normalized '007.000.033.001')
-SysVarMS16 : array[0..13] of TSysVarList = (
+// Milestone 17 -- first introduced at client '7.0.33.1' (normalized '007.000.033.001')
+SysVarMS17 : array[0..13] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $005910C0),
   (Expr: E_CONTTOP; Val: $004DD420),
   (Expr: E_DRAGADDR; Val: $005A6A50),
@@ -875,8 +952,8 @@ SysVarMS16 : array[0..13] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 17 -- first introduced at client '7.0.32.11' (normalized '007.000.032.011')
-SysVarMS17 : array[0..33] of TSysVarList = (
+// Milestone 18 -- first introduced at client '7.0.32.11' (normalized '007.000.032.011')
+SysVarMS18 : array[0..33] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $00591060),
   (Expr: C_CHARDIR; Val: $00A77400),
   (Expr: C_CHARPTR; Val: $00ABC834),
@@ -913,8 +990,8 @@ SysVarMS17 : array[0..33] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 18 -- first introduced at client '7.0.31.0' (normalized '007.000.031.000')
-SysVarMS18 : array[0..32] of TSysVarList = (
+// Milestone 19 -- first introduced at client '7.0.31.0' (normalized '007.000.031.000')
+SysVarMS19 : array[0..32] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $00591050),
   (Expr: C_CHARDIR; Val: $00A773E0),
   (Expr: C_CHARPTR; Val: $00ABC814),
@@ -950,8 +1027,8 @@ SysVarMS18 : array[0..32] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 19 -- first introduced at client '7.0.30.1' (normalized '007.000.030.001')
-SysVarMS19 : array[0..33] of TSysVarList = (
+// Milestone 20 -- first introduced at client '7.0.30.1' (normalized '007.000.030.001')
+SysVarMS20 : array[0..33] of TSysVarList = (
   (Expr: B_STAT1; Val: $0000001C),
   (Expr: B_STATAR; Val: $00000038),
   (Expr: B_STATML; Val: $00000004),
@@ -988,8 +1065,8 @@ SysVarMS19 : array[0..33] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 20 -- first introduced at client '7.0.29.2' (normalized '007.000.029.002')
-SysVarMS20 : array[0..12] of TSysVarList = (
+// Milestone 21 -- first introduced at client '7.0.29.2' (normalized '007.000.029.002')
+SysVarMS21 : array[0..12] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $005907E0),
   (Expr: E_CONTTOP; Val: $004DD180),
   (Expr: E_DRAGADDR; Val: $005A6170),
@@ -1005,8 +1082,8 @@ SysVarMS20 : array[0..12] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 21 -- first introduced at client '7.0.27.66' (normalized '007.000.027.066')
-SysVarMS21 : array[0..35] of TSysVarList = (
+// Milestone 22 -- first introduced at client '7.0.27.66' (normalized '007.000.027.066')
+SysVarMS22 : array[0..35] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $00590630),
   (Expr: C_CHARDIR; Val: $00A77280),
   (Expr: C_CHARPTR; Val: $00ABC6B4),
@@ -1045,8 +1122,8 @@ SysVarMS21 : array[0..35] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 22 -- first introduced at client '7.0.27.9' (normalized '007.000.027.009')
-SysVarMS22 : array[0..20] of TSysVarList = (
+// Milestone 23 -- first introduced at client '7.0.27.9' (normalized '007.000.027.009')
+SysVarMS23 : array[0..20] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $00A76280),
   (Expr: C_CHARPTR; Val: $00ABB6B4),
   (Expr: C_CLILEFT; Val: $00A7AA30),
@@ -1070,8 +1147,8 @@ SysVarMS22 : array[0..20] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 23 -- first introduced at client '7.0.27.7' (normalized '007.000.027.007')
-SysVarMS23 : array[0..13] of TSysVarList = (
+// Milestone 24 -- first introduced at client '7.0.27.7' (normalized '007.000.027.007')
+SysVarMS24 : array[0..13] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $00590440),
   (Expr: E_CONTTOP; Val: $004DCFB0),
   (Expr: E_DRAGADDR; Val: $005A5DB0),
@@ -1088,8 +1165,8 @@ SysVarMS23 : array[0..13] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 24 -- first introduced at client '7.0.27.5' (normalized '007.000.027.005')
-SysVarMS24 : array[0..10] of TSysVarList = (
+// Milestone 25 -- first introduced at client '7.0.27.5' (normalized '007.000.027.005')
+SysVarMS25 : array[0..10] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $005903F0),
   (Expr: E_DRAGADDR; Val: $005A5D60),
   (Expr: E_EXMSGADDR; Val: $005A4600),
@@ -1103,8 +1180,8 @@ SysVarMS24 : array[0..10] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 25 -- first introduced at client '7.0.26.4' (normalized '007.000.026.004')
-SysVarMS25 : array[0..30] of TSysVarList = (
+// Milestone 26 -- first introduced at client '7.0.26.4' (normalized '007.000.026.004')
+SysVarMS26 : array[0..30] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $00590420),
   (Expr: C_CHARDIR; Val: $00A76240),
   (Expr: C_CHARPTR; Val: $00ABB674),
@@ -1138,8 +1215,8 @@ SysVarMS25 : array[0..30] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 26 -- first introduced at client '7.0.25.6' (normalized '007.000.025.006')
-SysVarMS26 : array[0..35] of TSysVarList = (
+// Milestone 27 -- first introduced at client '7.0.25.6' (normalized '007.000.025.006')
+SysVarMS27 : array[0..35] of TSysVarList = (
   (Expr: B_ITEMID; Val: $000000A8),
   (Expr: C_BLOCKINFO; Val: $00590560),
   (Expr: C_CHARDIR; Val: $00A761A0),
@@ -1178,8 +1255,8 @@ SysVarMS26 : array[0..35] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 27 -- first introduced at client '7.0.24.3' (normalized '007.000.024.003')
-SysVarMS27 : array[0..38] of TSysVarList = (
+// Milestone 28 -- first introduced at client '7.0.24.3' (normalized '007.000.024.003')
+SysVarMS28 : array[0..38] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $005902F0),
   (Expr: C_CHARDIR; Val: $00A760C0),
   (Expr: C_CHARPTR; Val: $00ABB4F4),
@@ -1221,8 +1298,8 @@ SysVarMS27 : array[0..38] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 28 -- first introduced at client '7.0.22.0' (normalized '007.000.022.000')
-SysVarMS28 : array[0..37] of TSysVarList = (
+// Milestone 29 -- first introduced at client '7.0.22.0' (normalized '007.000.022.000')
+SysVarMS29 : array[0..37] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $0058DCE0),
   (Expr: C_CHARDIR; Val: $00A73C68),
   (Expr: C_CHARPTR; Val: $00AB909C),
@@ -1263,8 +1340,8 @@ SysVarMS28 : array[0..37] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 29 -- first introduced at client '7.0.21.2' (normalized '007.000.021.002')
-SysVarMS29 : array[0..9] of TSysVarList = (
+// Milestone 30 -- first introduced at client '7.0.21.2' (normalized '007.000.021.002')
+SysVarMS30 : array[0..9] of TSysVarList = (
   (Expr: E_DRAGADDR; Val: $005A3460),
   (Expr: E_EXMSGADDR; Val: $005A1D10),
   (Expr: E_ITEMNAMEADDR; Val: $00574AB0),
@@ -1277,8 +1354,8 @@ SysVarMS29 : array[0..9] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 30 -- first introduced at client '7.0.21.1' (normalized '007.000.021.001')
-SysVarMS30 : array[0..10] of TSysVarList = (
+// Milestone 31 -- first introduced at client '7.0.21.1' (normalized '007.000.021.001')
+SysVarMS31 : array[0..10] of TSysVarList = (
   (Expr: E_DRAGADDR; Val: $005A3420),
   (Expr: E_EXMSGADDR; Val: $005A1CD0),
   (Expr: E_ITEMNAMEADDR; Val: $00574A90),
@@ -1292,8 +1369,8 @@ SysVarMS30 : array[0..10] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 31 -- first introduced at client '7.0.20.0' (normalized '007.000.020.000')
-SysVarMS31 : array[0..25] of TSysVarList = (
+// Milestone 32 -- first introduced at client '7.0.20.0' (normalized '007.000.020.000')
+SysVarMS32 : array[0..25] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $00A73BC8),
   (Expr: C_CHARPTR; Val: $00AB8FFC),
   (Expr: C_CLILEFT; Val: $00A78378),
@@ -1322,8 +1399,8 @@ SysVarMS31 : array[0..25] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 32 -- first introduced at client '7.0.19.1' (normalized '007.000.019.001')
-SysVarMS32 : array[0..11] of TSysVarList = (
+// Milestone 33 -- first introduced at client '7.0.19.1' (normalized '007.000.019.001')
+SysVarMS33 : array[0..11] of TSysVarList = (
   (Expr: E_CONTTOP; Val: $004DC7F0),
   (Expr: E_DRAGADDR; Val: $005A3420),
   (Expr: E_EXMSGADDR; Val: $005A1CB0),
@@ -1338,8 +1415,8 @@ SysVarMS32 : array[0..11] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 33 -- first introduced at client '7.0.19.0' (normalized '007.000.019.000')
-SysVarMS33 : array[0..29] of TSysVarList = (
+// Milestone 34 -- first introduced at client '7.0.19.0' (normalized '007.000.019.000')
+SysVarMS34 : array[0..29] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $00A73BD0),
   (Expr: C_CHARPTR; Val: $00AB9004),
   (Expr: C_CLILEFT; Val: $00A78380),
@@ -1372,8 +1449,8 @@ SysVarMS33 : array[0..29] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 34 -- first introduced at client '7.0.17.0' (normalized '007.000.017.000')
-SysVarMS34 : array[0..33] of TSysVarList = (
+// Milestone 35 -- first introduced at client '7.0.17.0' (normalized '007.000.017.000')
+SysVarMS35 : array[0..33] of TSysVarList = (
   (Expr: B_FINDREP; Val: $000001B4),
   (Expr: C_CHARDIR; Val: $00A73BC8),
   (Expr: C_CHARPTR; Val: $00AB8D54),
@@ -1410,8 +1487,8 @@ SysVarMS34 : array[0..33] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 35 -- first introduced at client '7.0.16.0' (normalized '007.000.016.000')
-SysVarMS35 : array[0..34] of TSysVarList = (
+// Milestone 36 -- first introduced at client '7.0.16.0' (normalized '007.000.016.000')
+SysVarMS36 : array[0..34] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $00A73BE8),
   (Expr: C_CHARPTR; Val: $00AB8D74),
   (Expr: C_CLILEFT; Val: $00A780F0),
@@ -1449,8 +1526,8 @@ SysVarMS35 : array[0..34] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 36 -- first introduced at client '7.0.14.4' (normalized '007.000.014.004')
-SysVarMS36 : array[0..13] of TSysVarList = (
+// Milestone 37 -- first introduced at client '7.0.14.4' (normalized '007.000.014.004')
+SysVarMS37 : array[0..13] of TSysVarList = (
   (Expr: E_CONTTOP; Val: $004DD0A0),
   (Expr: E_DRAGADDR; Val: $005A3560),
   (Expr: E_EXMSGADDR; Val: $005A1D60),
@@ -1467,8 +1544,8 @@ SysVarMS36 : array[0..13] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 37 -- first introduced at client '7.0.14.3' (normalized '007.000.014.003')
-SysVarMS37 : array[0..13] of TSysVarList = (
+// Milestone 38 -- first introduced at client '7.0.14.3' (normalized '007.000.014.003')
+SysVarMS38 : array[0..13] of TSysVarList = (
   (Expr: E_CONTTOP; Val: $004DD0C0),
   (Expr: E_DRAGADDR; Val: $005A35A0),
   (Expr: E_EXMSGADDR; Val: $005A1DA0),
@@ -1485,8 +1562,8 @@ SysVarMS37 : array[0..13] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 38 -- first introduced at client '7.0.14.0' (normalized '007.000.014.000')
-SysVarMS38 : array[0..34] of TSysVarList = (
+// Milestone 39 -- first introduced at client '7.0.14.0' (normalized '007.000.014.000')
+SysVarMS39 : array[0..34] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $00A72BC8),
   (Expr: C_CHARPTR; Val: $00AB7D54),
   (Expr: C_CLILEFT; Val: $00A770D0),
@@ -1524,8 +1601,8 @@ SysVarMS38 : array[0..34] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 39 -- first introduced at client '7.0.13.1' (normalized '007.000.013.001')
-SysVarMS39 : array[0..14] of TSysVarList = (
+// Milestone 40 -- first introduced at client '7.0.13.1' (normalized '007.000.013.001')
+SysVarMS40 : array[0..14] of TSysVarList = (
   (Expr: E_CONTTOP; Val: $004DCFD0),
   (Expr: E_DRAGADDR; Val: $005A3490),
   (Expr: E_EXMSGADDR; Val: $005A1C90),
@@ -1543,8 +1620,8 @@ SysVarMS39 : array[0..14] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 40 -- first introduced at client '7.0.13.0' (normalized '007.000.013.000')
-SysVarMS40 : array[0..35] of TSysVarList = (
+// Milestone 41 -- first introduced at client '7.0.13.0' (normalized '007.000.013.000')
+SysVarMS41 : array[0..35] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $00A72B88),
   (Expr: C_CHARPTR; Val: $00AB7D14),
   (Expr: C_CLILEFT; Val: $00A77090),
@@ -1583,8 +1660,8 @@ SysVarMS40 : array[0..35] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 41 -- first introduced at client '7.0.12.0' (normalized '007.000.012.000')
-SysVarMS41 : array[0..9] of TSysVarList = (
+// Milestone 42 -- first introduced at client '7.0.12.0' (normalized '007.000.012.000')
+SysVarMS42 : array[0..9] of TSysVarList = (
   (Expr: E_DRAGADDR; Val: $005A1D20),
   (Expr: E_EXMSGADDR; Val: $005A0520),
   (Expr: E_ITEMNAMEADDR; Val: $00573300),
@@ -1597,8 +1674,8 @@ SysVarMS41 : array[0..9] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 42 -- first introduced at client '7.0.11.2' (normalized '007.000.011.002')
-SysVarMS42 : array[0..11] of TSysVarList = (
+// Milestone 43 -- first introduced at client '7.0.11.2' (normalized '007.000.011.002')
+SysVarMS43 : array[0..11] of TSysVarList = (
   (Expr: E_CONTTOP; Val: $004DBAB0),
   (Expr: E_DRAGADDR; Val: $005A1D60),
   (Expr: E_EXMSGADDR; Val: $005A0560),
@@ -1613,8 +1690,8 @@ SysVarMS42 : array[0..11] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 43 -- first introduced at client '7.0.11.0' (normalized '007.000.011.000')
-SysVarMS43 : array[0..37] of TSysVarList = (
+// Milestone 44 -- first introduced at client '7.0.11.0' (normalized '007.000.011.000')
+SysVarMS44 : array[0..37] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $00A707C0),
   (Expr: C_CHARPTR; Val: $00AB5944),
   (Expr: C_CLILEFT; Val: $00A74CC0),
@@ -1655,8 +1732,8 @@ SysVarMS43 : array[0..37] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 44 -- first introduced at client '7.0.10.2' (normalized '007.000.010.002')
-SysVarMS44 : array[0..10] of TSysVarList = (
+// Milestone 45 -- first introduced at client '7.0.10.2' (normalized '007.000.010.002')
+SysVarMS45 : array[0..10] of TSysVarList = (
   (Expr: E_DRAGADDR; Val: $005A0810),
   (Expr: E_EXMSGADDR; Val: $0059F030),
   (Expr: E_ITEMNAMEADDR; Val: $00571E50),
@@ -1670,8 +1747,8 @@ SysVarMS44 : array[0..10] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 45 -- first introduced at client '7.0.10.1' (normalized '007.000.010.001')
-SysVarMS45 : array[0..12] of TSysVarList = (
+// Milestone 46 -- first introduced at client '7.0.10.1' (normalized '007.000.010.001')
+SysVarMS46 : array[0..12] of TSysVarList = (
   (Expr: E_CONTTOP; Val: $004DA6F0),
   (Expr: E_DRAGADDR; Val: $005A07F0),
   (Expr: E_EXMSGADDR; Val: $0059F010),
@@ -1687,8 +1764,8 @@ SysVarMS45 : array[0..12] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 46 -- first introduced at client '7.0.9.0' (normalized '007.000.009.000')
-SysVarMS46 : array[0..38] of TSysVarList = (
+// Milestone 47 -- first introduced at client '7.0.9.0' (normalized '007.000.009.000')
+SysVarMS47 : array[0..38] of TSysVarList = (
   (Expr: B_FINDREP; Val: $000001AC),
   (Expr: B_ITEMID; Val: $000000A0),
   (Expr: C_CHARDIR; Val: $00A6F760),
@@ -1730,8 +1807,8 @@ SysVarMS46 : array[0..38] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 47 -- first introduced at client '7.0.8.2' (normalized '007.000.008.002')
-SysVarMS47 : array[0..11] of TSysVarList = (
+// Milestone 48 -- first introduced at client '7.0.8.2' (normalized '007.000.008.002')
+SysVarMS48 : array[0..11] of TSysVarList = (
   (Expr: E_CONTTOP; Val: $004D9E00),
   (Expr: E_DRAGADDR; Val: $0059C0A0),
   (Expr: E_EXMSGADDR; Val: $0059A8F0),
@@ -1746,8 +1823,8 @@ SysVarMS47 : array[0..11] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 48 -- first introduced at client '7.0.8.0' (normalized '007.000.008.000')
-SysVarMS48 : array[0..37] of TSysVarList = (
+// Milestone 49 -- first introduced at client '7.0.8.0' (normalized '007.000.008.000')
+SysVarMS49 : array[0..37] of TSysVarList = (
   (Expr: B_MEMBASE; Val: $00000000),
   (Expr: C_CHARDIR; Val: $00969A08),
   (Expr: C_CHARPTR; Val: $009AEB94),
@@ -1788,8 +1865,8 @@ SysVarMS48 : array[0..37] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 49 -- first introduced at client '7.0.7.1' (normalized '007.000.007.001')
-SysVarMS49 : array[0..25] of TSysVarList = (
+// Milestone 50 -- first introduced at client '7.0.7.1' (normalized '007.000.007.001')
+SysVarMS50 : array[0..25] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $00967800),
   (Expr: C_CHARPTR; Val: $009AC98C),
   (Expr: C_CLILEFT; Val: $0096BD08),
@@ -1818,8 +1895,8 @@ SysVarMS49 : array[0..25] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 50 -- first introduced at client '7.0.7.0' (normalized '007.000.007.000')
-SysVarMS50 : array[0..33] of TSysVarList = (
+// Milestone 51 -- first introduced at client '7.0.7.0' (normalized '007.000.007.000')
+SysVarMS51 : array[0..33] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $009677E0),
   (Expr: C_CHARPTR; Val: $009AC96C),
   (Expr: C_CLILEFT; Val: $0096BCE8),
@@ -1856,8 +1933,8 @@ SysVarMS50 : array[0..33] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 51 -- first introduced at client '7.0.6.4' (normalized '007.000.006.004')
-SysVarMS51 : array[0..4] of TSysVarList = (
+// Milestone 52 -- first introduced at client '7.0.6.4' (normalized '007.000.006.004')
+SysVarMS52 : array[0..4] of TSysVarList = (
   (Expr: E_DRAGADDR; Val: $0059A9C0),
   (Expr: E_EXMSGADDR; Val: $00599210),
   (Expr: E_OLDDIR; Val: $005F8B10),
@@ -1865,8 +1942,8 @@ SysVarMS51 : array[0..4] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 52 -- first introduced at client '7.0.6.3' (normalized '007.000.006.003')
-SysVarMS52 : array[0..34] of TSysVarList = (
+// Milestone 53 -- first introduced at client '7.0.6.3' (normalized '007.000.006.003')
+SysVarMS53 : array[0..34] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $009667E0),
   (Expr: C_CHARPTR; Val: $009AB954),
   (Expr: C_CLILEFT; Val: $0096ACD0),
@@ -1904,8 +1981,8 @@ SysVarMS52 : array[0..34] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 53 -- first introduced at client '7.0.5.0' (normalized '007.000.005.000')
-SysVarMS53 : array[0..36] of TSysVarList = (
+// Milestone 54 -- first introduced at client '7.0.5.0' (normalized '007.000.005.000')
+SysVarMS54 : array[0..36] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $009637E0),
   (Expr: C_CHARPTR; Val: $009A7844),
   (Expr: C_CLILEFT; Val: $00966BC0),
@@ -1945,8 +2022,8 @@ SysVarMS53 : array[0..36] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 54 -- first introduced at client '7.0.4.5' (normalized '007.000.004.005')
-SysVarMS54 : array[0..36] of TSysVarList = (
+// Milestone 55 -- first introduced at client '7.0.4.5' (normalized '007.000.004.005')
+SysVarMS55 : array[0..36] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $00960700),
   (Expr: C_CHARPTR; Val: $009A4764),
   (Expr: C_CLILEFT; Val: $00963AE0),
@@ -1986,8 +2063,8 @@ SysVarMS54 : array[0..36] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 55 -- first introduced at client '7.0.4.4' (normalized '007.000.004.004')
-SysVarMS55 : array[0..31] of TSysVarList = (
+// Milestone 56 -- first introduced at client '7.0.4.4' (normalized '007.000.004.004')
+SysVarMS56 : array[0..31] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $0095F700),
   (Expr: C_CHARPTR; Val: $009A3764),
   (Expr: C_CLILEFT; Val: $00962AE0),
@@ -2022,8 +2099,8 @@ SysVarMS55 : array[0..31] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 56 -- first introduced at client '7.0.4.3' (normalized '007.000.004.003')
-SysVarMS56 : array[0..31] of TSysVarList = (
+// Milestone 57 -- first introduced at client '7.0.4.3' (normalized '007.000.004.003')
+SysVarMS57 : array[0..31] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $00960700),
   (Expr: C_CHARPTR; Val: $009A4764),
   (Expr: C_CLILEFT; Val: $00963AE0),
@@ -2058,8 +2135,8 @@ SysVarMS56 : array[0..31] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 57 -- first introduced at client '7.0.4.2' (normalized '007.000.004.002')
-SysVarMS57 : array[0..10] of TSysVarList = (
+// Milestone 58 -- first introduced at client '7.0.4.2' (normalized '007.000.004.002')
+SysVarMS58 : array[0..10] of TSysVarList = (
   (Expr: E_CONTTOP; Val: $004D6740),
   (Expr: E_DRAGADDR; Val: $00597950),
   (Expr: E_EXMSGADDR; Val: $005961E0),
@@ -2073,8 +2150,8 @@ SysVarMS57 : array[0..10] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 58 -- first introduced at client '7.0.4.1' (normalized '007.000.004.001')
-SysVarMS58 : array[0..10] of TSysVarList = (
+// Milestone 59 -- first introduced at client '7.0.4.1' (normalized '007.000.004.001')
+SysVarMS59 : array[0..10] of TSysVarList = (
   (Expr: E_CONTTOP; Val: $004D6630),
   (Expr: E_DRAGADDR; Val: $00597840),
   (Expr: E_EXMSGADDR; Val: $005960D0),
@@ -2088,8 +2165,8 @@ SysVarMS58 : array[0..10] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 59 -- first introduced at client '7.0.4.0' (normalized '007.000.004.000')
-SysVarMS59 : array[0..34] of TSysVarList = (
+// Milestone 60 -- first introduced at client '7.0.4.0' (normalized '007.000.004.000')
+SysVarMS60 : array[0..34] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $0095F700),
   (Expr: C_CHARPTR; Val: $009A3764),
   (Expr: C_CLILEFT; Val: $00962AE0),
@@ -2127,8 +2204,8 @@ SysVarMS59 : array[0..34] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 60 -- first introduced at client '7.0.3.0' (normalized '007.000.003.000')
-SysVarMS60 : array[0..36] of TSysVarList = (
+// Milestone 61 -- first introduced at client '7.0.3.0' (normalized '007.000.003.000')
+SysVarMS61 : array[0..36] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $0095C3C8),
   (Expr: C_CHARPTR; Val: $009A0304),
   (Expr: C_CLILEFT; Val: $0095F680),
@@ -2168,8 +2245,8 @@ SysVarMS60 : array[0..36] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 61 -- first introduced at client '7.0.2.1' (normalized '007.000.002.001')
-SysVarMS61 : array[0..36] of TSysVarList = (
+// Milestone 62 -- first introduced at client '7.0.2.1' (normalized '007.000.002.001')
+SysVarMS62 : array[0..36] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $0095B3C8),
   (Expr: C_CHARPTR; Val: $0099F304),
   (Expr: C_CLILEFT; Val: $0095E680),
@@ -2209,8 +2286,8 @@ SysVarMS61 : array[0..36] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 62 -- first introduced at client '7.0.1.1' (normalized '007.000.001.001')
-SysVarMS62 : array[0..10] of TSysVarList = (
+// Milestone 63 -- first introduced at client '7.0.1.1' (normalized '007.000.001.001')
+SysVarMS63 : array[0..10] of TSysVarList = (
   (Expr: E_CONTTOP; Val: $004D2F00),
   (Expr: E_DRAGADDR; Val: $00592EF0),
   (Expr: E_EXMSGADDR; Val: $00591780),
@@ -2224,8 +2301,8 @@ SysVarMS62 : array[0..10] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 63 -- first introduced at client '7.0.0.4' (normalized '007.000.000.004')
-SysVarMS63 : array[0..13] of TSysVarList = (
+// Milestone 64 -- first introduced at client '7.0.0.4' (normalized '007.000.000.004')
+SysVarMS64 : array[0..13] of TSysVarList = (
   (Expr: E_CONTTOP; Val: $004D2E00),
   (Expr: E_DRAGADDR; Val: $00592E40),
   (Expr: E_EXMSGADDR; Val: $005916D0),
@@ -2242,8 +2319,8 @@ SysVarMS63 : array[0..13] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 64 -- first introduced at client '7.0.0.3' (normalized '007.000.000.003')
-SysVarMS64 : array[0..9] of TSysVarList = (
+// Milestone 65 -- first introduced at client '7.0.0.3' (normalized '007.000.000.003')
+SysVarMS65 : array[0..9] of TSysVarList = (
   (Expr: E_DRAGADDR; Val: $00592DF0),
   (Expr: E_EXMSGADDR; Val: $00591680),
   (Expr: E_ITEMNAMEADDR; Val: $00565760),
@@ -2256,8 +2333,8 @@ SysVarMS64 : array[0..9] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 65 -- first introduced at client '7.0.0.2' (normalized '007.000.000.002')
-SysVarMS65 : array[0..27] of TSysVarList = (
+// Milestone 66 -- first introduced at client '7.0.0.2' (normalized '007.000.000.002')
+SysVarMS66 : array[0..27] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $00957BF8),
   (Expr: C_CHARPTR; Val: $0099BB34),
   (Expr: C_CLILEFT; Val: $0095AEB0),
@@ -2288,8 +2365,8 @@ SysVarMS65 : array[0..27] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 66 -- first introduced at client '7.0.0.0' (normalized '007.000.000.000')
-SysVarMS66 : array[0..40] of TSysVarList = (
+// Milestone 67 -- first introduced at client '7.0.0.0' (normalized '007.000.000.000')
+SysVarMS67 : array[0..40] of TSysVarList = (
   (Expr: B_FINDREP; Val: $000001A8),
   (Expr: B_ITEMID; Val: $00000088),
   (Expr: B_LLIFTEDKIND; Val: $00000038),
@@ -2333,8 +2410,8 @@ SysVarMS66 : array[0..40] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 67 -- first introduced at client '6.0.14.2' (normalized '006.000.014.002')
-SysVarMS67 : array[0..10] of TSysVarList = (
+// Milestone 68 -- first introduced at client '6.0.14.2' (normalized '006.000.014.002')
+SysVarMS68 : array[0..10] of TSysVarList = (
   (Expr: E_CONTTOP; Val: $0047BFD0),
   (Expr: E_DRAGADDR; Val: $00511320),
   (Expr: E_EXMSGADDR; Val: $0050F220),
@@ -2348,8 +2425,8 @@ SysVarMS67 : array[0..10] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 68 -- first introduced at client '6.0.13.0' (normalized '006.000.013.000')
-SysVarMS68 : array[0..11] of TSysVarList = (
+// Milestone 69 -- first introduced at client '6.0.13.0' (normalized '006.000.013.000')
+SysVarMS69 : array[0..11] of TSysVarList = (
   (Expr: E_CONTTOP; Val: $0047C000),
   (Expr: E_DRAGADDR; Val: $00511350),
   (Expr: E_EXMSGADDR; Val: $0050F250),
@@ -2364,8 +2441,8 @@ SysVarMS68 : array[0..11] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 69 -- first introduced at client '6.0.12.4' (normalized '006.000.012.004')
-SysVarMS69 : array[0..20] of TSysVarList = (
+// Milestone 70 -- first introduced at client '6.0.12.4' (normalized '006.000.012.004')
+SysVarMS70 : array[0..20] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007F46F0),
   (Expr: C_CHARPTR; Val: $00838634),
   (Expr: C_CLILEFT; Val: $007F79A8),
@@ -2389,8 +2466,8 @@ SysVarMS69 : array[0..20] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 70 -- first introduced at client '6.0.12.3' (normalized '006.000.012.003')
-SysVarMS70 : array[0..12] of TSysVarList = (
+// Milestone 71 -- first introduced at client '6.0.12.3' (normalized '006.000.012.003')
+SysVarMS71 : array[0..12] of TSysVarList = (
   (Expr: E_CONTTOP; Val: $0047BEE0),
   (Expr: E_DRAGADDR; Val: $00511F00),
   (Expr: E_EXMSGADDR; Val: $0050FDE0),
@@ -2406,8 +2483,8 @@ SysVarMS70 : array[0..12] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 71 -- first introduced at client '6.0.12.0' (normalized '006.000.012.000')
-SysVarMS71 : array[0..36] of TSysVarList = (
+// Milestone 72 -- first introduced at client '6.0.12.0' (normalized '006.000.012.000')
+SysVarMS72 : array[0..36] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007F46D0),
   (Expr: C_CHARPTR; Val: $00838614),
   (Expr: C_CLILEFT; Val: $007F7988),
@@ -2447,8 +2524,8 @@ SysVarMS71 : array[0..36] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 72 -- first introduced at client '6.0.11.0' (normalized '006.000.011.000')
-SysVarMS72 : array[0..15] of TSysVarList = (
+// Milestone 73 -- first introduced at client '6.0.11.0' (normalized '006.000.011.000')
+SysVarMS73 : array[0..15] of TSysVarList = (
   (Expr: C_CLILOGGED; Val: $005DDD84),
   (Expr: C_CLIXRES; Val: $005DE30C),
   (Expr: E_CONTTOP; Val: $0047C0E0),
@@ -2467,14 +2544,14 @@ SysVarMS72 : array[0..15] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 73 -- first introduced at client '6.0.8.0' (normalized '006.000.008.000')
-SysVarMS73 : array[0..1] of TSysVarList = (
+// Milestone 74 -- first introduced at client '6.0.8.0' (normalized '006.000.008.000')
+SysVarMS74 : array[0..1] of TSysVarList = (
   (Expr: E_OLDDIR; Val: $005420C0),
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 74 -- first introduced at client '6.0.7.0' (normalized '006.000.007.000')
-SysVarMS74 : array[0..13] of TSysVarList = (
+// Milestone 75 -- first introduced at client '6.0.7.0' (normalized '006.000.007.000')
+SysVarMS75 : array[0..13] of TSysVarList = (
   (Expr: E_CONTTOP; Val: $004789C0),
   (Expr: E_DRAGADDR; Val: $0050BD00),
   (Expr: E_EXMSGADDR; Val: $00509BE0),
@@ -2491,8 +2568,8 @@ SysVarMS74 : array[0..13] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 75 -- first introduced at client '6.0.6.2' (normalized '006.000.006.002')
-SysVarMS75 : array[0..45] of TSysVarList = (
+// Milestone 76 -- first introduced at client '6.0.6.2' (normalized '006.000.006.002')
+SysVarMS76 : array[0..45] of TSysVarList = (
   (Expr: B_LANG; Val: $00000060),
   (Expr: B_LLIFTEDKIND; Val: $00000034),
   (Expr: B_LLIFTEDTYPE; Val: $00000004),
@@ -2541,8 +2618,8 @@ SysVarMS75 : array[0..45] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 76 -- first introduced at client '6.0.6.1' (normalized '006.000.006.001')
-SysVarMS76 : array[0..36] of TSysVarList = (
+// Milestone 77 -- first introduced at client '6.0.6.1' (normalized '006.000.006.001')
+SysVarMS77 : array[0..36] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007D95A8),
   (Expr: C_CHARPTR; Val: $0081D9F4),
   (Expr: C_CLILEFT; Val: $0081D454),
@@ -2582,8 +2659,8 @@ SysVarMS76 : array[0..36] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 77 -- first introduced at client '6.0.6.0' (normalized '006.000.006.000')
-SysVarMS77 : array[0..36] of TSysVarList = (
+// Milestone 78 -- first introduced at client '6.0.6.0' (normalized '006.000.006.000')
+SysVarMS78 : array[0..36] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007DA658),
   (Expr: C_CHARPTR; Val: $0081EAEC),
   (Expr: C_CLILEFT; Val: $0081E54C),
@@ -2623,8 +2700,8 @@ SysVarMS77 : array[0..36] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 78 -- first introduced at client '6.0.5.0' (normalized '006.000.005.000')
-SysVarMS78 : array[0..12] of TSysVarList = (
+// Milestone 79 -- first introduced at client '6.0.5.0' (normalized '006.000.005.000')
+SysVarMS79 : array[0..12] of TSysVarList = (
   (Expr: E_DRAGADDR; Val: $00518E80),
   (Expr: E_EXMSGADDR; Val: $00513F10),
   (Expr: E_ITEMCHECKADDR; Val: $0053E360),
@@ -2640,8 +2717,8 @@ SysVarMS78 : array[0..12] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 79 -- first introduced at client '6.0.4.0' (normalized '006.000.004.000')
-SysVarMS79 : array[0..22] of TSysVarList = (
+// Milestone 80 -- first introduced at client '6.0.4.0' (normalized '006.000.004.000')
+SysVarMS80 : array[0..22] of TSysVarList = (
   (Expr: C_CHARPTR; Val: $0081D9F4),
   (Expr: C_CLILEFT; Val: $0081D454),
   (Expr: C_CURSORKIND; Val: $0081D3D4),
@@ -2667,8 +2744,8 @@ SysVarMS79 : array[0..22] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 80 -- first introduced at client '6.0.3.0' (normalized '006.000.003.000')
-SysVarMS80 : array[0..26] of TSysVarList = (
+// Milestone 81 -- first introduced at client '6.0.3.0' (normalized '006.000.003.000')
+SysVarMS81 : array[0..26] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007D95A8),
   (Expr: C_CHARPTR; Val: $0081D974),
   (Expr: C_CLILEFT; Val: $0081D3D4),
@@ -2698,8 +2775,8 @@ SysVarMS80 : array[0..26] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 81 -- first introduced at client '6.0.1.7' (normalized '006.000.001.007')
-SysVarMS81 : array[0..14] of TSysVarList = (
+// Milestone 82 -- first introduced at client '6.0.1.7' (normalized '006.000.001.007')
+SysVarMS82 : array[0..14] of TSysVarList = (
   (Expr: B_PACKETVER; Val: $00000001),
   (Expr: E_DRAGADDR; Val: $00518C60),
   (Expr: E_EXMSGADDR; Val: $00513CF0),
@@ -2717,8 +2794,8 @@ SysVarMS81 : array[0..14] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 82 -- first introduced at client '6.0.1.5' (normalized '006.000.001.005')
-SysVarMS82 : array[0..4] of TSysVarList = (
+// Milestone 83 -- first introduced at client '6.0.1.5' (normalized '006.000.001.005')
+SysVarMS83 : array[0..4] of TSysVarList = (
   (Expr: E_ITEMCHECKADDR; Val: $0053E1A0),
   (Expr: E_ITEMREQADDR; Val: $0053E7D0),
   (Expr: E_OLDDIR; Val: $00553420),
@@ -2726,8 +2803,8 @@ SysVarMS82 : array[0..4] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 83 -- first introduced at client '6.0.1.3' (normalized '006.000.001.003')
-SysVarMS83 : array[0..35] of TSysVarList = (
+// Milestone 84 -- first introduced at client '6.0.1.3' (normalized '006.000.001.003')
+SysVarMS84 : array[0..35] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007D95A0),
   (Expr: C_CHARPTR; Val: $0081D96C),
   (Expr: C_CLILEFT; Val: $0081D3CC),
@@ -2766,8 +2843,8 @@ SysVarMS83 : array[0..35] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 84 -- first introduced at client '6.0.1.2' (normalized '006.000.001.002')
-SysVarMS84 : array[0..12] of TSysVarList = (
+// Milestone 85 -- first introduced at client '6.0.1.2' (normalized '006.000.001.002')
+SysVarMS85 : array[0..12] of TSysVarList = (
   (Expr: E_DRAGADDR; Val: $00518B50),
   (Expr: E_EXMSGADDR; Val: $00513C30),
   (Expr: E_ITEMCHECKADDR; Val: $0053E010),
@@ -2783,8 +2860,8 @@ SysVarMS84 : array[0..12] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 85 -- first introduced at client '6.0.1.0' (normalized '006.000.001.000')
-SysVarMS85 : array[0..32] of TSysVarList = (
+// Milestone 86 -- first introduced at client '6.0.1.0' (normalized '006.000.001.000')
+SysVarMS86 : array[0..32] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007D9520),
   (Expr: C_CHARPTR; Val: $0081D8EC),
   (Expr: C_CLILEFT; Val: $0081D34C),
@@ -2820,8 +2897,8 @@ SysVarMS85 : array[0..32] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 86 -- first introduced at client '6.0.0.0' (normalized '006.000.000.000')
-SysVarMS86 : array[0..33] of TSysVarList = (
+// Milestone 87 -- first introduced at client '6.0.0.0' (normalized '006.000.000.000')
+SysVarMS87 : array[0..33] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007D9550),
   (Expr: C_CHARPTR; Val: $0081D91C),
   (Expr: C_CLILEFT; Val: $0081D37C),
@@ -2858,8 +2935,8 @@ SysVarMS86 : array[0..33] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 87 -- first introduced at client '5.0.9.1' (normalized '005.000.009.001')
-SysVarMS87 : array[0..4] of TSysVarList = (
+// Milestone 88 -- first introduced at client '5.0.9.1' (normalized '005.000.009.001')
+SysVarMS88 : array[0..4] of TSysVarList = (
   (Expr: E_ITEMCHECKADDR; Val: $0053DE50),
   (Expr: E_ITEMREQADDR; Val: $0053E480),
   (Expr: E_OLDDIR; Val: $00552FE0),
@@ -2867,8 +2944,8 @@ SysVarMS87 : array[0..4] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 88 -- first introduced at client '5.0.9.0' (normalized '005.000.009.000')
-SysVarMS88 : array[0..36] of TSysVarList = (
+// Milestone 89 -- first introduced at client '5.0.9.0' (normalized '005.000.009.000')
+SysVarMS89 : array[0..36] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007D94A0),
   (Expr: C_CHARPTR; Val: $0081D86C),
   (Expr: C_CLILEFT; Val: $0081D2CC),
@@ -2908,8 +2985,8 @@ SysVarMS88 : array[0..36] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 89 -- first introduced at client '5.0.8.1' (normalized '005.000.008.001')
-SysVarMS89 : array[0..36] of TSysVarList = (
+// Milestone 90 -- first introduced at client '5.0.8.1' (normalized '005.000.008.001')
+SysVarMS90 : array[0..36] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007D8480),
   (Expr: C_CHARPTR; Val: $0081C84C),
   (Expr: C_CLILEFT; Val: $0081C2AC),
@@ -2949,8 +3026,8 @@ SysVarMS89 : array[0..36] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 90 -- first introduced at client '5.0.7.2' (normalized '005.000.007.002')
-SysVarMS90 : array[0..10] of TSysVarList = (
+// Milestone 91 -- first introduced at client '5.0.7.2' (normalized '005.000.007.002')
+SysVarMS91 : array[0..10] of TSysVarList = (
   (Expr: E_DRAGADDR; Val: $00519A20),
   (Expr: E_EXMSGADDR; Val: $00515240),
   (Expr: E_ITEMCHECKADDR; Val: $0053EDD0),
@@ -2964,8 +3041,8 @@ SysVarMS90 : array[0..10] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 91 -- first introduced at client '5.0.7.1' (normalized '005.000.007.001')
-SysVarMS91 : array[0..36] of TSysVarList = (
+// Milestone 92 -- first introduced at client '5.0.7.1' (normalized '005.000.007.001')
+SysVarMS92 : array[0..36] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007DA480),
   (Expr: C_CHARPTR; Val: $0081E84C),
   (Expr: C_CLILEFT; Val: $0081E2AC),
@@ -3005,8 +3082,8 @@ SysVarMS91 : array[0..36] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 92 -- first introduced at client '5.0.6.5' (normalized '005.000.006.005')
-SysVarMS92 : array[0..36] of TSysVarList = (
+// Milestone 93 -- first introduced at client '5.0.6.5' (normalized '005.000.006.005')
+SysVarMS93 : array[0..36] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007D9480),
   (Expr: C_CHARPTR; Val: $0081D84C),
   (Expr: C_CLILEFT; Val: $0081D2AC),
@@ -3046,8 +3123,8 @@ SysVarMS92 : array[0..36] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 93 -- first introduced at client '5.0.5c' (normalized '005.000.005.c')
-SysVarMS93 : array[0..36] of TSysVarList = (
+// Milestone 94 -- first introduced at client '5.0.5c' (normalized '005.000.005.c')
+SysVarMS94 : array[0..36] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007D7458),
   (Expr: C_CHARPTR; Val: $0081B824),
   (Expr: C_CLILEFT; Val: $0081B284),
@@ -3087,8 +3164,8 @@ SysVarMS93 : array[0..36] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 94 -- first introduced at client '5.0.5a' (normalized '005.000.005.a')
-SysVarMS94 : array[0..11] of TSysVarList = (
+// Milestone 95 -- first introduced at client '5.0.5a' (normalized '005.000.005.a')
+SysVarMS95 : array[0..11] of TSysVarList = (
   (Expr: E_DRAGADDR; Val: $00518260),
   (Expr: E_EXMSGADDR; Val: $00513AA0),
   (Expr: E_ITEMCHECKADDR; Val: $0053D240),
@@ -3103,8 +3180,8 @@ SysVarMS94 : array[0..11] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 95 -- first introduced at client '5.0.4e' (normalized '005.000.004.e')
-SysVarMS95 : array[0..11] of TSysVarList = (
+// Milestone 96 -- first introduced at client '5.0.4e' (normalized '005.000.004.e')
+SysVarMS96 : array[0..11] of TSysVarList = (
   (Expr: E_DRAGADDR; Val: $00518100),
   (Expr: E_EXMSGADDR; Val: $00513940),
   (Expr: E_ITEMCHECKADDR; Val: $0053D0E0),
@@ -3119,8 +3196,8 @@ SysVarMS95 : array[0..11] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 96 -- first introduced at client '5.0.4d' (normalized '005.000.004.d')
-SysVarMS96 : array[0..11] of TSysVarList = (
+// Milestone 97 -- first introduced at client '5.0.4d' (normalized '005.000.004.d')
+SysVarMS97 : array[0..11] of TSysVarList = (
   (Expr: E_DRAGADDR; Val: $00518060),
   (Expr: E_EXMSGADDR; Val: $005138A0),
   (Expr: E_ITEMCHECKADDR; Val: $0053D040),
@@ -3135,8 +3212,8 @@ SysVarMS96 : array[0..11] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 97 -- first introduced at client '5.0.4b' (normalized '005.000.004.b')
-SysVarMS97 : array[0..11] of TSysVarList = (
+// Milestone 98 -- first introduced at client '5.0.4b' (normalized '005.000.004.b')
+SysVarMS98 : array[0..11] of TSysVarList = (
   (Expr: E_DRAGADDR; Val: $00518160),
   (Expr: E_EXMSGADDR; Val: $005139A0),
   (Expr: E_ITEMCHECKADDR; Val: $0053CFC0),
@@ -3151,8 +3228,8 @@ SysVarMS97 : array[0..11] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 98 -- first introduced at client '5.0.4a' (normalized '005.000.004.a')
-SysVarMS98 : array[0..36] of TSysVarList = (
+// Milestone 99 -- first introduced at client '5.0.4a' (normalized '005.000.004.a')
+SysVarMS99 : array[0..36] of TSysVarList = (
   (Expr: B_LANG; Val: $00000148),
   (Expr: C_CHARDIR; Val: $00000000),
   (Expr: C_CHARPTR; Val: $00000000),
@@ -3192,8 +3269,8 @@ SysVarMS98 : array[0..36] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 99 -- first introduced at client '5.0.3' (normalized '005.000.003')
-SysVarMS99 : array[0..37] of TSysVarList = (
+// Milestone 100 -- first introduced at client '5.0.3' (normalized '005.000.003')
+SysVarMS100 : array[0..37] of TSysVarList = (
   (Expr: B_FINDREP; Val: $00000184),
   (Expr: C_CHARDIR; Val: $007D73A0),
   (Expr: C_CHARPTR; Val: $0081B764),
@@ -3234,8 +3311,8 @@ SysVarMS99 : array[0..37] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 100 -- first introduced at client '5.0.2f' (normalized '005.000.002.f')
-SysVarMS100 : array[0..35] of TSysVarList = (
+// Milestone 101 -- first introduced at client '5.0.2f' (normalized '005.000.002.f')
+SysVarMS101 : array[0..35] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007D63A0),
   (Expr: C_CHARPTR; Val: $0081A764),
   (Expr: C_CLILEFT; Val: $0081A1C4),
@@ -3274,8 +3351,8 @@ SysVarMS100 : array[0..35] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 101 -- first introduced at client '5.0.2c' (normalized '005.000.002.c')
-SysVarMS101 : array[0..11] of TSysVarList = (
+// Milestone 102 -- first introduced at client '5.0.2c' (normalized '005.000.002.c')
+SysVarMS102 : array[0..11] of TSysVarList = (
   (Expr: E_DRAGADDR; Val: $00518780),
   (Expr: E_EXMSGADDR; Val: $00514090),
   (Expr: E_ITEMCHECKADDR; Val: $0053D770),
@@ -3290,8 +3367,8 @@ SysVarMS101 : array[0..11] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 102 -- first introduced at client '5.0.2b' (normalized '005.000.002.b')
-SysVarMS102 : array[0..12] of TSysVarList = (
+// Milestone 103 -- first introduced at client '5.0.2b' (normalized '005.000.002.b')
+SysVarMS103 : array[0..12] of TSysVarList = (
   (Expr: E_DRAGADDR; Val: $005185E0),
   (Expr: E_EXMSGADDR; Val: $00513EF0),
   (Expr: E_ITEMCHECKADDR; Val: $0053D7B0),
@@ -3307,8 +3384,8 @@ SysVarMS102 : array[0..12] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 103 -- first introduced at client '5.0.2a' (normalized '005.000.002.a')
-SysVarMS103 : array[0..38] of TSysVarList = (
+// Milestone 104 -- first introduced at client '5.0.2a' (normalized '005.000.002.a')
+SysVarMS104 : array[0..38] of TSysVarList = (
   (Expr: B_LANG; Val: $00000144),
   (Expr: C_CHARDIR; Val: $007D93A0),
   (Expr: C_CHARPTR; Val: $0081D764),
@@ -3350,8 +3427,8 @@ SysVarMS103 : array[0..38] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 104 -- first introduced at client '5.0.2' (normalized '005.000.002')
-SysVarMS104 : array[0..39] of TSysVarList = (
+// Milestone 105 -- first introduced at client '5.0.2' (normalized '005.000.002')
+SysVarMS105 : array[0..39] of TSysVarList = (
   (Expr: B_LANG; Val: $00000140),
   (Expr: B_MEMBASE; Val: $00868000),
   (Expr: C_CHARDIR; Val: $007D84E0),
@@ -3394,8 +3471,8 @@ SysVarMS104 : array[0..39] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 105 -- first introduced at client '5.0.1j' (normalized '005.000.001.j')
-SysVarMS105 : array[0..34] of TSysVarList = (
+// Milestone 106 -- first introduced at client '5.0.1j' (normalized '005.000.001.j')
+SysVarMS106 : array[0..34] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007C2A00),
   (Expr: C_CHARPTR; Val: $00806DAC),
   (Expr: C_CLILEFT; Val: $0080680C),
@@ -3433,8 +3510,8 @@ SysVarMS105 : array[0..34] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 106 -- first introduced at client '5.0.1i' (normalized '005.000.001.i')
-SysVarMS106 : array[0..34] of TSysVarList = (
+// Milestone 107 -- first introduced at client '5.0.1i' (normalized '005.000.001.i')
+SysVarMS107 : array[0..34] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007C29D0),
   (Expr: C_CHARPTR; Val: $00806D7C),
   (Expr: C_CLILEFT; Val: $008067DC),
@@ -3472,8 +3549,8 @@ SysVarMS106 : array[0..34] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 107 -- first introduced at client '5.0.1f' (normalized '005.000.001.f')
-SysVarMS107 : array[0..35] of TSysVarList = (
+// Milestone 108 -- first introduced at client '5.0.1f' (normalized '005.000.001.f')
+SysVarMS108 : array[0..35] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007C2860),
   (Expr: C_CHARPTR; Val: $00806C04),
   (Expr: C_CLILEFT; Val: $00806664),
@@ -3512,8 +3589,8 @@ SysVarMS107 : array[0..35] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 108 -- first introduced at client '5.0.1d' (normalized '005.000.001.d')
-SysVarMS108 : array[0..36] of TSysVarList = (
+// Milestone 109 -- first introduced at client '5.0.1d' (normalized '005.000.001.d')
+SysVarMS109 : array[0..36] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007C2830),
   (Expr: C_CHARPTR; Val: $00806BD4),
   (Expr: C_CLILEFT; Val: $00806634),
@@ -3553,8 +3630,8 @@ SysVarMS108 : array[0..36] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 109 -- first introduced at client '5.0.1d1' (normalized '005.000.001.d')
-SysVarMS109 : array[0..35] of TSysVarList = (
+// Milestone 110 -- first introduced at client '5.0.1d1' (normalized '005.000.001.d')
+SysVarMS110 : array[0..35] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007C0820),
   (Expr: C_CHARPTR; Val: $00804BC4),
   (Expr: C_CLILEFT; Val: $00804624),
@@ -3593,8 +3670,8 @@ SysVarMS109 : array[0..35] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 110 -- first introduced at client '5.0.1a' (normalized '005.000.001.a')
-SysVarMS110 : array[0..11] of TSysVarList = (
+// Milestone 111 -- first introduced at client '5.0.1a' (normalized '005.000.001.a')
+SysVarMS111 : array[0..11] of TSysVarList = (
   (Expr: E_DRAGADDR; Val: $0050DC40),
   (Expr: E_EXMSGADDR; Val: $00509560),
   (Expr: E_ITEMCHECKADDR; Val: $0052E160),
@@ -3609,8 +3686,8 @@ SysVarMS110 : array[0..11] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 111 -- first introduced at client '5.0.1a1' (normalized '005.000.001.a')
-SysVarMS111 : array[0..36] of TSysVarList = (
+// Milestone 112 -- first introduced at client '5.0.1a1' (normalized '005.000.001.a')
+SysVarMS112 : array[0..36] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007C07E0),
   (Expr: C_CHARPTR; Val: $00804B84),
   (Expr: C_CLILEFT; Val: $008045E4),
@@ -3650,8 +3727,8 @@ SysVarMS111 : array[0..36] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 112 -- first introduced at client '5.0.0b' (normalized '005.000.000.b')
-SysVarMS112 : array[0..12] of TSysVarList = (
+// Milestone 113 -- first introduced at client '5.0.0b' (normalized '005.000.000.b')
+SysVarMS113 : array[0..12] of TSysVarList = (
   (Expr: E_DRAGADDR; Val: $0050DFD0),
   (Expr: E_EXMSGADDR; Val: $005098F0),
   (Expr: E_ITEMCHECKADDR; Val: $0052D860),
@@ -3667,8 +3744,8 @@ SysVarMS112 : array[0..12] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 113 -- first introduced at client '5.0.0a' (normalized '005.000.000.a')
-SysVarMS113 : array[0..40] of TSysVarList = (
+// Milestone 114 -- first introduced at client '5.0.0a' (normalized '005.000.000.a')
+SysVarMS114 : array[0..40] of TSysVarList = (
   (Expr: B_FINDREP; Val: $00000178),
   (Expr: B_MEMBASE; Val: $00850000),
   (Expr: B_SKILLDIST; Val: $00000070),
@@ -3712,8 +3789,8 @@ SysVarMS113 : array[0..40] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 114 -- first introduced at client '4.0.11e' (normalized '004.000.011.e')
-SysVarMS114 : array[0..23] of TSysVarList = (
+// Milestone 115 -- first introduced at client '4.0.11e' (normalized '004.000.011.e')
+SysVarMS115 : array[0..23] of TSysVarList = (
   (Expr: C_CHARPTR; Val: $007E8A7C),
   (Expr: C_CLILEFT; Val: $007E84DC),
   (Expr: C_CLIXRES; Val: $005A2328),
@@ -3740,8 +3817,8 @@ SysVarMS114 : array[0..23] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 115 -- first introduced at client '4.0.11c' (normalized '004.000.011.c')
-SysVarMS115 : array[0..12] of TSysVarList = (
+// Milestone 116 -- first introduced at client '4.0.11c' (normalized '004.000.011.c')
+SysVarMS116 : array[0..12] of TSysVarList = (
   (Expr: E_DRAGADDR; Val: $00505B20),
   (Expr: E_EXMSGADDR; Val: $00501550),
   (Expr: E_ITEMCHECKADDR; Val: $00524A90),
@@ -3757,8 +3834,8 @@ SysVarMS115 : array[0..12] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 116 -- first introduced at client '4.0.11b' (normalized '004.000.011.b')
-SysVarMS116 : array[0..34] of TSysVarList = (
+// Milestone 117 -- first introduced at client '4.0.11b' (normalized '004.000.011.b')
+SysVarMS117 : array[0..34] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007B5038),
   (Expr: C_CHARPTR; Val: $007E8A14),
   (Expr: C_CLILEFT; Val: $007E8474),
@@ -3796,8 +3873,8 @@ SysVarMS116 : array[0..34] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 117 -- first introduced at client '4.0.11a' (normalized '004.000.011.a')
-SysVarMS117 : array[0..37] of TSysVarList = (
+// Milestone 118 -- first introduced at client '4.0.11a' (normalized '004.000.011.a')
+SysVarMS118 : array[0..37] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007B5050),
   (Expr: C_CHARPTR; Val: $007E8A2C),
   (Expr: C_CLILEFT; Val: $007E848C),
@@ -3838,8 +3915,8 @@ SysVarMS117 : array[0..37] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 118 -- first introduced at client '4.0.10b' (normalized '004.000.010.b')
-SysVarMS118 : array[0..10] of TSysVarList = (
+// Milestone 119 -- first introduced at client '4.0.10b' (normalized '004.000.010.b')
+SysVarMS119 : array[0..10] of TSysVarList = (
   (Expr: E_DRAGADDR; Val: $005038D0),
   (Expr: E_EXMSGADDR; Val: $004FF300),
   (Expr: E_ITEMCHECKADDR; Val: $00522B80),
@@ -3853,8 +3930,8 @@ SysVarMS118 : array[0..10] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 119 -- first introduced at client '4.0.10a' (normalized '004.000.010.a')
-SysVarMS119 : array[0..38] of TSysVarList = (
+// Milestone 120 -- first introduced at client '4.0.10a' (normalized '004.000.010.a')
+SysVarMS120 : array[0..38] of TSysVarList = (
   (Expr: B_FINDREP; Val: $00000170),
   (Expr: B_GUMPPTR; Val: $00000044),
   (Expr: C_CHARDIR; Val: $007B19E0),
@@ -3896,8 +3973,8 @@ SysVarMS119 : array[0..38] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 120 -- first introduced at client '4.0.9a' (normalized '004.000.009.a')
-SysVarMS120 : array[0..35] of TSysVarList = (
+// Milestone 121 -- first introduced at client '4.0.9a' (normalized '004.000.009.a')
+SysVarMS121 : array[0..35] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007AE900),
   (Expr: C_CHARPTR; Val: $007E22BC),
   (Expr: C_CLILEFT; Val: $007E1D1C),
@@ -3936,8 +4013,8 @@ SysVarMS120 : array[0..35] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 121 -- first introduced at client '4.0.7b' (normalized '004.000.007.b')
-SysVarMS121 : array[0..10] of TSysVarList = (
+// Milestone 122 -- first introduced at client '4.0.7b' (normalized '004.000.007.b')
+SysVarMS122 : array[0..10] of TSysVarList = (
   (Expr: E_DRAGADDR; Val: $00501200),
   (Expr: E_EXMSGADDR; Val: $004FCC20),
   (Expr: E_ITEMCHECKADDR; Val: $0051FE40),
@@ -3951,8 +4028,8 @@ SysVarMS121 : array[0..10] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 122 -- first introduced at client '4.0.7a' (normalized '004.000.007.a')
-SysVarMS122 : array[0..34] of TSysVarList = (
+// Milestone 123 -- first introduced at client '4.0.7a' (normalized '004.000.007.a')
+SysVarMS123 : array[0..34] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007AE8C0),
   (Expr: C_CHARPTR; Val: $007E227C),
   (Expr: C_CLILEFT; Val: $007E1CDC),
@@ -3990,8 +4067,8 @@ SysVarMS122 : array[0..34] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 123 -- first introduced at client '4.0.6a' (normalized '004.000.006.a')
-SysVarMS123 : array[0..36] of TSysVarList = (
+// Milestone 124 -- first introduced at client '4.0.6a' (normalized '004.000.006.a')
+SysVarMS124 : array[0..36] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $007AE860),
   (Expr: C_CHARPTR; Val: $007E221C),
   (Expr: C_CLILEFT; Val: $007E1C7C),
@@ -4031,8 +4108,8 @@ SysVarMS123 : array[0..36] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 124 -- first introduced at client '4.0.5b' (normalized '004.000.005.b')
-SysVarMS124 : array[0..11] of TSysVarList = (
+// Milestone 125 -- first introduced at client '4.0.5b' (normalized '004.000.005.b')
+SysVarMS125 : array[0..11] of TSysVarList = (
   (Expr: C_CLILOGGED; Val: $0059A4F4),
   (Expr: C_CLIXRES; Val: $0059BC40),
   (Expr: E_DRAGADDR; Val: $00501810),
@@ -4047,8 +4124,8 @@ SysVarMS124 : array[0..11] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 125 -- first introduced at client '4.0.5a' (normalized '004.000.005.a')
-SysVarMS125 : array[0..42] of TSysVarList = (
+// Milestone 126 -- first introduced at client '4.0.5a' (normalized '004.000.005.a')
+SysVarMS126 : array[0..42] of TSysVarList = (
   (Expr: B_BILLFIRST; Val: $000000DC),
   (Expr: B_CONTITEM; Val: $0000004C),
   (Expr: B_CONTNEXT; Val: $00000058),
@@ -4094,8 +4171,8 @@ SysVarMS125 : array[0..42] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 126 -- first introduced at client '4.0.4t' (normalized '004.000.004.t')
-SysVarMS126 : array[0..36] of TSysVarList = (
+// Milestone 127 -- first introduced at client '4.0.4t' (normalized '004.000.004.t')
+SysVarMS127 : array[0..36] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $00DCC780),
   (Expr: C_CHARPTR; Val: $00E0013C),
   (Expr: C_CLILEFT; Val: $00DFFB9C),
@@ -4135,8 +4212,8 @@ SysVarMS126 : array[0..36] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 127 -- first introduced at client '4.0.4b' (normalized '004.000.004.b')
-SysVarMS127 : array[0..29] of TSysVarList = (
+// Milestone 128 -- first introduced at client '4.0.4b' (normalized '004.000.004.b')
+SysVarMS128 : array[0..29] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $00D9EE38),
   (Expr: C_CHARPTR; Val: $00DC27F4),
   (Expr: C_CLILEFT; Val: $00DC2254),
@@ -4169,8 +4246,8 @@ SysVarMS127 : array[0..29] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 128 -- first introduced at client '4.0.4a' (normalized '004.000.004.a')
-SysVarMS128 : array[0..36] of TSysVarList = (
+// Milestone 129 -- first introduced at client '4.0.4a' (normalized '004.000.004.a')
+SysVarMS129 : array[0..36] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $00D9EE30),
   (Expr: C_CHARPTR; Val: $00DC27EC),
   (Expr: C_CLILEFT; Val: $00DC224C),
@@ -4210,8 +4287,8 @@ SysVarMS128 : array[0..36] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 129 -- first introduced at client '4.0.3e' (normalized '004.000.003.e')
-SysVarMS129 : array[0..30] of TSysVarList = (
+// Milestone 130 -- first introduced at client '4.0.3e' (normalized '004.000.003.e')
+SysVarMS130 : array[0..30] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $00D9EDE0),
   (Expr: C_CHARPTR; Val: $00DC2764),
   (Expr: C_CLILEFT; Val: $00DC21D0),
@@ -4245,8 +4322,8 @@ SysVarMS129 : array[0..30] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 130 -- first introduced at client '4.0.3d' (normalized '004.000.003.d')
-SysVarMS130 : array[0..36] of TSysVarList = (
+// Milestone 131 -- first introduced at client '4.0.3d' (normalized '004.000.003.d')
+SysVarMS131 : array[0..36] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $00D9EDF0),
   (Expr: C_CHARPTR; Val: $00DC2774),
   (Expr: C_CLILEFT; Val: $00DC21E0),
@@ -4286,8 +4363,8 @@ SysVarMS130 : array[0..36] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 131 -- first introduced at client '4.0.3c' (normalized '004.000.003.c')
-SysVarMS131 : array[0..40] of TSysVarList = (
+// Milestone 132 -- first introduced at client '4.0.3c' (normalized '004.000.003.c')
+SysVarMS132 : array[0..40] of TSysVarList = (
   (Expr: B_CHARSTATUS; Val: $00000024),
   (Expr: B_FINDREP; Val: $00000164),
   (Expr: B_GUMPPTR; Val: $00000038),
@@ -4331,8 +4408,8 @@ SysVarMS131 : array[0..40] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 132 -- first introduced at client '4.0.3b' (normalized '004.000.003.b')
-SysVarMS132 : array[0..37] of TSysVarList = (
+// Milestone 133 -- first introduced at client '4.0.3b' (normalized '004.000.003.b')
+SysVarMS133 : array[0..37] of TSysVarList = (
   (Expr: B_LANG; Val: $00000148),
   (Expr: C_CHARDIR; Val: $00DC0DD0),
   (Expr: C_CHARPTR; Val: $00DE4764),
@@ -4373,8 +4450,8 @@ SysVarMS132 : array[0..37] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 133 -- first introduced at client '4.0.3a' (normalized '004.000.003.a')
-SysVarMS133 : array[0..35] of TSysVarList = (
+// Milestone 134 -- first introduced at client '4.0.3a' (normalized '004.000.003.a')
+SysVarMS134 : array[0..35] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $00DBA598),
   (Expr: C_CHARPTR; Val: $00DDDD8C),
   (Expr: C_CLILEFT; Val: $00DDD7F8),
@@ -4413,8 +4490,8 @@ SysVarMS133 : array[0..35] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 134 -- first introduced at client '4.0.2a' (normalized '004.000.002.a')
-SysVarMS134 : array[0..46] of TSysVarList = (
+// Milestone 135 -- first introduced at client '4.0.2a' (normalized '004.000.002.a')
+SysVarMS135 : array[0..46] of TSysVarList = (
   (Expr: B_BILLFIRST; Val: $000000CC),
   (Expr: B_CONTITEM; Val: $0000003C),
   (Expr: B_CONTNEXT; Val: $00000048),
@@ -4464,8 +4541,8 @@ SysVarMS134 : array[0..46] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 135 -- first introduced at client '4.0.1b' (normalized '004.000.001.b')
-SysVarMS135 : array[0..37] of TSysVarList = (
+// Milestone 136 -- first introduced at client '4.0.1b' (normalized '004.000.001.b')
+SysVarMS136 : array[0..37] of TSysVarList = (
   (Expr: C_CHARDIR; Val: $00DB9848),
   (Expr: C_CHARPTR; Val: $00DDD03C),
   (Expr: C_CLILEFT; Val: $00DDCAA8),
@@ -4506,8 +4583,8 @@ SysVarMS135 : array[0..37] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 136 -- first introduced at client '4.0.0c' (normalized '004.000.000.c')
-SysVarMS136 : array[0..50] of TSysVarList = (
+// Milestone 137 -- first introduced at client '4.0.0c' (normalized '004.000.000.c')
+SysVarMS137 : array[0..50] of TSysVarList = (
   (Expr: B_BILLFIRST; Val: $000000C8),
   (Expr: B_CONTNEXT; Val: $00000044),
   (Expr: B_ENEMYHPVAL; Val: $000000B0),
@@ -4561,8 +4638,8 @@ SysVarMS136 : array[0..50] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 137 -- first introduced at client '3.0.0c' (normalized '003.000.000.c')
-SysVarMS137 : array[0..34] of TSysVarList = (
+// Milestone 138 -- first introduced at client '3.0.0c' (normalized '003.000.000.c')
+SysVarMS138 : array[0..34] of TSysVarList = (
   (Expr: B_ITEMID; Val: $00000080),
   (Expr: B_ITEMSTACK; Val: $00000042),
   (Expr: B_LLIFTEDKIND; Val: $00000030),
@@ -4600,8 +4677,8 @@ SysVarMS137 : array[0..34] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 138 -- first introduced at client '2.0.3' (normalized '002.000.003')
-SysVarMS138 : array[0..31] of TSysVarList = (
+// Milestone 139 -- first introduced at client '2.0.3' (normalized '002.000.003')
+SysVarMS139 : array[0..31] of TSysVarList = (
   (Expr: B_EVSKILLPAR; Val: $000000B8),
   (Expr: C_CHARDIR; Val: $00CC1FA8),
   (Expr: C_CHARPTR; Val: $00CC535C),
@@ -4636,8 +4713,8 @@ SysVarMS138 : array[0..31] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-// Milestone 139 -- first introduced at client '2.0.0' (normalized '002.000.000')
-SysVarMS139 : array[0..59] of TSysVarList = (
+// Milestone 140 -- first introduced at client '2.0.0' (normalized '002.000.000')
+SysVarMS140 : array[0..59] of TSysVarList = (
   (Expr: B_BILLFIRST; Val: $000000BC),
   (Expr: B_CHARSTATUS; Val: $00000020),
   (Expr: B_CONTITEM; Val: $00000038),
@@ -4700,372 +4777,374 @@ SysVarMS139 : array[0..59] of TSysVarList = (
   (Expr: LISTEND; Val: 0)
 );
 
-Milestones : array[0..139] of TMilestoneEntry = (
-  (NormVer: '007.000.108.000'; List: @SysVarMS0),
-  (NormVer: '007.000.099.001'; List: @SysVarMS1),
-  (NormVer: '007.000.047.000'; List: @SysVarMS2),
-  (NormVer: '007.000.046.024'; List: @SysVarMS3),
-  (NormVer: '007.000.046.000'; List: @SysVarMS4),
-  (NormVer: '007.000.045.089'; List: @SysVarMS5),
-  (NormVer: '007.000.045.077'; List: @SysVarMS6),
-  (NormVer: '007.000.045.065'; List: @SysVarMS7),
-  (NormVer: '007.000.040.010'; List: @SysVarMS8),
-  (NormVer: '007.000.038.000'; List: @SysVarMS9),
-  (NormVer: '007.000.035.023'; List: @SysVarMS10),
-  (NormVer: '007.000.035.003'; List: @SysVarMS11),
-  (NormVer: '007.000.034.023'; List: @SysVarMS12),
-  (NormVer: '007.000.034.015'; List: @SysVarMS13),
-  (NormVer: '007.000.034.006'; List: @SysVarMS14),
-  (NormVer: '007.000.034.002'; List: @SysVarMS15),
-  (NormVer: '007.000.033.001'; List: @SysVarMS16),
-  (NormVer: '007.000.032.011'; List: @SysVarMS17),
-  (NormVer: '007.000.031.000'; List: @SysVarMS18),
-  (NormVer: '007.000.030.001'; List: @SysVarMS19),
-  (NormVer: '007.000.029.002'; List: @SysVarMS20),
-  (NormVer: '007.000.027.066'; List: @SysVarMS21),
-  (NormVer: '007.000.027.009'; List: @SysVarMS22),
-  (NormVer: '007.000.027.007'; List: @SysVarMS23),
-  (NormVer: '007.000.027.005'; List: @SysVarMS24),
-  (NormVer: '007.000.026.004'; List: @SysVarMS25),
-  (NormVer: '007.000.025.006'; List: @SysVarMS26),
-  (NormVer: '007.000.024.003'; List: @SysVarMS27),
-  (NormVer: '007.000.022.000'; List: @SysVarMS28),
-  (NormVer: '007.000.021.002'; List: @SysVarMS29),
-  (NormVer: '007.000.021.001'; List: @SysVarMS30),
-  (NormVer: '007.000.020.000'; List: @SysVarMS31),
-  (NormVer: '007.000.019.001'; List: @SysVarMS32),
-  (NormVer: '007.000.019.000'; List: @SysVarMS33),
-  (NormVer: '007.000.017.000'; List: @SysVarMS34),
-  (NormVer: '007.000.016.000'; List: @SysVarMS35),
-  (NormVer: '007.000.014.004'; List: @SysVarMS36),
-  (NormVer: '007.000.014.003'; List: @SysVarMS37),
-  (NormVer: '007.000.014.000'; List: @SysVarMS38),
-  (NormVer: '007.000.013.001'; List: @SysVarMS39),
-  (NormVer: '007.000.013.000'; List: @SysVarMS40),
-  (NormVer: '007.000.012.000'; List: @SysVarMS41),
-  (NormVer: '007.000.011.002'; List: @SysVarMS42),
-  (NormVer: '007.000.011.000'; List: @SysVarMS43),
-  (NormVer: '007.000.010.002'; List: @SysVarMS44),
-  (NormVer: '007.000.010.001'; List: @SysVarMS45),
-  (NormVer: '007.000.009.000'; List: @SysVarMS46),
-  (NormVer: '007.000.008.002'; List: @SysVarMS47),
-  (NormVer: '007.000.008.000'; List: @SysVarMS48),
-  (NormVer: '007.000.007.001'; List: @SysVarMS49),
-  (NormVer: '007.000.007.000'; List: @SysVarMS50),
-  (NormVer: '007.000.006.004'; List: @SysVarMS51),
-  (NormVer: '007.000.006.003'; List: @SysVarMS52),
-  (NormVer: '007.000.005.000'; List: @SysVarMS53),
-  (NormVer: '007.000.004.005'; List: @SysVarMS54),
-  (NormVer: '007.000.004.004'; List: @SysVarMS55),
-  (NormVer: '007.000.004.003'; List: @SysVarMS56),
-  (NormVer: '007.000.004.002'; List: @SysVarMS57),
-  (NormVer: '007.000.004.001'; List: @SysVarMS58),
-  (NormVer: '007.000.004.000'; List: @SysVarMS59),
-  (NormVer: '007.000.003.000'; List: @SysVarMS60),
-  (NormVer: '007.000.002.001'; List: @SysVarMS61),
-  (NormVer: '007.000.001.001'; List: @SysVarMS62),
-  (NormVer: '007.000.000.004'; List: @SysVarMS63),
-  (NormVer: '007.000.000.003'; List: @SysVarMS64),
-  (NormVer: '007.000.000.002'; List: @SysVarMS65),
-  (NormVer: '007.000.000.000'; List: @SysVarMS66),
-  (NormVer: '006.000.014.002'; List: @SysVarMS67),
-  (NormVer: '006.000.013.000'; List: @SysVarMS68),
-  (NormVer: '006.000.012.004'; List: @SysVarMS69),
-  (NormVer: '006.000.012.003'; List: @SysVarMS70),
-  (NormVer: '006.000.012.000'; List: @SysVarMS71),
-  (NormVer: '006.000.011.000'; List: @SysVarMS72),
-  (NormVer: '006.000.008.000'; List: @SysVarMS73),
-  (NormVer: '006.000.007.000'; List: @SysVarMS74),
-  (NormVer: '006.000.006.002'; List: @SysVarMS75),
-  (NormVer: '006.000.006.001'; List: @SysVarMS76),
-  (NormVer: '006.000.006.000'; List: @SysVarMS77),
-  (NormVer: '006.000.005.000'; List: @SysVarMS78),
-  (NormVer: '006.000.004.000'; List: @SysVarMS79),
-  (NormVer: '006.000.003.000'; List: @SysVarMS80),
-  (NormVer: '006.000.001.007'; List: @SysVarMS81),
-  (NormVer: '006.000.001.005'; List: @SysVarMS82),
-  (NormVer: '006.000.001.003'; List: @SysVarMS83),
-  (NormVer: '006.000.001.002'; List: @SysVarMS84),
-  (NormVer: '006.000.001.000'; List: @SysVarMS85),
-  (NormVer: '006.000.000.000'; List: @SysVarMS86),
-  (NormVer: '005.000.009.001'; List: @SysVarMS87),
-  (NormVer: '005.000.009.000'; List: @SysVarMS88),
-  (NormVer: '005.000.008.001'; List: @SysVarMS89),
-  (NormVer: '005.000.007.002'; List: @SysVarMS90),
-  (NormVer: '005.000.007.001'; List: @SysVarMS91),
-  (NormVer: '005.000.006.005'; List: @SysVarMS92),
-  (NormVer: '005.000.005.c'; List: @SysVarMS93),
-  (NormVer: '005.000.005.a'; List: @SysVarMS94),
-  (NormVer: '005.000.004.e'; List: @SysVarMS95),
-  (NormVer: '005.000.004.d'; List: @SysVarMS96),
-  (NormVer: '005.000.004.b'; List: @SysVarMS97),
-  (NormVer: '005.000.004.a'; List: @SysVarMS98),
-  (NormVer: '005.000.003'; List: @SysVarMS99),
-  (NormVer: '005.000.002.f'; List: @SysVarMS100),
-  (NormVer: '005.000.002.c'; List: @SysVarMS101),
-  (NormVer: '005.000.002.b'; List: @SysVarMS102),
-  (NormVer: '005.000.002.a'; List: @SysVarMS103),
-  (NormVer: '005.000.002'; List: @SysVarMS104),
-  (NormVer: '005.000.001.j'; List: @SysVarMS105),
-  (NormVer: '005.000.001.i'; List: @SysVarMS106),
-  (NormVer: '005.000.001.f'; List: @SysVarMS107),
-  (NormVer: '005.000.001.d'; List: @SysVarMS108),
+Milestones : array[0..140] of TMilestoneEntry = (
+  (NormVer: '007.000.117.001'; List: @SysVarMS0),
+  (NormVer: '007.000.108.000'; List: @SysVarMS1),
+  (NormVer: '007.000.099.001'; List: @SysVarMS2),
+  (NormVer: '007.000.047.000'; List: @SysVarMS3),
+  (NormVer: '007.000.046.024'; List: @SysVarMS4),
+  (NormVer: '007.000.046.000'; List: @SysVarMS5),
+  (NormVer: '007.000.045.089'; List: @SysVarMS6),
+  (NormVer: '007.000.045.077'; List: @SysVarMS7),
+  (NormVer: '007.000.045.065'; List: @SysVarMS8),
+  (NormVer: '007.000.040.010'; List: @SysVarMS9),
+  (NormVer: '007.000.038.000'; List: @SysVarMS10),
+  (NormVer: '007.000.035.023'; List: @SysVarMS11),
+  (NormVer: '007.000.035.003'; List: @SysVarMS12),
+  (NormVer: '007.000.034.023'; List: @SysVarMS13),
+  (NormVer: '007.000.034.015'; List: @SysVarMS14),
+  (NormVer: '007.000.034.006'; List: @SysVarMS15),
+  (NormVer: '007.000.034.002'; List: @SysVarMS16),
+  (NormVer: '007.000.033.001'; List: @SysVarMS17),
+  (NormVer: '007.000.032.011'; List: @SysVarMS18),
+  (NormVer: '007.000.031.000'; List: @SysVarMS19),
+  (NormVer: '007.000.030.001'; List: @SysVarMS20),
+  (NormVer: '007.000.029.002'; List: @SysVarMS21),
+  (NormVer: '007.000.027.066'; List: @SysVarMS22),
+  (NormVer: '007.000.027.009'; List: @SysVarMS23),
+  (NormVer: '007.000.027.007'; List: @SysVarMS24),
+  (NormVer: '007.000.027.005'; List: @SysVarMS25),
+  (NormVer: '007.000.026.004'; List: @SysVarMS26),
+  (NormVer: '007.000.025.006'; List: @SysVarMS27),
+  (NormVer: '007.000.024.003'; List: @SysVarMS28),
+  (NormVer: '007.000.022.000'; List: @SysVarMS29),
+  (NormVer: '007.000.021.002'; List: @SysVarMS30),
+  (NormVer: '007.000.021.001'; List: @SysVarMS31),
+  (NormVer: '007.000.020.000'; List: @SysVarMS32),
+  (NormVer: '007.000.019.001'; List: @SysVarMS33),
+  (NormVer: '007.000.019.000'; List: @SysVarMS34),
+  (NormVer: '007.000.017.000'; List: @SysVarMS35),
+  (NormVer: '007.000.016.000'; List: @SysVarMS36),
+  (NormVer: '007.000.014.004'; List: @SysVarMS37),
+  (NormVer: '007.000.014.003'; List: @SysVarMS38),
+  (NormVer: '007.000.014.000'; List: @SysVarMS39),
+  (NormVer: '007.000.013.001'; List: @SysVarMS40),
+  (NormVer: '007.000.013.000'; List: @SysVarMS41),
+  (NormVer: '007.000.012.000'; List: @SysVarMS42),
+  (NormVer: '007.000.011.002'; List: @SysVarMS43),
+  (NormVer: '007.000.011.000'; List: @SysVarMS44),
+  (NormVer: '007.000.010.002'; List: @SysVarMS45),
+  (NormVer: '007.000.010.001'; List: @SysVarMS46),
+  (NormVer: '007.000.009.000'; List: @SysVarMS47),
+  (NormVer: '007.000.008.002'; List: @SysVarMS48),
+  (NormVer: '007.000.008.000'; List: @SysVarMS49),
+  (NormVer: '007.000.007.001'; List: @SysVarMS50),
+  (NormVer: '007.000.007.000'; List: @SysVarMS51),
+  (NormVer: '007.000.006.004'; List: @SysVarMS52),
+  (NormVer: '007.000.006.003'; List: @SysVarMS53),
+  (NormVer: '007.000.005.000'; List: @SysVarMS54),
+  (NormVer: '007.000.004.005'; List: @SysVarMS55),
+  (NormVer: '007.000.004.004'; List: @SysVarMS56),
+  (NormVer: '007.000.004.003'; List: @SysVarMS57),
+  (NormVer: '007.000.004.002'; List: @SysVarMS58),
+  (NormVer: '007.000.004.001'; List: @SysVarMS59),
+  (NormVer: '007.000.004.000'; List: @SysVarMS60),
+  (NormVer: '007.000.003.000'; List: @SysVarMS61),
+  (NormVer: '007.000.002.001'; List: @SysVarMS62),
+  (NormVer: '007.000.001.001'; List: @SysVarMS63),
+  (NormVer: '007.000.000.004'; List: @SysVarMS64),
+  (NormVer: '007.000.000.003'; List: @SysVarMS65),
+  (NormVer: '007.000.000.002'; List: @SysVarMS66),
+  (NormVer: '007.000.000.000'; List: @SysVarMS67),
+  (NormVer: '006.000.014.002'; List: @SysVarMS68),
+  (NormVer: '006.000.013.000'; List: @SysVarMS69),
+  (NormVer: '006.000.012.004'; List: @SysVarMS70),
+  (NormVer: '006.000.012.003'; List: @SysVarMS71),
+  (NormVer: '006.000.012.000'; List: @SysVarMS72),
+  (NormVer: '006.000.011.000'; List: @SysVarMS73),
+  (NormVer: '006.000.008.000'; List: @SysVarMS74),
+  (NormVer: '006.000.007.000'; List: @SysVarMS75),
+  (NormVer: '006.000.006.002'; List: @SysVarMS76),
+  (NormVer: '006.000.006.001'; List: @SysVarMS77),
+  (NormVer: '006.000.006.000'; List: @SysVarMS78),
+  (NormVer: '006.000.005.000'; List: @SysVarMS79),
+  (NormVer: '006.000.004.000'; List: @SysVarMS80),
+  (NormVer: '006.000.003.000'; List: @SysVarMS81),
+  (NormVer: '006.000.001.007'; List: @SysVarMS82),
+  (NormVer: '006.000.001.005'; List: @SysVarMS83),
+  (NormVer: '006.000.001.003'; List: @SysVarMS84),
+  (NormVer: '006.000.001.002'; List: @SysVarMS85),
+  (NormVer: '006.000.001.000'; List: @SysVarMS86),
+  (NormVer: '006.000.000.000'; List: @SysVarMS87),
+  (NormVer: '005.000.009.001'; List: @SysVarMS88),
+  (NormVer: '005.000.009.000'; List: @SysVarMS89),
+  (NormVer: '005.000.008.001'; List: @SysVarMS90),
+  (NormVer: '005.000.007.002'; List: @SysVarMS91),
+  (NormVer: '005.000.007.001'; List: @SysVarMS92),
+  (NormVer: '005.000.006.005'; List: @SysVarMS93),
+  (NormVer: '005.000.005.c'; List: @SysVarMS94),
+  (NormVer: '005.000.005.a'; List: @SysVarMS95),
+  (NormVer: '005.000.004.e'; List: @SysVarMS96),
+  (NormVer: '005.000.004.d'; List: @SysVarMS97),
+  (NormVer: '005.000.004.b'; List: @SysVarMS98),
+  (NormVer: '005.000.004.a'; List: @SysVarMS99),
+  (NormVer: '005.000.003'; List: @SysVarMS100),
+  (NormVer: '005.000.002.f'; List: @SysVarMS101),
+  (NormVer: '005.000.002.c'; List: @SysVarMS102),
+  (NormVer: '005.000.002.b'; List: @SysVarMS103),
+  (NormVer: '005.000.002.a'; List: @SysVarMS104),
+  (NormVer: '005.000.002'; List: @SysVarMS105),
+  (NormVer: '005.000.001.j'; List: @SysVarMS106),
+  (NormVer: '005.000.001.i'; List: @SysVarMS107),
+  (NormVer: '005.000.001.f'; List: @SysVarMS108),
   (NormVer: '005.000.001.d'; List: @SysVarMS109),
-  (NormVer: '005.000.001.a'; List: @SysVarMS110),
+  (NormVer: '005.000.001.d'; List: @SysVarMS110),
   (NormVer: '005.000.001.a'; List: @SysVarMS111),
-  (NormVer: '005.000.000.b'; List: @SysVarMS112),
-  (NormVer: '005.000.000.a'; List: @SysVarMS113),
-  (NormVer: '004.000.011.e'; List: @SysVarMS114),
-  (NormVer: '004.000.011.c'; List: @SysVarMS115),
-  (NormVer: '004.000.011.b'; List: @SysVarMS116),
-  (NormVer: '004.000.011.a'; List: @SysVarMS117),
-  (NormVer: '004.000.010.b'; List: @SysVarMS118),
-  (NormVer: '004.000.010.a'; List: @SysVarMS119),
-  (NormVer: '004.000.009.a'; List: @SysVarMS120),
-  (NormVer: '004.000.007.b'; List: @SysVarMS121),
-  (NormVer: '004.000.007.a'; List: @SysVarMS122),
-  (NormVer: '004.000.006.a'; List: @SysVarMS123),
-  (NormVer: '004.000.005.b'; List: @SysVarMS124),
-  (NormVer: '004.000.005.a'; List: @SysVarMS125),
-  (NormVer: '004.000.004.t'; List: @SysVarMS126),
-  (NormVer: '004.000.004.b'; List: @SysVarMS127),
-  (NormVer: '004.000.004.a'; List: @SysVarMS128),
-  (NormVer: '004.000.003.e'; List: @SysVarMS129),
-  (NormVer: '004.000.003.d'; List: @SysVarMS130),
-  (NormVer: '004.000.003.c'; List: @SysVarMS131),
-  (NormVer: '004.000.003.b'; List: @SysVarMS132),
-  (NormVer: '004.000.003.a'; List: @SysVarMS133),
-  (NormVer: '004.000.002.a'; List: @SysVarMS134),
-  (NormVer: '004.000.001.b'; List: @SysVarMS135),
-  (NormVer: '004.000.000.c'; List: @SysVarMS136),
-  (NormVer: '003.000.000.c'; List: @SysVarMS137),
-  (NormVer: '002.000.003'; List: @SysVarMS138),
-  (NormVer: '002.000.000'; List: @SysVarMS139)
+  (NormVer: '005.000.001.a'; List: @SysVarMS112),
+  (NormVer: '005.000.000.b'; List: @SysVarMS113),
+  (NormVer: '005.000.000.a'; List: @SysVarMS114),
+  (NormVer: '004.000.011.e'; List: @SysVarMS115),
+  (NormVer: '004.000.011.c'; List: @SysVarMS116),
+  (NormVer: '004.000.011.b'; List: @SysVarMS117),
+  (NormVer: '004.000.011.a'; List: @SysVarMS118),
+  (NormVer: '004.000.010.b'; List: @SysVarMS119),
+  (NormVer: '004.000.010.a'; List: @SysVarMS120),
+  (NormVer: '004.000.009.a'; List: @SysVarMS121),
+  (NormVer: '004.000.007.b'; List: @SysVarMS122),
+  (NormVer: '004.000.007.a'; List: @SysVarMS123),
+  (NormVer: '004.000.006.a'; List: @SysVarMS124),
+  (NormVer: '004.000.005.b'; List: @SysVarMS125),
+  (NormVer: '004.000.005.a'; List: @SysVarMS126),
+  (NormVer: '004.000.004.t'; List: @SysVarMS127),
+  (NormVer: '004.000.004.b'; List: @SysVarMS128),
+  (NormVer: '004.000.004.a'; List: @SysVarMS129),
+  (NormVer: '004.000.003.e'; List: @SysVarMS130),
+  (NormVer: '004.000.003.d'; List: @SysVarMS131),
+  (NormVer: '004.000.003.c'; List: @SysVarMS132),
+  (NormVer: '004.000.003.b'; List: @SysVarMS133),
+  (NormVer: '004.000.003.a'; List: @SysVarMS134),
+  (NormVer: '004.000.002.a'; List: @SysVarMS135),
+  (NormVer: '004.000.001.b'; List: @SysVarMS136),
+  (NormVer: '004.000.000.c'; List: @SysVarMS137),
+  (NormVer: '003.000.000.c'; List: @SysVarMS138),
+  (NormVer: '002.000.003'; List: @SysVarMS139),
+  (NormVer: '002.000.000'; List: @SysVarMS140)
 );
 
-VersionIndex : array[0..221] of TVersionIndexEntry = (
-  (Cli: '7.0.108.0'; Milestone: 0),
-  (Cli: '7.0.99.1'; Milestone: 1),
-  (Cli: '7.0.47.0'; Milestone: 2),
-  (Cli: '7.0.46.24'; Milestone: 3),
-  (Cli: '7.0.46.2'; Milestone: 4),
-  (Cli: '7.0.46.0'; Milestone: 4),
-  (Cli: '7.0.45.89'; Milestone: 5),
-  (Cli: '7.0.45.77'; Milestone: 6),
-  (Cli: '7.0.45.65'; Milestone: 7),
-  (Cli: '7.0.45.0'; Milestone: 8),
-  (Cli: '7.0.44.2'; Milestone: 8),
-  (Cli: '7.0.43.1'; Milestone: 8),
-  (Cli: '7.0.42.0'; Milestone: 8),
-  (Cli: '7.0.41.1'; Milestone: 8),
-  (Cli: '7.0.40.10'; Milestone: 8),
-  (Cli: '7.0.40.1'; Milestone: 9),
-  (Cli: '7.0.40.0'; Milestone: 9),
-  (Cli: '7.0.39.0'; Milestone: 9),
-  (Cli: '7.0.38.2'; Milestone: 9),
-  (Cli: '7.0.38.1'; Milestone: 9),
-  (Cli: '7.0.38.0'; Milestone: 9),
-  (Cli: '7.0.37.0'; Milestone: 10),
-  (Cli: '7.0.36.0'; Milestone: 10),
-  (Cli: '7.0.35.23'; Milestone: 10),
-  (Cli: '7.0.35.6'; Milestone: 11),
-  (Cli: '7.0.35.3'; Milestone: 11),
-  (Cli: '7.0.35.1'; Milestone: 12),
-  (Cli: '7.0.35.0'; Milestone: 12),
-  (Cli: '7.0.34.23'; Milestone: 12),
-  (Cli: '7.0.34.15'; Milestone: 13),
-  (Cli: '7.0.34.6'; Milestone: 14),
-  (Cli: '7.0.34.2'; Milestone: 15),
-  (Cli: '7.0.33.1'; Milestone: 16),
-  (Cli: '7.0.32.11'; Milestone: 17),
-  (Cli: '7.0.31.0'; Milestone: 18),
-  (Cli: '7.0.30.3'; Milestone: 19),
-  (Cli: '7.0.30.2'; Milestone: 19),
-  (Cli: '7.0.30.1'; Milestone: 19),
-  (Cli: '7.0.29.3'; Milestone: 20),
-  (Cli: '7.0.29.2'; Milestone: 20),
-  (Cli: '7.0.28.0'; Milestone: 21),
-  (Cli: '7.0.27.66'; Milestone: 21),
-  (Cli: '7.0.27.9'; Milestone: 22),
-  (Cli: '7.0.27.8'; Milestone: 23),
-  (Cli: '7.0.27.7'; Milestone: 23),
-  (Cli: '7.0.27.5'; Milestone: 24),
-  (Cli: '7.0.26.5'; Milestone: 25),
-  (Cli: '7.0.26.4'; Milestone: 25),
-  (Cli: '7.0.25.7'; Milestone: 26),
-  (Cli: '7.0.25.6'; Milestone: 26),
-  (Cli: '7.0.24.5'; Milestone: 27),
-  (Cli: '7.0.24.3'; Milestone: 27),
-  (Cli: '7.0.23.1'; Milestone: 28),
-  (Cli: '7.0.23.0'; Milestone: 28),
-  (Cli: '7.0.22.8'; Milestone: 28),
-  (Cli: '7.0.22.0'; Milestone: 28),
-  (Cli: '7.0.21.2'; Milestone: 29),
-  (Cli: '7.0.21.1'; Milestone: 30),
-  (Cli: '7.0.20.0'; Milestone: 31),
-  (Cli: '7.0.19.1'; Milestone: 32),
-  (Cli: '7.0.19.0'; Milestone: 33),
-  (Cli: '7.0.18.0'; Milestone: 34),
-  (Cli: '7.0.17.0'; Milestone: 34),
-  (Cli: '7.0.16.3'; Milestone: 35),
-  (Cli: '7.0.16.1'; Milestone: 35),
-  (Cli: '7.0.16.0'; Milestone: 35),
-  (Cli: '7.0.15.1'; Milestone: 36),
-  (Cli: '7.0.14.4'; Milestone: 36),
-  (Cli: '7.0.14.3'; Milestone: 37),
-  (Cli: '7.0.14.2'; Milestone: 38),
-  (Cli: '7.0.14.0'; Milestone: 38),
-  (Cli: '7.0.13.4'; Milestone: 39),
-  (Cli: '7.0.13.3'; Milestone: 39),
-  (Cli: '7.0.13.2'; Milestone: 39),
-  (Cli: '7.0.13.1'; Milestone: 39),
-  (Cli: '7.0.13.0'; Milestone: 40),
-  (Cli: '7.0.12.1'; Milestone: 41),
-  (Cli: '7.0.12.0'; Milestone: 41),
-  (Cli: '7.0.11.4'; Milestone: 42),
-  (Cli: '7.0.11.3'; Milestone: 42),
-  (Cli: '7.0.11.2'; Milestone: 42),
-  (Cli: '7.0.11.1'; Milestone: 43),
-  (Cli: '7.0.11.0'; Milestone: 43),
-  (Cli: '7.0.10.3'; Milestone: 44),
-  (Cli: '7.0.10.2'; Milestone: 44),
-  (Cli: '7.0.10.1'; Milestone: 45),
-  (Cli: '7.0.9.1'; Milestone: 46),
-  (Cli: '7.0.9.0'; Milestone: 46),
-  (Cli: '7.0.8.2'; Milestone: 47),
-  (Cli: '7.0.8.1'; Milestone: 48),
-  (Cli: '7.0.8.0'; Milestone: 48),
-  (Cli: '7.0.7.3'; Milestone: 49),
-  (Cli: '7.0.7.1'; Milestone: 49),
-  (Cli: '7.0.7.0'; Milestone: 50),
-  (Cli: '7.0.6.5'; Milestone: 51),
-  (Cli: '7.0.6.4'; Milestone: 51),
-  (Cli: '7.0.6.3'; Milestone: 52),
-  (Cli: '7.0.5.0'; Milestone: 53),
-  (Cli: '7.0.4.5'; Milestone: 54),
-  (Cli: '7.0.4.4'; Milestone: 55),
-  (Cli: '7.0.4.3'; Milestone: 56),
-  (Cli: '7.0.4.2'; Milestone: 57),
-  (Cli: '7.0.4.1'; Milestone: 58),
-  (Cli: '7.0.4.0'; Milestone: 59),
-  (Cli: '7.0.3.1'; Milestone: 60),
-  (Cli: '7.0.3.0'; Milestone: 60),
-  (Cli: '7.0.2.2'; Milestone: 61),
-  (Cli: '7.0.2.1'; Milestone: 61),
-  (Cli: '7.0.1.1'; Milestone: 62),
-  (Cli: '7.0.0.4'; Milestone: 63),
-  (Cli: '7.0.0.3'; Milestone: 64),
-  (Cli: '7.0.0.2'; Milestone: 65),
-  (Cli: '7.0.0.0'; Milestone: 66),
-  (Cli: '6.0.14.3'; Milestone: 67),
-  (Cli: '6.0.14.2'; Milestone: 67),
-  (Cli: '6.0.14.1'; Milestone: 68),
-  (Cli: '6.0.13.1'; Milestone: 68),
-  (Cli: '6.0.13.0'; Milestone: 68),
-  (Cli: '6.0.12.4'; Milestone: 69),
-  (Cli: '6.0.12.3'; Milestone: 70),
-  (Cli: '6.0.12.0'; Milestone: 71),
-  (Cli: '6.0.11.0'; Milestone: 72),
-  (Cli: '6.0.10.0'; Milestone: 73),
-  (Cli: '6.0.9.2'; Milestone: 73),
-  (Cli: '6.0.9.1'; Milestone: 73),
-  (Cli: '6.0.9.0'; Milestone: 73),
-  (Cli: '6.0.8.0'; Milestone: 73),
-  (Cli: '6.0.7.0'; Milestone: 74),
-  (Cli: '6.0.6.2'; Milestone: 75),
-  (Cli: '6.0.6.1'; Milestone: 76),
-  (Cli: '6.0.6.0'; Milestone: 77),
-  (Cli: '6.0.5.0'; Milestone: 78),
-  (Cli: '6.0.4.0'; Milestone: 79),
-  (Cli: '6.0.3.1'; Milestone: 80),
-  (Cli: '6.0.3.0'; Milestone: 80),
-  (Cli: '6.0.2.2'; Milestone: 81),
-  (Cli: '6.0.2.1'; Milestone: 81),
-  (Cli: '6.0.2.0'; Milestone: 81),
-  (Cli: '6.0.1.10'; Milestone: 81),
-  (Cli: '6.0.1.9'; Milestone: 81),
-  (Cli: '6.0.1.8'; Milestone: 81),
-  (Cli: '6.0.1.7'; Milestone: 81),
-  (Cli: '6.0.1.6'; Milestone: 82),
-  (Cli: '6.0.1.5'; Milestone: 82),
-  (Cli: '6.0.1.4'; Milestone: 83),
-  (Cli: '6.0.1.3'; Milestone: 83),
-  (Cli: '6.0.1.2'; Milestone: 84),
-  (Cli: '6.0.1.1'; Milestone: 85),
-  (Cli: '6.0.1.0'; Milestone: 85),
-  (Cli: '6.0.0.0'; Milestone: 86),
-  (Cli: '5.0.9.1'; Milestone: 87),
-  (Cli: '5.0.9.0'; Milestone: 88),
-  (Cli: '5.0.8.4'; Milestone: 89),
-  (Cli: '5.0.8.3'; Milestone: 89),
-  (Cli: '5.0.8.2'; Milestone: 89),
-  (Cli: '5.0.8.1'; Milestone: 89),
-  (Cli: '5.0.8.0'; Milestone: 90),
-  (Cli: '5.0.7.2'; Milestone: 90),
-  (Cli: '5.0.7.1'; Milestone: 91),
-  (Cli: '5.0.7.0'; Milestone: 92),
-  (Cli: '5.0.6.5'; Milestone: 92),
-  (Cli: '5.0.6e'; Milestone: 93),
-  (Cli: '5.0.6d'; Milestone: 93),
-  (Cli: '5.0.6c'; Milestone: 93),
-  (Cli: '5.0.6b'; Milestone: 93),
-  (Cli: '5.0.6a'; Milestone: 93),
-  (Cli: '5.0.5c'; Milestone: 93),
-  (Cli: '5.0.5b'; Milestone: 94),
-  (Cli: '5.0.5a'; Milestone: 94),
-  (Cli: '5.0.4e'; Milestone: 95),
-  (Cli: '5.0.4d'; Milestone: 96),
-  (Cli: '5.0.4c'; Milestone: 97),
-  (Cli: '5.0.4b'; Milestone: 97),
-  (Cli: '5.0.4a'; Milestone: 98),
-  (Cli: '5.0.3'; Milestone: 99),
-  (Cli: '5.0.2g'; Milestone: 100),
-  (Cli: '5.0.2f'; Milestone: 100),
-  (Cli: '5.0.2d'; Milestone: 101),
-  (Cli: '5.0.2c'; Milestone: 101),
-  (Cli: '5.0.2b'; Milestone: 102),
-  (Cli: '5.0.2a'; Milestone: 103),
-  (Cli: '5.0.2'; Milestone: 104),
-  (Cli: '5.0.1j'; Milestone: 105),
-  (Cli: '5.0.1i'; Milestone: 106),
-  (Cli: '5.0.1h'; Milestone: 107),
-  (Cli: '5.0.1f'; Milestone: 107),
-  (Cli: '5.0.1d'; Milestone: 108),
-  (Cli: '5.0.1d1'; Milestone: 109),
-  (Cli: '5.0.1c'; Milestone: 110),
-  (Cli: '5.0.1a'; Milestone: 110),
-  (Cli: '5.0.1a1'; Milestone: 111),
-  (Cli: '5.0.0b'; Milestone: 112),
-  (Cli: '5.0.0a'; Milestone: 113),
-  (Cli: '4.0.11f'; Milestone: 114),
-  (Cli: '4.0.11e'; Milestone: 114),
-  (Cli: '4.0.11c'; Milestone: 115),
-  (Cli: '4.0.11b'; Milestone: 116),
-  (Cli: '4.0.11a'; Milestone: 117),
-  (Cli: '4.0.10b'; Milestone: 118),
-  (Cli: '4.0.10a'; Milestone: 119),
-  (Cli: '4.0.9b'; Milestone: 120),
-  (Cli: '4.0.9a'; Milestone: 120),
-  (Cli: '4.0.8a'; Milestone: 121),
-  (Cli: '4.0.7b'; Milestone: 121),
-  (Cli: '4.0.7a'; Milestone: 122),
-  (Cli: '4.0.6a'; Milestone: 123),
-  (Cli: '4.0.5b'; Milestone: 124),
-  (Cli: '4.0.5a'; Milestone: 125),
-  (Cli: '4.0.4t'; Milestone: 126),
-  (Cli: '4.0.4b'; Milestone: 127),
-  (Cli: '4.0.4a'; Milestone: 128),
-  (Cli: '4.0.3e'; Milestone: 129),
-  (Cli: '4.0.3d'; Milestone: 130),
-  (Cli: '4.0.3c'; Milestone: 131),
-  (Cli: '4.0.3b'; Milestone: 132),
-  (Cli: '4.0.3a'; Milestone: 133),
-  (Cli: '4.0.2a'; Milestone: 134),
-  (Cli: '4.0.1b'; Milestone: 135),
-  (Cli: '4.0.0c'; Milestone: 136),
-  (Cli: '3.0.0c'; Milestone: 137),
-  (Cli: '2.0.3'; Milestone: 138),
-  (Cli: '2.0.0'; Milestone: 139)
+VersionIndex : array[0..222] of TVersionIndexEntry = (
+  (Cli: '7.0.117.1'; Milestone: 0),
+  (Cli: '7.0.108.0'; Milestone: 1),
+  (Cli: '7.0.99.1'; Milestone: 2),
+  (Cli: '7.0.47.0'; Milestone: 3),
+  (Cli: '7.0.46.24'; Milestone: 4),
+  (Cli: '7.0.46.2'; Milestone: 5),
+  (Cli: '7.0.46.0'; Milestone: 5),
+  (Cli: '7.0.45.89'; Milestone: 6),
+  (Cli: '7.0.45.77'; Milestone: 7),
+  (Cli: '7.0.45.65'; Milestone: 8),
+  (Cli: '7.0.45.0'; Milestone: 9),
+  (Cli: '7.0.44.2'; Milestone: 9),
+  (Cli: '7.0.43.1'; Milestone: 9),
+  (Cli: '7.0.42.0'; Milestone: 9),
+  (Cli: '7.0.41.1'; Milestone: 9),
+  (Cli: '7.0.40.10'; Milestone: 9),
+  (Cli: '7.0.40.1'; Milestone: 10),
+  (Cli: '7.0.40.0'; Milestone: 10),
+  (Cli: '7.0.39.0'; Milestone: 10),
+  (Cli: '7.0.38.2'; Milestone: 10),
+  (Cli: '7.0.38.1'; Milestone: 10),
+  (Cli: '7.0.38.0'; Milestone: 10),
+  (Cli: '7.0.37.0'; Milestone: 11),
+  (Cli: '7.0.36.0'; Milestone: 11),
+  (Cli: '7.0.35.23'; Milestone: 11),
+  (Cli: '7.0.35.6'; Milestone: 12),
+  (Cli: '7.0.35.3'; Milestone: 12),
+  (Cli: '7.0.35.1'; Milestone: 13),
+  (Cli: '7.0.35.0'; Milestone: 13),
+  (Cli: '7.0.34.23'; Milestone: 13),
+  (Cli: '7.0.34.15'; Milestone: 14),
+  (Cli: '7.0.34.6'; Milestone: 15),
+  (Cli: '7.0.34.2'; Milestone: 16),
+  (Cli: '7.0.33.1'; Milestone: 17),
+  (Cli: '7.0.32.11'; Milestone: 18),
+  (Cli: '7.0.31.0'; Milestone: 19),
+  (Cli: '7.0.30.3'; Milestone: 20),
+  (Cli: '7.0.30.2'; Milestone: 20),
+  (Cli: '7.0.30.1'; Milestone: 20),
+  (Cli: '7.0.29.3'; Milestone: 21),
+  (Cli: '7.0.29.2'; Milestone: 21),
+  (Cli: '7.0.28.0'; Milestone: 22),
+  (Cli: '7.0.27.66'; Milestone: 22),
+  (Cli: '7.0.27.9'; Milestone: 23),
+  (Cli: '7.0.27.8'; Milestone: 24),
+  (Cli: '7.0.27.7'; Milestone: 24),
+  (Cli: '7.0.27.5'; Milestone: 25),
+  (Cli: '7.0.26.5'; Milestone: 26),
+  (Cli: '7.0.26.4'; Milestone: 26),
+  (Cli: '7.0.25.7'; Milestone: 27),
+  (Cli: '7.0.25.6'; Milestone: 27),
+  (Cli: '7.0.24.5'; Milestone: 28),
+  (Cli: '7.0.24.3'; Milestone: 28),
+  (Cli: '7.0.23.1'; Milestone: 29),
+  (Cli: '7.0.23.0'; Milestone: 29),
+  (Cli: '7.0.22.8'; Milestone: 29),
+  (Cli: '7.0.22.0'; Milestone: 29),
+  (Cli: '7.0.21.2'; Milestone: 30),
+  (Cli: '7.0.21.1'; Milestone: 31),
+  (Cli: '7.0.20.0'; Milestone: 32),
+  (Cli: '7.0.19.1'; Milestone: 33),
+  (Cli: '7.0.19.0'; Milestone: 34),
+  (Cli: '7.0.18.0'; Milestone: 35),
+  (Cli: '7.0.17.0'; Milestone: 35),
+  (Cli: '7.0.16.3'; Milestone: 36),
+  (Cli: '7.0.16.1'; Milestone: 36),
+  (Cli: '7.0.16.0'; Milestone: 36),
+  (Cli: '7.0.15.1'; Milestone: 37),
+  (Cli: '7.0.14.4'; Milestone: 37),
+  (Cli: '7.0.14.3'; Milestone: 38),
+  (Cli: '7.0.14.2'; Milestone: 39),
+  (Cli: '7.0.14.0'; Milestone: 39),
+  (Cli: '7.0.13.4'; Milestone: 40),
+  (Cli: '7.0.13.3'; Milestone: 40),
+  (Cli: '7.0.13.2'; Milestone: 40),
+  (Cli: '7.0.13.1'; Milestone: 40),
+  (Cli: '7.0.13.0'; Milestone: 41),
+  (Cli: '7.0.12.1'; Milestone: 42),
+  (Cli: '7.0.12.0'; Milestone: 42),
+  (Cli: '7.0.11.4'; Milestone: 43),
+  (Cli: '7.0.11.3'; Milestone: 43),
+  (Cli: '7.0.11.2'; Milestone: 43),
+  (Cli: '7.0.11.1'; Milestone: 44),
+  (Cli: '7.0.11.0'; Milestone: 44),
+  (Cli: '7.0.10.3'; Milestone: 45),
+  (Cli: '7.0.10.2'; Milestone: 45),
+  (Cli: '7.0.10.1'; Milestone: 46),
+  (Cli: '7.0.9.1'; Milestone: 47),
+  (Cli: '7.0.9.0'; Milestone: 47),
+  (Cli: '7.0.8.2'; Milestone: 48),
+  (Cli: '7.0.8.1'; Milestone: 49),
+  (Cli: '7.0.8.0'; Milestone: 49),
+  (Cli: '7.0.7.3'; Milestone: 50),
+  (Cli: '7.0.7.1'; Milestone: 50),
+  (Cli: '7.0.7.0'; Milestone: 51),
+  (Cli: '7.0.6.5'; Milestone: 52),
+  (Cli: '7.0.6.4'; Milestone: 52),
+  (Cli: '7.0.6.3'; Milestone: 53),
+  (Cli: '7.0.5.0'; Milestone: 54),
+  (Cli: '7.0.4.5'; Milestone: 55),
+  (Cli: '7.0.4.4'; Milestone: 56),
+  (Cli: '7.0.4.3'; Milestone: 57),
+  (Cli: '7.0.4.2'; Milestone: 58),
+  (Cli: '7.0.4.1'; Milestone: 59),
+  (Cli: '7.0.4.0'; Milestone: 60),
+  (Cli: '7.0.3.1'; Milestone: 61),
+  (Cli: '7.0.3.0'; Milestone: 61),
+  (Cli: '7.0.2.2'; Milestone: 62),
+  (Cli: '7.0.2.1'; Milestone: 62),
+  (Cli: '7.0.1.1'; Milestone: 63),
+  (Cli: '7.0.0.4'; Milestone: 64),
+  (Cli: '7.0.0.3'; Milestone: 65),
+  (Cli: '7.0.0.2'; Milestone: 66),
+  (Cli: '7.0.0.0'; Milestone: 67),
+  (Cli: '6.0.14.3'; Milestone: 68),
+  (Cli: '6.0.14.2'; Milestone: 68),
+  (Cli: '6.0.14.1'; Milestone: 69),
+  (Cli: '6.0.13.1'; Milestone: 69),
+  (Cli: '6.0.13.0'; Milestone: 69),
+  (Cli: '6.0.12.4'; Milestone: 70),
+  (Cli: '6.0.12.3'; Milestone: 71),
+  (Cli: '6.0.12.0'; Milestone: 72),
+  (Cli: '6.0.11.0'; Milestone: 73),
+  (Cli: '6.0.10.0'; Milestone: 74),
+  (Cli: '6.0.9.2'; Milestone: 74),
+  (Cli: '6.0.9.1'; Milestone: 74),
+  (Cli: '6.0.9.0'; Milestone: 74),
+  (Cli: '6.0.8.0'; Milestone: 74),
+  (Cli: '6.0.7.0'; Milestone: 75),
+  (Cli: '6.0.6.2'; Milestone: 76),
+  (Cli: '6.0.6.1'; Milestone: 77),
+  (Cli: '6.0.6.0'; Milestone: 78),
+  (Cli: '6.0.5.0'; Milestone: 79),
+  (Cli: '6.0.4.0'; Milestone: 80),
+  (Cli: '6.0.3.1'; Milestone: 81),
+  (Cli: '6.0.3.0'; Milestone: 81),
+  (Cli: '6.0.2.2'; Milestone: 82),
+  (Cli: '6.0.2.1'; Milestone: 82),
+  (Cli: '6.0.2.0'; Milestone: 82),
+  (Cli: '6.0.1.10'; Milestone: 82),
+  (Cli: '6.0.1.9'; Milestone: 82),
+  (Cli: '6.0.1.8'; Milestone: 82),
+  (Cli: '6.0.1.7'; Milestone: 82),
+  (Cli: '6.0.1.6'; Milestone: 83),
+  (Cli: '6.0.1.5'; Milestone: 83),
+  (Cli: '6.0.1.4'; Milestone: 84),
+  (Cli: '6.0.1.3'; Milestone: 84),
+  (Cli: '6.0.1.2'; Milestone: 85),
+  (Cli: '6.0.1.1'; Milestone: 86),
+  (Cli: '6.0.1.0'; Milestone: 86),
+  (Cli: '6.0.0.0'; Milestone: 87),
+  (Cli: '5.0.9.1'; Milestone: 88),
+  (Cli: '5.0.9.0'; Milestone: 89),
+  (Cli: '5.0.8.4'; Milestone: 90),
+  (Cli: '5.0.8.3'; Milestone: 90),
+  (Cli: '5.0.8.2'; Milestone: 90),
+  (Cli: '5.0.8.1'; Milestone: 90),
+  (Cli: '5.0.8.0'; Milestone: 91),
+  (Cli: '5.0.7.2'; Milestone: 91),
+  (Cli: '5.0.7.1'; Milestone: 92),
+  (Cli: '5.0.7.0'; Milestone: 93),
+  (Cli: '5.0.6.5'; Milestone: 93),
+  (Cli: '5.0.6e'; Milestone: 94),
+  (Cli: '5.0.6d'; Milestone: 94),
+  (Cli: '5.0.6c'; Milestone: 94),
+  (Cli: '5.0.6b'; Milestone: 94),
+  (Cli: '5.0.6a'; Milestone: 94),
+  (Cli: '5.0.5c'; Milestone: 94),
+  (Cli: '5.0.5b'; Milestone: 95),
+  (Cli: '5.0.5a'; Milestone: 95),
+  (Cli: '5.0.4e'; Milestone: 96),
+  (Cli: '5.0.4d'; Milestone: 97),
+  (Cli: '5.0.4c'; Milestone: 98),
+  (Cli: '5.0.4b'; Milestone: 98),
+  (Cli: '5.0.4a'; Milestone: 99),
+  (Cli: '5.0.3'; Milestone: 100),
+  (Cli: '5.0.2g'; Milestone: 101),
+  (Cli: '5.0.2f'; Milestone: 101),
+  (Cli: '5.0.2d'; Milestone: 102),
+  (Cli: '5.0.2c'; Milestone: 102),
+  (Cli: '5.0.2b'; Milestone: 103),
+  (Cli: '5.0.2a'; Milestone: 104),
+  (Cli: '5.0.2'; Milestone: 105),
+  (Cli: '5.0.1j'; Milestone: 106),
+  (Cli: '5.0.1i'; Milestone: 107),
+  (Cli: '5.0.1h'; Milestone: 108),
+  (Cli: '5.0.1f'; Milestone: 108),
+  (Cli: '5.0.1d'; Milestone: 109),
+  (Cli: '5.0.1d1'; Milestone: 110),
+  (Cli: '5.0.1c'; Milestone: 111),
+  (Cli: '5.0.1a'; Milestone: 111),
+  (Cli: '5.0.1a1'; Milestone: 112),
+  (Cli: '5.0.0b'; Milestone: 113),
+  (Cli: '5.0.0a'; Milestone: 114),
+  (Cli: '4.0.11f'; Milestone: 115),
+  (Cli: '4.0.11e'; Milestone: 115),
+  (Cli: '4.0.11c'; Milestone: 116),
+  (Cli: '4.0.11b'; Milestone: 117),
+  (Cli: '4.0.11a'; Milestone: 118),
+  (Cli: '4.0.10b'; Milestone: 119),
+  (Cli: '4.0.10a'; Milestone: 120),
+  (Cli: '4.0.9b'; Milestone: 121),
+  (Cli: '4.0.9a'; Milestone: 121),
+  (Cli: '4.0.8a'; Milestone: 122),
+  (Cli: '4.0.7b'; Milestone: 122),
+  (Cli: '4.0.7a'; Milestone: 123),
+  (Cli: '4.0.6a'; Milestone: 124),
+  (Cli: '4.0.5b'; Milestone: 125),
+  (Cli: '4.0.5a'; Milestone: 126),
+  (Cli: '4.0.4t'; Milestone: 127),
+  (Cli: '4.0.4b'; Milestone: 128),
+  (Cli: '4.0.4a'; Milestone: 129),
+  (Cli: '4.0.3e'; Milestone: 130),
+  (Cli: '4.0.3d'; Milestone: 131),
+  (Cli: '4.0.3c'; Milestone: 132),
+  (Cli: '4.0.3b'; Milestone: 133),
+  (Cli: '4.0.3a'; Milestone: 134),
+  (Cli: '4.0.2a'; Milestone: 135),
+  (Cli: '4.0.1b'; Milestone: 136),
+  (Cli: '4.0.0c'; Milestone: 137),
+  (Cli: '3.0.0c'; Milestone: 138),
+  (Cli: '2.0.3'; Milestone: 139),
+  (Cli: '2.0.0'; Milestone: 140)
 );
 
 
@@ -5189,9 +5268,9 @@ const
   // scan-string lines in tools\EUOUpdater\"EUO Updtr Strings 6062 and newer.txt" were
   // parsed with that tool's own exact GetAddr algorithm (main.pas) and run live via
   // SearchMem/ReadMem against an actually-running 7.0.108.0 client, then cross-checked
-  // field-by-field against milestone 0's already-independently-verified values below --
+  // field-by-field against milestone 1's already-independently-verified values below --
   // 37 of 41 lines matched bit-exactly (the 4 that didn't: the file's own {SYSMSG}
-  // pattern, already known not to apply to this generation per milestone 0's own comment,
+  // pattern, already known not to apply to this generation per milestone 1's own comment,
   // replaced by the hand-derived entry below instead; and 2 of 3 alternate {SKILLCAPS}/
   // {SKILLLOCK}/{SKILLSPOS} pattern lines the file itself offers as fallbacks, whose
   // OTHER alternate line already matched and is what's used here). Only entries that
@@ -5211,13 +5290,13 @@ const
   //
   // C_TARGETCNT has no entry here (and never has) -- not covered by any scan string in
   // the file at all, and every known version's own milestone data also carries $00000000
-  // for it, consistent with it being vestigial (see milestone 0's own comment).
+  // for it, consistent with it being vestigial (see milestone 1's own comment).
   ScannerTable_Post6062 : array[0..38] of TScannerEntry = (
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0;
      Expr: C_BLOCKINFO; Pattern: 'B820180000E8'),
     // NOT reused from the scan-string file -- that pattern is already known not to match
-    // this client generation (see milestone 0's own comment). Instead encodes the shape of
-    // the shared "add message" routine milestone 0's own live-disassembly investigation
+    // this client generation (see milestone 1's own comment). Instead encodes the shape of
+    // the shared "add message" routine milestone 1's own live-disassembly investigation
     // found (python3+capstone against the running 7.0.108.0 client, re-confirmed and
     // extended while wiring up this table): a 50-byte span from the routine's own
     // `mov edx,[ADDR]` read of the C_SYSMSG list-head pointer through to its later

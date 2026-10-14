@@ -36,6 +36,7 @@ type
     // migration-added fields and the new floor-based lookup capability, so neither is
     // covered by TestAllVersionsAgainstGoldenFixture above.
     procedure TestMigrationAddedFieldsFor7_0_108_0And7_0_99_1;
+    procedure TestClient7_0_117_1ResolvesAndInheritsLayout;
     procedure TestUnknownNewerVersionFloorsToNewestMilestone;
     procedure TestVersionOlderThanEarliestMilestoneIsUnrecognized;
     procedure TestCliVerSupportedFloorBasedGate;
@@ -268,9 +269,9 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 // The 5 fields added during the original Lazarus migration (F_SYSMSGDIRECT,
 // F_JOURNALDIRECT, B_JCOL, B_JKIND, B_JNEXTPTR -- see uoclidata.pas's own header comment
-// and milestone 0/1's comments) don't exist in the original Delphi 7 source at all, so
+// and milestone 1/2's comments) don't exist in the original Delphi 7 source at all, so
 // they can never appear in a fixture extracted from it. Hardcoded here directly against
-// the values milestone 0/1's own comments already document as independently verified
+// the values milestone 1/2's own comments already document as independently verified
 // (live disassembly for 7.0.108.0; static PE analysis for 7.0.99.1).
 procedure TCstDbTests.TestMigrationAddedFieldsFor7_0_108_0And7_0_99_1;
 var Cst : TCstDB;
@@ -290,10 +291,40 @@ begin
     AssertEquals('7.0.99.1 FSYSMSGDIRECT', Cardinal(1), Cst.FSYSMSGDIRECT);
     AssertEquals('7.0.99.1 BSYSMSGSTR', $00000800, Integer(Cst.BSYSMSGSTR));
     AssertEquals('7.0.99.1 journal layout deliberately left OLD (investigation gap, ' +
-                 'see milestone 1''s own comment) -- FJOURNALDIRECT must stay 0',
+                 'see milestone 2''s own comment) -- FJOURNALDIRECT must stay 0',
                  Cardinal(0), Cst.FJOURNALDIRECT);
     AssertEquals('7.0.99.1 BJCOL must stay 0 (not set -- FJOURNALDIRECT=0 for this version)',
                  Cardinal(0), Cst.BJCOL);
+  finally Cst.Free; end;
+end;
+
+// 7.0.117.1 (milestone 0): addresses come from a live scan of the real client; the
+// structural fields (system-message / journal layout) are inherited from 7.0.108.0 and
+// 7.0.99.1's milestones, and the journal chain was walked live to confirm them. Also
+// checks that adding a newer milestone left 7.0.108.0's own data untouched.
+procedure TCstDbTests.TestClient7_0_117_1ResolvesAndInheritsLayout;
+var Cst : TCstDB;
+begin
+  Cst := TCstDB.Create;
+  try
+    Cst.Update('7.0.117.1');
+    AssertEquals('7.0.117.1 BLOCKINFO', $005A74B0, Integer(Cst.BLOCKINFO));
+    AssertEquals('7.0.117.1 SYSMSG', $008DD434, Integer(Cst.SYSMSG));
+    AssertEquals('7.0.117.1 JOURNALPTR', $01E248CC, Integer(Cst.JOURNALPTR));
+    AssertEquals('7.0.117.1 REDIR', $005AFC6D, Integer(Cst.EREDIR));
+    AssertEquals('7.0.117.1 STATBAR', $00557D10, Integer(Cst.ESTATBAR));
+    AssertEquals('7.0.117.1 ITEMCHECKADDR (unchanged from 7.0.108.0, inherited)',
+                 $0043F0A0, Integer(Cst.EITEMCHECKADDR));
+    AssertEquals('7.0.117.1 FSYSMSGDIRECT', Cardinal(1), Cst.FSYSMSGDIRECT);
+    AssertEquals('7.0.117.1 BSYSMSGSTR', $00000800, Integer(Cst.BSYSMSGSTR));
+    AssertEquals('7.0.117.1 FJOURNALDIRECT', Cardinal(1), Cst.FJOURNALDIRECT);
+    AssertEquals('7.0.117.1 BJCOL', $00000800, Integer(Cst.BJCOL));
+    AssertEquals('7.0.117.1 BJKIND', $00000804, Integer(Cst.BJKIND));
+    AssertEquals('7.0.117.1 BJNEXTPTR', $00000818, Integer(Cst.BJNEXTPTR));
+
+    Cst.Update('7.0.108.0');
+    AssertEquals('7.0.108.0 BLOCKINFO unchanged', $005A5A70, Integer(Cst.BLOCKINFO));
+    AssertEquals('7.0.108.0 SYSMSG unchanged', $008DAC34, Integer(Cst.SYSMSG));
   finally Cst.Free; end;
 end;
 
@@ -310,7 +341,7 @@ var
 begin
   Cst := TCstDB.Create;
   try
-    Cst.Update('7.0.108.0');            // the newest known milestone
+    Cst.Update('7.0.117.1');            // the newest known milestone
     Expected := Cst.BLOCKINFO;
     AssertTrue('sanity', Expected <> 0);
 
@@ -345,7 +376,7 @@ end;
 // itself uses, as a boolean, mutating nothing.
 procedure TCstDbTests.TestCliVerSupportedFloorBasedGate;
 begin
-  AssertTrue('a known exact version is supported', CliVerSupported('7.0.108.0'));
+  AssertTrue('a known exact version is supported', CliVerSupported('7.0.117.1'));
   AssertTrue('an unknown version newer than every known milestone floors to supported',
              CliVerSupported('7.0.200.0'));
   AssertFalse('a version older than the earliest known milestone is not supported',
