@@ -144,6 +144,9 @@ begin
     Result:='No supported UO client found!';
 end;
 
+var
+  DeniedWarned : Boolean = False;  // the access-denied notice is shown once per session
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -827,6 +830,18 @@ var
   ErrMsg     : String;
 begin
   Inc(UpdateCnt);
+
+  // Port addition: tell the user up front when the only UO client is out of reach
+  // because it runs elevated and this process doesn't -- until now that only surfaced
+  // on Play, while the variable tree just sat at N/A. Waits for the form to be visible
+  // (the first tick comes from FormCreate, before it is shown). DeniedWarned is set
+  // BEFORE ShowMessage for the same re-entrancy reason as LastError below.
+  if (not DeniedWarned) and Visible and (CExec.Parser.UOSel.Cnt=0)
+     and (CExec.Parser.UOSel.DeniedCnt>0) then
+  begin
+    DeniedWarned:=True;
+    ShowMessage(NoClientMessage(CExec.Parser.UOSel));
+  end;
 
   (***Update WndList***)
   for Cnt:=0 to IH.Count-1 do

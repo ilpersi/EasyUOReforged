@@ -51,6 +51,9 @@ var
 
 implementation
 
+var
+  DeniedWarned : Boolean = False;  // the access-denied notice is shown once per run
+
 ////////////////////////////////////////////////////////////////////////////////
 constructor TMainForm.Create(AOwner : TComponent);
 begin
@@ -139,7 +142,21 @@ begin
 
   if UOSel.Cnt>0 then
     UOSel.SelectClient(1);
-  MainPanel.Visible:=UOSel.Cnt>0
+  MainPanel.Visible:=UOSel.Cnt>0;
+
+  // Port addition: SelectClient fails when the client runs elevated and this tool
+  // doesn't, yet the panel above is shown anyway and every scan then reads N/A. Say
+  // why, once. DeniedWarned is set BEFORE ShowMessage because the modal loop keeps
+  // pumping this timer (otherwise every tick would stack another dialog).
+  if (not DeniedWarned) and Visible and (UOSel.Nr=0) and (UOSel.Cnt>0)
+     and (UOSel.DeniedCnt>0) then
+  begin
+    DeniedWarned:=True;
+    ShowMessage('A UO client was found, but EUO Updtr is not allowed to access it.'+#13#10#13#10+
+                'The client is running with higher privileges (as administrator), '+
+                'so every scan would come back N/A. Restart EUO Updtr with '+
+                '"Run as administrator", or start the client without administrator rights.');
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

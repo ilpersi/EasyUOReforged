@@ -18,6 +18,9 @@ unit UOSelector;
   has separate ReadMem/WriteMem functions rather than one RW-mode-selecting
   function; only Read is ever used here since GetVer never writes).
 
+  Port addition: DeniedCnt (see its own comment) so main.pas can say why nothing
+  scans when the client is elevated and this tool isn't.
+
   Everything else -- the two client-version byte-signature scans (CliVer1 for
   1.26.x-2.0.x, CliVer2 for 3.0.x+), GetCurVer's cache-by-HWnd, GetNr's
   self-clearing "client went away" behavior -- is unchanged.
@@ -47,6 +50,7 @@ type
     function    GetPID(Nr : Cardinal) : Cardinal;
     function    GetVer(Nr : Cardinal) : String;
     function    SelectClient(Nr : Cardinal) : Boolean;
+    function    DeniedCnt : Cardinal;
     property    Cnt : Cardinal read GetCnt;
     property    Nr : Cardinal read GetNr;
     property    Ver : String read GetCurVer;
@@ -187,6 +191,27 @@ end;
 function TUOSel.GetCnt : Cardinal;
 begin
   Result:=WndList.Count;
+end;
+
+{******************************************************************************}
+// Port addition (mirrors uo\uoselector.pas's TUOSel.DeniedCnt): number of listed UO
+// windows whose process can't be opened for lack of privileges (client elevated, this
+// process not) -- SelectClient fails for them, which otherwise looks like nothing at all
+// went wrong and just leaves every scan result N/A.
+function TUOSel.DeniedCnt : Cardinal;
+var
+  Cnt  : Integer;
+  PID  : Cardinal;
+  PHnd : Cardinal;
+begin
+  Result:=0;
+  for Cnt:=0 to WndList.Count-1 do
+  begin
+    GetWindowThreadProcessID(StrToInt(WndList[Cnt]),@PID);
+    PHnd:=OpenProcess(PROCESS_ALL_ACCESS,False,PID);
+    if PHnd<>0 then CloseHandle(PHnd)
+    else if GetLastError=ERROR_ACCESS_DENIED then Inc(Result);
+  end;
 end;
 
 {******************************************************************************}
