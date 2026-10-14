@@ -61,6 +61,11 @@ unit EuoMenu;
   - SetTransparency's manual GetProcAddress('SetLayeredWindowAttributes')
     dance is replaced with LCL's native AlphaBlend/AlphaBlendValue form
     properties, which wrap the same underlying Win32 call on this target.
+  - MENU IMAGE bitmaps are 24bpp, not the original's 32bpp (ImageCreate/
+    ImagePixLine). LCL's 32bpp bitmaps have an alpha channel that GDI drawing
+    leaves at 0, and its colour-key transparency compares alpha too, so the
+    $FEEEED key never matched and every image painted as an opaque block --
+    hiding whatever was behind it (e.g. SOS Master's blue sea).
   - TBitmap.ScanLine in LCL requires a Begin/EndUpdate bracket (documented on
     the property itself); VCL's did not. Added around ImagePixLine's pixel
     writes -- the only behavior difference forced by the platform, not a
@@ -977,6 +982,17 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// LCL builds a colour-keyed image's transparency mask lazily on first paint and
+// caches it; drawing on the bitmap afterwards does not invalidate it. Scripts
+// routinely SHOW the window first and draw into images later (SOS Master), so
+// without this a strip painted blank once stays fully transparent for good.
+// Dropping the cached mask makes the next paint rebuild it from current pixels.
+procedure InvalidateImageMask(Img : TImage);
+begin
+  Img.Picture.Bitmap.MaskHandle:=0;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 procedure TMenuObj.ImageCreate(sName : String; X,Y,W,H : Integer);
 var
   NewImage : TImage;
@@ -989,7 +1005,11 @@ begin
 
   NewImage.Transparent:=True;
   NewImage.Picture.Bitmap.TransparentColor:=$FEEEED;
-  NewImage.Picture.Bitmap.PixelFormat:=pf32bit;
+  // pf24bit, not the original's pf32bit: a 32-bit LCL bitmap carries an alpha
+  // channel that GDI drawing leaves at 0, and LCL's colour-key mask compares
+  // alpha too (TLazIntfImage.Mask), so no pixel ever matched $FEEEED and the
+  // image painted as an opaque block instead of transparent.
+  NewImage.Picture.Bitmap.PixelFormat:=pf24bit;
   NewImage.Picture.Bitmap.Height:=H;
   NewImage.Picture.Bitmap.Width:=W;
   NewImage.Canvas.Brush.Color:=$FEEEED;
@@ -1037,6 +1057,7 @@ begin
     Cvs.Pen.Width:=W;
     Cvs.MoveTo(X1,Y1);
     Cvs.LineTo(X2,Y2);
+    InvalidateImageMask(TImage(Ctrls.Objects[Cnt]));
   end;
 end;
 
@@ -1058,6 +1079,7 @@ begin
     if Fill then Cvs.Brush.Style:=bsSolid
     else Cvs.Brush.Style:=bsClear;
     Cvs.Ellipse(X1,Y1,X2,Y2);
+    InvalidateImageMask(TImage(Ctrls.Objects[Cnt]));
   end;
 end;
 
@@ -1079,6 +1101,7 @@ begin
     if Fill then Cvs.Brush.Style:=bsSolid
     else Cvs.Brush.Style:=bsClear;
     Cvs.Rectangle(X1,Y1,X2,Y2);
+    InvalidateImageMask(TImage(Ctrls.Objects[Cnt]));
   end;
 end;
 
@@ -1091,13 +1114,16 @@ begin
   for Cnt:=0 to Ctrls.Count-1 do
     if Ctrls[Cnt]=sName then
     if Ctrls.Objects[Cnt].ClassName='TImage' then
+    begin
       TImage(Ctrls.Objects[Cnt]).Canvas.Pixels[X,Y]:=C;
+      InvalidateImageMask(TImage(Ctrls.Objects[Cnt]));
+    end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
 procedure TMenuObj.ImagePixLine(sName : String; X,Y : Integer; Data : String);
 type
-  TPixel = packed Array[0..3] of Byte;
+  TPixel = packed Array[0..2] of Byte;   // 24bpp -- see ImageCreate
   TPixArray = packed Array[0..99999] of TPixel;
 const
   Feed : Array[0..2] of Byte = ($FE,$EE,$ED);
@@ -1128,12 +1154,13 @@ begin
     Skip:=False;
     // LCL's TBitmap.ScanLine (unlike VCL's) must be bracketed by
     // Begin/EndUpdate -- see unit header comment.
-    Bmp.BeginUpdate(True);
+    // (False, not True: "canvas only" updates are discarded when the canvas
+    // already holds the bitmap -- always the case here, ImageCreate paints on it.)
+    Bmp.BeginUpdate(False);
     try
       Pix:=Bmp.ScanLine[Y];
       for Cnt2:=X to X2 do
       begin
-        Pix[Cnt2][3]:=0;
         for Cnt3:=2 downto 0 do
         case Byte(sBuf[3-Cnt3]) of
           65..90 : Pix[Cnt2][Cnt3]:=8*(Byte(sBuf[3-Cnt3])-65);
@@ -1150,6 +1177,7 @@ begin
     end;
     if Skip then Exit;
 
+    InvalidateImageMask(Img);
     Img.Invalidate; // replaces the original's "read Canvas.Pixels[0,0] back
                      // to force a repaint" hack -- see the migration plan's
                      // stated guidance for this exact spot.
@@ -1170,6 +1198,7 @@ begin
     Cvs:=TImage(Ctrls.Objects[Cnt]).Canvas;
     Cvs.Brush.Color:=C;
     Cvs.FloodFill(X,Y,Cvs.Pixels[X,Y],fsSurface);
+    InvalidateImageMask(TImage(Ctrls.Objects[Cnt]));
   end;
 end;
 
@@ -1190,6 +1219,7 @@ begin
       try
         Pic.LoadFromFile(FN);
         TImage(Ctrls.Objects[Cnt]).Canvas.Draw(X,Y,Pic.Graphic);
+        InvalidateImageMask(TImage(Ctrls.Objects[Cnt]));
       except end;
     finally
       Pic.Free;
