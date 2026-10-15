@@ -233,6 +233,7 @@ begin
   AssertEquals('E_REDIR', Cardinal(0), Cst.EREDIR);
   AssertEquals('E_SENDPACKET', Cardinal(0), Cst.ESENDPACKET);
   AssertEquals('layout still applies', Cardinal($118), Cst.BITEMID);
+  AssertEquals('tithing points offset (#tp)', Cardinal($7C), Cst.BTITHE);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

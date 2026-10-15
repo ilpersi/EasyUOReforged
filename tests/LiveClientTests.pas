@@ -65,6 +65,7 @@ type
     procedure TestOpenAndCloseClientRoundTrips;
     procedure TestCharNameIsNonEmptyWhenLoggedIn;
     procedure TestCharPositionIsPlausibleWhenLoggedIn;
+    procedure TestTithingPointsReadable;
     procedure TestFindItemLocatesAtLeastTheBackpack;
     procedure TestTileLookupAtCharPositionReturnsData;
     procedure TestExEvCustomRoundTripsWithNoVisibleEffect;
@@ -186,6 +187,20 @@ begin
     Vr.CharPosX > 0);
   AssertTrue('CharPosY should be a plausible non-zero map coordinate',
     Vr.CharPosY > 0);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// #TP is the tithing-points counter; the beta keeps it at a different offset than the old
+// builds, so a wrong offset reads a stray small number. Set EUO_EXPECT_TP to the value shown
+// in the client to pin it exactly; otherwise only readability is checked.
+procedure TLiveClientTests.TestTithingPointsReadable;
+var
+  Want : String;
+begin
+  RequireLoggedIn;
+  AssertTrue('#TP should be readable', (Vr.TP >= 0) and Vr.VarRes);
+  Want:=SysUtils.GetEnvironmentVariable('EUO_EXPECT_TP');
+  if Want<>'' then AssertEquals('#TP', StrToInt(Want), Vr.TP);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

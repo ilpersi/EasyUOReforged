@@ -5491,7 +5491,7 @@ const
 // pointer, slot byte, status pointer, B_CHARSTATUS ...) and the gump / stat-gump / message
 // object layouts are unchanged -- except the stat gump's name field, and the skill arrays,
 // whose stride grew from $78 to $80.
-SysVarModernLayout : array[0..33] of TSysVarList = (
+SysVarModernLayout : array[0..34] of TSysVarList = (
   (Expr: B_POS;       Val: $00000048),   // kind=$44, X=$48, Y=$4A, Z=$4C
   (Expr: B_ITEMTYPE;  Val: $00000070),
   (Expr: B_ITEMSTACK; Val: $00000076),   // type+6 as on every older build; hue (stack+2) = $78 seen live
@@ -5519,6 +5519,7 @@ SysVarModernLayout : array[0..33] of TSysVarList = (
   (Expr: B_LSKILL;    Val: $FFFFFE4C),   // $B0166C: dword, macro "last skill" reads it
   (Expr: B_LTARGX;    Val: $01588E68),   // $208A688: X, Y words then Z word, as in the old build
   (Expr: B_NEXTCX;    Val: $00000080),   // next-container X at C_NEXTCPOS+$80 (Y at +0)
+  (Expr: B_TITHE;     Val: $0000007C),   // tithing points at C_NEXTCPOS+$7C (10000 seen live; +$84 holds a 1)
   (Expr: B_CLITOP;    Val: $FFFFFFFC),   // client window top is declared right BEFORE its left
   // Vendor windows. The shop gump keeps a pointer to the first stock line at +$15C (an object laid
   // out like an item: type/stack/id as above, price dword at id+$30, name pointer at id+$2C -- the
