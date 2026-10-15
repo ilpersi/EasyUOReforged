@@ -56,7 +56,7 @@ set %ST_PANEL_Y 60
 ; where the panel appears on screen (move it away from the UO window)
 set %ST_PET_ID LWCC
 ; id of one of your pets; stage 4 renames it to EUOTest (leave empty to skip)
-set %ST_ITEM_ID IPJRJMD
+set %ST_ITEM_ID FPJRJMD
 ; id of ONE item in your backpack (any item, for drag / drop / equip tests); empty = skip
 
 set %ST_DO_VARS 1
@@ -633,7 +633,7 @@ sub st_vc
   set %st_lo %3
   set %st_hi %4
   set %st_vv # . %st_vn
-  set %st_id v. , %st_vn
+  set %st_id %st_cid , . , %st_vn
   if %st_have = 0
   {
     gosub st_eq no_client_N/A_# , %st_vn %st_vv N/A
@@ -653,7 +653,7 @@ sub st_va
   set %st_lo %3
   set %st_hi %4
   set %st_vv # . %st_vn
-  set %st_id v. , %st_vn
+  set %st_id %st_cid , . , %st_vn
   gosub st_vrule
 return
 
@@ -916,8 +916,26 @@ sub st_vg_find
       gosub st_vc findDist any
       gosub st_vc findIndex any
       gosub st_vc findMod any
-      set %st_prompt FindItem_listed_ , #findCnt , _items_in_your_backpack.$First_one:_id_ , #findID , _type_ , #findType , _stack_ , #findStack , $Open_the_backpack:_is_that_the_first_item_in_the_list?
-      set %st_obs count_ , #findCnt
+      ; name and properties of the first item: event property fills #property, its lines are joined by $
+      set %st_f1 #findID
+      event property %st_f1
+      wait 12
+      set %st_pr #property
+      str len %st_pr
+      if #strres = 0
+      {
+        set %st_pr no_properties_returned
+      }
+      set %st_fname %st_pr
+      str pos %st_pr $
+      if #strres > 1
+      {
+        set %st_nlp #strres - 1
+        str left %st_pr %st_nlp
+        set %st_fname #strres
+      }
+      set %st_prompt FindItem_listed_ , #findCnt , _items_in_your_backpack.$First_one:_id_ , %st_f1 , _type_ , #findType , _stack_ , #findStack , $$Name_and_properties_(event_property):$ , %st_pr , $$Open_the_backpack:_is_that_the_first_item_in_the_list,_and_do_the_name_and_properties_match_its_tooltip?
+      set %st_obs %st_fname
       gosub st_human finditem_lists_the_backpack_contents
       if %st_again = 1
       {
@@ -997,7 +1015,7 @@ return
 sub st_rw
   set %st_vn %1
   set %st_tv %2
-  set %st_id w. , %st_vn
+  set %st_id %st_cid , . , %st_vn
   set %st_old # . %st_vn
   set # . %st_vn %st_tv
   wait 2
@@ -1008,7 +1026,7 @@ return
 ; script cycle counters keep running: the read-back is the written value plus a few cycles
 sub st_rwcnt
   set %st_vn %1
-  set %st_id w. , %st_vn
+  set %st_id %st_cid , . , %st_vn
   set # . %st_vn 1000
   set %st_new # . %st_vn
   set %st_ck ( %st_new >= 1000 ) && ( %st_new < 1100 )
@@ -1031,7 +1049,7 @@ return
 ; client rw variable: needs a logged in client (N/A without a client)
 sub st_rwc
   set %st_vn %1
-  set %st_id w. , %st_vn
+  set %st_id %st_cid , . , %st_vn
   if %st_have = 0
   {
     set %st_vv # . %st_vn
@@ -1256,6 +1274,7 @@ sub st_s_macros
   gosub st_m_targetsys
   gosub st_m_animations
   gosub st_m_names_buff
+  gosub st_m_extras
   gosub st_m_skips
   gosub st_m_closegumps
 return
@@ -1672,6 +1691,143 @@ sub st_m_names_buff
   }
 return
 
+; ---- 3.15  macros that need something in the world: each one asks first ------------------------------------------
+;  Pass = run it now, Skip = not now.  (st_opt: %st_prompt in, %st_go out)
+sub st_opt
+  set %st_go 0
+  gosub st_ask
+  if %st_ans = PASS
+  {
+    set %st_go 1
+  }
+return
+
+sub st_m_extras
+  gosub st_case 3.15 optional_macros_door_bandage_run_abilities_targeting
+  if %st_run = 0
+  {
+    return
+  }
+  ; ---- 12 open door ----
+  set %st_prompt Optional:_Event_Macro_12_(Open_Door).$Stand_next_to_a_closed_door,_then_press_Pass_to_send_it._Skip_if_there_is_none.
+  gosub st_opt
+  if %st_go = 1
+  {
+    st_rp_x12:
+    event macro 12 0
+    wait 15
+    set %st_prompt Did_the_door_open_(or_close)?
+    set %st_obs door
+    gosub st_human macro_12_opens_the_door_next_to_you
+    if %st_again = 1
+    {
+      goto st_rp_x12
+    }
+  }
+  else
+  {
+    gosub st_skip macro_12_open_door skipped_by_the_user
+  }
+  ; ---- 58 bandage self ----
+  set %st_prompt Optional:_Event_Macro_58_(Bandage_Self).$You_need_bandages_in_your_backpack._Press_Pass_to_use_one_on_yourself,_Skip_if_you_have_none.
+  gosub st_opt
+  if %st_go = 1
+  {
+    st_rp_x58:
+    event macro 58 0
+    wait 20
+    set %st_prompt Did_your_character_start_bandaging_(journal:_You_begin_applying_the_bandages)?
+    set %st_obs bandage
+    gosub st_human macro_58_bandages_yourself
+    if %st_again = 1
+    {
+      goto st_rp_x58
+    }
+  }
+  else
+  {
+    gosub st_skip macro_58_bandage_self skipped_by_the_user
+  }
+  ; ---- 32 always run ----
+  set %st_prompt Optional:_Event_Macro_32_(Always_Run)_toggles_running.$Press_Pass_to_toggle_it_on,_then_watch_whether_your_character_runs_when_you_move_(the_script_toggles_it_back_after_your_answer).
+  gosub st_opt
+  if %st_go = 1
+  {
+    st_rp_x32:
+    event macro 32 0
+    wait 10
+    set %st_prompt Macro_32_was_sent._Walk_a_few_steps:_does_your_character_run_(or_walk_if_it_was_running_before)?
+    set %st_obs always_run
+    gosub st_human macro_32_toggles_always_run
+    if %st_again = 1
+    {
+      goto st_rp_x32
+    }
+    event macro 32 0
+    wait 5
+  }
+  else
+  {
+    gosub st_skip macro_32_always_run skipped_by_the_user
+  }
+  ; ---- 35 / 36 special abilities ----
+  set %st_prompt Optional:_Event_Macro_35_and_36_(Primary_and_Secondary_Ability).$Equip_a_weapon_that_has_abilities_first.$Press_Pass_to_toggle_the_primary_ability_(36_after_it),_Skip_to_skip.
+  gosub st_opt
+  if %st_go = 1
+  {
+    st_rp_x35:
+    event macro 35 0
+    wait 15
+    set %st_prompt Macro_35_(primary_ability)_was_sent.$Is_the_ability_icon_highlighted_(or_does_the_journal_say_you_ready_the_ability)?
+    set %st_obs primary
+    gosub st_human macro_35_toggles_the_primary_ability
+    if %st_again = 1
+    {
+      goto st_rp_x35
+    }
+    event macro 35 0
+    wait 10
+    st_rp_x36:
+    event macro 36 0
+    wait 15
+    set %st_prompt Macro_36_(secondary_ability)_was_sent.$Is_the_ability_icon_highlighted_(or_does_the_journal_say_you_ready_the_ability)?
+    set %st_obs secondary
+    gosub st_human macro_36_toggles_the_secondary_ability
+    if %st_again = 1
+    {
+      goto st_rp_x36
+    }
+    event macro 36 0
+    wait 10
+  }
+  else
+  {
+    gosub st_skip macros_35_36_special_abilities skipped_by_the_user
+  }
+  ; ---- 56 targeting system on/off ----
+  set %st_prompt Optional:_Event_Macro_56_toggles_the_targeting_system_(the_client_shows_a_journal_or_system_message).$Press_Pass_to_toggle_it_(it_is_toggled_back_after_your_answer).
+  gosub st_opt
+  if %st_go = 1
+  {
+    st_rp_x56:
+    event macro 56 0
+    wait 12
+    set %st_prompt Macro_56_was_sent._Did_the_client_say_the_targeting_system_was_turned_on_or_off_(or_did_something_change_on_screen)?
+    set %st_obs targeting_system
+    gosub st_human macro_56_toggles_the_targeting_system
+    if %st_again = 1
+    {
+      goto st_rp_x56
+    }
+    event macro 56 0
+    wait 8
+  }
+  else
+  {
+    gosub st_skip macro_56_targeting_system_toggle skipped_by_the_user
+  }
+return
+
 ; ---- 3.13  macros that are not run by this tool -----------------------------------------------------------------------------------------------------
 sub st_m_skips
   gosub st_case 3.13 macros_not_run_by_this_stage
@@ -1679,17 +1835,16 @@ sub st_m_skips
   {
     return
   }
-  gosub st_skip macro_12_open_door needs_a_door_next_to_you
   gosub st_skip macro_20_quit_game never_run_it_would_log_you_out
-  gosub st_skip macro_24_arm_disarm covered_by_stage_4_with_an_item_id
+  gosub st_skip macro_24_arm_disarm covered_in_stage_4_(needs_ST_ITEM_ID)
   gosub st_skip macros_27_53_attack_last_and_selected covered_by_stage_7_combat
   gosub st_skip macro_25_wait_for_target no_visible_effect
-  gosub st_skip macros_28_29_32_33_34_delay_circletrans_run_save_gump no_reliable_check
-  gosub st_skip macros_35_36_37_special_abilities_and_equip_last_weapon depends_on_the_weapon_and_the_shard
+  gosub st_skip macros_28_29_33_34_delay_circletrans_save_desktop_kill_gump no_reliable_check
+  gosub st_skip macro_37_equip_last_weapon depends_on_the_weapon_history
   gosub st_skip macros_38_to_48_update_range no_visible_check
   gosub st_skip macro_49_virtues needs_the_virtue_window
-  gosub st_skip macros_55_56_current_target_and_targeting_system_toggle no_reliable_check
-  gosub st_skip macros_58_59_bandage needs_bandages
+  gosub st_skip macro_55_current_target no_reliable_check
+  gosub st_skip macro_59_bandage_target needs_bandages_and_a_target
   gosub st_skip macro_60_gargoyle_fly only_on_gargoyle_characters
 return
 
@@ -1804,6 +1959,8 @@ sub st_e_pathfind
   {
     return
   }
+  ; The client's walk-to routine may stop after a few tiles, so success means: the character got CLOSER
+  ; to the target (arriving exactly is reported too). Four directions are tried, the first that works counts.
   set %st_p_ok 0
   set %st_px #charPosX
   set %st_py #charPosY
@@ -1822,31 +1979,36 @@ sub st_e_pathfind
   }
   if %st_p_ok = 1
   {
-    gosub st_rec PASS AUTO event_pathfind_walks_to_the_target_tile now_at_ , #charPosX , _ , #charPosY
+    gosub st_rec PASS AUTO event_pathfind_moves_the_character_toward_the_target tiles_away_ , %st_d0 , _to_ , %st_d1
     event pathfind %st_px %st_py
-    wait 80
+    wait 60
   }
   else
   {
-    gosub st_rec FAIL AUTO event_pathfind_walks_to_the_target_tile never_arrived_(blocked_or_no_Z?)
+    gosub st_rec FAIL AUTO event_pathfind_moves_the_character_toward_the_target never_got_closer_in_4_directions_(all_blocked?)
   }
 return
 
-; dx dy: try to path find to (x+dx, y+dy) and wait for arrival
+; dx dy: pathfind to (x+dx, y+dy), wait, and see whether the character is nearer than before
 sub st_pf_try
   set %st_tx %st_px + %1
   set %st_ty %st_py + %2
+  set %st_d0 %1 abs
+  set %st_d0b %2 abs
+  set %st_d0 %st_d0 + %st_d0b
   event pathfind %st_tx %st_ty
-  set %st_w 0
-  while %st_w < 6
+  wait 60
+  set %st_d1 %st_tx - #charPosX abs
+  set %st_d1b %st_ty - #charPosY abs
+  set %st_d1 %st_d1 + %st_d1b
+  if %st_d1 < %st_d0
   {
-    wait 15
-    set %st_w %st_w + 1
-    if ( #charPosX = %st_tx ) && ( #charPosY = %st_ty )
-    {
-      set %st_p_ok 1
-      set %st_w 99
-    }
+    set %st_p_ok 1
+  }
+  else
+  {
+    event pathfind %st_px %st_py
+    wait 40
   }
 return
 
@@ -1929,6 +2091,9 @@ sub st_e_items
   {
     return
   }
+  ; findItem by id only sees items in OPEN containers and on the ground: open the backpack first
+  event macro 8 7
+  wait 12
   st_rp_34:
   findItem %ST_ITEM_ID
   if #findCnt = 0
@@ -1981,9 +2146,55 @@ sub st_e_items
     exevent dropc #backpackID
     wait 20
   }
-  ; --- event drag (client-side pick up) and arm/disarm macro 24 ---
+  ; --- macro 24 arm / disarm: the item id is written to #rHandID, macro 24 2 toggles it in the right hand ---
+  set #rHandID %ST_ITEM_ID
+  event macro 24 2
+  wait 25
+  findItem %ST_ITEM_ID
+  if #findBagID = #charID
+  {
+    gosub st_rec PASS AUTO macro_24_2_arms_the_item_written_to_rHandID equipped
+    event macro 24 2
+    wait 25
+    findItem %ST_ITEM_ID
+    gosub st_eq macro_24_2_again_disarms_it_back_into_the_backpack #findBagID #backpackID
+  }
+  else
+  {
+    gosub st_rec NOTE AUTO macro_24_2_arms_the_item_written_to_rHandID item_not_armed_(not_a_one-handed_weapon_or_the_hand_is_busy)
+  }
+  exevent drag %ST_ITEM_ID
+  wait 10
+  exevent dropc #backpackID
+  wait 20
   findItem %ST_ITEM_ID
   gosub st_eq item_is_back_in_the_backpack_at_the_end #findBagID #backpackID
+  ; --- hideItem (optional: the client forgets the item, so it cannot be picked up again until it is re-sent) ---
+  set %st_prompt Optional_step:_hideItem_(Skip_is_fine).$It_removes_the_picture_of_a_ground_item_from_the_client_-_and_the_client_then_cannot_pick_it_up_again.$The_test_item_stays_lying_on_the_ground_next_to_you_(hidden)_until_you_walk_about_20_tiles_away_and_back_or_relog.$Press_Pass_only_if_that_is_acceptable.
+  gosub st_ask
+  if %st_ans = PASS
+  {
+    exevent drag %ST_ITEM_ID
+    wait 15
+    set %st_hx #charPosX + 1
+    exevent dropg %st_hx #charPosY
+    wait 20
+    findItem %ST_ITEM_ID
+    gosub st_eq item_is_on_the_ground_before_hideItem #findKind 1
+    hideItem %ST_ITEM_ID
+    wait 10
+    findItem %ST_ITEM_ID
+    gosub st_eq hideItem_removes_the_item_from_the_client #findCnt 0
+    set %st_prompt hideItem_was_sent._The_item_should_have_disappeared_from_the_ground_one_tile_east_of_you.$Is_it_gone_from_your_screen?
+    set %st_obs hidden
+    gosub st_human hideItem_removes_the_item_picture
+    set %st_line - , #spc , [NOTE] , _ , 4.50 , _ , the_test_item_lies_hidden_on_the_ground_at_ , %st_hx , _ , #charPosY , _ , walk_away_and_back_or_relog_to_see_it
+    gosub st_emit
+  }
+  else
+  {
+    gosub st_skip hideItem skipped_by_the_user
+  }
 return
 
 ; ---- 4.60  pet (needs ST_PET_ID) ---------------------------------------------------------------------------------------------
@@ -2026,6 +2237,7 @@ sub st_s_cmds
   gosub st_c_move
   gosub st_c_tile
   gosub st_c_misc
+  gosub st_c_hotkey
 return
 
 ; ---- 5.01  msg + deleteJournal + scanJournal ----------------------------------------------------------
@@ -2096,23 +2308,50 @@ sub st_c_click
   {
     return
   }
-  st_rp_37:
   click 15 25 n
   wait 3
   gosub st_info click_n_moves_the_cursor_x_expected_15 #cursorX
   gosub st_info click_n_moves_the_cursor_y_expected_25 #cursorY
+  ; right click closes a gump: open the journal and click into the middle of it
+  event macro 9 3
+  wait 8
+  event macro 8 3
+  wait 12
+  str pos #contName text
+  set %st_ck #strres > 0
+  gosub st_ok journal_gump_is_open_before_the_right_click #contName %st_ck
+  set %st_gx #contPosX + #contSizeX / 2
+  set %st_gy #contPosY + #contSizeY / 2
+  click %st_gx %st_gy r
+  wait 12
+  str pos #contName text
+  set %st_ck ( #strres = 0 )
+  gosub st_ok click_r_right_click_closes_the_journal_gump #contName %st_ck
+  ; double click on your own character opens the paperdoll - unless something (a pet, an NPC) stands on you
+  st_rp_c1:
   event macro 9 1
   wait 10
   set %st_cx #cliLeft + #cliXRes / 2
   set %st_cy #cliTop + #cliYRes / 2
-  click %st_cx %st_cy 2
+  click %st_cx %st_cy d
   wait 15
-  set %st_prompt A_double_click_(click_x_y_2)_was_sent_on_your_own_character_in_the_middle_of_the_game_window.$Did_your_PAPERDOLL_open?
+  str pos #contName paperdoll
+  set %st_ck #strres > 0
+  if %st_ck
+  {
+    set %st_pd yes
+  }
+  else
+  {
+    set %st_pd no
+  }
+  gosub st_info paperdoll_opened_after_the_double_click_(no_if_a_pet_or_npc_covers_your_character) %st_pd
+  set %st_prompt A_double_click_(click_x_y_d)_was_sent_on_the_middle_of_the_game_window,_where_your_character_stands.$Make_sure_no_pet_or_NPC_stands_on_you._Did_YOUR_PAPERDOLL_open?$(Skip_if_something_was_in_the_way.)
   set %st_obs double_click
-  gosub st_human click_with_count_2_double_clicks_your_character
+  gosub st_human click_d_double_clicks_your_character
   if %st_again = 1
   {
-    goto st_rp_37
+    goto st_rp_c1
   }
   event macro 9 1
 return
@@ -2174,7 +2413,6 @@ sub st_c_tile
   tile init noOverrides
   tile cnt #charPosX #charPosY
   gosub st_vc tileCnt pos
-  set %st_id 5.05
   set %st_found 0
   set %st_n #tileCnt
   for %st_ti 1 %st_n
@@ -2201,6 +2439,44 @@ sub st_c_tile
 return
 
 ; ---- 5.06  getUOTitle, uoXL swap, pixel commands, ignoreItem, hideItem ------------------------------------------------------
+; ---- 5.07  onHotKey --------------------------------------------------------------------------------------------
+sub st_c_hotkey
+  gosub st_case 5.07 onHotKey
+  if %st_run = 0
+  {
+    return
+  }
+  if %ST_UNATTENDED = 1
+  {
+    gosub st_skip onHotKey_F9 needs_a_person_to_press_the_key_(unattended_run)
+    return
+  }
+  set %st_in Press_the_F9_key_within_10_seconds.$(The_script_listens_with_onHotKey,_so_the_UO_window_can_have_the_focus.)
+  gosub st_pretty
+  menu Set st_body %st_out
+  set %st_hk 0
+  set %st_w 0
+  while %st_w < 200
+  {
+    onhotkey F9
+      set %st_hk 1
+    if %st_hk = 1
+    {
+      set %st_w 999
+    }
+    wait 1
+    set %st_w %st_w + 1
+  }
+  if %st_hk = 1
+  {
+    gosub st_rec PASS AUTO onHotKey_F9_is_detected pressed
+  }
+  else
+  {
+    gosub st_rec FAIL AUTO onHotKey_F9_is_detected no_key_press_seen_in_10_seconds
+  }
+return
+
 sub st_c_misc
   gosub st_case 5.06 getUOTitle_uoXL_savePix
   if %st_run = 0
@@ -2222,7 +2498,8 @@ sub st_c_misc
   savePix 5 5 1
   gosub st_vc pixCol any
   gosub st_skip savePix_cmpPix_semantics covered_by_tests/euo/all-commands-test.euo_(stage_8)
-  gosub st_skip ignoreItem_ignoreCont_hideItem covered_by_tests/euo/all-commands-test.euo_(stage_8)
+  gosub st_skip ignoreItem_ignoreCont covered_by_tests/euo/all-commands-test.euo_(stage_8)
+  gosub st_skip hideItem covered_in_stage_4_(optional,_needs_ST_ITEM_ID)
   gosub st_skip terminate_uo_uoXL_new_shutdown never_run_by_this_tool
 return
 ; ===========================================================================

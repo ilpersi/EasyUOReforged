@@ -43,3 +43,7 @@ backup/
 # Output of tests\tools\RunBench.ps1 (the opt-in interpreter benchmark / sampling profiler).
 tests/perf_results.txt
 tests/perf_samples_*.txt
+
+# Reports written by tools\EUOSelfTest\EUOSelfTest.euo (selftest-<version>-<client>-<date>-<time>.md).
+# They land in the folder EasyUO was started from, so match them in any directory.
+selftest-*.md

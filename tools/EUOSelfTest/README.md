@@ -25,9 +25,9 @@ Edit the `%ST_DO_*` flags at the top of the script (1 = on):
 |---|---|---|
 | 1 | `ST_DO_VARS` (1) | every read-only `#variable`: N/A without a client, range/consistency checks, one confirmation per group against the game's own gumps |
 | 2 | `ST_DO_WRITES` (1) | every read/write variable: write, read back, restore; visible effects (window size, gump position, target cursor, client title) confirmed by you |
-| 3 | `ST_DO_MACROS` (1) | `event macro` numbers from the wiki table with an AUTO check wherever a variable shows the result |
-| 4 | `ST_DO_EVENTS` (1) | `event` / `exevent` family: sysmessage, exmsg, property, pathfind, skill/stat locks, popup, statbar, drag/drop (needs `ST_ITEM_ID`), renamepet (needs `ST_PET_ID`) |
-| 5 | `ST_DO_CMDS` (1) | `msg`, `key`, `target`, `click`, `move`, `tile`, `getUOTitle`, `uoXL swap`, journal commands |
+| 3 | `ST_DO_MACROS` (1) | `event macro` numbers from the wiki table with an AUTO check wherever a variable shows the result; optional steps (door, bandage, always run, abilities, targeting system) ask first with Pass/Skip |
+| 4 | `ST_DO_EVENTS` (1) | `event` / `exevent` family: sysmessage, exmsg, property, pathfind, skill/stat locks, popup, statbar, drag/drop/equip and `event macro 24` (need `ST_ITEM_ID`), renamepet (needs `ST_PET_ID`); an optional, warned `hideItem` step that leaves the test item hidden on the ground until you walk about 20 tiles away and back |
+| 5 | `ST_DO_CMDS` (1) | `msg`, `key`, `target`, `click` (right-click closes a gump; double-click on yourself is confirmed by you), `move`, `tile`, `getUOTitle`, `uoXL swap`, journal commands, `onHotKey` (you press F9) |
 | 6 | `ST_DO_SHOP` (0) | `getShopInfo` / `setShopItem` (open a vendor BUY window first) |
 | 7 | `ST_DO_COMBAT` (0) | `event macro 27` / `53` - **attacks a monster**, asks first |
 | 8 | `ST_DO_LANG` (1) | language, menu, namespace and the rest through `tests\euo\all-commands-test.euo` (run in its embedded mode) |
@@ -41,7 +41,7 @@ numbers the server uses. Pick any item from your backpack; for the equip test us
 ## The report
 
 `selftest-<ReforgedVer>-<client version>-<date>-<time>.md`, written next to the folder EasyUO was started from
-(the full path is shown at the end). One line per item:
+(the full path is shown at the end; `selftest-*.md` is in `.gitignore`, so reports are never committed by accident). One line per item:
 
     - [PASS|FAIL|NOTE|SKIP|INFO] <id> <what> [AUTO|HUMAN] observed=<value>
 
