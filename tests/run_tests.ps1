@@ -56,4 +56,11 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 & .\RunTests.exe --format=plain -a
-exit $LASTEXITCODE
+$TestExit = $LASTEXITCODE
+
+# Every variable / command of the interpreter must be mentioned by a self-test script
+# (tools\EUOSelfTest\EUOSelfTest.euo, tests\euo\all-commands-test.euo)
+& (Join-Path $PSScriptRoot 'tools\CheckSelfTestCoverage.ps1')
+if ($LASTEXITCODE -ne 0) { $TestExit = $LASTEXITCODE }
+
+exit $TestExit

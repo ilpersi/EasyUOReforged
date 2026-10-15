@@ -1,0 +1,2434 @@
+; ============================================================================
+;  EUO SelfTest - guided test of every variable and command of EasyUO Reforged
+; ============================================================================
+;  WHAT IT DOES
+;    Walks through the variables, events and commands of the port against a
+;    running UO client. Each item is sent/read by the script, checked by the
+;    script wherever the engine can observe the result (AUTO), and confirmed
+;    by YOU only where nothing but eyes can tell (HUMAN: journal text, an
+;    animation, an item in a hand). A small always-on-top panel shows what
+;    was just done and what to look at, with Pass / Fail / Skip / Repeat /
+;    Stop buttons - the UO window stays fully usable.
+;
+;    At the end a Markdown report is written (see REPORT) so two runs, e.g.
+;    client.exe and client_beta.exe, can be diffed.
+;
+;  HOW TO RUN
+;    1. Start the UO client and log a character in (a staff/GM character
+;       makes the item and combat stages much easier; no client is also
+;       fine: the client stages are skipped and the language stage runs).
+;    2. Open this file in a tab of EasyUO Reforged and press Play.
+;    3. Answer the panel. "Stop" (or closing the panel) ends the run and
+;       still writes the report.
+;
+;  STAGES (switch them with the %ST_DO_* flags below)
+;    1 variables, read only         5 client commands
+;    2 variables, write + restore   6 vendor window (needs a buy gump open)
+;    3 Event Macro                  7 combat macros (acts on a monster!)
+;    4 Event / ExEvent              8 language, menu, namespace (all-commands-test.euo)
+;
+;  REPORT
+;    selftest-<ReforgedVer>-<client>-<date>-<time>.md in the folder EasyUO was
+;    started from (the full path is shown at the end), and a copyable memo at
+;    the end. One line per item:  - [PASS|FAIL|NOTE|SKIP|INFO] id what [AUTO|HUMAN] observed=value
+;    Underscores stand for spaces (EasyUO tokens are space-delimited).
+;
+;  EASYUO QUIRKS THIS FILE RESPECTS (same as tests\euo\all-commands-test.euo)
+;    - a variable is only expanded when it is a separate, space-delimited word
+;    - a value with spaces is built with  , #spc ,
+;    - single-line "if" bodies never contain another "if": { } blocks are used
+;    - gosub arguments are tokens, not expressions
+;    - all subs live below the final "halt"; every tool variable starts with st_
+;    - CALLed files cannot gosub the caller's subs, so everything lives in this one file
+; ============================================================================
+
+; ---------------------------------------------------------------------------
+;  CONFIGURATION  (1 = on, 0 = off)
+; ---------------------------------------------------------------------------
+set %ST_UNATTENDED 0
+; 1 = never show the panel: every HUMAN question is answered SKIP (used for dry runs)
+set %ST_SIM_REPEAT 0
+; 1 (with ST_UNATTENDED 1) = answer every HUMAN question REPEAT once and then PASS (tests the Repeat flow)
+set %ST_REPORT 1
+; 1 = write the Markdown report file at the end (the memo is always shown)
+set %ST_PANEL_X 1200
+set %ST_PANEL_Y 60
+; where the panel appears on screen (move it away from the UO window)
+set %ST_PET_ID LWCC
+; id of one of your pets; stage 4 renames it to EUOTest (leave empty to skip)
+set %ST_ITEM_ID IPJRJMD
+; id of ONE item in your backpack (any item, for drag / drop / equip tests); empty = skip
+
+set %ST_DO_VARS 1
+set %ST_DO_WRITES 1
+set %ST_DO_MACROS 1
+set %ST_DO_EVENTS 1
+set %ST_DO_CMDS 1
+set %ST_DO_SHOP 0
+set %ST_DO_COMBAT 0
+set %ST_DO_LANG 1
+; stage 8: runs tests\euo\all-commands-test.euo through CALL (needs that file)
+set %ST_LANG_DIR
+; folder that holds all-commands-test.euo with trailing backslash; empty = look next to the exe
+; (spaces in the path are written as  , #spc , )
+set %ST_LANG_NOMENU 0
+; 1 = skip the menu-control checks of stage 8 (they need the real EasyUO window, so unattended dry runs set this)
+
+; ---------------------------------------------------------------------------
+;  INITIALISATION
+; ---------------------------------------------------------------------------
+set %st_lpc_orig #lpc
+set #lpc 1000
+set %st_n_pass 0
+set %st_n_fail 0
+set %st_n_note 0
+set %st_n_skip 0
+set %st_n_info 0
+set %st_n_human 0
+set %st_n_auto 0
+set %st_stop 0
+set %st_run 1
+set %st_id 0
+set %st_again 0
+set %st_rpt 0
+set %st_sim 0
+set %st_log
+set %st_fails
+set %st_pend
+set %st_pendn 0
+set %st_okchars ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-:/[]=,
+set %st_have 0
+set %st_logged 0
+if #cliNr > 0
+{
+  set %st_have 1
+  if #cliLogged = 1
+  {
+    set %st_logged 1
+  }
+}
+
+; ---- report file name ------------------------------------------------------
+set %st_cv #cliVer
+if %st_have = 0
+{
+  set %st_cv noclient
+}
+set %st_in %st_cv
+gosub st_san
+set %st_cv %st_out
+set %st_in #reforgedVer
+gosub st_san
+set %st_rv %st_out
+set %st_file selftest- , %st_rv , - , %st_cv , - , #date , - , #time , .md
+
+gosub st_panel_build
+
+; ---------------------------------------------------------------------------
+;  MAIN FLOW
+; ---------------------------------------------------------------------------
+gosub st_stage Environment
+gosub st_s_env
+
+if %ST_DO_VARS = 1
+{
+  gosub st_stage Variables_read_only
+  gosub st_s_vars
+}
+if %ST_DO_WRITES = 1
+{
+  gosub st_stage Variables_write_and_restore
+  gosub st_s_writes
+}
+if %ST_DO_MACROS = 1
+{
+  gosub st_stage Event_Macro
+  gosub st_s_macros
+}
+if %ST_DO_EVENTS = 1
+{
+  gosub st_stage Event_and_ExEvent
+  gosub st_s_events
+}
+if %ST_DO_CMDS = 1
+{
+  gosub st_stage Client_commands
+  gosub st_s_cmds
+}
+if %ST_DO_SHOP = 1
+{
+  gosub st_stage Vendor_window
+  gosub st_s_shop
+}
+if %ST_DO_COMBAT = 1
+{
+  gosub st_stage Combat_macros
+  gosub st_s_combat
+}
+if %ST_DO_LANG = 1
+{
+  gosub st_stage Language_menu_namespace
+  gosub st_s_lang
+}
+
+gosub st_finish
+set #lpc %st_lpc_orig
+halt
+
+; ###########################################################################
+;  FRAMEWORK
+; ###########################################################################
+
+; ---- st_san ----------------------------------------------------------------
+;  in %st_in  out %st_out   every character outside the whitelist becomes _
+;  (the report goes through cmd.exe, where  & | < > ^ " %  would break it)
+sub st_san
+  set %st_out
+  str len %st_in
+  set %st_sl #strres
+  for %st_si 1 %st_sl
+  {
+    str mid %st_in %st_si 1
+    set %st_sc #strres
+    str pos %st_okchars %st_sc
+    if #strres > 0
+    {
+      set %st_out %st_out , %st_sc
+    }
+    else
+    {
+      set %st_out %st_out , _
+    }
+  }
+return
+
+; ---- st_pretty -------------------------------------------------------------
+;  in %st_in  out %st_out   underscores back to spaces (panel text only)
+sub st_pretty
+  set %st_out
+  str len %st_in
+  set %st_sl #strres
+  for %st_si 1 %st_sl
+  {
+    str mid %st_in %st_si 1
+    set %st_sc #strres
+    if %st_sc = _
+    {
+      set %st_out %st_out , #spc
+    }
+    else
+    {
+      set %st_out %st_out , %st_sc
+    }
+  }
+return
+
+; ---- st_emit ---------------------------------------------------------------
+;  in %st_line (already sanitized, no spaces, not empty)
+;  keeps it for the memo and queues one echo for the report file
+sub st_emit
+  set %st_log %st_log , %st_line , $
+  if %ST_REPORT = 1
+  {
+    set %st_pend %st_pend , >> , %st_file , #spc , echo , #spc , %st_line , &
+    set %st_pendn %st_pendn + 1
+    if %st_pendn >= 25
+    {
+      gosub st_flush
+    }
+  }
+return
+
+; ---- st_flush --------------------------------------------------------------
+sub st_flush
+  if %st_pendn > 0
+  {
+    execute cmd.exe /c , #spc , %st_pend
+    set %st_pend
+    set %st_pendn 0
+  }
+return
+
+; ---- st_stage name ---------------------------------------------------------
+sub st_stage
+  set %st_stagename %1
+  set %st_in %1
+  gosub st_san
+  set %st_line **STAGE_ , %st_out , **
+  gosub st_emit
+  set %st_line ---
+  gosub st_emit
+  if %st_stop = 0
+  {
+    gosub st_panel_stage
+  }
+return
+
+; ---- st_case id title -----------------------------------------------------
+;  starts an item. Sets %st_run to 0 when the run was stopped, so the caller
+;  can skip its actions:   gosub st_case 3.01 title   if %st_run = 1 { ... }
+sub st_case
+  set %st_id %1
+  set %st_cid %1
+  set %st_title %2
+  set %st_run 1
+  set %st_rpt 0
+  if %st_stop = 1
+  {
+    set %st_run 0
+  }
+  if %st_run = 1
+  {
+    gosub st_panel_case
+  }
+return
+
+; ---- st_rec verdict kind what observed ----------------------------------------------
+;  verdict PASS FAIL NOTE SKIP INFO   kind AUTO HUMAN
+sub st_rec
+  set %st_v %1
+  set %st_k %2
+  ; while the user repeats a step its automatic checks are not recorded a second time
+  set %st_sup ( %st_rpt = 1 ) && ( %st_k = AUTO )
+  if %st_sup
+  {
+    return
+  }
+  set %st_in %3
+  gosub st_san
+  set %st_w %st_out
+  set %st_in %4
+  gosub st_san
+  set %st_o %st_out
+  str len %st_o
+  if #strres > 60
+  {
+    str left %st_o 60
+    set %st_o #strres
+  }
+  if %st_v = PASS
+  {
+    set %st_n_pass %st_n_pass + 1
+  }
+  if %st_v = FAIL
+  {
+    set %st_n_fail %st_n_fail + 1
+  }
+  if %st_v = NOTE
+  {
+    set %st_n_note %st_n_note + 1
+  }
+  if %st_v = SKIP
+  {
+    set %st_n_skip %st_n_skip + 1
+  }
+  if %st_v = INFO
+  {
+    set %st_n_info %st_n_info + 1
+  }
+  if %st_k = HUMAN
+  {
+    set %st_n_human %st_n_human + 1
+  }
+  if %st_k = AUTO
+  {
+    set %st_n_auto %st_n_auto + 1
+  }
+  set %st_ix %st_id
+  if %st_k = HUMAN
+  {
+    set %st_ix %st_cid
+  }
+  set %st_line - , #spc , [ , %st_v , ] , _ , %st_ix , _ , %st_w , _[ , %st_k , ]_observed= , %st_o
+  gosub st_emit
+  if %st_v = FAIL
+  {
+    set %st_fails %st_fails , %st_line , $
+  }
+return
+
+; ---- st_eq what actual expected --------------------------------------------------------
+sub st_eq
+  if %2 = %3
+  {
+    gosub st_rec PASS AUTO %1 %2
+  }
+  else
+  {
+    gosub st_rec FAIL AUTO %1 actual_ , %2 , _expected_ , %3
+  }
+return
+
+; ---- st_known what actual expected known_value ---------------------------------------------
+;  like st_eq, but a value that matches the documented engine/wiki difference is a NOTE
+sub st_known
+  if %2 = %3
+  {
+    gosub st_rec PASS AUTO %1 %2
+  }
+  else
+  {
+    if %2 = %4
+    {
+      gosub st_rec NOTE AUTO %1 known_difference_ , %2 , _wiki_says_ , %3
+    }
+    else
+    {
+      gosub st_rec FAIL AUTO %1 actual_ , %2 , _expected_ , %3 , _or_ , %4
+    }
+  }
+return
+
+; ---- st_ok what observed condition -----------------------------------------------------------
+;  condition is a 0/1 value computed by the caller
+sub st_ok
+  if %3 <> 0
+  {
+    gosub st_rec PASS AUTO %1 %2
+  }
+  else
+  {
+    gosub st_rec FAIL AUTO %1 %2
+  }
+return
+
+; ---- st_info what value -----------------------------------------------------------------------
+sub st_info
+  gosub st_rec INFO AUTO %1 %2
+return
+
+; ---- st_skip what reason ------------------------------------------------------------------------
+sub st_skip
+  gosub st_rec SKIP AUTO %1 %2
+return
+
+; ---- st_ask  (in %st_prompt) ------------------------------------------------------------------------
+;  Shows the prompt (underscores = spaces, $ = new line) and waits for a button.
+;  out %st_ans = PASS | FAIL | SKIP | REPEAT | STOP
+sub st_ask
+  set %st_ans SKIP
+  if %ST_UNATTENDED = 1
+  {
+    if %ST_SIM_REPEAT = 1
+    {
+      set %st_sim %st_sim + 1
+      set %st_odd %st_sim % 2
+      set %st_ans PASS
+      if %st_odd = 1
+      {
+        set %st_ans REPEAT
+      }
+    }
+    return
+  }
+  set %st_in %st_prompt
+  gosub st_pretty
+  menu Set st_body %st_out
+  set #menuButton st_none
+  set %st_wait 1
+  while %st_wait = 1
+  {
+    wait 1
+    if #menuButton <> st_none
+    {
+      set %st_b #menuButton
+      set #menuButton st_none
+      if %st_b = st_pass
+      {
+        set %st_ans PASS
+        set %st_wait 0
+      }
+      if %st_b = st_fail
+      {
+        set %st_ans FAIL
+        set %st_wait 0
+      }
+      if %st_b = st_skip
+      {
+        set %st_ans SKIP
+        set %st_wait 0
+      }
+      if %st_b = st_repeat
+      {
+        set %st_ans REPEAT
+        set %st_wait 0
+      }
+      if %st_b = st_stop
+      {
+        set %st_ans STOP
+        set %st_wait 0
+      }
+      if %st_b = Close
+      {
+        set %st_ans STOP
+        set %st_wait 0
+      }
+    }
+  }
+  if %st_ans = STOP
+  {
+    set %st_stop 1
+  }
+return
+
+; ---- st_human what  (in %st_prompt, %st_obs) -----------------------------------------------------------
+;  asks, records the answer as HUMAN. out %st_again = 1 when the user pressed Repeat
+;  (the caller then repeats its action:  label: ... gosub st_human ... if %st_again = 1 { goto label })
+sub st_human
+  set %st_again 0
+  gosub st_ask
+  if %st_ans = REPEAT
+  {
+    set %st_again 1
+    set %st_rpt 1
+    return
+  }
+  set %st_rpt 0
+  if %st_ans = PASS
+  {
+    gosub st_rec PASS HUMAN %1 %st_obs
+  }
+  if %st_ans = FAIL
+  {
+    gosub st_rec FAIL HUMAN %1 %st_obs
+  }
+  if %st_ans = SKIP
+  {
+    gosub st_rec SKIP HUMAN %1 %st_obs
+  }
+  if %st_ans = STOP
+  {
+    gosub st_rec SKIP HUMAN %1 stopped_by_user
+  }
+return
+
+; ---- panel ----------------------------------------------------------------------------------------------
+sub st_panel_build
+  if %ST_UNATTENDED = 1
+  {
+    return
+  }
+  menu Clear
+  menu Window Title EUO SelfTest
+  menu Window Size 440 300
+  menu Window Color btnface
+  menu Window Transparent 100
+  menu Font Name Arial
+  menu Font Size 9
+  menu Font Color black
+  menu Font Transparent #true
+  menu Font Style B
+  menu Text st_l_stage 10 8 stage
+  menu Text st_l_title 10 28 title
+  menu Font Style
+  menu Font Transparent #false
+  menu Memo st_body 10 52 420 150 Starting
+  menu Button st_pass 10 212 80 28 Pass
+  menu Button st_fail 100 212 80 28 Fail
+  menu Button st_skip 190 212 80 28 Skip
+  menu Button st_repeat 280 212 70 28 Repeat
+  menu Button st_stop 360 212 70 28 Stop
+  menu Font Transparent #true
+  menu Text st_l_count 10 252 0_pass_0_fail
+  menu Show %ST_PANEL_X %ST_PANEL_Y
+return
+
+sub st_panel_stage
+  if %ST_UNATTENDED = 1
+  {
+    return
+  }
+  set %st_in %st_stagename
+  gosub st_pretty
+  menu Set st_l_stage Stage: , #spc , %st_out
+return
+
+sub st_panel_case
+  if %ST_UNATTENDED = 1
+  {
+    return
+  }
+  set %st_in %st_title
+  gosub st_pretty
+  menu Set st_l_title %st_id , #spc , %st_out
+  menu Set st_l_count %st_n_pass , #spc , pass , #spc , %st_n_fail , #spc , fail , #spc , %st_n_skip , #spc , skip
+return
+
+; ---- st_finish --------------------------------------------------------------------------------------------
+sub st_finish
+  set %st_line ---
+  gosub st_emit
+  set %st_line **SUMMARY**
+  gosub st_emit
+  set %st_line - , #spc , pass= , %st_n_pass
+  gosub st_emit
+  set %st_line - , #spc , fail= , %st_n_fail
+  gosub st_emit
+  set %st_line - , #spc , note= , %st_n_note
+  gosub st_emit
+  set %st_line - , #spc , skip= , %st_n_skip
+  gosub st_emit
+  set %st_line - , #spc , info= , %st_n_info
+  gosub st_emit
+  set %st_line - , #spc , auto_checks= , %st_n_auto , _human_checks= , %st_n_human
+  gosub st_emit
+  if %st_n_fail > 0
+  {
+    set %st_line **FAILED_ITEMS**
+    gosub st_emit
+    set %st_line - , #spc , see_the_FAIL_lines_above
+    gosub st_emit
+  }
+  gosub st_flush
+  set %st_sum EUO_SelfTest_finished:_ , %st_n_pass , _pass_ , %st_n_fail , _fail_ , %st_n_note , _note_ , %st_n_skip , _skip$
+  if %ST_REPORT = 1
+  {
+    set %st_sum %st_sum , Report:_ , #curPath , %st_file$
+  }
+  if %ST_UNATTENDED = 0
+  {
+    menu Clear
+    menu Window Title EUO SelfTest report
+    menu Window Size 520 360
+    menu Text st_r1 12 8 Click inside the box then Ctrl+A and Ctrl+C to copy the report.
+    menu Memo st_report 12 30 496 320 %st_sum , %st_log
+    menu Show %ST_PANEL_X %ST_PANEL_Y
+  }
+return
+
+; ###########################################################################
+;  STAGES
+; ###########################################################################
+sub st_s_env
+  gosub st_case 0.1 reforged_version
+  gosub st_info reforged_version #reforgedVer
+  gosub st_case 0.2 client_attached
+  gosub st_info clients_detected #cliCnt
+  gosub st_info active_client_slot #cliNr
+  if %st_have = 1
+  {
+    gosub st_info client_version #cliVer
+    gosub st_info client_language #cliLang
+    gosub st_info logged_in #cliLogged
+    gosub st_info shard #shard
+    gosub st_info character #charName
+  }
+  else
+  {
+    gosub st_skip client_stages no_client_attached
+  }
+return
+
+; ===========================================================================
+;  STAGE 1  variables, read only
+; ===========================================================================
+;  st_vc name rule [lo hi]   client variable: N/A without a client, SKIP when not
+;                            logged in, otherwise checked with the rule
+;  st_va name rule [lo hi]   variable that works with or without a client
+;  rules:  any  (listed only)   num  (a number)   pos  (> 0)   has  (not empty, not N/A)
+;          rng lo hi            eq value        one a b (value is a or b)
+sub st_vc
+  set %st_vn %1
+  set %st_vr %2
+  set %st_lo %3
+  set %st_hi %4
+  set %st_vv # . %st_vn
+  set %st_id v. , %st_vn
+  if %st_have = 0
+  {
+    gosub st_eq no_client_N/A_# , %st_vn %st_vv N/A
+    return
+  }
+  if %st_logged = 0
+  {
+    gosub st_skip # , %st_vn not_logged_in
+    return
+  }
+  gosub st_vrule
+return
+
+sub st_va
+  set %st_vn %1
+  set %st_vr %2
+  set %st_lo %3
+  set %st_hi %4
+  set %st_vv # . %st_vn
+  set %st_id v. , %st_vn
+  gosub st_vrule
+return
+
+sub st_vrule
+  if %st_vr = any
+  {
+    gosub st_info # , %st_vn %st_vv
+    return
+  }
+  if %st_vr = num
+  {
+    set %st_ck ( %st_vv >= 0 ) || ( %st_vv < 0 )
+    gosub st_ok # , %st_vn , _is_a_number %st_vv %st_ck
+    return
+  }
+  if %st_vr = pos
+  {
+    set %st_ck %st_vv > 0
+    gosub st_ok # , %st_vn , _is_greater_than_0 %st_vv %st_ck
+    return
+  }
+  if %st_vr = has
+  {
+    str len %st_vv
+    set %st_ck ( #strres > 0 ) && ( %st_vv <> N/A )
+    gosub st_ok # , %st_vn , _not_empty_not_N/A %st_vv %st_ck
+    return
+  }
+  if %st_vr = rng
+  {
+    set %st_ck ( %st_vv >= %st_lo ) && ( %st_vv <= %st_hi )
+    gosub st_ok # , %st_vn , _in_ , %st_lo , .. , %st_hi %st_vv %st_ck
+    return
+  }
+  if %st_vr = eq
+  {
+    gosub st_eq # , %st_vn %st_vv %st_lo
+    return
+  }
+  if %st_vr = one
+  {
+    set %st_ck ( %st_vv = %st_lo ) || ( %st_vv = %st_hi )
+    gosub st_ok # , %st_vn , _is_ , %st_lo , _or_ , %st_hi %st_vv %st_ck
+    return
+  }
+return
+
+sub st_s_vars
+  gosub st_vg_global
+  if %st_logged = 0
+  {
+    ; client variables: N/A check (no client) or skipped (not logged in)
+    gosub st_vg_character
+    gosub st_vg_status
+    return
+  }
+  ; gumps the variables read from: status gump and backpack
+  event macro 8 2
+  event macro 8 7
+  wait 10
+  gosub st_vg_character
+  gosub st_vg_status
+  gosub st_vg_container
+  gosub st_vg_client
+  gosub st_vg_find
+  gosub st_vg_skill
+  gosub st_vg_journal
+  gosub st_vg_lastaction
+return
+
+; ---- variables that work with or without a client --------------------------------
+sub st_vg_global
+  gosub st_case 1.00 variables_without_a_client
+  if %st_run = 0
+  {
+    return
+  }
+  gosub st_va cliCnt num
+  gosub st_va cliNr num
+  gosub st_va euoVer eq 1_50_00
+  gosub st_va reforgedVer has
+  gosub st_va osVer has
+  gosub st_va curPath has
+  gosub st_va opts any
+  gosub st_va time any
+  gosub st_va date any
+  gosub st_va sysTime pos
+  gosub st_va random num
+  gosub st_va true any
+  gosub st_va false any
+  gosub st_va spc any
+  gosub st_va smc any
+  gosub st_va dot any
+  gosub st_va cursorX num
+  gosub st_va cursorY num
+  gosub st_va dispRes any
+  gosub st_va nsName any
+  gosub st_va nsType any
+  gosub st_va sCnt any
+  gosub st_va sCnt2 any
+  gosub st_va result any
+  gosub st_va strRes any
+  gosub st_va menuButton any
+  gosub st_va menuRes any
+  gosub st_va lpc pos
+  gosub st_va sendHeader any
+  gosub st_va property any
+  gosub st_va pixCol any
+return
+
+sub st_vg_character
+  gosub st_case 1.10 character_variables
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_1:
+  gosub st_vc charPosX pos
+  gosub st_vc charPosY pos
+  gosub st_vc charPosZ num
+  gosub st_vc charDir rng 0 7
+  gosub st_vc charStatus any
+  gosub st_vc charID has
+  gosub st_vc charGhost one yes no
+  gosub st_vc backpackID has
+  gosub st_vc charType has
+  gosub st_vc charName has
+  gosub st_vc sex rng 0 1
+  if %st_logged = 1
+  {
+    set %st_prompt Compare_with_the_game:$Name_=_ , #charName , $Position_=_ , #charPosX , _/_ , #charPosY , _/_ , #charPosZ , $Direction_=_ , #charDir , _(0=N,_2=E,_4=S,_6=W)$Status_letters_=_ , #charStatus , _(G=war,_H=hidden,_C=poisoned)$$Pass_if_it_matches_the_game.
+    set %st_obs #charName
+    gosub st_human character_name_position_direction_status_match_the_game
+    if %st_again = 1
+    {
+      goto st_rp_1
+    }
+  }
+return
+
+sub st_vg_status
+  gosub st_case 1.20 status_variables
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_2:
+  gosub st_vc str rng 0 1000
+  gosub st_vc dex rng 0 1000
+  gosub st_vc int rng 0 1000
+  gosub st_vc hits num
+  gosub st_vc maxHits num
+  gosub st_vc stamina num
+  gosub st_vc maxStam num
+  gosub st_vc mana num
+  gosub st_vc maxMana num
+  gosub st_vc maxStats pos
+  gosub st_vc gold num
+  gosub st_vc weight num
+  gosub st_vc maxWeight pos
+  gosub st_vc ar num
+  gosub st_vc followers num
+  gosub st_vc maxFol num
+  gosub st_vc fr num
+  gosub st_vc cr num
+  gosub st_vc pr num
+  gosub st_vc er num
+  gosub st_vc luck num
+  gosub st_vc minDmg num
+  gosub st_vc maxDmg num
+  gosub st_vc tp num
+  if %st_logged = 1
+  {
+    set %st_ck #hits <= #maxHits
+    gosub st_ok hits_not_above_maxHits #hits %st_ck
+    set %st_ck #stamina <= #maxStam
+    gosub st_ok stamina_not_above_maxStam #stamina %st_ck
+    set %st_ck #mana <= #maxMana
+    gosub st_ok mana_not_above_maxMana #mana %st_ck
+    set %st_ck #minDmg <= #maxDmg
+    gosub st_ok minDmg_not_above_maxDmg #minDmg %st_ck
+    set %st_prompt Compare_with_your_Status_gump_(expanded):$Str/Dex/Int_=_ , #str , _/_ , #dex , _/_ , #int , $Hits/Stam/Mana_=_ , #hits , _/_ , #stamina , _/_ , #mana , $Gold_=_ , #gold , $Weight_=_ , #weight , _/_ , #maxWeight , $AR_=_ , #ar , _Followers_=_ , #followers , _/_ , #maxFol , $Resists_F/C/P/E_=_ , #fr , _/_ , #cr , _/_ , #pr , _/_ , #er , $Luck_=_ , #luck , _Damage_=_ , #minDmg , _-_ , #maxDmg , _TithingPoints_=_ , #tp
+    set %st_obs #str , _/_ , #dex , _/_ , #int
+    gosub st_human status_values_match_the_Status_gump
+    if %st_again = 1
+    {
+      goto st_rp_2
+    }
+  }
+return
+
+sub st_vg_container
+  gosub st_case 1.30 container_variables
+  if %st_run = 0
+  {
+    return
+  }
+  gosub st_vc contName has
+  gosub st_vc contSizeX pos
+  gosub st_vc contSizeY pos
+  gosub st_vc contSize any
+  gosub st_vc contKind any
+  gosub st_vc contID any
+  gosub st_vc contType any
+  gosub st_vc contHP any
+return
+
+sub st_vg_client
+  gosub st_case 1.40 client_variables
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_3:
+  gosub st_vc cliVer has
+  gosub st_vc cliLang has
+  gosub st_vc cliLogged eq 1
+  gosub st_vc cliXRes rng 320 8000
+  gosub st_vc cliYRes rng 200 8000
+  gosub st_vc cliLeft num
+  gosub st_vc cliTop num
+  gosub st_vc cliTitle has
+  gosub st_vc shard has
+  gosub st_vc cursKind rng 0 5
+  if %st_logged = 1
+  {
+    set %st_prompt #cursKind_is_the_FACET_you_are_in_(0_Felucca,_1_Trammel,_2_Ilshenar,_3_Malas,_4_Tokuno).$It_reads_ , #cursKind , $The_game_window_is_ , #cliXRes , _x_ , #cliYRes , _at_ , #cliLeft , _,_ , #cliTop , _(default_800x600_at_15,41)$Client_version_ , #cliVer , _language_ , #cliLang , $$Pass_if_all_of_that_is_right.
+    set %st_obs facet_ , #cursKind
+    gosub st_human facet_window_size_version_and_language_are_right
+    if %st_again = 1
+    {
+      goto st_rp_3
+    }
+  }
+return
+
+sub st_vg_find
+  gosub st_case 1.50 finditem_variables
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_4:
+  findItem * C_ , #backpackID
+  gosub st_vc findCnt num
+  if %st_logged = 1
+  {
+    if #findCnt > 0
+    {
+      gosub st_vc findID has
+      gosub st_vc findType has
+      gosub st_vc findKind eq 0
+      gosub st_vc findBagID eq #backpackID
+      gosub st_vc findStack num
+      gosub st_vc findX num
+      gosub st_vc findY num
+      gosub st_vc findCol num
+      gosub st_vc findRep any
+      gosub st_vc findZ any
+      gosub st_vc findDist any
+      gosub st_vc findIndex any
+      gosub st_vc findMod any
+      set %st_prompt FindItem_listed_ , #findCnt , _items_in_your_backpack.$First_one:_id_ , #findID , _type_ , #findType , _stack_ , #findStack , $Open_the_backpack:_is_that_the_first_item_in_the_list?
+      set %st_obs count_ , #findCnt
+      gosub st_human finditem_lists_the_backpack_contents
+      if %st_again = 1
+      {
+        goto st_rp_4
+      }
+    }
+    else
+    {
+      gosub st_skip finditem_details empty_backpack
+    }
+  }
+return
+
+
+sub st_vg_skill
+  gosub st_case 1.60 skill_variables
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_5:
+  chooseSkill anat
+  gosub st_vc skill num
+  gosub st_vc skillCap pos
+  gosub st_vc skillLock any
+  set %st_prompt Skill_Anatomy:_value_ , #skill , _cap_ , #skillCap , _lock_ , #skillLock , $(values_are_in_tenths:_1000_=_100.0)$Open_the_Skills_gump_and_compare_Anatomy.$The_lock_arrow_is_up/down/locked.
+  set %st_obs #skill , _/_ , #skillCap
+  event macro 8 4
+  wait 10
+  gosub st_human skill_value_cap_and_lock_match_the_Skills_gump
+  if %st_again = 1
+  {
+    goto st_rp_5
+  }
+  event macro 9 4
+return
+
+sub st_vg_journal
+  gosub st_case 1.70 journal_variables
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_6:
+  scanJournal 1
+  gosub st_vc journal has
+  gosub st_vc jColor num
+  gosub st_vc jIndex pos
+  set %st_prompt Newest_journal_line_according_to_EasyUO:$ , #journal , $$Open_the_Journal_(Alt+J)_-_is_that_the_last_line?
+  set %st_obs #journal
+  gosub st_human newest_journal_line_matches_the_Journal
+  if %st_again = 1
+  {
+    goto st_rp_6
+  }
+return
+
+sub st_vg_lastaction
+  gosub st_case 1.80 last_action_and_combat_variables_listed
+  if %st_run = 0
+  {
+    return
+  }
+  gosub st_vc lObjectType any
+  gosub st_vc lLiftedID any
+  gosub st_vc lLiftedType any
+  gosub st_vc lLiftedKind any
+  gosub st_vc sysMsg any
+  gosub st_vc enemyID any
+  gosub st_vc enemyHits any
+return
+; ===========================================================================
+;  STAGE 2  read/write variables: write a test value, read it back, restore
+; ===========================================================================
+;  st_rw name testvalue   writes #name, checks the read-back, restores the old value
+;                         (leaves %st_old = value before, %st_new = value read back)
+sub st_rw
+  set %st_vn %1
+  set %st_tv %2
+  set %st_id w. , %st_vn
+  set %st_old # . %st_vn
+  set # . %st_vn %st_tv
+  wait 2
+  set %st_new # . %st_vn
+  gosub st_eq write_# , %st_vn %st_new %st_tv
+return
+
+; script cycle counters keep running: the read-back is the written value plus a few cycles
+sub st_rwcnt
+  set %st_vn %1
+  set %st_id w. , %st_vn
+  set # . %st_vn 1000
+  set %st_new # . %st_vn
+  set %st_ck ( %st_new >= 1000 ) && ( %st_new < 1100 )
+  gosub st_ok write_# , %st_vn , _counter_keeps_counting_from_the_written_value %st_new %st_ck
+  set # . %st_vn 0
+return
+
+sub st_rw_restore
+  set # . %st_vn %st_old
+  wait 2
+  set %st_back # . %st_vn
+  if %st_old = N/A
+  {
+    gosub st_skip restore_# , %st_vn was_N/A_before
+    return
+  }
+  gosub st_eq restore_# , %st_vn %st_back %st_old
+return
+
+; client rw variable: needs a logged in client (N/A without a client)
+sub st_rwc
+  set %st_vn %1
+  set %st_id w. , %st_vn
+  if %st_have = 0
+  {
+    set %st_vv # . %st_vn
+    gosub st_eq no_client_N/A_# , %st_vn %st_vv N/A
+    return
+  }
+  if %st_logged = 0
+  {
+    gosub st_skip # , %st_vn not_logged_in
+    return
+  }
+  gosub st_rw %1 %2
+  gosub st_rw_restore
+return
+
+sub st_s_writes
+  gosub st_case 2.01 script_variables_no_client_needed
+  if %st_run = 0
+  {
+    return
+  }
+  gosub st_rwcnt sCnt
+  gosub st_rwcnt sCnt2
+  gosub st_rw result 77
+  gosub st_rw_restore
+  gosub st_rw strRes abc
+  gosub st_rw_restore
+  gosub st_rw sendHeader abc
+  gosub st_rw_restore
+  gosub st_rw lpc 500
+  gosub st_rw_restore
+  set %st_vv #menuRes
+  gosub st_info menuRes_is_read_only_listed %st_vv
+
+  if %st_logged = 0
+  {
+    gosub st_rwc sysMsgCol 33
+    gosub st_rwc lShard 5
+    gosub st_rwc lSpell 5
+    gosub st_rwc lSkill 1
+    gosub st_rwc lTargetID #charID
+    gosub st_rwc lHandID #charID
+    gosub st_rwc rHandID #charID
+    gosub st_rwc lObjectID #charID
+    gosub st_rwc cliXRes 640
+    gosub st_rwc contPosX 100
+    gosub st_rwc nextCPosX 100
+    gosub st_rwc targCurs 1
+    return
+  }
+
+  gosub st_case 2.02 last_action_variables
+  if %st_run = 1
+  {
+    gosub st_rwc sysMsgCol 33
+    gosub st_rwc lShard 5
+    gosub st_rwc lSpell 5
+    gosub st_rwc lSkill 1
+    gosub st_rwc lTargetKind 1
+    gosub st_rwc lTargetTile 100
+    gosub st_rwc lTargetX 1000
+    gosub st_rwc lTargetY 1001
+    gosub st_rwc lTargetZ 7
+    gosub st_rwc lTargetID #charID
+    gosub st_rwc lHandID #charID
+    gosub st_rwc rHandID #charID
+    gosub st_rwc lObjectID #charID
+    findItem * C_ , #backpackID
+    gosub st_rwc findIndex 1
+    gosub st_rwc findMod 5_6
+    set #findMod 0_0
+  }
+
+  gosub st_case 2.03 game_window_position_and_size
+  st_rp_7:
+  if %st_run = 1
+  {
+    set %st_w_old1 #cliXRes
+    set %st_w_old2 #cliYRes
+    set %st_w_old3 #cliLeft
+    set %st_w_old4 #cliTop
+    gosub st_rw cliXRes 640
+    gosub st_rw cliYRes 480
+    gosub st_rw cliLeft 40
+    gosub st_rw cliTop 80
+    set %st_prompt The_game_window_should_now_be_640_x_480_and_moved_to_(40,80)_inside_the_client.$Did_it_shrink_and_move?$$(It_is_restored_right_after_you_answer.)
+    set %st_obs 640x480_at_40_80
+    gosub st_human game_window_resized_and_moved_as_written
+    if %st_again = 1
+    {
+      goto st_rp_7
+    }
+    set #cliXRes %st_w_old1
+    set #cliYRes %st_w_old2
+    set #cliLeft %st_w_old3
+    set #cliTop %st_w_old4
+    wait 3
+    gosub st_eq restore_cliXRes #cliXRes %st_w_old1
+    gosub st_eq restore_cliYRes #cliYRes %st_w_old2
+    gosub st_eq restore_cliLeft #cliLeft %st_w_old3
+    gosub st_eq restore_cliTop #cliTop %st_w_old4
+  }
+
+  gosub st_case 2.04 container_position
+  st_rp_8:
+  if %st_run = 1
+  {
+    event macro 8 7
+    wait 10
+    set %st_c_old1 #contPosX
+    set %st_c_old2 #contPosY
+    gosub st_rw contPosX 200
+    gosub st_rw contPosY 220
+    set %st_prompt The_backpack_gump_should_now_sit_at_screen_position_(200,220).$Did_it_move?
+    set %st_obs 200_220
+    gosub st_human backpack_gump_moved_to_the_written_position
+    if %st_again = 1
+    {
+      goto st_rp_8
+    }
+    set #contPosX %st_c_old1
+    set #contPosY %st_c_old2
+    wait 3
+    gosub st_eq restore_contPosX #contPosX %st_c_old1
+    gosub st_eq restore_contPosY #contPosY %st_c_old2
+  }
+
+  gosub st_case 2.05 next_container_position
+  st_rp_9:
+  if %st_run = 1
+  {
+    event macro 9 1
+    wait 5
+    set %st_n1 #nextCPosX
+    set %st_n2 #nextCPosY
+    gosub st_rw nextCPosX 300
+    gosub st_rw nextCPosY 150
+    nextCPos 300 150
+    event macro 8 1
+    wait 10
+    set %st_prompt The_paperdoll_should_open_at_about_(300,150)_(nextCPos).$Did_it_open_there?
+    set %st_obs 300_150
+    gosub st_human next_gump_opens_at_the_nextCPos_position
+    if %st_again = 1
+    {
+      goto st_rp_9
+    }
+    event macro 9 1
+    set #nextCPosX %st_n1
+    set #nextCPosY %st_n2
+    wait 2
+    gosub st_eq restore_nextCPosX #nextCPosX %st_n1
+    gosub st_eq restore_nextCPosY #nextCPosY %st_n2
+  }
+
+  gosub st_case 2.06 target_cursor_flag
+  st_rp_10:
+  if %st_run = 1
+  {
+    set %st_t_old #targCurs
+    set #targCurs 1
+    wait 3
+    gosub st_eq write_targCurs #targCurs 1
+    set %st_prompt Your_mouse_cursor_should_now_be_a_TARGET_cursor_(crosshair).$Is_it?$Pass_then_the_script_cancels_it.
+    set %st_obs targCurs_1
+    gosub st_human target_cursor_is_shown_when_targCurs_is_set
+    if %st_again = 1
+    {
+      goto st_rp_10
+    }
+    set #targCurs 0
+    wait 3
+    gosub st_eq write_targCurs_0_cancels_the_cursor #targCurs 0
+  }
+
+  gosub st_case 2.07 client_title
+  st_rp_11:
+  if %st_run = 1
+  {
+    gosub st_rw cliTitle EUO_SelfTest_title
+    set %st_prompt The_UO_client_window_title_(taskbar)_should_now_read_EUO_SelfTest_title.$Does_it?
+    set %st_obs title
+    gosub st_human client_window_title_changed
+    if %st_again = 1
+    {
+      goto st_rp_11
+    }
+    gosub st_rw_restore
+  }
+return
+; ===========================================================================
+;  STAGE 3  Event Macro   (numbers and parameters from the EasyUO wiki table)
+; ===========================================================================
+;  Each macro is sent, the engine checks what it can read (AUTO) and you only
+;  confirm what is visible on screen (HUMAN). Everything is undone afterwards.
+sub st_cursor_up
+  set %st_ck ( #targCurs <> 0 ) && ( #targCurs <> N/A )
+return
+
+; cancels a pending target cursor without clicking anything
+sub st_cursor_cancel
+  set #targCurs 0
+  wait 3
+return
+
+sub st_s_macros
+  if %st_logged = 0
+  {
+    gosub st_case 3.00 event_macro
+    gosub st_skip event_macro_stage no_logged_in_client
+    return
+  }
+  gosub st_m_say
+  gosub st_m_gumps
+  gosub st_m_minmax
+  gosub st_m_walk
+  gosub st_m_war
+  gosub st_m_skill
+  gosub st_m_spell
+  gosub st_m_lastobject
+  gosub st_m_target
+  gosub st_m_targetsys
+  gosub st_m_animations
+  gosub st_m_names_buff
+  gosub st_m_skips
+  gosub st_m_closegumps
+return
+
+; ---- 3.01  macro 1 say ---------------------------------------------------------------
+sub st_m_say
+  gosub st_case 3.01 macro_1_say
+  if %st_run = 0
+  {
+    return
+  }
+  event macro 1 0 EUO_selftest_say
+  wait 15
+  scanJournal 1
+  str pos #journal EUO_selftest
+  set %st_ck #strres > 0
+  gosub st_ok newest_journal_line_contains_the_spoken_text #journal %st_ck
+return
+
+; ---- 3.02  macro 8 / 9 open and close gumps ----------------------------------------------
+sub st_m_gumps
+  gosub st_case 3.02 macros_8_and_9_open_and_close_gumps
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_12:
+  event macro 9 1
+  wait 8
+  event macro 8 1
+  wait 8
+  gosub st_info contName_after_macro_8_1 #contName
+  set %st_prompt Macro_8_1_should_have_OPENED_your_paperdoll_and_macro_9_1_closed_it_first.$Is_the_paperdoll_open_now?
+  set %st_obs #contName
+  gosub st_human macro_8_1_opens_the_paperdoll
+  st_rp_13:
+  if %st_again = 1
+  {
+    goto st_rp_12
+  }
+  event macro 9 1
+  wait 8
+  set %st_prompt Macro_9_1_should_have_CLOSED_the_paperdoll.$Is_it_gone?
+  set %st_obs closed
+  gosub st_human macro_9_1_closes_the_paperdoll
+  st_rp_14:
+  if %st_again = 1
+  {
+    goto st_rp_13
+  }
+  event macro 8 4
+  wait 8
+  set %st_prompt Macro_8_4_should_have_opened_the_SKILLS_gump.$Is_it_open?
+  set %st_obs skills
+  gosub st_human macro_8_4_opens_the_skills_gump
+  st_rp_15:
+  if %st_again = 1
+  {
+    goto st_rp_14
+  }
+  event macro 9 4
+  wait 8
+  event macro 8 7
+  wait 8
+  set %st_prompt Macro_8_7_should_have_opened_your_BACKPACK.$Is_it_open?
+  set %st_obs backpack
+  gosub st_human macro_8_7_opens_the_backpack
+  if %st_again = 1
+  {
+    goto st_rp_15
+  }
+return
+
+; ---- 3.03  macro 10 / 11 minimize and maximize -----------------------------------------------------
+sub st_m_minmax
+  gosub st_case 3.03 macros_10_and_11_minimize_and_maximize
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_16:
+  event macro 8 1
+  wait 8
+  event macro 10 1
+  wait 10
+  set %st_prompt Macro_10_1_minimizes_the_paperdoll_(it_shrinks_to_the_picture_without_buttons).$Is_it_minimized?
+  set %st_obs minimized
+  gosub st_human macro_10_1_minimizes_the_paperdoll
+  st_rp_17:
+  if %st_again = 1
+  {
+    goto st_rp_16
+  }
+  event macro 11 1
+  wait 10
+  set %st_prompt Macro_11_1_maximizes_it_again_(buttons_are_back).$Is_it_normal_again?
+  set %st_obs maximized
+  gosub st_human macro_11_1_maximizes_the_paperdoll
+  if %st_again = 1
+  {
+    goto st_rp_17
+  }
+  event macro 9 1
+return
+
+; ---- 3.04  macro 5 walk ---------------------------------------------------------------------------------
+sub st_m_walk
+  gosub st_case 3.04 macro_5_walk
+  if %st_run = 0
+  {
+    return
+  }
+  set %st_moved 0
+  gosub st_walk_try 3 7
+  if %st_moved = 0
+  {
+    gosub st_walk_try 7 3
+  }
+  if %st_moved = 0
+  {
+    gosub st_walk_try 5 1
+  }
+  if %st_moved = 0
+  {
+    gosub st_walk_try 1 5
+  }
+  if %st_moved = 1
+  {
+    gosub st_rec PASS AUTO macro_5_walk_changes_charPos moved_from_ , %st_wx , _ , %st_wy
+  }
+  else
+  {
+    gosub st_rec FAIL AUTO macro_5_walk_changes_charPos no_move_in_any_direction_(blocked?)
+  }
+return
+
+; direction to try, direction back. a first call may only turn the character
+sub st_walk_try
+  set %st_wx #charPosX
+  set %st_wy #charPosY
+  event macro 5 %1
+  wait 8
+  event macro 5 %1
+  wait 8
+  event macro 5 %1
+  wait 8
+  set %st_ck ( #charPosX <> %st_wx ) || ( #charPosY <> %st_wy )
+  if %st_ck
+  {
+    set %st_moved 1
+    event macro 5 %2
+    wait 8
+    event macro 5 %2
+    wait 8
+    event macro 5 %2
+    wait 8
+    event macro 5 %2
+    wait 8
+  }
+return
+
+; ---- 3.05  macro 6 war / peace -------------------------------------------------------------------------------
+sub st_m_war
+  gosub st_case 3.05 macro_6_toggle_war_peace
+  if %st_run = 0
+  {
+    return
+  }
+  set %st_s0 #charStatus
+  str pos %st_s0 G
+  set %st_war0 #strres
+  event macro 6 0
+  wait 12
+  set %st_s1 #charStatus
+  str pos %st_s1 G
+  set %st_war1 #strres
+  set %st_ck ( ( %st_war0 > 0 ) && ( %st_war1 = 0 ) ) || ( ( %st_war0 = 0 ) && ( %st_war1 > 0 ) )
+  gosub st_ok macro_6_flips_the_G_(war)_bit_of_charStatus %st_s0 , _to_ , %st_s1 %st_ck
+  event macro 6 0
+  wait 12
+  set %st_s2 #charStatus
+  gosub st_eq macro_6_again_restores_the_status %st_s2 %st_s0
+return
+
+; ---- 3.06  macros 13 and 14 skill -----------------------------------------------------------------------------------
+sub st_m_skill
+  gosub st_case 3.06 macros_13_and_14_use_skill
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_18:
+  gosub st_cursor_cancel
+  event macro 13 1
+  wait 10
+  gosub st_cursor_up
+  gosub st_ok macro_13_1_(Anatomy)_raises_a_target_cursor #targCurs %st_ck
+  set %st_prompt Macro_13_1_uses_ANATOMY._The_journal_should_say_something_like_Whom_shall_I_examine?$Does_it?
+  set %st_obs anatomy
+  gosub st_human macro_13_1_starts_the_Anatomy_skill
+  if %st_again = 1
+  {
+    goto st_rp_18
+  }
+  gosub st_cursor_cancel
+  wait 30
+  set #lSkill 1
+  event macro 14 0
+  wait 25
+  gosub st_cursor_up
+  gosub st_ok macro_14_repeats_the_skill_written_to_lSkill #targCurs %st_ck
+  gosub st_cursor_cancel
+return
+
+; ---- 3.07  macros 15 and 16 spell ----------------------------------------------------------------------------------------
+sub st_m_spell
+  gosub st_case 3.07 macros_15_and_16_cast_spell
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_19:
+  gosub st_cursor_cancel
+  wait 30
+  event macro 15 4
+  wait 45
+  gosub st_cursor_up
+  gosub st_ok macro_15_4_(Magic_Arrow)_raises_a_target_cursor #targCurs %st_ck
+  set %st_prompt Macro_15_4_casts_MAGIC_ARROW:_the_words_are_In_Por_Ylem.$Did_your_character_say_it_(journal)?$(Needs_a_spellbook_with_the_spell_and_mana.)
+  set %st_obs magic_arrow
+  gosub st_human macro_15_4_starts_Magic_Arrow
+  if %st_again = 1
+  {
+    goto st_rp_19
+  }
+  gosub st_cursor_cancel
+  wait 40
+  set #lSpell 5
+  event macro 16 0
+  wait 45
+  gosub st_cursor_up
+  gosub st_ok macro_16_repeats_the_spell_written_to_lSpell_(5_=_Magic_Arrow) #targCurs %st_ck
+  gosub st_cursor_cancel
+  gosub st_known lSpell_numbering_Magic_Arrow #lSpell 4 5
+return
+
+; ---- 3.08  macro 17 last object -----------------------------------------------------------------------------------------------
+sub st_m_lastobject
+  gosub st_case 3.08 macro_17_use_last_object
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_20:
+  event macro 9 7
+  wait 8
+  set #lObjectID #backpackID
+  event macro 17 0
+  wait 12
+  set %st_prompt Macro_17_double-clicks_the_object_in_lObjectID_(your_backpack).$Did_the_backpack_open?
+  set %st_obs backpack
+  gosub st_human macro_17_uses_the_object_in_lObjectID
+  if %st_again = 1
+  {
+    goto st_rp_20
+  }
+return
+
+; ---- 3.09  macros 22 and 23 and 26 target -------------------------------------------------------------------------------------------
+sub st_m_target
+  gosub st_case 3.09 macros_22_23_target_last_and_self
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_21:
+  gosub st_cursor_cancel
+  event macro 13 1
+  wait 10
+  event macro 23 0
+  wait 10
+  gosub st_cursor_up
+  set %st_ck ( %st_ck = 0 )
+  gosub st_ok macro_23_targets_yourself_and_ends_the_cursor #targCurs %st_ck
+  set %st_prompt Click_the_nearest_mobile_(or_an_item)_with_the_Anatomy_cursor_that_the_script_opens.$Then_press_Pass.$(No_mobile_around?_press_Skip.)
+  event macro 13 1
+  wait 10
+  set %st_obs click_a_target
+  gosub st_human you_clicked_a_target_with_the_cursor
+  if %st_again = 1
+  {
+    goto st_rp_21
+  }
+  if %st_ans = PASS
+  {
+    set %st_lt #lTargetID
+    event macro 13 1
+    wait 10
+    event macro 22 0
+    wait 10
+    gosub st_cursor_up
+    set %st_ck ( %st_ck = 0 )
+    gosub st_ok macro_22_targets_lTargetID_without_a_click #lTargetID %st_ck
+  }
+  gosub st_cursor_cancel
+return
+
+; ---- 3.10  macros 50 51 52 54 targeting system -------------------------------------------------------------------------------------
+sub st_m_targetsys
+  gosub st_case 3.10 macros_50_51_52_54_select_next_previous_nearest_use
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_22:
+  event macro 50 5
+  wait 8
+  set %st_a #lTargetID
+  event macro 50 5
+  wait 8
+  set %st_b #lTargetID
+  event macro 50 5
+  wait 8
+  set %st_c #lTargetID
+  set %st_ck ( %st_a <> %st_b ) || ( %st_b <> %st_c )
+  if %st_ck
+  {
+    gosub st_rec PASS AUTO macro_50_5_cycles_lTargetID %st_a , _ , %st_b , _ , %st_c
+    event macro 51 5
+    wait 8
+    gosub st_eq macro_51_5_goes_back_to_the_previous_target #lTargetID %st_b
+  }
+  else
+  {
+    gosub st_skip macros_50_51_need_two_or_more_mobiles_nearby only_one_target
+  }
+  event macro 52 5
+  wait 8
+  gosub st_info macro_52_5_selects_the_nearest_mobile #lTargetID
+  set %st_prompt Macro_52_5_selected_the_NEAREST_mobile_(lTargetID_ , #lTargetID , ).$A_small_health_bar_for_it_should_have_appeared.$Did_it?
+  set %st_obs #lTargetID
+  gosub st_human macro_52_5_selects_the_nearest_mobile_and_shows_its_health_bar
+  if %st_again = 1
+  {
+    goto st_rp_22
+  }
+return
+
+; ---- 3.11  macros 18 19 animations --------------------------------------------------------------------------------------------------------
+sub st_m_animations
+  gosub st_case 3.11 macros_18_and_19_bow_and_salute
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_23:
+  event macro 19 0
+  wait 40
+  set %st_prompt Macro_19_makes_your_character_SALUTE.$Did_it?
+  set %st_obs salute
+  gosub st_human macro_19_salute
+  st_rp_24:
+  if %st_again = 1
+  {
+    goto st_rp_23
+  }
+  event macro 18 0
+  wait 40
+  set %st_prompt Macro_18_makes_your_character_BOW.$Did_it?
+  set %st_obs bow
+  gosub st_human macro_18_bow
+  if %st_again = 1
+  {
+    goto st_rp_24
+  }
+return
+
+; ---- 3.12  macros 21 and 57 --------------------------------------------------------------------------------------------------------------------
+sub st_m_names_buff
+  gosub st_case 3.12 macros_21_and_57_all_names_and_buff_window
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_25:
+  event macro 21 0
+  wait 10
+  set %st_prompt Macro_21_(All_Names)_shows_the_names_of_everything_around_you.$Do_you_see_names?
+  set %st_obs names
+  gosub st_human macro_21_shows_all_names
+  st_rp_26:
+  if %st_again = 1
+  {
+    goto st_rp_25
+  }
+  event macro 57 0
+  wait 10
+  set %st_prompt Macro_57_toggles_the_BUFF_window.$Is_it_open_now?
+  set %st_obs open
+  gosub st_human macro_57_opens_the_buff_window
+  st_rp_27:
+  if %st_again = 1
+  {
+    goto st_rp_26
+  }
+  event macro 57 0
+  wait 10
+  set %st_prompt Macro_57_again_should_close_it.$Is_it_closed?
+  set %st_obs closed
+  gosub st_human macro_57_closes_the_buff_window
+  if %st_again = 1
+  {
+    goto st_rp_27
+  }
+return
+
+; ---- 3.13  macros that are not run by this tool -----------------------------------------------------------------------------------------------------
+sub st_m_skips
+  gosub st_case 3.13 macros_not_run_by_this_stage
+  if %st_run = 0
+  {
+    return
+  }
+  gosub st_skip macro_12_open_door needs_a_door_next_to_you
+  gosub st_skip macro_20_quit_game never_run_it_would_log_you_out
+  gosub st_skip macro_24_arm_disarm covered_by_stage_4_with_an_item_id
+  gosub st_skip macros_27_53_attack_last_and_selected covered_by_stage_7_combat
+  gosub st_skip macro_25_wait_for_target no_visible_effect
+  gosub st_skip macros_28_29_32_33_34_delay_circletrans_run_save_gump no_reliable_check
+  gosub st_skip macros_35_36_37_special_abilities_and_equip_last_weapon depends_on_the_weapon_and_the_shard
+  gosub st_skip macros_38_to_48_update_range no_visible_check
+  gosub st_skip macro_49_virtues needs_the_virtue_window
+  gosub st_skip macros_55_56_current_target_and_targeting_system_toggle no_reliable_check
+  gosub st_skip macros_58_59_bandage needs_bandages
+  gosub st_skip macro_60_gargoyle_fly only_on_gargoyle_characters
+return
+
+; ---- 3.14  macro 31 close gumps (last: it closes every window) ---------------------------------------------------------------------------------------------
+sub st_m_closegumps
+  gosub st_case 3.14 macro_31_close_gumps
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_28:
+  event macro 8 1
+  event macro 8 7
+  event macro 8 4
+  wait 10
+  event macro 31 0
+  wait 15
+  set %st_prompt Macro_31_closes_ALL_open_windows_(paperdoll,_backpack,_skills,_status...).$Are_they_all_gone?
+  set %st_obs closed
+  gosub st_human macro_31_closes_all_gumps
+  if %st_again = 1
+  {
+    goto st_rp_28
+  }
+return
+; ===========================================================================
+;  STAGE 4  Event / ExEvent / initEvents
+; ===========================================================================
+sub st_s_events
+  if %st_logged = 0
+  {
+    gosub st_case 4.00 event_exevent
+    gosub st_skip event_and_exevent_stage no_logged_in_client
+    return
+  }
+  gosub st_e_messages
+  gosub st_e_property
+  gosub st_e_pathfind
+  gosub st_e_locks
+  gosub st_e_ui
+  if %ST_ITEM_ID <> N/A
+  {
+    str len %ST_ITEM_ID
+    if #strres > 0
+    {
+      gosub st_e_items
+    }
+    else
+    {
+      gosub st_case 4.50 item_events
+      gosub st_skip exevent_drag_dropc_dropg_droppd_event_drag_macro_24 set_ST_ITEM_ID_to_an_item_id_from_your_backpack
+    }
+  }
+  gosub st_e_pet
+return
+
+; ---- 4.01  event sysmessage / exmsg / sleep / initEvents --------------------------------------------------
+sub st_e_messages
+  gosub st_case 4.01 event_sysmessage_exmsg_sleep_initevents
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_29:
+  event sysMessage EUO_selftest_system_message
+  wait 8
+  str pos #sysMsg EUO_selftest
+  set %st_ck #strres > 0
+  gosub st_ok event_sysmessage_shows_up_in_sysMsg #sysMsg %st_ck
+  set %st_prompt Event_SysMessage_wrote_EUO_selftest_system_message_in_the_lower_left_of_the_game_window.$Did_you_see_it?
+  set %st_obs sysmessage
+  gosub st_human event_sysmessage_text_is_visible
+  st_rp_30:
+  if %st_again = 1
+  {
+    goto st_rp_29
+  }
+  event exMsg #charID 3 33 EUO_selftest_overhead_text
+  wait 10
+  set %st_prompt Event_ExMsg_put_EUO_selftest_overhead_text_above_YOUR_character.$Do_you_see_it?
+  set %st_obs exmsg
+  gosub st_human event_exmsg_overhead_text_is_visible
+  if %st_again = 1
+  {
+    goto st_rp_30
+  }
+  event sleep 100
+  gosub st_info event_sleep_100_ran_(it_only_stalls_the_client,_the_script_is_not_delayed) ok
+  initEvents
+  set %st_ck 1
+  gosub st_ok initEvents_ran_without_stopping_the_script ok %st_ck
+return
+
+; ---- 4.02  event property -----------------------------------------------------------------------------------
+sub st_e_property
+  gosub st_case 4.02 event_property
+  if %st_run = 0
+  {
+    return
+  }
+  event property #backpackID
+  wait 10
+  str len #property
+  set %st_ck #strres > 0
+  gosub st_ok event_property_of_the_backpack_returns_text #property %st_ck
+return
+
+; ---- 4.03  event pathfind ----------------------------------------------------------------------------------------
+sub st_e_pathfind
+  gosub st_case 4.03 event_pathfind
+  if %st_run = 0
+  {
+    return
+  }
+  set %st_p_ok 0
+  set %st_px #charPosX
+  set %st_py #charPosY
+  gosub st_pf_try 3 0
+  if %st_p_ok = 0
+  {
+    gosub st_pf_try -3 0
+  }
+  if %st_p_ok = 0
+  {
+    gosub st_pf_try 0 3
+  }
+  if %st_p_ok = 0
+  {
+    gosub st_pf_try 0 -3
+  }
+  if %st_p_ok = 1
+  {
+    gosub st_rec PASS AUTO event_pathfind_walks_to_the_target_tile now_at_ , #charPosX , _ , #charPosY
+    event pathfind %st_px %st_py
+    wait 80
+  }
+  else
+  {
+    gosub st_rec FAIL AUTO event_pathfind_walks_to_the_target_tile never_arrived_(blocked_or_no_Z?)
+  }
+return
+
+; dx dy: try to path find to (x+dx, y+dy) and wait for arrival
+sub st_pf_try
+  set %st_tx %st_px + %1
+  set %st_ty %st_py + %2
+  event pathfind %st_tx %st_ty
+  set %st_w 0
+  while %st_w < 6
+  {
+    wait 15
+    set %st_w %st_w + 1
+    if ( #charPosX = %st_tx ) && ( #charPosY = %st_ty )
+    {
+      set %st_p_ok 1
+      set %st_w 99
+    }
+  }
+return
+
+; ---- 4.04  skill and stat locks -------------------------------------------------------------------------------------
+sub st_e_locks
+  gosub st_case 4.04 event_skilllock_exevent_skilllock_exevent_statlock
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_31:
+  chooseSkill anat
+  set %st_l0 #skillLock
+  exevent skillLock anat locked
+  wait 10
+  chooseSkill anat
+  gosub st_eq exevent_skilllock_anat_locked_is_read_back_by_skillLock #skillLock locked
+  event skillLock anat down
+  wait 10
+  chooseSkill anat
+  gosub st_eq event_skilllock_anat_down_is_read_back_by_skillLock #skillLock down
+  exevent skillLock anat %st_l0
+  wait 10
+  chooseSkill anat
+  gosub st_eq anatomy_lock_restored #skillLock %st_l0
+  event macro 8 2
+  wait 10
+  exevent statLock str down
+  wait 10
+  set %st_prompt ExEvent_StatLock_set_STRENGTH_to_DOWN.$Look_at_your_Status_gump:_is_the_Strength_arrow_pointing_down?$(It_is_set_back_to_up_afterwards.)
+  set %st_obs str_down
+  gosub st_human exevent_statlock_str_down_changes_the_arrow
+  if %st_again = 1
+  {
+    goto st_rp_31
+  }
+  exevent statLock str up
+  wait 5
+return
+
+; ---- 4.05  popup / statbar / conttop ----------------------------------------------------------------------------------
+sub st_e_ui
+  gosub st_case 4.05 exevent_popup_event_statbar_event_conttop
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_32:
+  exevent popup #charID 300 300
+  wait 15
+  set %st_prompt ExEvent_PopUp_asks_the_server_for_YOUR_context_menu.$Is_a_context_menu_visible?$(Press_Esc_in_the_game_to_close_it_first_if_you_like.)
+  set %st_obs popup
+  gosub st_human exevent_popup_opens_a_context_menu
+  st_rp_33:
+  if %st_again = 1
+  {
+    goto st_rp_32
+  }
+  key esc
+  event macro 9 2
+  wait 8
+  event statBar #charID
+  wait 12
+  set %st_prompt Event_StatBar_opens_a_status_bar_for_your_character.$Is_a_small_status_bar_(health/mana/stamina)_on_screen?
+  set %st_obs statbar
+  gosub st_human event_statbar_opens_a_status_bar
+  if %st_again = 1
+  {
+    goto st_rp_33
+  }
+  event contTop 0
+  set %st_ck 1
+  gosub st_ok event_conttop_ran_without_stopping_the_script ok %st_ck
+return
+
+; ---- 4.50  item events (needs ST_ITEM_ID) ---------------------------------------------------------------------------------
+sub st_e_items
+  gosub st_case 4.50 exevent_drag_dropg_dropc_droppd
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_34:
+  findItem %ST_ITEM_ID
+  if #findCnt = 0
+  {
+    gosub st_skip item_events ST_ITEM_ID_not_found_in_the_client
+    return
+  }
+  set %st_i_bag #findBagID
+  gosub st_info item_starts_in_container %st_i_bag
+  ; --- to the ground, one tile east ---
+  exevent drag %ST_ITEM_ID
+  wait 10
+  set %st_dx #charPosX + 1
+  exevent dropg %st_dx #charPosY
+  wait 20
+  findItem %ST_ITEM_ID
+  gosub st_eq exevent_drag_and_dropg_put_the_item_on_the_ground_(findKind_1) #findKind 1
+  gosub st_eq exevent_dropg_x_is_the_requested_x #findX %st_dx
+  ; --- back into the backpack ---
+  exevent drag %ST_ITEM_ID
+  wait 10
+  exevent dropc #backpackID
+  wait 20
+  findItem %ST_ITEM_ID
+  gosub st_eq exevent_dropc_puts_the_item_into_the_backpack #findBagID #backpackID
+  ; --- onto the paperdoll (only works for wearable items) ---
+  exevent drag %ST_ITEM_ID
+  wait 10
+  exevent dropPD
+  wait 20
+  findItem %ST_ITEM_ID
+  if #findBagID = #charID
+  {
+    gosub st_rec PASS AUTO exevent_droppd_equips_a_wearable_item equipped
+    set %st_prompt The_item_should_now_be_worn_or_held_by_your_character.$Is_it?
+    set %st_obs equipped
+    gosub st_human exevent_droppd_item_is_visibly_equipped
+    if %st_again = 1
+    {
+      goto st_rp_34
+    }
+    exevent drag %ST_ITEM_ID
+    wait 10
+    exevent dropc #backpackID
+    wait 20
+  }
+  else
+  {
+    gosub st_skip exevent_droppd item_is_not_wearable_(use_a_weapon_or_clothing)
+    exevent dropc #backpackID
+    wait 20
+  }
+  ; --- event drag (client-side pick up) and arm/disarm macro 24 ---
+  findItem %ST_ITEM_ID
+  gosub st_eq item_is_back_in_the_backpack_at_the_end #findBagID #backpackID
+return
+
+; ---- 4.60  pet (needs ST_PET_ID) ---------------------------------------------------------------------------------------------
+sub st_e_pet
+  gosub st_case 4.60 exevent_renamepet
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_35:
+  str len %ST_PET_ID
+  if #strres = 0
+  {
+    gosub st_skip exevent_renamepet set_ST_PET_ID_to_one_of_your_pets
+    return
+  }
+  exevent renamePet %ST_PET_ID EUOTest
+  wait 15
+  set %st_prompt ExEvent_RenamePet_renamed_your_pet_to_EUOTest.$Single-click_the_pet:_does_it_say_EUOTest?$(The_old_name_cannot_be_restored_by_a_script.)
+  set %st_obs EUOTest
+  gosub st_human exevent_renamepet_renames_the_pet
+  if %st_again = 1
+  {
+    goto st_rp_35
+  }
+return
+; ===========================================================================
+;  STAGE 5  client commands
+; ===========================================================================
+sub st_s_cmds
+  if %st_logged = 0
+  {
+    gosub st_case 5.00 client_commands
+    gosub st_skip client_command_stage no_logged_in_client
+    return
+  }
+  gosub st_c_msg
+  gosub st_c_key_target
+  gosub st_c_click
+  gosub st_c_move
+  gosub st_c_tile
+  gosub st_c_misc
+return
+
+; ---- 5.01  msg + deleteJournal + scanJournal ----------------------------------------------------------
+sub st_c_msg
+  gosub st_case 5.01 msg_deleteJournal_scanJournal
+  if %st_run = 0
+  {
+    return
+  }
+  deleteJournal
+  scanJournal 1
+  gosub st_info journal_line_1_after_deleteJournal #journal
+  msg EUO_selftest_msg$
+  wait 15
+  scanJournal 1
+  str pos #journal EUO_selftest_msg
+  set %st_ck #strres > 0
+  gosub st_ok msg_types_the_text_and_Enter_(the_$_sign)_so_it_shows_in_the_journal #journal %st_ck
+  gosub st_vc jIndex pos
+return
+
+; ---- 5.02  key + target ------------------------------------------------------------------------------------
+sub st_c_key_target
+  gosub st_case 5.02 key_and_target
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_36:
+  gosub st_cursor_cancel
+  event macro 13 1
+  wait 10
+  set %st_t0 #sysTime
+  target 3s
+  set %st_dt #sysTime - %st_t0
+  set %st_ck %st_dt < 2500
+  gosub st_ok target_returns_as_soon_as_a_cursor_is_up_(ms) %st_dt %st_ck
+  gosub st_cursor_up
+  gosub st_ok target_cursor_is_up #targCurs %st_ck
+  key esc
+  wait 10
+  set %st_ck ( #targCurs = 0 )
+  gosub st_ok key_esc_cancels_the_target_cursor #targCurs %st_ck
+  set %st_t0 #sysTime
+  target 1s
+  set %st_dt #sysTime - %st_t0
+  set %st_ck ( %st_dt >= 900 ) && ( %st_dt <= 3000 )
+  gosub st_ok target_1s_without_a_cursor_times_out_after_about_1000_ms %st_dt %st_ck
+  event macro 9 3
+  wait 8
+  key j alt
+  wait 12
+  set %st_prompt Key_J_with_Alt_was_sent_(Alt+J_toggles_the_Journal_window).$Did_the_Journal_window_open_or_close?
+  set %st_obs alt_j
+  gosub st_human key_j_alt_toggles_the_journal
+  if %st_again = 1
+  {
+    goto st_rp_36
+  }
+  key j alt
+  wait 10
+return
+
+; ---- 5.03  click ---------------------------------------------------------------------------------------------------------
+sub st_c_click
+  gosub st_case 5.03 click
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_37:
+  click 15 25 n
+  wait 3
+  gosub st_info click_n_moves_the_cursor_x_expected_15 #cursorX
+  gosub st_info click_n_moves_the_cursor_y_expected_25 #cursorY
+  event macro 9 1
+  wait 10
+  set %st_cx #cliLeft + #cliXRes / 2
+  set %st_cy #cliTop + #cliYRes / 2
+  click %st_cx %st_cy 2
+  wait 15
+  set %st_prompt A_double_click_(click_x_y_2)_was_sent_on_your_own_character_in_the_middle_of_the_game_window.$Did_your_PAPERDOLL_open?
+  set %st_obs double_click
+  gosub st_human click_with_count_2_double_clicks_your_character
+  if %st_again = 1
+  {
+    goto st_rp_37
+  }
+  event macro 9 1
+return
+
+; ---- 5.04  move -------------------------------------------------------------------------------------------------------------
+sub st_c_move
+  gosub st_case 5.04 move
+  if %st_run = 0
+  {
+    return
+  }
+  set %st_mx #charPosX
+  set %st_my #charPosY
+  move %st_mx %st_my 0 2s
+  gosub st_eq move_to_the_current_tile_keeps_x #charPosX %st_mx
+  gosub st_eq move_to_the_current_tile_keeps_y #charPosY %st_my
+  set %st_m_ok 0
+  gosub st_mv_try 2 0
+  if %st_m_ok = 0
+  {
+    gosub st_mv_try -2 0
+  }
+  if %st_m_ok = 0
+  {
+    gosub st_mv_try 0 2
+  }
+  if %st_m_ok = 0
+  {
+    gosub st_mv_try 0 -2
+  }
+  if %st_m_ok = 1
+  {
+    gosub st_rec PASS AUTO move_walks_to_a_tile_two_steps_away now_at_ , #charPosX , _ , #charPosY
+    move %st_mx %st_my 0 6s
+  }
+  else
+  {
+    gosub st_rec FAIL AUTO move_walks_to_a_tile_two_steps_away could_not_reach_any_neighbour_(blocked?)
+  }
+return
+
+sub st_mv_try
+  set %st_tx %st_mx + %1
+  set %st_ty %st_my + %2
+  move %st_tx %st_ty 0 6s
+  if ( #charPosX = %st_tx ) && ( #charPosY = %st_ty )
+  {
+    set %st_m_ok 1
+  }
+return
+
+; ---- 5.05  tile ----------------------------------------------------------------------------------------------------------------
+sub st_c_tile
+  gosub st_case 5.05 tile_init_cnt_get
+  if %st_run = 0
+  {
+    return
+  }
+  tile init noOverrides
+  tile cnt #charPosX #charPosY
+  gosub st_vc tileCnt pos
+  set %st_id 5.05
+  set %st_found 0
+  set %st_n #tileCnt
+  for %st_ti 1 %st_n
+  {
+    tile get #charPosX #charPosY %st_ti
+    if #tileZ = #charPosZ
+    {
+      set %st_found 1
+      set %st_tn #tileName
+    }
+  }
+  if %st_found = 1
+  {
+    gosub st_rec PASS AUTO tile_layer_z_equals_your_charPosZ_(standing_on) %st_tn
+  }
+  else
+  {
+    gosub st_rec FAIL AUTO tile_layer_z_equals_your_charPosZ_(standing_on) no_layer_at_z_ , #charPosZ
+  }
+  gosub st_va tileType any
+  gosub st_va tileZ any
+  gosub st_va tileName any
+  gosub st_va tileFlags any
+return
+
+; ---- 5.06  getUOTitle, uoXL swap, pixel commands, ignoreItem, hideItem ------------------------------------------------------
+sub st_c_misc
+  gosub st_case 5.06 getUOTitle_uoXL_savePix
+  if %st_run = 0
+  {
+    return
+  }
+  getUOTitle
+  gosub st_eq getUOTitle_returns_the_same_as_cliTitle #strRes #cliTitle
+  set %st_n0 #cliNr
+  uoXL swap
+  gosub st_info uoXL_swap_slot_before_and_after %st_n0 , _ , #cliNr
+  set %st_k 1
+  while %st_k < #cliCnt
+  {
+    uoXL swap
+    set %st_k %st_k + 1
+  }
+  gosub st_eq uoXL_swap_through_all_clients_returns_to_the_start #cliNr %st_n0
+  savePix 5 5 1
+  gosub st_vc pixCol any
+  gosub st_skip savePix_cmpPix_semantics covered_by_tests/euo/all-commands-test.euo_(stage_8)
+  gosub st_skip ignoreItem_ignoreCont_hideItem covered_by_tests/euo/all-commands-test.euo_(stage_8)
+  gosub st_skip terminate_uo_uoXL_new_shutdown never_run_by_this_tool
+return
+; ===========================================================================
+;  STAGE 6  vendor window  (needs a BUY gump open: %ST_DO_SHOP 1)
+; ===========================================================================
+sub st_s_shop
+  gosub st_case 6.01 getShopInfo_and_the_shop_variables
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_38:
+  if %st_logged = 0
+  {
+    gosub st_skip vendor_window no_logged_in_client
+    return
+  }
+  set %st_prompt Open_a_vendor_BUY_window_(say_vendor_buy_to_a_shopkeeper)_and_double-click_ONE_line_into_your_buy_list.$Press_Pass_when_the_window_is_open,_Skip_to_skip_this_stage.
+  set %st_obs vendor_window
+  gosub st_ask
+  if %st_ans <> PASS
+  {
+    gosub st_skip vendor_window not_confirmed_by_the_user
+    return
+  }
+  getShopInfo
+  gosub st_vc shopCnt pos
+  gosub st_vc shopCurPos pos
+  gosub st_vc shopItemType has
+  gosub st_vc shopItemID has
+  gosub st_vc shopItemPrice num
+  gosub st_vc shopItemMax pos
+  gosub st_vc shopItemName has
+  set %st_in #shopItemName
+  gosub st_san
+  str len %st_out
+  set %st_nl #strres
+  gosub st_info shopItemName_(a_number_here_is_a_cliloc_id,_the_same_as_the_old_clients) #shopItemName
+  set %st_prompt EasyUO_reads_the_vendor_line_it_considers_current:$name_ , #shopItemName , $type_ , #shopItemType , _price_ , #shopItemPrice , _max_ , #shopItemMax , $position_ , #shopCurPos , _of_ , #shopCnt , $$Compare_with_the_vendor_window_(the_name_may_show_as_a_cliloc_number_on_new_clients).$Does_the_price_and_the_count_match?
+  set %st_obs #shopItemPrice
+  gosub st_human shop_variables_match_the_vendor_window
+  st_rp_39:
+  if %st_again = 1
+  {
+    goto st_rp_38
+  }
+  setShopItem #shopItemID 3
+  set %st_prompt SetShopItem_asked_for_quantity_3_of_that_line_in_your_buy_list.$Look_at_the_buy_list:_does_that_item_say_3_(the_gump_may_not_repaint)?
+  set %st_obs quantity_3
+  gosub st_human setShopItem_sets_the_quantity_in_the_buy_list
+  if %st_again = 1
+  {
+    goto st_rp_39
+  }
+return
+
+; ===========================================================================
+;  STAGE 7  combat macros  (acts on a monster: %ST_DO_COMBAT 1)
+; ===========================================================================
+sub st_s_combat
+  gosub st_case 7.01 macros_27_and_53_attack
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_40:
+  if %st_logged = 0
+  {
+    gosub st_skip combat_stage no_logged_in_client
+    return
+  }
+  set %st_prompt This_stage_makes_your_character_ATTACK.$Stand_within_2_tiles_of_a_weak_monster_you_do_not_mind_fighting_(not_a_pet,_not_a_vendor).$Press_Pass_to_start,_Skip_to_skip.
+  set %st_obs combat
+  gosub st_ask
+  if %st_ans <> PASS
+  {
+    gosub st_skip combat_stage not_confirmed_by_the_user
+    return
+  }
+  str pos #charStatus G
+  if #strres = 0
+  {
+    event macro 6 0
+    wait 15
+  }
+  event macro 52 5
+  wait 10
+  gosub st_info macro_52_5_nearest_mobile #lTargetID
+  event macro 27 0
+  wait 20
+  set %st_ck ( #enemyID <> 0 ) && ( #enemyID <> N/A )
+  gosub st_ok macro_27_attack_last_sets_enemyID #enemyID %st_ck
+  gosub st_vc enemyHits any
+  set %st_prompt Macro_27_(Attack_Last)_was_sent.$Is_your_character_attacking_the_monster?
+  set %st_obs #enemyID
+  gosub st_human macro_27_attacks_the_last_target
+  st_rp_41:
+  if %st_again = 1
+  {
+    goto st_rp_40
+  }
+  event macro 53 0
+  wait 15
+  set %st_prompt Macro_53_(Attack_Selected)_was_sent.$Is_your_character_still_attacking?
+  set %st_obs attack
+  gosub st_human macro_53_attacks_the_selected_target
+  if %st_again = 1
+  {
+    goto st_rp_41
+  }
+  str pos #charStatus G
+  if #strres > 0
+  {
+    event macro 6 0
+    wait 15
+  }
+return
+
+; ===========================================================================
+;  STAGE 8  language, menu, namespace, misc   (tests\euo\all-commands-test.euo)
+; ===========================================================================
+sub st_s_lang
+  gosub st_case 8.01 all_commands_test_in_embedded_mode
+  if %st_run = 0
+  {
+    return
+  }
+  set %st_ldir N/A
+  str len %ST_LANG_DIR
+  if #strres > 0
+  {
+    gosub st_lang_try %ST_LANG_DIR
+  }
+  if %st_ldir = N/A
+  {
+    gosub st_lang_try #curPath , tests\euo\
+  }
+  if %st_ldir = N/A
+  {
+    gosub st_lang_try #curPath
+  }
+  if %st_ldir = N/A
+  {
+    gosub st_skip language_menu_namespace_stage all-commands-test.euo_and_call-helper.euo_not_found_(set_ST_LANG_DIR)
+    return
+  }
+  gosub st_info all-commands-test_folder %st_ldir
+  set %CFG_EMBEDDED 1
+  set %CFG_TEST_DIR %st_ldir
+  set %n_run 0
+  set %n_pass 0
+  set %n_fail 0
+  set %n_note 0
+  set %n_skip 0
+  set %n_info 0
+  set %fails
+  call %st_ldir , all-commands-test.euo
+  set %CFG_EMBEDDED 0
+  set %st_c_run %n_run
+  set %st_c_pass %n_pass
+  set %st_c_fail %n_fail
+  set %st_c_note %n_note
+  set %st_c_skip %n_skip
+  set %st_c_info %n_info
+  set %st_c_fails %fails
+  set #lpc 1000
+  set %st_n_pass %st_n_pass + %st_c_pass
+  set %st_n_fail %st_n_fail + %st_c_fail
+  set %st_n_note %st_n_note + %st_c_note
+  set %st_n_skip %st_n_skip + %st_c_skip
+  set %st_n_info %st_n_info + %st_c_info
+  set %st_n_auto %st_n_auto + %st_c_run
+  set %st_line - , #spc , [LANG] , _checks_run= , %st_c_run , _pass= , %st_c_pass , _fail= , %st_c_fail , _note= , %st_c_note , _skip= , %st_c_skip
+  gosub st_emit
+  str len %st_c_fails
+  if #strres > 0
+  {
+    set %st_in %st_c_fails
+    set %st_lp [LANG_FAIL]
+    gosub st_emit_long
+  }
+  gosub st_panel_build
+return
+
+sub st_lang_try
+  set %st_lt %1
+  set %call_probe N/A
+  call %st_lt , call-helper probe
+  if %call_probe = ok
+  {
+    set %st_ldir %st_lt
+  }
+return
+
+; in %st_in (raw text), %st_lp (prefix, no spaces): writes it as several report lines of at most 100 characters
+sub st_emit_long
+  gosub st_san
+  set %st_t %st_out
+  str len %st_t
+  set %st_tl #strres
+  set %st_p 1
+  while %st_p <= %st_tl
+  {
+    str mid %st_t %st_p 100
+    set %st_line - , #spc , %st_lp , _ , #strres
+    gosub st_emit
+    set %st_p %st_p + 100
+  }
+return

@@ -190,6 +190,11 @@ lazbuild --build-mode=Release EasyUOReforged.lpi
 lazbuild --build-mode=Release EUOUpdtr.lpi
 ```
 
+To check a client end to end - every `#variable`, `event`/`exevent`, `event macro` and client
+command - run [`tools\EUOSelfTest\EUOSelfTest.euo`](tools/EUOSelfTest/README.md) in the editor
+while a character is logged in: a small always-on-top panel guides you through the checks that
+only eyes can confirm and a Markdown report is written for comparing clients.
+
 Automated tests live under `tests\` and run via `tests\run_tests.ps1` (which builds
 `tests\RunTests.lpi` with lazbuild). Most of the suite needs no live client at all; a separate
 opt-in suite (`LiveClientTests.pas`) automatically exercises a real running client if one is

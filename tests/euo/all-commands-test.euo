@@ -49,6 +49,8 @@
 ; ---------------------------------------------------------------------------
 ;  CONFIGURATION  (1 = on, 0 = off)
 ; ---------------------------------------------------------------------------
+set %embedded_in %CFG_EMBEDDED
+; tools\EUOSelfTest sets %CFG_EMBEDDED 1 before it CALLs this file (see EMBEDDED MODE below)
 set %CFG_QUIET 0
 ; 1 = no window and no message boxes (used for unattended dry runs)
 set %CFG_TEST_DIR
@@ -93,6 +95,32 @@ set %DO_TERMINATE_EUO 0
 ; terminate euo - CLOSES EASYUO REFORGED itself (last thing the script does)
 set %DO_INTERACTIVE 1
 ; message boxes, beep, pause (press Play), onHotKey (press F9), menu clicks
+
+; ---------------------------------------------------------------------------
+;  EMBEDDED MODE  (CALLed by tools\EUOSelfTest\EUOSelfTest.euo)
+;    quiet, no interactive parts, none of the client-changing groups (the tool
+;    tests those itself, one step at a time), and it EXITs back to the caller
+;    instead of halting, leaving %n_run/%n_pass/%n_fail/%n_note/%n_skip/%n_info
+;    and %fails for the caller to read.
+; ---------------------------------------------------------------------------
+if %embedded_in = 1
+{
+  set %CFG_QUIET 1
+  set %DO_INTERACTIVE 0
+  set %DO_CLIENT_WRITES 0
+  set %DO_INPUT 0
+  set %DO_ITEMS 0
+  set %DO_LOCKS 0
+  set %DO_SHOP 0
+  set %DO_UOXL_NEW 0
+  set %DO_TERMINATE_UO 0
+  set %DO_TERMINATE_EUO 0
+  set %DO_TILE 0
+  if %ST_LANG_NOMENU = 1
+  {
+    set %DO_MENU 0
+  }
+}
 
 ; ---------------------------------------------------------------------------
 ;  INITIALISATION
@@ -350,6 +378,10 @@ if %CFG_QUIET = 0
 if %DO_TERMINATE_EUO = 1
 {
   terminate euo
+}
+if %embedded_in = 1
+{
+  exit
 }
 halt
 
