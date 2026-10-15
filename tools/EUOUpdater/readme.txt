@@ -53,3 +53,20 @@ introduced. In other words: don't treat $00000100 as the safe default anymore
 just because it's what's already in the table. Nothing has actually confirmed
 it correct for any real client yet; run this diagnostic for real on whatever
 version you're adding rather than assuming.
+
+Relocatable ("modern") clients -- "EUO Updtr Strings modern.txt"
+=================================================================
+Clients linked with DYNAMIC_BASE (the 7.0.117.1 beta, client_beta.exe, is the first) are loaded
+away from $400000 and were built with a different compiler, so none of the byte signatures in
+"EUO Updtr Strings 6062 and newer.txt" match them. Use "EUO Updtr Strings modern.txt" instead:
+  - EUO Updtr detects such a client from its PE header, scans its whole code section and prints
+    LINK-TIME addresses (as if loaded at $400000) -- exactly what uoclidata.pas stores.
+  - 73 patterns cover 44 fields (the hook, the packet sender, the macro executor and most
+    variables). Each is unique in the 7.0.117.1 beta and resolves to the live-verified address.
+  - A second line with the same {name} is a fallback in another function.
+  - The same patterns are compiled into uoclidata.pas (ScannerTable_Modern), so Reforged itself
+    finds those addresses at runtime on a beta of the same compiler whose addresses have moved.
+    Use this tool when you want the numbers (to add a ModernBuilds entry) or when a pattern stops
+    matching and has to be regenerated -- see docs/adding-client-support.md.
+Layout constants (B_*, F_*) are never scannable; they are in SysVarModernLayout.
+

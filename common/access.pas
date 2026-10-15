@@ -47,6 +47,29 @@ function WriteMem(PHandle : Cardinal; MemPos : Cardinal; Buf : PChar; Length : C
 function NumStr(DW : Cardinal; Size : Integer; Intel : Boolean) : String;
 function SearchMem(PHandle : Cardinal; ScanStr : String; Joker : Char) : Cardinal;
 
+// Port additions (not in the original) for clients that are not loaded at the fixed
+// $400000 image base. The "modern" builds (DYNAMIC_BASE set in the PE header) are
+// relocated by the loader, e.g. to $E10000, and their code is far larger than the
+// $400000-$650000 window SearchMem is hard-wired to.
+type
+  TImageInfo = record
+    Valid          : Boolean;
+    Base           : Cardinal;       // where the exe is actually loaded in the process
+    PreferredBase  : Cardinal;       // OptionalHeader.ImageBase -- NB the loader rewrites this to Base when it relocates
+    SizeOfImage    : Cardinal;
+    TimeDateStamp  : Cardinal;       // FileHeader.TimeDateStamp -- identifies the exact build
+    DllChars       : Word;           // OptionalHeader.DllCharacteristics ($40 = DYNAMIC_BASE)
+    CodeStart      : Cardinal;       // live address range of the exe's executable section(s)
+    CodeEnd        : Cardinal;
+  end;
+
+// Same scan as SearchMem but over [StartAddr, EndAddr] instead of the fixed legacy window.
+function SearchMemRange(PHandle : Cardinal; ScanStr : String; Joker : Char;
+                        StartAddr, EndAddr : Cardinal) : Cardinal;
+// Load address of the process's main exe (WOW64 PEB lookup); $400000 if it can't be determined.
+function GetImageBase(PHandle : Cardinal) : Cardinal;
+function ReadImageInfo(PHandle : Cardinal; out Info : TImageInfo) : Boolean;
+
 // Implementation-private in the original (used only by SearchMem); exposed here, harmlessly,
 // so it can be unit-tested directly against crafted in-memory buffers with no OS process
 // involvement at all, per the migration plan's testing strategy.
@@ -183,24 +206,93 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-function SearchMem(PHandle : Cardinal; ScanStr : String; Joker : Char) : Cardinal;
+function SearchMemRange(PHandle : Cardinal; ScanStr : String; Joker : Char;
+                        StartAddr, EndAddr : Cardinal) : Cardinal;
 var
-  Cnt  : Integer;
+  Cnt  : Int64;
   Cnt2 : Integer;
   Buf  : Array[0..$3FFF] of Byte;
 begin
-  Cnt:=$00400000;
+  Cnt:=StartAddr;
   Cnt2:=-1;
   repeat
-    if not ReadMem(PHandle,Cnt,@Buf,$4000) then Break;
+    if not ReadMem(PHandle,Cardinal(Cnt),@Buf,$4000) then Break;
     Cnt2:=FindPos(@Buf,@ScanStr[1],$4000,Length(ScanStr),Byte(Joker));
     if Cnt2>-1 then Break;
     Cnt:=Cnt+$4000-Length(ScanStr)+1;
-  until Cnt>$650000;
+  until Cnt>EndAddr;
   Cnt:=Cnt+Cnt2;
 
-  if Cnt2>-1 then Result:=Cnt
+  if Cnt2>-1 then Result:=Cardinal(Cnt)
   else Result:=0;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function SearchMem(PHandle : Cardinal; ScanStr : String; Joker : Char) : Cardinal;
+begin
+  Result:=SearchMemRange(PHandle,ScanStr,Joker,$00400000,$00650000);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function GetImageBase(PHandle : Cardinal) : Cardinal;
+type
+  TNtQueryInformationProcess = function(hProc : THandle; InfoClass : Cardinal;
+    Info : Pointer; InfoLen : Cardinal; RetLen : PCardinal) : LongInt; stdcall;
+const
+  ProcessWow64Information = 26;
+var
+  NtQIP : TNtQueryInformationProcess;
+  Peb32 : PtrUInt;
+  Base  : Cardinal;
+begin
+  Result:=$00400000;
+  NtQIP:=TNtQueryInformationProcess(GetProcAddress(GetModuleHandle('ntdll.dll'),'NtQueryInformationProcess'));
+  if not Assigned(NtQIP) then Exit;
+  Peb32:=0;
+  if NtQIP(THandle(PHandle),ProcessWow64Information,@Peb32,SizeOf(Peb32),nil)<>0 then Exit;
+  if Peb32=0 then Exit;                                   // not a WOW64 (32-bit) target
+  Base:=0;
+  ReadMem(PHandle,Cardinal(Peb32)+8,@Base,4);             // PEB32.ImageBaseAddress
+  if Base<>0 then Result:=Base;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function ReadImageInfo(PHandle : Cardinal; out Info : TImageInfo) : Boolean;
+var
+  Hdr  : Array[0..$FFF] of Byte;
+  PE   : Cardinal;
+  Cnt  : Integer;
+  Sec  : Cardinal;
+  VA,VS: Cardinal;
+begin
+  FillChar(Info,SizeOf(Info),0);
+  Result:=False;
+  Info.Base:=GetImageBase(PHandle);
+  if not ReadMem(PHandle,Info.Base,@Hdr,SizeOf(Hdr)) then Exit;
+  if PWord(@Hdr[0])^<>$5A4D then Exit;                    // 'MZ'
+  PE:=PCardinal(@Hdr[$3C])^;
+  if (PE>SizeOf(Hdr)-$200) or (PCardinal(@Hdr[PE])^<>$00004550) then Exit;   // 'PE'#0#0
+  Info.TimeDateStamp:=PCardinal(@Hdr[PE+8])^;
+  Info.PreferredBase:=PCardinal(@Hdr[PE+24+28])^;
+  Info.SizeOfImage:=PCardinal(@Hdr[PE+24+56])^;
+  Info.DllChars:=PWord(@Hdr[PE+24+70])^;
+
+  // Executable section range (IMAGE_SCN_CNT_CODE / MEM_EXECUTE) for scanning.
+  Sec:=PE+24+PWord(@Hdr[PE+20])^;
+  for Cnt:=0 to PWord(@Hdr[PE+6])^-1 do
+  begin
+    if Sec+40>SizeOf(Hdr) then Break;
+    if PCardinal(@Hdr[Sec+36])^ and ($00000020 or $20000000)<>0 then
+    begin
+      VA:=PCardinal(@Hdr[Sec+12])^;
+      VS:=PCardinal(@Hdr[Sec+8])^;
+      if Info.CodeStart=0 then Info.CodeStart:=Info.Base+VA;
+      if Info.Base+VA+VS>Info.CodeEnd then Info.CodeEnd:=Info.Base+VA+VS;
+    end;
+    Inc(Sec,40);
+  end;
+  Info.Valid:=True;
+  Result:=True;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

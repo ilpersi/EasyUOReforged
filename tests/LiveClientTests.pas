@@ -226,11 +226,12 @@ end;
 procedure TLiveClientTests.TestExEvCustomRoundTripsWithNoVisibleEffect;
 begin
   RequireClient;
-  // An event ID the client won't recognize as anything real -- exercises the
-  // code-cave write/flip/wait/read-back protocol end to end with no crash
-  // and no expected visible effect. Watch the client if you want to confirm
-  // "no visible effect" yourself; this only asserts it doesn't raise.
-  Ev.ExEv_Custom(#0#0#0#0);
+  // Exercises the code-cave write/flip/wait/read-back protocol end to end with no crash and no
+  // visible effect: a game-protocol ping (0x73, 2 bytes), which every server answers harmlessly.
+  // This used to send #0#0#0#0 -- command 0x00 is "create character", so on a real shard that
+  // is a corrupt packet and the server dropped the connection after every test run.
+  // This only asserts it doesn't raise.
+  Ev.ExEv_Custom(#115#0);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -1,0 +1,52 @@
+; ShopNameProbe.euo -- reference data for the vendor (#shop*) variables.
+;
+; Run it once with the OLD client (client.exe) and once with the beta (client_beta.exe) and
+; compare the lines it prints. The question it answers: what does #shopItemName hold -- a
+; readable item name ("Salvage Bag") or a bare cliloc number ("1041060")?
+;
+; No hotkeys, nothing modal: the script just watches the vendor window and prints a probe
+; (as system messages in the game -- also visible in the Journal) every time the line the
+; shop reports changes.
+;
+; NOTE: EUO only expands a #variable / %variable that is a separate, space-delimited word,
+; so every one below has spaces around it (no "#var," or "[#var]").
+;
+; How to use:
+;   1. Open any vendor's BUY window. Double-click ONE line first so it is in your buy list.
+;   2. Start this script. It prints a probe at once, then runs the setShopItem check once
+;      (asks for quantity 3 of the line currently reported).
+;   3. Scroll the vendor list a few lines, or double-click other lines: a new probe is printed
+;      every time the reported line changes. Do this for 4-5 different lines.
+;   4. Stop the script (Stop button / ESC in the EUO window), then send me the printed lines
+;      (a screenshot of the Journal is fine).
+
+set %n 0
+set %last N/A
+event SysMessage ShopProbe started on client #cliVer , scroll or click vendor lines to probe them
+
+gosub probe
+gosub setcheck
+
+repeat
+  getShopInfo
+  if #shopItemID <> %last
+  {
+    gosub probe
+  }
+  wait 5
+until #false
+
+sub probe
+  getShopInfo
+  set %last #shopItemID
+  set %n %n + 1
+  event SysMessage Probe %n client #cliVer pos #shopCurPos of #shopCnt type #shopItemType id #shopItemID
+  event SysMessage Probe %n name >> #shopItemName << price #shopItemPrice max #shopItemMax
+  return
+
+sub setcheck
+  getShopInfo
+  setShopItem #shopItemID 3
+  event SysMessage setShopItem sent id #shopItemID name >> #shopItemName << quantity 3
+  event SysMessage Check the buy list: this item's amount should now be 3 , the gump may not repaint
+  return

@@ -11,7 +11,7 @@ unit AccessTests;
 interface
 
 uses
-  Classes, SysUtils, fpcunit, testregistry, uotypes, access;
+  Classes, SysUtils, Windows, fpcunit, testregistry, uotypes, access;
 
 type
   TAccessTests = class(TTestCase)
@@ -31,9 +31,14 @@ type
     procedure TestNumStrByteSwapped;
     procedure TestSearchMemInvalidHandleFailsSafely;
     procedure TestMCDefaultInitialValue;
+    procedure TestSearchMemRangeFindsOnlyInsideRange;
+    procedure TestGetImageBaseOfNativeProcessIsLegacyDefault;
   end;
 
 implementation
+
+const
+  RangeProbe = $10000000;          // a low address we can claim in the (64-bit) test process
 
 procedure TAccessTests.SetUp;
 begin
@@ -109,6 +114,58 @@ end;
 procedure TAccessTests.TestMCDefaultInitialValue;
 begin
   AssertEquals(False, MCDefault);
+end;
+
+// SearchMemRange scans the caller's [Start, End] window rather than the legacy fixed one.
+procedure TAccessTests.TestSearchMemRangeFindsOnlyInsideRange;
+var
+  P : Pointer;
+  M : String;
+  H : Cardinal;
+begin
+  // A real handle to ourselves: the access.pas API takes Cardinal handles, which cannot
+  // carry the 64-bit GetCurrentProcess pseudo-handle (-1).
+  H := OpenProcess(PROCESS_ALL_ACCESS, False, GetCurrentProcessId);
+  if H = 0 then Ignore('Cannot open the test process');
+  P := VirtualAlloc(Pointer(RangeProbe), $10000, MEM_RESERVE or MEM_COMMIT, PAGE_READWRITE);
+  if P = nil then
+  begin
+    CloseHandle(H);
+    Ignore('Cannot claim a low address range in the test process');
+  end;
+  try
+    M := 'EUO-RANGE-PROBE';
+    Move(M[1], Pointer(PtrUInt(P) + $2345)^, Length(M));
+    Move(M[1], Pointer(PtrUInt(P) + $9000)^, Length(M));    // a second copy, far from the first
+
+    AssertEquals('found inside the window', Cardinal(RangeProbe + $2345),
+                 SearchMemRange(H, M, #0, RangeProbe, RangeProbe + $8000));
+    // The scan walks $4000-byte blocks, so a window is honoured to block granularity.
+    AssertEquals('window ends before the far copy', Cardinal(RangeProbe + $2345),
+                 SearchMemRange(H, M, #0, RangeProbe, RangeProbe + $2000));
+    AssertEquals('window starts past the first copy', Cardinal(RangeProbe + $9000),
+                 SearchMemRange(H, M, #0, RangeProbe + $4000, RangeProbe + $C000));
+    AssertEquals('window holds neither', Cardinal(0),
+                 SearchMemRange(H, M, #0, RangeProbe + $A000, RangeProbe + $E000));
+  finally
+    VirtualFree(P, 0, MEM_RELEASE);
+    CloseHandle(H);
+  end;
+end;
+
+// A 64-bit (non-WOW64) target has no 32-bit PEB to ask, so the image base falls back to the
+// $400000 every fixed-base client is linked at.
+procedure TAccessTests.TestGetImageBaseOfNativeProcessIsLegacyDefault;
+var
+  H : Cardinal;
+begin
+  H := OpenProcess(PROCESS_ALL_ACCESS, False, GetCurrentProcessId);
+  if H = 0 then Ignore('Cannot open the test process');
+  try
+    AssertEquals(Cardinal($400000), GetImageBase(H));
+  finally
+    CloseHandle(H);
+  end;
 end;
 
 initialization

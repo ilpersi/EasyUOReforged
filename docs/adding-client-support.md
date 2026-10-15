@@ -179,6 +179,79 @@ same as `2.0.3` inheriting `2.0.0`'s milestone today whenever nothing changed in
   the address itself drifts per build — worth pursuing for fields you find yourself re-deriving
   by hand release after release, but not a substitute for the milestone data above.
 
+## Relocatable ("modern") builds -- same version number, different binary
+
+A client can share its **version number** with an older build and still be a different
+program. The 7.0.117.1 beta (`client_beta.exe`) is the example: built with a newer compiler and
+linked `DYNAMIC_BASE`, the loader puts it somewhere other than `$400000` (e.g. `$E10000`), its
+code is ~10% larger, and none of the fixed-base 7.0.117.1 addresses, byte signatures or object
+layouts apply. The symptom is every variable reading `N/A` / 0 although attaching "works" --
+the file version matches, so the milestone data for the *other* build gets used.
+
+How this port tells them apart and copes (all in `uo\uoclidata.pas`, `common\access.pas`):
+
+- `ReadImageInfo` reads the target's PE header: real load address (WOW64 PEB), `TimeDateStamp`,
+  `DllCharacteristics` and the executable section range. `DYNAMIC_BASE` (`$40`) marks a modern build.
+  (The header's own `ImageBase` field is useless here -- the loader rewrites it to the new base.)
+- Every `C_*`/`E_*` value is a **link-time address** (as if loaded at `$400000`). The getters add
+  `ImageDelta = load address - $400000`, so one table serves any load address. It is 0 for the
+  fixed-base builds, which are therefore unchanged.
+- `uoevents.pas` / `uovariables.pas` put their code cave and target handler in the header page at
+  `TCstDB.IMAGEBASE + $600` instead of the literal `$400600`.
+- A `ModernBuilds` entry has a **Layout** list (`B_*`/`F_*`, applied to any modern build) and an
+  **Addrs** list (`C_*`/`E_*`, applied only when the PE `TimeDateStamp` matches). An unknown modern
+  build starts with every `C_*`/`E_*` at zero rather than inheriting another build's addresses, and
+  only `ScannerTable_Modern` fills anything in. Every event in `uoevents.pas` refuses to run
+  while its address is zero.
+- Scans for a modern build use `SearchMemRange` over its code section, not the legacy
+  `$400000-$650000` window; `tools\EUOUpdater` does the same and prints link-time addresses.
+
+### Deriving a modern build's table
+
+The byte signatures in `EUO Updtr Strings *.txt` do **not** match a modern build (different
+codegen), so the data has to be derived by comparing code and checking against the live client:
+
+1. Load both executables' PE section tables and disassemble `.text` (Capstone works well).
+   Instruction streams are only ~0.5% different in length, so functions can be paired by their
+   string references, imported-function names and magic constants (`0x3b2`, `0xd1b71759`, `0x80c`...).
+2. Find a variable by the *shape of the code that touches it*, then confirm it in the running
+   client. Examples that worked: the add-message routine (`mov reg,[HEAD]; ...; mov [HEAD],reg`)
+   gave `C_SYSMSG`; the journal add-entry routine (`cmp dword [node+$80C],0`) gave `C_JOURNALPTR`;
+   the skill-array init loop gave `C_SKILLLOCK/CAPS/SPOS`; strings the client holds (`TestReforged`,
+   the character name) gave `C_SHARDPOS` and the status-gump layout.
+3. Walk the client's own lists in memory to learn struct layouts (item list from `C_CHARPTR`,
+   gump list from `C_CONTPOS`, journal chain) instead of guessing offsets from the old build.
+4. The event hook is the part to be most careful with: `E_REDIR` must be a 5-byte `call rel32` that
+   runs every frame on the client's main thread, and `E_OLDDIR` its original target. On the beta
+   that is the `call __alldiv` in the per-frame tick function (the old build hooks `call __allmul`
+   in the same function -- find it by the shared `0xd1b71759` / `0x1f4` / `0x4c` constants).
+5. Compare calling conventions before wiring an event: on the beta `CNetwork::Send` is a thiscall
+   that pops its argument (`F_SENDTHISCALL`), and the macro executor reads its table from globals
+   (`E_MACROTAB`) instead of taking arguments. Events whose functions were inlined or changed
+   shape (SysMessage, ExMsg, BlockInfo, Drag, Pathfind, item properties) get their own cave code
+   (`NewMessageObject`, `BlockInfoFastCode`, ... in `uoevents.pas`), selected by the `F_*`/`E_*`
+   flags above; with their address at zero the event refuses to run instead of calling into the
+   client. `tests\CstDbModernBuildTests.pas` checks every offset and jump inside that generated code.
+   Useful facts for checking a build against the EasyUO wiki
+   (`github.com/ilpersi/easyuo-wiki-archive`): `#CursKind` is the **facet** the character is in
+   (0 Felucca ... 4 Tokuno), not the cursor type; `Event Macro 1` (Say) needs its text as the third
+   argument; macro 8/9 open/close gumps by number (8 4 = Skills). On the beta the vendor lines are
+   item-like objects whose name pointer leads to a **cliloc number** ('1041060'), not the name text.
+   The older clients return the same number for `#shopItemName` (checked with
+   `tests\tools\ShopNameProbe.euo`), so that is kept as is -- no cliloc lookup.
+
+6. Turn the findings into signatures so the next rebuild of the same compiler needs no manual work:
+   take an instruction that touches each global (or the first ~12 instructions of a function),
+   wildcard every address-like operand, rel32 branch target and ebp/esp displacement, pick a joker byte
+   that is not among the fixed bytes, and keep the smallest window that is **unique** in the code
+   section and resolves to the address you derived (check it against the file *and* the live process).
+   `tools\EUOUpdater\EUO Updtr Strings modern.txt` and `ScannerTable_Modern` were produced this way
+   (73 patterns, 44 fields); `tests\CstDbModernBuildTests.pas` covers the hook signature on a fake
+   client, and a scan-only run against the beta reproduced every hand-derived value.
+
+Always diff results against a live client: `tests\LiveClientTests.pas`, or read the variable
+getters through `TUOVar` and compare with a `client.exe` var dump of the same character.
+
 ## 7. Verify
 
 - **Build**: `lazbuild --cpu=x86_64 --os=win64 uo.lpi` at minimum (fastest feedback on the data

@@ -310,7 +310,7 @@ var
   Buf : Cardinal;
 begin
   RWV(Read,Cst.CHARPTR,@Buf,4);
-  RWV(Read,Buf+$24,@Buf,2);
+  RWV(Read,Buf+Cst.BPOS,@Buf,2);
   Result:=SmallInt(Buf);
 end;
 
@@ -320,7 +320,7 @@ var
   Buf : Cardinal;
 begin
   RWV(Read,Cst.CHARPTR,@Buf,4);
-  RWV(Read,Buf+$26,@Buf,2);
+  RWV(Read,Buf+Cst.BPOS+2,@Buf,2);
   Result:=SmallInt(Buf);
 end;
 
@@ -330,7 +330,7 @@ var
   Buf : Cardinal;
 begin
   RWV(Read,Cst.CHARPTR,@Buf,4);
-  RWV(Read,Buf+$28,@Buf,2);
+  RWV(Read,Buf+Cst.BPOS+4,@Buf,2);
   Result:=SmallInt(Buf);
 end;
 
@@ -863,6 +863,9 @@ var
   Buf : Cardinal;
 begin
   RWV(Read,Cst.CLILOGGED,@Buf,4);
+  // Port addition: on the relocated builds the flag is a byte with other flags packed right
+  // behind it (the dword reads $01010001 while logged in), so only the byte counts there.
+  if Cst.ISMODERN then Buf:=Buf and $FF;
   Result:=Buf=1;
 end;
 
@@ -889,6 +892,9 @@ begin
   if Buf2<>$FEEDBEEF then Exit;
   RWV(Read,Buf+Cst.BENEMYHPVAL,@Buf,2);
   Result:=Word(Buf)*4;
+  // Port addition: the old builds keep the bar length (0..25) there; the relocated builds
+  // keep the percentage itself (a full-health dragon read 100, max 100).
+  if Cst.ISMODERN then Result:=Word(Buf);
   VarRes:=True;
 end;
 
@@ -904,8 +910,33 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 function TUOVar.LObjectType : Cardinal;
 var
-  Buf : Cardinal;
+  Buf  : Cardinal;
+  Obj  : Cardinal;
+  ID   : Cardinal;
+  Hops : Integer;
 begin
+  if Cst.ISMODERN then
+  begin
+    // Port addition: the relocated build keeps no copy of the last used object's type, only its
+    // serial; ask the object itself (walking the same item chain FindItem uses). 0 if it is gone.
+    Result:=0;
+    RWV(Read,Cst.LHANDID+$0C,@ID,4);
+    if ID=0 then Exit;
+    RWV(Read,Cst.CHARPTR,@Obj,4);
+    for Hops:=1 to 20000 do
+    begin
+      if Obj=0 then Exit;
+      RWV(Read,Obj+Cst.BITEMID,@Buf,4);
+      if Buf=ID then
+      begin
+        RWV(Read,Obj+Cst.BITEMTYPE,@Buf,2);
+        Result:=Word(Buf);
+        Exit;
+      end;
+      RWV(Read,Obj+Cst.BITEMID+$C,@Obj,4);
+    end;
+    Exit;
+  end;
   RWV(Read,Cst.LHANDID+$08,@Buf,2);
   Result:=Word(Buf);
 end;
@@ -1079,13 +1110,13 @@ function TUOVar.ReadNextCPosX : Integer;
 var
   Buf : Cardinal;
 begin
-  RWV(Read,Cst.NEXTCPOS+4,@Buf,4);
+  RWV(Read,Cst.NEXTCPOS+Cst.BNEXTCX,@Buf,4);
   Result:=Integer(Buf)+16;
 end;
 procedure TUOVar.WriteNextCPosX(Value : Integer);
 begin
   Value:=Value-16;
-  RWV(Write,Cst.NEXTCPOS+4,@Value,4);
+  RWV(Write,Cst.NEXTCPOS+Cst.BNEXTCX,@Value,4);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1119,15 +1150,16 @@ begin
   SetLength(sBuf,SizeOf(TargetHandler));
   Move(TargetHandler,sBuf[1],Length(sBuf));
   Cardinal((@sBuf[1+$14])^):=Cst.BITEMID;
-  Cardinal((@sBuf[1+$19])^):=Cst.LHANDID+$18; //LTargetID
+  Cardinal((@sBuf[1+$19])^):=Cst.LHANDID+Cst.BLTARGID; //LTargetID
   Cardinal((@sBuf[1+$20])^):=Cst.TARGETCURS;
-  Cardinal((@sBuf[1+$26])^):=Cst.LHANDID+Cst.BLTARGTILE+$04; //LTargetKind
+  Cardinal((@sBuf[1+$26])^):=Cst.LHANDID+Cst.BLTARGKIND; //LTargetKind
 
   //Base:=Cst.BMEMBASE-$100;
-  Base:=$400600-$100;
+  if Cst.TARGETCURS=0 then Exit;                      // build without addresses: nothing to hook
+  Base:=Cst.IMAGEBASE+$600-$100;                    // = $400600-$100 for every fixed-base client
   VirtualProtectEx(
     UOSel.HProc,
-    Pointer($400000),
+    Pointer(Cst.IMAGEBASE),
     $1000,
     PAGE_EXECUTE_READWRITE,
     @Dummy
@@ -1182,12 +1214,12 @@ function TUOVar.ReadCliTop : Cardinal;
 var
   Buf : Cardinal;
 begin
-  RWV(Read,Cst.CLILEFT+4,@Buf,4);
+  RWV(Read,Cst.CLILEFT+Cst.BCLITOP,@Buf,4);
   Result:=Buf;
 end;
 procedure TUOVar.WriteCliTop(Value : Cardinal);
 begin
-  RWV(Write,Cst.CLILEFT+4,@Value,4);
+  RWV(Write,Cst.CLILEFT+Cst.BCLITOP,@Value,4);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1195,12 +1227,12 @@ function TUOVar.ReadLastSpell : Cardinal;
 var
   Buf : Cardinal;
 begin
-  RWV(Read,Cst.LHANDID+$10+0,@Buf,1);
+  RWV(Read,Cst.LHANDID+Cst.BLSPELL,@Buf,1);
   Result:=Byte(Buf);
 end;
 procedure TUOVar.WriteLastSpell(Value : Cardinal);
 begin
-  RWV(Write,Cst.LHANDID+$10+0,@Value,1);
+  RWV(Write,Cst.LHANDID+Cst.BLSPELL,@Value,1);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1208,12 +1240,12 @@ function TUOVar.ReadLastSkill : Cardinal;
 var
   Buf : Cardinal;
 begin
-  RWV(Read,Cst.LHANDID+$10+4,@Buf,1);
+  RWV(Read,Cst.LHANDID+Cst.BLSKILL,@Buf,1);
   Result:=Byte(Buf);
 end;
 procedure TUOVar.WriteLastSkill(Value : Cardinal);
 begin
-  RWV(Write,Cst.LHANDID+$10+4,@Value,1);
+  RWV(Write,Cst.LHANDID+Cst.BLSKILL,@Value,1);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1221,12 +1253,12 @@ function TUOVar.ReadLTargetKind : Cardinal;
 var
   Buf : Cardinal;
 begin
-  RWV(Read,Cst.LHANDID+Cst.BLTARGTILE+$04,@Buf,1);
+  RWV(Read,Cst.LHANDID+Cst.BLTARGKIND,@Buf,1);
   Result:=Byte(Buf);
 end;
 procedure TUOVar.WriteLTargetKind(Value : Cardinal);
 begin
-  RWV(Write,Cst.LHANDID+Cst.BLTARGTILE+$04,@Value,1);
+  RWV(Write,Cst.LHANDID+Cst.BLTARGKIND,@Value,1);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1286,12 +1318,12 @@ function TUOVar.ReadLTargetID : Cardinal;
 var
   Buf : Cardinal;
 begin
-  RWV(Read,Cst.LHANDID+$18,@Buf,4);
+  RWV(Read,Cst.LHANDID+Cst.BLTARGID,@Buf,4);
   Result:=Buf;
 end;
 procedure TUOVar.WriteLTargetID(Value : Cardinal);
 begin
-  RWV(Write,Cst.LHANDID+$18,@Value,4);
+  RWV(Write,Cst.LHANDID+Cst.BLTARGID,@Value,4);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1299,12 +1331,12 @@ function TUOVar.ReadLHandID : Cardinal;
 var
   Buf : Cardinal;
 begin
-  RWV(Read,Cst.LHANDID,@Buf,4);
+  RWV(Read,Cst.LHANDID+Cst.BLHAND,@Buf,4);
   Result:=Buf;
 end;
 procedure TUOVar.WriteLHandID(Value : Cardinal);
 begin
-  RWV(Write,Cst.LHANDID,@Value,4);
+  RWV(Write,Cst.LHANDID+Cst.BLHAND,@Value,4);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1312,12 +1344,12 @@ function TUOVar.ReadRHandID : Cardinal;
 var
   Buf : Cardinal;
 begin
-  RWV(Read,Cst.LHANDID+4,@Buf,4);
+  RWV(Read,Cst.LHANDID+Cst.BRHAND,@Buf,4);
   Result:=Buf;
 end;
 procedure TUOVar.WriteRHandID(Value : Cardinal);
 begin
-  RWV(Write,Cst.LHANDID+4,@Value,4);
+  RWV(Write,Cst.LHANDID+Cst.BRHAND,@Value,4);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

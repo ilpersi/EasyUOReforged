@@ -1,0 +1,52 @@
+; HotkeyProbe.euo -- checks that onHotKey and event SysMessage work against the attached client.
+;
+; Start it with EasyUOReforged attached to the client you want to test (the beta, client_beta.exe,
+; or the old client.exe). Nothing is modal. The script prints one in-game system message per key.
+;
+;   F9            prints "F9 pressed" and the number of presses so far
+;   Ctrl + F9     prints "Ctrl F9 pressed"
+;   Alt + F10     prints "Alt F10 pressed"
+;   F12           stops the script
+;
+; NOTE: every variable below is a separate, space-delimited word (EUO only expands those).
+; onHotKey reads the real keyboard state, so the keys do not have to go to the UO window.
+
+set #lpc 1000
+set %n 0
+event SysMessage HotkeyProbe running on client #cliVer , press F9 , Ctrl F9 , Alt F10 , F12 to stop
+
+repeat
+  onhotkey F9
+    gosub plain
+  onhotkey F9 ctrl
+    gosub withctrl
+  onhotkey F10 alt
+    gosub withalt
+  onhotkey F12
+    halt
+  sleep 1
+until #false
+
+sub plain
+  set %n %n + 1
+  event SysMessage F9 pressed , count %n
+  gosub release F9
+  return
+
+sub withctrl
+  event SysMessage Ctrl F9 pressed
+  gosub release F9
+  return
+
+sub withalt
+  event SysMessage Alt F10 pressed
+  gosub release F10
+  return
+
+; wait until the key is let go so one press prints one line
+sub release
+  loop:
+  sleep 1
+  onhotkey %1
+    goto loop
+  return

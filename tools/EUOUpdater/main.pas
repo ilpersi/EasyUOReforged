@@ -169,6 +169,8 @@ var
   Cnt    : Cardinal;
   Cnt2   : Integer;
   sPar   : Array[1..6] of String;
+  Info   : TImageInfo;
+  Delta  : Cardinal;
 begin
   Result:=False;
 
@@ -191,7 +193,16 @@ begin
   end;
 
   sPar[2]:=Char(StrToIntDef('$'+sPar[2],1));
-  Res:=SearchMem(UOSel.HProc,sBuf,sPar[2][1]);
+  // A relocatable ("modern", DYNAMIC_BASE) client is loaded away from $400000 and has far
+  // more code than SearchMem's fixed window covers: scan its code section instead, and
+  // report link-time addresses (as if loaded at $400000) -- the form uoclidata.pas stores.
+  Delta:=0;
+  if ReadImageInfo(UOSel.HProc,Info) and ((Info.DllChars and $40)<>0) and (Info.CodeEnd>Info.CodeStart) then
+  begin
+    Delta:=Info.Base-$400000;
+    Res:=SearchMemRange(UOSel.HProc,sBuf,sPar[2][1],Info.CodeStart,Info.CodeEnd);
+  end
+  else Res:=SearchMem(UOSel.HProc,sBuf,sPar[2][1]);
   if Res<1 then Exit;
 
   Res:=Res+StrToIntDef(sPar[3],0);
@@ -202,6 +213,7 @@ begin
     Res:=Res+Cnt+4;
 
   Res:=Res+StrToIntDef(sPar[5],0);
+  Res:=Res-Delta;
 
   Result:=True;
 end;

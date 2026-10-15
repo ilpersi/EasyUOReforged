@@ -44,10 +44,6 @@ uses Windows, SysUtils, access, uotypes, uocommands, uovariables, uoselector,
 type
   TUOEvent      = class(TObject)
   private
-    UOSel        : TUOSel;
-    UOVar        : TUOVar;
-    Cst          : TCstDB;
-    BaseAddr     : Cardinal;
     InitEventWnd : Cardinal;
     DragID       : Cardinal;
     DragType     : Cardinal;
@@ -58,6 +54,21 @@ type
     function     FindID(ID : Cardinal) : Cardinal;
     procedure    SendExEvent(Packet : String);
     procedure    WaitTillProcessed;
+  protected
+    // Everything the relocated-build caves are assembled from is protected rather than private so
+    // tests/CstDbModernBuildTests can check the generated code's internal offsets without a client:
+    // two live crashes came from a fixed offset left stale after a variant's length changed.
+    UOSel        : TUOSel;
+    UOVar        : TUOVar;
+    Cst          : TCstDB;
+    BaseAddr     : Cardinal;
+    function     CallRel(Target, At : Cardinal) : String;
+    function     BlockInfoFastCode(X,Y,Z,W,H : Integer) : String;
+    function     PathfindFastCode(X,Y : Cardinal; Z : Integer) : String;
+    function     PropFastCode(ID : Cardinal; FirstPass : Boolean) : String;
+    function     NewMessageObject(Obj : Cardinal; Font, Color, TextAddr : Cardinal; Gate : Boolean) : String;
+    function     DragFastCode(Item, Amount : Cardinal) : String;
+    function     MacroFastCode(Par1, Par2 : Cardinal) : String;
   public
     PropStr1     : String;
     PropStr2     : String;
@@ -134,10 +145,15 @@ begin
   InitEventWnd:=UOSel.HWnd;
 
   //BaseAddr:=Cst.BMEMBASE;
-  BaseAddr:=$400600;
+  // Port change: relative to where the exe is actually loaded ($400000 for every fixed-base
+  // client, so unchanged for them; relocated "modern" builds sit elsewhere). Also never
+  // patch the client when there is no hook address -- a build whose addresses are unknown
+  // must not get a code cave and a call rerouted to address 0.
+  if Cst.EREDIR=0 then Exit;
+  BaseAddr:=Cst.IMAGEBASE+$600;
   VirtualProtectEx(
     UOSel.HProc,
-    Pointer($400000),
+    Pointer(Cst.IMAGEBASE),
     $1000,
     PAGE_EXECUTE_READWRITE,
     @Dummy
@@ -165,11 +181,225 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Port addition (relocated builds): pick up an item. E_DRAGADDR is a fastcall (item in ecx, amount in
+// edx); an amount of 0 on a stack makes the client open its "how many" gump instead of lifting.
+function TUOEvent.DragFastCode(Item, Amount : Cardinal) : String;
+var
+  s : String;
+begin
+  s:=#185+NumStr(Item,4,True)+                              // mov  ecx, PtrOnItem
+     #186+NumStr(Amount,4,True);                            // mov  edx, Amount
+  Result:=s+
+     #104+NumStr(BaseAddr+$20+Length(s)+11,4,True)+         // push below ret (= after push, push, ret)
+     #104+NumStr(Cst.EDRAGADDR,4,True)+                     // push Proc
+     #195+                                                  // ret
+     #195;                                                  // below: ret
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (relocated builds): the macro executor reads its table pointer and index from two
+// adjacent globals instead of taking arguments: point them at our one-entry table (at BaseAddr+$70),
+// call it, put the originals back.
+function TUOEvent.MacroFastCode(Par1, Par2 : Cardinal) : String;
+var
+  s : String;
+begin
+  s:=#255#53+NumStr(Cst.EMACROTAB,4,True)+                  // push [Tab]          (save)
+     #255#53+NumStr(Cst.EMACROTAB+4,4,True)+                // push [Tab+4]        (save)
+     #199#5+NumStr(Cst.EMACROTAB,4,True)+                   // mov  [Tab], 00800070
+       NumStr(BaseAddr+$70,4,True)+                         //
+     #199#5+NumStr(Cst.EMACROTAB+4,4,True)+                 // mov  [Tab+4], 0
+       #0#0#0#0;                                            //
+  Result:=s+
+     #104+NumStr(BaseAddr+$20+Length(s)+11,4,True)+         // push below ret
+     #104+NumStr(Cst.EMACROADDR,4,True)+                    // push Proc
+     #195+                                                  // ret
+     #143#5+NumStr(Cst.EMACROTAB+4,4,True)+                 // below: pop [Tab+4]  (restore)
+     #143#5+NumStr(Cst.EMACROTAB,4,True)+                   // pop [Tab]           (restore)
+     #195;                                                  // ret
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (relocated builds): `call rel32` from the instruction at absolute address At.
+function TUOEvent.CallRel(Target, At : Cardinal) : String;
+begin
+  Result:=#232+NumStr(Target-(At+5),4,True);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (relocated builds): item properties. If the client has the item's properties
+// cached, make it fill two string objects (name at BaseAddr+$A0, properties at +$A4) and report 0
+// into the result word; otherwise -- on the first pass only -- ask the server for them and leave the
+// result at "not processed" so the caller keeps polling (the same protocol as the original cave).
+function TUOEvent.PropFastCode(ID : Cardinal; FirstPass : Boolean) : String;
+var
+  s     : String;
+  JzFix : Integer;
+begin
+  s:=#185+NumStr(ID,4,True);                                // mov  ecx, ID
+  s:=s+CallRel(Cst.EITEMCHECKADDR,BaseAddr+$20+Length(s))+  // call HaveProperties(ecx)
+       #132#192+                                            // test al, al
+       #116#0;                                              // jz   REQUEST (fixed below)
+  JzFix:=Length(s);
+  s:=s+#199#5+NumStr(Cst.EITEMPROPID,4,True)+NumStr(ID,4,True);   // mov  [ItemPropID], ID
+  s:=s+#106#1+                                              // push 1
+       #104+NumStr(BaseAddr+$A0,4,True);                    // push @name
+  s:=s+CallRel(Cst.EITEMNAMEADDR,BaseAddr+$20+Length(s));   // call ItemName (stdcall)
+  s:=s+#106#1+                                              // push 1
+       #104+NumStr(BaseAddr+$B0,4,True)+                    // push @props (own 16-byte string object)
+       #185+NumStr(BaseAddr+$D4-Cst.BPROPFLAG,4,True);      // mov  ecx, fake this (flag lands at +$D4)
+  s:=s+CallRel(Cst.EITEMPROPADDR,BaseAddr+$20+Length(s));   // call ItemProperties (thiscall, stdcall pops)
+  s:=s+#49#192+                                             // xor  eax, eax
+       #102#163+NumStr(BaseAddr-4,4,True)+                  // mov  [result], ax   (0 = done)
+       #195;                                                // ret
+  s[JzFix]:=Char(Length(s)-JzFix);                          // REQUEST:
+  if FirstPass then
+  begin
+    s:=s+#185+NumStr(ID,4,True);                            // mov  ecx, ID
+    s:=s+CallRel(Cst.EITEMREQADDR,BaseAddr+$20+Length(s));  // call RequestProperties(ecx)
+  end;
+  Result:=s+#195;                                           // ret   (result stays "not processed")
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (relocated builds): Pathfind. Same trick as the original -- enter the walk-to function
+// after its tile lookup with a fake tile object holding X/Y/Z -- but the function builds an ebp frame
+// with a security cookie and an SEH record, so the cave first runs a copy of those first
+// B_PATHPROLOGUE bytes (read from the live client, so their absolute operands are already relocated).
+// Stack on entry matches a real call: two zero arguments, the return address, then the frame.
+function TUOEvent.PathfindFastCode(X,Y : Cardinal; Z : Integer) : String;
+var
+  Pro   : String;
+  s     : String;
+  Below : Cardinal;
+begin
+  SetLength(Pro,Cst.BPATHPROLOGUE);
+  ReadMem(UOSel.HProc,Cst.EPATHFINDADDR,@Pro[1],Cst.BPATHPROLOGUE);
+  // layout: 6A00 6A00 68 imm32 | prologue | B8 imm32 | 68 imm32 | C3 | C3 | X Y Z
+  Below:=BaseAddr+$20+4+5+Cst.BPATHPROLOGUE+5+5+1;
+  s:=#106#0#106#0+                                          // push 0 / push 0   (the two arguments)
+     #104+NumStr(Below,4,True)+                             // push below        (return address)
+     Pro+                                                   // the function's own prologue
+     #184+NumStr(Below+1-Cst.BPOS,4,True)+                  // mov  eax, fake tile object (X at +BPOS)
+     #104+NumStr(Cst.EPATHFINDMID,4,True)+                  // push mid
+     #195+                                                  // ret  -> mid
+     #195+                                                  // below: ret (function's ret 8 landed here)
+     NumStr(X,2,True)+                                      // tile X
+     NumStr(Y,2,True)+                                      // tile Y
+     NumStr(Z,2,True);                                      // tile Z
+  Result:=s;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (relocated builds): BlockInfo's loop for a tile query that wants X in ecx, Y in
+// edx and the four stack arguments Z, 0, @T, 0 (caller pops). Same layout as the original: code
+// padded to BaseAddr+$70, then the dwords X, Y, W, T that the code reads and writes.
+function TUOEvent.BlockInfoFastCode(X,Y,Z,W,H : Integer) : String;
+const
+  DataOfs = $80;                   // the dwords X, Y, W, T and the output flag byte live here
+var
+  s      : String;
+  Ende   : Integer;
+  L1,L2  : Integer;
+  Js1    : Integer;
+  Weiter : Integer;
+begin
+  s:=#186+NumStr(BaseAddr+$FE+2*W*H,4,True)+                // mov   edx, _P_
+     #191+NumStr(H,4,True);                                 // mov   edi, _H_
+  L1:=Length(s);                                            // loop1:
+  s:=s+#79+                                                 // dec   edi
+       #120#0;                                              // js    ende (fixed below)
+  Js1:=Length(s);
+  s:=s+#139#53+NumStr(BaseAddr+DataOfs+8,4,True);           // mov   esi, W
+  L2:=Length(s);                                            // loop2:
+  s:=s+#78+                                                 // dec   esi
+       #120+Char(L1-(Length(s)+3))+                         // js    loop1
+       #96+                                                 // pushad
+       #104+NumStr(BaseAddr+DataOfs+$10,4,True)+            // push  @flag   (the function stores a byte through it)
+       #104+NumStr(BaseAddr+DataOfs+$C,4,True)+             // push  @T
+       #106#0+                                              // push  0
+       #104+NumStr(Z,4,True)+                               // push  _Z_
+       #161+NumStr(BaseAddr+DataOfs+4,4,True)+              // mov   eax, Y
+       #1#248+                                              // add   eax, edi
+       #139#208+                                            // mov   edx, eax
+       #161+NumStr(BaseAddr+DataOfs,4,True)+                // mov   eax, X
+       #1#240+                                              // add   eax, esi
+       #139#200;                                            // mov   ecx, eax
+  Weiter:=Length(s)+5+5+1;                                  // after push weiter, push func, ret
+  s:=s+#104+NumStr(BaseAddr+$20+Weiter,4,True)+             // push  weiter
+       #104+NumStr(Cst.BLOCKINFO,4,True)+                   // push  func
+       #195+                                                // ret
+       #131#196#16+                                         // weiter: add esp, 10h
+       #97+                                                 // popad
+       #161+NumStr(BaseAddr+DataOfs+$C,4,True)+             // mov   eax, T
+       #102#137#2+                                          // mov   [edx], ax
+       #131#234#2;                                          // sub   edx, 2
+  s:=s+#235+Char(L2-(Length(s)+2));                         // jmp   loop2
+  Ende:=Length(s);
+  s[Js1]:=Char(Ende-Js1);                                   // js    ende
+  s:=s+#195;                                                // ende: ret
+  // The code must end before the data it reads. This is exactly the kind of fixed-offset
+  // contract a longer variant breaks silently, so it is checked rather than assumed.
+  while Length(s)<DataOfs-$20 do s:=s+#144;
+  if Length(s)>DataOfs-$20 then raise Exception.Create('BlockInfo cave code overlaps its data');
+  Result:=s+
+    NumStr(X,4,True)+                                       // dd    X
+    NumStr(Y,4,True)+                                       // dd    Y
+    NumStr(W,4,True)+                                       // dd    W
+    #0#0#0#0+                                               // dd    T
+    #0#0#0#0;                                               // dd    flag byte (+3 spare)
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (relocated builds): the cave code the client's own inlined "say something"
+// does -- allocate a $1800-byte message object and run its constructor
+// ctor(Obj, Text, Color, Font, 0, 0) (thiscall, callee pops). Obj=0 is a system message and is
+// subject to the client's "messages enabled" dword (Gate); an overhead message on Obj is not.
+// Assembled for the cave at BaseAddr+$20.
+function TUOEvent.NewMessageObject(Obj : Cardinal; Font, Color, TextAddr : Cardinal; Gate : Boolean) : String;
+var
+  s       : String;
+  JeFix1  : Integer;
+  JeFix2  : Integer;
+begin
+  s:='';
+  JeFix1:=0;
+  if Gate then
+  begin
+    s:=s+#131#61+NumStr(Cst.EMSGGATE,4,True)+#0+            // cmp  dword ptr [Gate], 0
+         #116#0;                                            // je   END (fixed below)
+    JeFix1:=Length(s);
+  end;
+  s:=s+#104#0#24#0#0;                                       // push 1800h
+  if Cst.EMSGFLAGA<>0 then
+    s:=s+#198#5+NumStr(Cst.EMSGFLAGA,4,True)+#1;            // mov  byte  ptr [FlagA], 1
+  if Cst.EMSGFLAGB<>0 then
+    s:=s+#199#5+NumStr(Cst.EMSGFLAGB,4,True)+#1#0#0#0;      // mov  dword ptr [FlagB], 1
+  s:=s+CallRel(Cst.ENEWOBJ,BaseAddr+$20+Length(s))+         // call operator new
+       #131#196#4+                                          // add  esp, 4
+       #133#192+                                            // test eax, eax
+       #116#0;                                              // je   END (fixed below)
+  JeFix2:=Length(s);
+  s:=s+#106#0+                                              // push 0
+       #106#0+                                              // push 0
+       #104+NumStr(Font,4,True)+                            // push Font
+       #104+NumStr(Color,4,True)+                           // push Color
+       #104+NumStr(TextAddr,4,True)+                        // push Text
+       #104+NumStr(Obj,4,True)+                             // push Obj
+       #139#200;                                            // mov  ecx, eax
+  s:=s+CallRel(Cst.ESYSMSGADDR,BaseAddr+$20+Length(s));     // call ctor
+  if Gate then s[JeFix1]:=Char(Length(s)-JeFix1);           // je END
+  s[JeFix2]:=Char(Length(s)-JeFix2);                        // je END
+  Result:=s+#195;                                           // END: ret
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 procedure TUOEvent.ExMsg(ID,Font,Color : Cardinal; Msg : String);
 var
   cBuf : Cardinal;
   sBuf : String;
 begin
+  if Cst.EEXMSGADDR=0 then Exit;                                       // address unknown for this build: never `push 0; ret` into the client
   InitEvents;
 
   Msg:=Msg+#0;                                             // Write text buffer
@@ -178,6 +408,9 @@ begin
   cBuf:=FindID(ID);
   if cBuf=0 then Exit;
 
+  if Cst.ENEWOBJ<>0 then
+    sBuf:=NewMessageObject(cBuf,Font,Color,BaseAddr+$70,False)
+  else
   sBuf:=                                                   //
     #185+NumStr(cBuf,4,True)+                              // mov  ecx, ObjPtr
     #104#0#0#0#0+                                          // push 00000000
@@ -253,6 +486,8 @@ begin
   PropStr1:='';
   PropStr2:='';
   if Cst.FEVPROPERTY=0 then Exit;
+  if (Cst.EITEMCHECKADDR=0)or(Cst.EITEMNAMEADDR=0)or(Cst.EITEMPROPADDR=0)or
+     (Cst.EITEMREQADDR=0)or(Cst.EITEMPROPID=0) then Exit;   // unknown for this build
   InitEvents;
 
   for Cnt:=1 to 100 do
@@ -265,7 +500,10 @@ begin
       case cBuf of
         0 : begin // Event successful!
               ReadMem(UOSel.HProc,BaseAddr+$A0,@cBuf,4);
-              ReadMem(UOSel.HProc,BaseAddr+$A4,@cBuf2,4);
+              if Cst.FPROPFAST=1 then                       // the modern build's string objects are 16 bytes
+                ReadMem(UOSel.HProc,BaseAddr+$B0,@cBuf2,4)  // wide, so the second one sits further on
+              else
+                ReadMem(UOSel.HProc,BaseAddr+$A4,@cBuf2,4);
               PropStr1:=GetFormStr(Cardinal(cBuf));
               if PropStr1<>'' then
               begin
@@ -278,6 +516,9 @@ begin
       end;
     end;
 
+    if Cst.FPROPFAST=1 then
+      sBuf:=PropFastCode(ID,Cnt=1)
+    else begin
     sBuf:=
       //Is item already in memory?
       #104+NumStr(BaseAddr+$76,4,True)+                    // push End
@@ -324,6 +565,7 @@ begin
       #102#184#1#0;                                        // mov ax, 1 (return value)
 
     sBuf:=sBuf+#195;                                       // N1:ret (alternative N1)
+    end;
 
     WriteMem(UOSel.HProc,BaseAddr+$20,@sBuf[1],Length(sBuf));
     WriteMem(UOSel.HProc,BaseAddr-4,#2#0#1#0,4);        // Start Event!
@@ -335,6 +577,7 @@ procedure TUOEvent.Pathfind(X,Y : Cardinal; Z : Integer);
 var
   sBuf : String;
 begin
+  if Cst.EPATHFINDADDR=0 then Exit;                                       // address unknown for this build: never `push 0; ret` into the client
   InitEvents;
 
   sBuf:=                                                   //
@@ -354,6 +597,9 @@ begin
     NumStr(Y,2,True)+                                      //(mov edx,) [eax+26]
     NumStr(Z,2,True);                                      //(mov eax,) [eax+28]
 
+  if Cst.EPATHFINDMID<>0 then
+    sBuf:=PathfindFastCode(X,Y,Z)
+  else
   if Cst.FPATHFINDVER=1 then
   begin
     sBuf[11]:=#144; //nop (clients >=6.0.6.2 do not need regpops besides ecx!)
@@ -370,10 +616,12 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 procedure TUOEvent.Drag(ID : Cardinal);
 var
+  DragAmount : Cardinal;
   sBuf  : String;
   cBuf  : Cardinal;
   cBuf2 : Cardinal;
 begin
+  if Cst.EDRAGADDR=0 then Exit;                                       // address unknown for this build: never `push 0; ret` into the client
   InitEvents;
   if UOVar.LLiftedKind>0 then Exit;
   DragID:=ID;
@@ -386,6 +634,14 @@ begin
     ReadMem(UOSel.HProc,cBuf+Cst.BITEMID,@cBuf2,4);        //
   until cBuf2=ID;                                          //
 
+  if Cst.FDRAGFASTCALL=1 then
+  begin
+    DragAmount:=0;
+    ReadMem(UOSel.HProc,cBuf+Cst.BITEMSTACK,@DragAmount,2);
+    if DragAmount=0 then DragAmount:=1;
+    sBuf:=DragFastCode(cBuf,DragAmount);
+  end
+  else begin
   sBuf:=                                                   //
     #104#0#0#0#0+                                          // push 0
     #104+NumStr(cBuf,4,True);                              // push PtrOnItem
@@ -396,6 +652,7 @@ begin
     #195+                                                  // ret
     #131#196+Char(8)+                                      // add esp, 8
     #195;                                                  // ret
+  end;
 
   WriteMem(UOSel.HProc,BaseAddr+$20,@sBuf[1],Length(sBuf));
   WriteMem(UOSel.HProc,BaseAddr-2,#1#0,2);                 // Start Event!
@@ -407,8 +664,12 @@ procedure TUOEvent.SysMessage(Msg : String; Col : Cardinal);
 var
   sBuf  : String;
 begin
+  if Cst.ESYSMSGADDR=0 then Exit;                                       // address unknown for this build: never `push 0; ret` into the client
   InitEvents;
 
+  if Cst.ENEWOBJ<>0 then
+    sBuf:=NewMessageObject(0,3,Col,BaseAddr+$100,True)
+  else begin
   sBuf:=                                                   //
     #104+NumStr(BaseAddr+$100,4,True)+                     // push 00800100
     #104#3#0#0#0+                                          // push 3
@@ -420,6 +681,7 @@ begin
     #195+                                                  // ret
     #131#196+Char(12)+                                     // add esp, 12
     #195;                                                  // ret
+  end;
 
   WriteMem(UOSel.HProc,BaseAddr+$20,@sBuf[1],Length(sBuf));
   sBuf:=Msg+#0;
@@ -433,6 +695,7 @@ procedure TUOEvent.Macro(Par1, Par2 : Cardinal; Str : String = '');
 var
   sBuf  : String;
 begin
+  if Cst.EMACROADDR=0 then Exit;                                       // address unknown for this build: never `push 0; ret` into the client
   InitEvents;
 
   // Possible problem: If no object is being used but
@@ -461,16 +724,25 @@ begin
     Dec(Par1,2);                                           //
   end;                                                     //
 
-  sBuf:=                                                   //
-    #104#0#0#0#0+                                          // push 0
-    #104+NumStr(BaseAddr+$70,4,True);                      // push 00800070
+  if Cst.EMACROTAB=0 then
+  begin
+    sBuf:=                                                 //
+      #104#0#0#0#0+                                        // push 0
+      #104+NumStr(BaseAddr+$70,4,True);                    // push 00800070
 
-  sBuf:=sBuf+                                              //
-    #104+NumStr(BaseAddr+Length(sBuf)+$2B,4,True)+         // push below ret
-    #104+NumStr(Cst.EMACROADDR,4,True)+                    // push Proc
-    #195+                                                  // ret
-    #131#196+Char(8)+                                      // add esp, 8
-    #195;                                                  // ret
+    sBuf:=sBuf+                                            //
+      #104+NumStr(BaseAddr+Length(sBuf)+$2B,4,True)+       // push below ret
+      #104+NumStr(Cst.EMACROADDR,4,True)+                  // push Proc
+      #195+                                                // ret
+      #131#196+Char(8)+                                    // add esp, 8
+      #195;                                                // ret
+  end
+  else begin
+    // Port addition, relocated builds: the executor takes no arguments and reads the
+    // macro table pointer and index from two adjacent globals. Point them at our one-entry
+    // table for the call, then put the originals back.
+    sBuf:=MacroFastCode(Par1,Par2);
+  end;
 
   WriteMem(UOSel.HProc,BaseAddr+$20,@sBuf[1],Length(sBuf));
 
@@ -542,8 +814,17 @@ var
 begin
   BlockStr:='';
   if W*H>32*32 then Exit;
+  if Cst.BLOCKINFO=0 then                                  // address unknown for this build: never `push 0; ret`
+  begin                                                    // into the client; answer like an unreadable block (zeros)
+    SetLength(BlockStr,W*H*2);
+    if Length(BlockStr)>0 then FillChar(BlockStr[1],Length(BlockStr),0);
+    Exit;
+  end;
   InitEvents;
 
+  if Cst.FBLOCKINFOFAST=1 then
+    sBuf:=BlockInfoFastCode(X,Y,Z,W,H)
+  else
   sBuf:=
     #186+NumStr(BaseAddr+$FE+2*W*H,4,True)+                // mov   edx, _P_
     #191+NumStr(H,4,True)+                                 // mov   edi, _H_
@@ -597,9 +878,22 @@ end;
 
 procedure TUOEvent.SendExEvent(Packet : String);
 var
-  sBuf : String;
+  sBuf   : String;
+  cBuf   : Cardinal;
+  AddEsp4: String;
 begin
+  AddEsp4:=#131#196#4;                                     // cdecl sender: caller pops its argument
+  if Cst.FSENDTHISCALL=1 then AddEsp4:=#144#144#144;       // thiscall `ret 4`: already popped
+  if Cst.ESENDPACKET=0 then Exit;                                       // address unknown for this build: never `push 0; ret` into the client
   InitEvents;                                              // Init Ex-/Events
+
+  // Port addition: the network object must exist (not logged in / not connected -> nil), or
+  // the thiscall below would run with this=0 inside the client.
+  if (Cst.ESENDECX>0)and(Cst.FSENDTHISCALL=1) then
+  begin
+    ReadMem(UOSel.HProc,Cst.ESENDECX,@cBuf,4);
+    if cBuf=0 then Exit;
+  end;
 
   sBuf:='';                                                // Old client
   if Cst.ESENDLEN>0 then sBuf:=sBuf+                       // compatibility
@@ -613,7 +907,7 @@ begin
     #104+NumStr(BaseAddr+$20+Length(sBuf)+16,4,True)+      // push below ret
     #104+NumStr(Cst.ESENDPACKET,4,True)+                   // push PacketSender
     #195+                                                  // ret
-    #131#196#4+                                            // add esp, 4
+    AddEsp4+                                               // add esp, 4 (nop x3 if the callee pops it)
     #195+                                                  // ret
     Packet;                                                // (Packet)
 

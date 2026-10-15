@@ -85,6 +85,10 @@ const
   // BaseAddr). Mirrored here, not shared, so uoevents.pas stays byte-for-byte as ported;
   // ScanMemory needs it to recognise a hook an earlier session already installed.
   EVENT_CAVE_BASE = $400600;
+  // The address space every C_*/E_* value in this file lives in: where all the supported
+  // client generations are linked to load. (The PE header's own ImageBase field is no use
+  // for this -- once the loader relocates an exe it rewrites that field to the new base.)
+  LINK_IMAGE_BASE = $400000;
 
 type
   TConstantNames = (
@@ -105,12 +109,47 @@ type
     // comment) -- new-layout journal-node field offsets, only meaningful when
     // F_JOURNALDIRECT=1. Zero (unused) for every other version.
     B_JCOL,B_JKIND,B_JNEXTPTR,
+    // Added for the relocated "modern" client builds (see ModernBuilds below): offset of
+    // the position block inside a world/mobile object -- ItemKind is the byte at
+    // B_POS-4 and X/Y/Z are the SmallInts at B_POS, B_POS+2 and B_POS+4. Zero means
+    // "legacy layout" and BPOS then answers $24, the value hardcoded in every older build.
+    B_POS,
+    // Also modern-build additions, same convention (0 = the legacy value): where the second
+    // member of two variable pairs sits relative to the first. B_NEXTCX: the X of the next
+    // container position relative to C_NEXTCPOS (legacy +4). B_CLITOP: the client window's top
+    // relative to C_CLILEFT (legacy +4; the modern build declares them in the other order, -4).
+    B_NEXTCX,B_CLITOP,
+    // Members of the "last hand / object / target" cluster addressed from C_LHANDID. The old
+    // builds keep them at fixed distances ($18, BLTARGTILE+4, $10, $14); the modern build
+    // scatters them, so each gets its own offset. 0 = the legacy distance.
+    B_LTARGID,B_LTARGKIND,B_LSPELL,B_LSKILL,
+    B_PATHPROLOGUE,B_PROPFLAG,
+    // LHandID / RHandID: the item ids the arm/disarm macro (24) equips, at C_LHANDID+0/+4 on the old
+    // builds. On the modern build the macro reads them at C_LHANDID+$18/+$1C (the +0/+4 spot holds macro
+    // playback state), so they get their own offsets.
+    B_LHAND,B_RHAND,
     /// EVENTS ////////////
     E_REDIR,E_OLDDIR,E_EXMSGADDR,
     E_ITEMPROPID,E_ITEMNAMEADDR,E_ITEMPROPADDR,E_ITEMCHECKADDR,
     E_ITEMREQADDR,E_PATHFINDADDR,E_SLEEPADDR,E_DRAGADDR,
     E_SYSMSGADDR,E_MACROADDR,E_SKILLLOCKADDR,E_SENDPACKET,
     E_SENDLEN,E_SENDECX,E_CONTTOP,E_STATBAR,
+    // Added for the relocated "modern" builds: address of the client's macro-table global
+    // (array pointer; the current index is the dword after it). On those builds the macro
+    // executor E_MACROADDR no longer takes (table,index) as arguments but reads them from
+    // this pair of globals. Zero (the stack-argument form) everywhere else.
+    E_MACROTAB,
+    // Added for the relocated "modern" builds, where the message wrappers are inlined at every
+    // call site: E_SYSMSGADDR / E_EXMSGADDR then name the message-object CONSTRUCTOR (thiscall,
+    // ret $18) and the cave allocates the object itself, like the client does -- E_NEWOBJ is its
+    // operator new (cdecl, size $1800), E_MSGGATE the "messages enabled" dword it tests first and
+    // E_MSGFLAGA/B the two refresh flags it raises. All zero (wrapper-function form) elsewhere.
+    E_NEWOBJ,E_MSGGATE,E_MSGFLAGA,E_MSGFLAGB,
+    // Modern builds, Pathfind: E_PATHFINDADDR is then the START of the "walk to this tile" function
+    // (an ebp frame with a security cookie and SEH, ret 8) and E_PATHFINDMID the instruction right after
+    // its tile lookup, where it reads X/Y/Z from the tile object. The cave builds the same frame by
+    // copying the function's first B_PATHPROLOGUE bytes, hands it a fake tile object and enters there.
+    E_PATHFINDMID,
     /// FEATURES //////////
     F_EXTSTAT,F_EVPROPERTY,F_MACROMAP,F_EXCHARSTATC, F_PACKETVER,
     F_PATHFINDVER,F_FLAGS,
@@ -129,6 +168,22 @@ type
     // them and read text inline instead of indirecting through Item.Pos. Defaults to 0
     // (old behavior, unchanged) for every one of the ~220 pre-existing versions.
     F_JOURNALDIRECT,
+    // Added for the relocated "modern" builds: E_SENDPACKET is the client's own
+    // CNetwork::Send -- a thiscall that pops its argument itself (ret 4), with the network
+    // object in E_SENDECX -- rather than the old cdecl wrapper that loads the object itself
+    // and leaves the argument for the caller to pop. Zero (old behaviour) everywhere else.
+    F_SENDTHISCALL,
+    // Added for the relocated "modern" builds: E_DRAGADDR (pick up an item) is a fastcall --
+    // item in ecx, amount in dx, nothing on the stack -- instead of the old cdecl(item, amount).
+    F_DRAGFASTCALL,
+    // Added for the relocated "modern" builds: C_BLOCKINFO (tile query) takes X in ecx and Y in edx
+    // and four stack arguments (Z, 0, &result, 0) which the caller pops, instead of five cdecl ones.
+    F_BLOCKINFOFAST,
+    // Added for the relocated "modern" builds, item properties: E_ITEMCHECKADDR answers "are the
+    // properties cached?" (fastcall(id), al = yes -- the opposite polarity of the old "must request"),
+    // E_ITEMREQADDR is fastcall(id), E_ITEMNAMEADDR / E_ITEMPROPADDR take (out string object, 1) as
+    // stdcall; the property function's `this` only needs a scratch dword at B_PROPFLAG.
+    F_PROPFAST,
     /// END ///////////////
     LISTEND
   );
@@ -184,12 +239,25 @@ type
   private
     CS     : TEuoLock;
     Values : array[TConstantNames] of Cardinal;
-    procedure ScanMemory(PHnd : Cardinal; const NormVer : String);
+    // Every C_*/E_* value in Values is a LINK-TIME address (as if the exe were loaded at
+    // its preferred ImageBase). The getters add ImageDelta (actual load address minus
+    // preferred base) so a client the loader relocated (ASLR) is addressed correctly;
+    // it is 0 for the fixed-base builds, which keeps them bit-identical to before.
+    ImageDelta : Cardinal;
+    ImgBase    : Cardinal;          // actual load address of the attached client's exe
+    Modern     : Boolean;           // attached build is a relocatable (DYNAMIC_BASE) exe
+    function  Rebase(V : Cardinal) : Cardinal; inline;
+    procedure ApplyModernBuild(const Info : TImageInfo);
+    procedure ScanMemory(PHnd : Cardinal; const NormVer : String; const Info : TImageInfo);
     procedure RecoverPatchedEventHook(PHnd : Cardinal);
   public
     constructor Create;
     procedure   Free;
     procedure   Update(CliVer : String; PHnd : Cardinal = 0);
+    // Load address of the attached client's exe ($400000 for the fixed-base builds); the
+    // event code cave and the target-cursor handler live in its header page.
+    function    IMAGEBASE       : Cardinal;
+    function    ISMODERN        : Boolean;
     ///////////////////////////////////////
     function    BLOCKINFO       : Cardinal;
     function    CLILOGGED       : Cardinal;
@@ -251,6 +319,13 @@ type
     function    BJCOL           : Cardinal;
     function    BJKIND          : Cardinal;
     function    BJNEXTPTR       : Cardinal;
+    function    BPOS            : Cardinal;
+    function    BNEXTCX         : Cardinal;
+    function    BCLITOP         : Cardinal;
+    function    BLTARGID        : Cardinal;
+    function    BLTARGKIND      : Cardinal;
+    function    BLSPELL         : Cardinal;
+    function    BLSKILL         : Cardinal;
     ///////////////////////////////////////
     function    EREDIR          : Cardinal;
     function    EOLDDIR         : Cardinal;
@@ -271,6 +346,13 @@ type
     function    ESENDECX        : Cardinal;
     function    ECONTTOP        : Cardinal;
     function    ESTATBAR        : Cardinal;
+    function    EMACROTAB       : Cardinal;
+    function    ENEWOBJ         : Cardinal;
+    function    EMSGGATE        : Cardinal;
+    function    EMSGFLAGA       : Cardinal;
+    function    EMSGFLAGB       : Cardinal;
+    function    EPATHFINDMID    : Cardinal;
+    function    BPATHPROLOGUE   : Cardinal;
     ///////////////////////////////////////
     function    FEXTSTAT        : Cardinal;
     function    FEVPROPERTY     : Cardinal;
@@ -281,6 +363,13 @@ type
     function    FFLAGS          : Cardinal;
     function    FSYSMSGDIRECT   : Cardinal;
     function    FJOURNALDIRECT  : Cardinal;
+    function    FSENDTHISCALL   : Cardinal;
+    function    FDRAGFASTCALL   : Cardinal;
+    function    FBLOCKINFOFAST  : Cardinal;
+    function    FPROPFAST       : Cardinal;
+    function    BPROPFLAG       : Cardinal;
+    function    BLHAND          : Cardinal;
+    function    BRHAND          : Cardinal;
   end;
 
 // Replaces the old flat SupportedCli string -- see this unit's header comment and
@@ -5361,6 +5450,435 @@ const
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 0; AddOffset2: 0; Expr: LISTEND; Pattern: nil)
   );
 
+
+////////////////////////////////////////////////////////////////////////////////
+// "MODERN" (RELOCATABLE) CLIENT BUILDS
+//
+// Starting with a 7.0.117.1 beta (client_beta.exe) the client is built with a newer
+// compiler and linked with DYNAMIC_BASE: the loader moves it away from its preferred
+// $400000 (e.g. to $E10000), its code is ~10% larger, and -- despite the unchanged
+// version number -- none of the fixed-base 7.0.117.1 addresses, signatures or object
+// layouts apply to it. The version string cannot tell the two apart, the PE header can.
+//
+// Everything in the milestone tables and in ModernBuilds' lists is a LINK-TIME address
+// (what the same instruction would address if the exe sat at its preferred base). The
+// getters add ImageDelta, so one table serves every load address.
+//
+// A ModernBuild entry therefore has two parts:
+//   Layout -- struct offsets / feature flags (B_*, F_*). Applied to ANY modern build, on
+//             the assumption that object layouts survive a rebuild.
+//   Addrs  -- C_*/E_* addresses. Valid for exactly one binary, so only applied when the
+//             attached exe's PE TimeDateStamp equals Stamp. For any other modern build all
+//             C_*/E_* start at zero (never at a stale address from another build -- the
+//             E_* ones are code addresses uoevents.pas patches machine code at) and only
+//             what ScannerTable_Modern finds at runtime is filled in.
+const
+  IMAGE_DYNAMIC_BASE = $0040;
+
+type
+  TModernBuild = record
+    Stamp  : Cardinal;
+    Layout : PSysVarListArray;
+    Addrs  : PSysVarListArray;
+  end;
+
+const
+// Layout of the modern builds, derived by reading the live beta client's memory while
+// logged in (an item list walked from C_CHARPTR, the gump list from C_CONTPOS, the journal
+// chain, a message object) and cross-checked against the fixed-base 7.0.117.1 offsets.
+// What moved: the object prefix before the id grew. Kind/X/Y/Z, type and id all shifted
+// (+$24, +$38, +$70); everything addressed RELATIVE to the id (container pointer, next
+// pointer, slot byte, status pointer, B_CHARSTATUS ...) and the gump / stat-gump / message
+// object layouts are unchanged -- except the stat gump's name field, and the skill arrays,
+// whose stride grew from $78 to $80.
+SysVarModernLayout : array[0..33] of TSysVarList = (
+  (Expr: B_POS;       Val: $00000048),   // kind=$44, X=$48, Y=$4A, Z=$4C
+  (Expr: B_ITEMTYPE;  Val: $00000070),
+  (Expr: B_ITEMSTACK; Val: $00000076),   // type+6 as on every older build; hue (stack+2) = $78 seen live
+  (Expr: B_ITEMID;    Val: $00000118),   // player serial 1; next item at +$C, container at +4, stat gump at +$10
+  (Expr: B_STATNAME;  Val: $00000154),   // name inside the status gump ("Boydon" found at +$154)
+  (Expr: B_SKILLDIST; Val: $00000080),
+  (Expr: B_JNEXTPTR;  Val: $0000081C),   // toward OLDER entries; JCOL/JKIND ($800/$804) unchanged
+  (Expr: F_SENDTHISCALL; Val: $00000001),
+  (Expr: F_DRAGFASTCALL; Val: $00000001),
+  (Expr: F_BLOCKINFOFAST; Val: $00000001),
+  (Expr: B_LHAND;     Val: $00000018),    // $B01838 / $B0183C: what the arm/disarm macro (24) reads, indexed by hand
+  (Expr: B_RHAND;     Val: $0000001C),    // (found in the macro's function: mov ecx,[hand*4+$B01834])
+  (Expr: F_PROPFAST;  Val: $00000001),
+  (Expr: B_PROPFLAG;  Val: $0000015C),    // the property function's this+$15C scratch dword
+  (Expr: B_PATHPROLOGUE; Val: $00000028),  // bytes of walk-to prologue the cave replays
+  (Expr: B_LLIFTEDTYPE; Val: $FFFFFFDC), // lifted item's type sits $24 AFTER its id (read at id - B_LLIFTEDTYPE)
+  (Expr: B_LLIFTEDKIND; Val: $00000034), // lifted-state flag at id + $34
+  (Expr: B_TARGPROC;  Val: $00001110),   // target callback pointer is at C_TARGETCURS + $1110
+  // "Last object / target" cluster, addressed from C_LHANDID = $B01820 (see SysVarModernAddrs):
+  (Expr: B_LTARGID;   Val: $00000024),   // $B01844: id the click handler stores (not for a click on yourself)
+  (Expr: B_LTARGTILE; Val: $00000020),   // $B01840: tile/type for a static
+  (Expr: B_LTARGKIND; Val: $00000030),   // $B01850: 1 object, 2 ground, 3 static
+  (Expr: B_ENEMYHPVAL; Val: $00000154),  // in the enemy status gump (serial at +$150, current/max at +$154/+$158)
+  (Expr: B_LSPELL;    Val: $FFFFFE34),   // $B01654: dword, written by the cast routine (macro "last spell" reads it)
+  (Expr: B_LSKILL;    Val: $FFFFFE4C),   // $B0166C: dword, macro "last skill" reads it
+  (Expr: B_LTARGX;    Val: $01588E68),   // $208A688: X, Y words then Z word, as in the old build
+  (Expr: B_NEXTCX;    Val: $00000080),   // next-container X at C_NEXTCPOS+$80 (Y at +0)
+  (Expr: B_CLITOP;    Val: $FFFFFFFC),   // client window top is declared right BEFORE its left
+  // Vendor windows. The shop gump keeps a pointer to the first stock line at +$15C (an object laid
+  // out like an item: type/stack/id as above, price dword at id+$30, name pointer at id+$2C -- the
+  // name there is the CLILOC NUMBER as ASCII, e.g. '1028791' = 1020000+graphic). The lines are
+  // doubly linked: previous at +$7C, next at +$80, so $7C is "next" in the direction GetShopInfo
+  // counts forward (away from the first line, which sits at the other end). The bill gump keeps its
+  // first entry at +$170 (entry+4 = id, +$A = quantity word, +$C = next, as on the old builds).
+  (Expr: B_SHOPCURRENT; Val: $0000015C),
+  (Expr: B_SHOPNEXT;  Val: $0000007C),
+  (Expr: B_SHOPPRICE; Val: $00000030),
+  (Expr: B_BILLFIRST; Val: $00000170),
+  // Notoriety ("reputation") byte FindItem reports: at object +$324 = id+$20C. Read 7 (invulnerable) on
+  // all 22 vendors, 3 on the player and on a grey animal; no other byte in the object fits.
+  (Expr: B_FINDREP;   Val: $0000020C),
+  // Client language ('ENU'): the 4-char string is at C_LHANDID - $200 (the only such string within +-$400 of it).
+  (Expr: B_LANG;      Val: $00000200),
+  (Expr: LISTEND;     Val: 0)
+);
+
+// Addresses for the 7.0.117.1 beta built at PE time/date stamp $6AC94360 (link-time, i.e. as
+// if loaded at $400000; the beta itself loads at $E10000 and the getters add the difference).
+// Each was verified against the running client, not just matched to a pattern:
+//   C_CHARPTR     global pointing at the player object (serial 1, X/Y/Z read back sensibly)
+//   C_CLIXRES     $320 / +4: $258 = the 800x600 game resolution
+//   C_SHARDPOS    holds "TestReforged"
+//   C_CONTPOS     head of the gump list (menubar -> paperdoll -> ... -> GameAreaEdgeGump)
+//   C_SYSMSG      head of the system-message list: same add-message code shape as the old
+//                 build (load head, link new node, store head), and the object it pointed at
+//                 held "The world is saving, please wait." at +$800
+//   C_JOURNALPTR  newest journal entry; same add-entry code shape ([node+$80C] test)
+//   C_SKILLLOCK/CAPS/SPOS  58-entry arrays, found by their init loop ($7EEA20 bytes, then
+//                 words at $7EEA60/$7EEAE0, stride $80); all GM here so CAPS vs SPOS follows
+//                 the older builds' declaration order
+SysVarModernAddrs : array[0..44] of TSysVarList = (
+  (Expr: C_CHARPTR;     Val: $00B33F44),
+  //   C_CLILOGGED   byte, written by the same login/logout functions as the old build's flag
+  //                 (two string-matched function pairs agree); set to 1 while in game
+  //   C_BLOCKINFO   tile query: same player/type checks as the old build's, mixed calling convention
+  (Expr: C_BLOCKINFO;   Val: $00575AE0),
+  (Expr: C_CLILOGGED;   Val: $007C86AC),
+  //   C_NEXTCPOS    the "cascade" position of the next opened gump (both ints step by 16 and wrap
+  //                 the way the old build's pair does; located by the same add/compare shape)
+  (Expr: C_NEXTCPOS;    Val: $009A262C),
+  //   C_CLILEFT     game-window left (15 here); top (41) is the dword before it (B_CLITOP)
+  (Expr: C_CLILEFT;     Val: $00B03564),
+  //   C_ENEMYID     "set/clear current enemy" routine is a line-for-line match of the old build's
+  //                 (load old, store new, FindObject(old), reload), and the serial compares agree
+  (Expr: C_ENEMYID;     Val: $00B33FBC),
+  //   C_CHARDIR     start of the 16-byte-stride movement queue: same `cmp [q],[q+1]`, same
+  //                 `push 30h; push q; call memcpy` as the old build's $A02C90
+  (Expr: C_CHARDIR;     Val: $0580D5D0),
+  //   C_POPUPID     object id of the pending context menu: five handlers that clear a flag byte and
+  //                 FindObject([POPUPID]) mirror the old build's, and the 0xBF request sends it
+  (Expr: C_POPUPID;     Val: $00B34010),
+  //   C_LLIFTEDID   serial of the item on the cursor (picked up gold: $40000005, type $EED, amount
+  //                 $3E8 seen live); its flag word is what the macro executor tests exactly as the
+  //                 old build tests its LLIFTEDKIND
+  (Expr: C_LLIFTEDID;   Val: $00B33EC8),
+  //   C_LSHARD      the value the character-select gump constructor copies into its object, in the
+  //                 same place and the same way as the old build's (mov eax,[g]; mov [this+off],eax)
+  (Expr: C_LSHARD;      Val: $00B33FAC),
+  //   C_LHANDID     base of the last-object/target cluster: $B0182C is the last USED object (the
+  //                 macro "last object" reads it) = base + $C, as in the old build
+  (Expr: C_LHANDID;     Val: $00B01820),
+  //   C_ENEMYHITS   pointer to the "target status gump" of the mobile being targeted/attacked
+  //                 (the only global that pointed at it while a dragon was selected)
+  (Expr: C_ENEMYHITS;   Val: $00C8B858),
+  (Expr: C_CLIXRES;     Val: $007C8E40),
+  (Expr: C_SHARDPOS;    Val: $007F03D0),
+  (Expr: C_SYSMSG;      Val: $009A3068),
+  (Expr: C_CONTPOS;     Val: $008E25C0),
+  (Expr: C_JOURNALPTR;  Val: $00C8B8BC),
+  (Expr: C_SKILLLOCK;   Val: $007EEA20),
+  (Expr: C_SKILLCAPS;   Val: $007EEA60),
+  (Expr: C_SKILLSPOS;   Val: $007EEAE0),
+  (Expr: C_CURSORKIND;  Val: $00B0287F),   // provisional: two independent code comparisons agree
+  // Event hook. E_REDIR is the `call __alldiv` in the per-frame tick function (the same
+  // function, found by its shared constants, in which the old build hooks `call __allmul`);
+  // E_OLDDIR is what that call originally targets. InitEvents reroutes it to the code cave.
+  (Expr: E_REDIR;       Val: $0057C6F9),
+  (Expr: E_OLDDIR;      Val: $006A1160),
+  // CNetwork::Send (thiscall, `ret 4`) and the global holding the network object it needs.
+  (Expr: E_SENDPACKET;  Val: $004323F0),
+  (Expr: E_SENDECX;     Val: $00B063CC),
+  // Macro executor + its table/index globals (see E_MACROTAB). Same 67-entry type switch and
+  // 20-byte entries as the old build; the entry fields used ([+$18] type, [+$20] text) match.
+  // Message objects (see E_NEWOBJ): the constructor is shared by system and overhead messages.
+  (Expr: E_SYSMSGADDR;  Val: $00469790),
+  (Expr: E_EXMSGADDR;   Val: $00469790),
+  (Expr: E_NEWOBJ;      Val: $006856F4),
+  (Expr: E_MSGGATE;     Val: $008910BC),
+  (Expr: E_MSGFLAGA;    Val: $00C7763B),
+  (Expr: E_MSGFLAGB;    Val: $00C8B8B0),
+  // Pick-up-item: the only writer of C_LLIFTEDID in both builds (fastcall here, cdecl there).
+  (Expr: E_DRAGADDR;    Val: $00594A20),
+  // Walk-to-tile: the function that keeps the movement queue (C_CHARDIR) -- start and the point after its
+  // tile lookup where it reads X/Y/Z.
+  // Item properties (the tooltip data): found by the shared use of the "current property item" global
+  // ($B01608) and the 0xD6 batch-request packet sender's queue.
+  (Expr: E_ITEMPROPID;  Val: $00B01608),
+  (Expr: E_ITEMCHECKADDR; Val: $004259D0),
+  (Expr: E_ITEMREQADDR; Val: $00424C00),
+  (Expr: E_ITEMNAMEADDR; Val: $00558940),
+  (Expr: E_ITEMPROPADDR; Val: $005587C0),
+  (Expr: E_PATHFINDADDR; Val: $0056EFF0),
+  (Expr: E_PATHFINDMID; Val: $0056F05B),
+  (Expr: E_MACROADDR;   Val: $0055AF80),
+  (Expr: E_MACROTAB;    Val: $00B01848),
+  // Open-status-bar: found through the CStatusGump constructor's callers (RTTI), same shape as the
+  // old build's: thiscall on a gump whose +$4C holds the mobile, plain ret.
+  (Expr: E_STATBAR;     Val: $00486E60),
+  // Bring-gump-to-front: same code, same `ret 4` thiscall.
+  (Expr: E_CONTTOP;     Val: $00536690),
+  // Target-cursor flag: the macro/targeting code tests it the way the old build tests its own.
+  (Expr: C_TARGETCURS;  Val: $00B02444),
+  (Expr: LISTEND;       Val: 0)
+);
+
+ModernBuilds : array[0..0] of TModernBuild = (
+  (Stamp: $6AC94360; Layout: @SysVarModernLayout; Addrs: @SysVarModernAddrs)
+);
+
+// Runtime signature scan for the relocatable ("modern") builds. Mirrors
+// tools\EUOUpdater\"EUO Updtr Strings modern.txt" line for line (see that file's header for how the
+// patterns were built and verified): 73 patterns for 44 fields, each unique in the 7.0.117.1 beta's
+// code section and resolving to the hand-verified address, statically and live. Address operands,
+// rel32 targets and ebp/esp displacements are wildcards; the joker is picked per pattern so it never
+// collides with a fixed byte. They apply to the same compiler's code across rebuilds, so an unknown
+// beta of it fills in its own addresses here; nothing else is ever guessed for an unknown build.
+// A second pattern for a field is a fallback anchored in another function.
+ScannerTable_Modern : array[0..73] of TScannerEntry = (
+    // E_REDIR
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 12; Mode: 1; AddOffset2: 0; Expr: E_REDIR;
+     Pattern: '6A0068E8030000FF75C86A00E8111111118BF0B85917B7D1F765C4'),
+    // E_OLDDIR
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 13; Mode: 2; AddOffset2: 0; Expr: E_OLDDIR;
+     Pattern: '6A0068E8030000FF75C86A00E8111111118BF0B85917B7D1F765C4'),
+    // E_SENDPACKET
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_SENDPACKET;
+     Pattern: '558BEC53568B7511578BF98A1680FAFE73110FB6C28D04400FB7048511111111'),
+    // E_SENDECX
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 13; Mode: 3; AddOffset2: 0; Expr: E_SENDECX;
+     Pattern: 'C6451100C74511FFFFFFFF8935111111118B4D1164890D00000000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 31; Mode: 3; AddOffset2: 0; Expr: E_SENDECX;
+     Pattern: 'C78174010000010000008B921801000074118D8D11111111E8111111118B0D11111111'),
+    // E_MACROADDR
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_MACROADDR;
+     Pattern: '558BEC6AFF681111111164A10000000050B878200000E811111111A11111111133C5894511'),
+    // E_MACROTAB
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 12; Mode: 3; AddOffset2: 0; Expr: E_MACROTAB;
+     Pattern: '8B80E000000083E9017511A311111111C7051111111100000000C6051111111101'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 18; Mode: 3; AddOffset2: 0; Expr: E_MACROTAB;
+     Pattern: '64A300000000A111111111BF010000008B0D111111118D04808D3481'),
+    // E_CONTTOP
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_CONTTOP;
+     Pattern: '558BEC83E4F883EC2C53568BF1578B06FF90AC01000085C0'),
+    // E_STATBAR
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_STATBAR;
+     Pattern: '558BEC6AFF681111111164A1000000005083EC18A11111111133C589451153'),
+    // E_DRAGADDR
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_DRAGADDR;
+     Pattern: '558BEC6AFF681111111164A1000000005083EC1CA11111111133C5894511535657508D451164A3000000008BDA8BF1E811111111'),
+    // C_BLOCKINFO
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: C_BLOCKINFO;
+     Pattern: '558BECB84C180000E811111111A11111111133C58945118B4511538B5D1156898D11111111'),
+    // E_PATHFINDADDR
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_PATHFINDADDR;
+     Pattern: '558BEC6AFF681111111164A1000000005083EC08535657A11111111133C5508D451164A300000000803D1111111100'),
+    // E_PATHFINDMID
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_PATHFINDMID;
+     Pattern: '0FBF70480FBF484A0FBF404C8B15111111118B3D111111118B1D11111111894511A111111111897511'),
+    // E_ITEMCHECKADDR
+    (Joker: $22; Unused: (0,0,0); AddOffset1: 6; Mode: 2; AddOffset2: 0; Expr: E_ITEMCHECKADDR;
+     Pattern: '83C4088BCFE8222222220F2805222222228D8D2222222268222222228985222222220F118522222222E822222222FFB522222222'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 11; Mode: 2; AddOffset2: 0; Expr: E_ITEMCHECKADDR;
+     Pattern: 'C7835C01000001000000E81111111185F6751185C075118B75118BCE'),
+    // E_ITEMREQADDR
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_ITEMREQADDR;
+     Pattern: '558BEC6AFF681111111164A1000000005083EC1056A11111111133C5508D451164A300000000894D11'),
+    // E_ITEMNAMEADDR
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_ITEMNAMEADDR;
+     Pattern: '558BEC6AFF681111111164A100000000505156A11111111133C5508D451164A300000000C7451100000000'),
+    // E_ITEMPROPADDR
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_ITEMPROPADDR;
+     Pattern: '558BEC6AFF681111111164A1000000005083EC14535657A11111111133C5508D451164A3000000008BD9C74511000000008D4D11'),
+    // E_SYSMSGADDR
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_SYSMSGADDR;
+     Pattern: '558BEC6AFF681111111164A1000000005081EC34080000A11111111133C5'),
+    // E_EXMSGADDR
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_EXMSGADDR;
+     Pattern: '558BEC6AFF681111111164A1000000005081EC34080000A11111111133C5'),
+    // E_ITEMPROPID
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 12; Mode: 3; AddOffset2: 0; Expr: E_ITEMPROPID;
+     Pattern: 'C7835C01000001000000C7051111111100000000C7051111111100000000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 2; Mode: 3; AddOffset2: 0; Expr: E_ITEMPROPID;
+     Pattern: 'C7051111111100000000C7808800000000000000A111111111C7808800000000000000'),
+    // E_NEWOBJ
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 11; Mode: 2; AddOffset2: 0; Expr: E_NEWOBJ;
+     Pattern: 'F7E20F90C1F7D90BC851E81111111168940400006A0050A311111111'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 9; Mode: 2; AddOffset2: 0; Expr: E_NEWOBJ;
+     Pattern: '0F85111111116A0EE81111111183C404898511111111C745110000000085C00F8411111111'),
+    // E_MSGGATE
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 12; Mode: 3; AddOffset2: 0; Expr: E_MSGGATE;
+     Pattern: 'C7051111111100000000833D111111110074116800180000C6051111111101C7051111111101000000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 5; Mode: 3; AddOffset2: 0; Expr: E_MSGGATE;
+     Pattern: '83C410833D11111111000F84111111116800180000C6051111111101C7051111111101000000'),
+    // E_MSGFLAGA
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 27; Mode: 3; AddOffset2: 0; Expr: E_MSGFLAGA;
+     Pattern: 'C68433FF0700000066898300100000668B451166898302100000A011111111'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 2; Mode: 3; AddOffset2: 0; Expr: E_MSGFLAGA;
+     Pattern: 'C6051111111101C7051111111100000000C7430811111111C7436800000000C7436400000000'),
+    // E_MSGFLAGB
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 2; Mode: 3; AddOffset2: 0; Expr: E_MSGFLAGB;
+     Pattern: 'C7051111111100000000C7430811111111C7436800000000C7436400000000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 25; Mode: 3; AddOffset2: 0; Expr: E_MSGFLAGB;
+     Pattern: 'C7451100000000C64511006800180000C6051111111101C7051111111101000000'),
+    // C_LSHARD
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 1; Mode: 3; AddOffset2: 0; Expr: C_LSHARD;
+     Pattern: 'A1111111118B3D11111111C6864C01000000893511111111C786B401000000000000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 19; Mode: 3; AddOffset2: 0; Expr: C_LSHARD;
+     Pattern: '8B83B4010000B911111111893511111111893511111111C7800462000000000000'),
+    // C_CHARPTR
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 1; Mode: 3; AddOffset2: 0; Expr: C_CHARPTR;
+     Pattern: 'A111111111C6051111111100C7051111111100000000C70511111111FFFFFFFFC7051111111100000000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 4; Mode: 3; AddOffset2: 0; Expr: C_CHARPTR;
+     Pattern: '8B4E08A111111111668B514C663B504C7E1180B9AC00000000'),
+    // C_CHARDIR
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 3; Mode: 3; AddOffset2: 0; Expr: C_CHARDIR;
+     Pattern: '0FB68111111111033C8511111111033485111111110FB683AE000000897D11BF04000000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 3; Mode: 3; AddOffset2: 0; Expr: C_CHARDIR;
+     Pattern: '0FB60D111111110FB7048D11111111660145110FB7048D11111111660145118B4511894704'),
+    // C_CLILOGGED
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 2; Mode: 3; AddOffset2: 0; Expr: C_CLILOGGED;
+     Pattern: 'C6051111111100C7432480020000C74328E0010000C7431800000000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 2; Mode: 3; AddOffset2: 0; Expr: C_CLILOGGED;
+     Pattern: 'C6051111111101C7051111111101000000C780880000000100000085C9'),
+    // C_CLIXRES
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 2; Mode: 3; AddOffset2: 0; Expr: C_CLIXRES;
+     Pattern: '8B0D111111110FB77D110F4FC8C7851111111100000000898D11111111C7851111111100000000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 2; Mode: 3; AddOffset2: 0; Expr: C_CLIXRES;
+     Pattern: '8B0D111111110F4FC8897C2411C744241100000000894C24118D4C2411'),
+    // C_CLILEFT
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 12; Mode: 3; AddOffset2: 0; Expr: C_CLILEFT;
+     Pattern: 'C7814C010000000000008B0D11111111FF0511111111C7051111111100000000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 22; Mode: 3; AddOffset2: 0; Expr: C_CLILEFT;
+     Pattern: 'C7465800000000C7464C00000000FF15111111118B0D111111118BF8'),
+    // C_SHARDPOS
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 17; Mode: 3; AddOffset2: 0; Expr: C_SHARDPOS;
+     Pattern: 'C7808800000000000000E811111111C6051111111100C6051111111100E8111111118B0D11111111'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 2; Mode: 3; AddOffset2: 0; Expr: C_SHARDPOS;
+     Pattern: 'C6051111111100C605111111110085C974118B016A01FF5004C7051111111100000000'),
+    // C_CONTPOS
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 1; Mode: 3; AddOffset2: 0; Expr: C_CONTPOS;
+     Pattern: 'A111111111C7866002000000000000C7866402000000000000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 1; Mode: 3; AddOffset2: 0; Expr: C_CONTPOS;
+     Pattern: 'A111111111C7868800000001000000C7466400000000C7465C00000000'),
+    // C_NEXTCPOS
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 2; Mode: 3; AddOffset2: 0; Expr: C_NEXTCPOS;
+     Pattern: 'C7051111111110000000C7051111111110000000C7051111111101000000C7051111111100000000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 2; Mode: 3; AddOffset2: 0; Expr: C_NEXTCPOS;
+     Pattern: '8B351111111183C2108B4D1183C6108B451183C1F003C2C7451110000000'),
+    // C_SYSMSG
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 42; Mode: 3; AddOffset2: 0; Expr: C_SYSMSG;
+     Pattern: 'C7051111111110000000C7051111111101000000C7051111111100000000C7051111111100000000C7051111111100000000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 16; Mode: 3; AddOffset2: 0; Expr: C_SYSMSG;
+     Pattern: '8B86680100008981A8000000EB1139351111111175118B8668010000'),
+    // C_JOURNALPTR
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 1; Mode: 3; AddOffset2: 0; Expr: C_JOURNALPTR;
+     Pattern: 'A111111111C7861008000000000000C7861808000000000000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 1; Mode: 3; AddOffset2: 0; Expr: C_JOURNALPTR;
+     Pattern: 'A111111111899E00080000C7861008000000000000C7861808000000000000'),
+    // C_SKILLLOCK
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 12; Mode: 3; AddOffset2: 0; Expr: C_SKILLLOCK;
+     Pattern: '66C786E400000000010FB680111111118B3C851111111189BE60010000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 17; Mode: 3; AddOffset2: 0; Expr: C_SKILLLOCK;
+     Pattern: 'C7442411000000008B86680100000FB680111111118B3C85111111118D442411'),
+    // C_SKILLCAPS
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 4; Mode: 3; AddOffset2: 0; Expr: C_SKILLCAPS;
+     Pattern: '0FB7044511111111EB110FB7044511111111EB1180BEE80100000074110FB7844660020000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 4; Mode: 3; AddOffset2: 0; Expr: C_SKILLCAPS;
+     Pattern: '0FB7045D11111111EB110FB7045D11111111EB1180BFE80100000074110FB7845F60020000'),
+    // C_SKILLSPOS
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 4; Mode: 3; AddOffset2: 0; Expr: C_SKILLSPOS;
+     Pattern: '0FB7044511111111EB1180BEE80100000074110FB7844660020000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 4; Mode: 3; AddOffset2: 0; Expr: C_SKILLSPOS;
+     Pattern: '0FB7045D11111111EB1180BFE80100000074110FB7845F60020000'),
+    // C_ENEMYID
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 16; Mode: 3; AddOffset2: 0; Expr: C_ENEMYID;
+     Pattern: '3BB89001000074118B871801000039051111111174113981A8040000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 2; Mode: 3; AddOffset2: 0; Expr: C_ENEMYID;
+     Pattern: '8B35111111118D4424116A04508D542411C744241100000000E81111111183C408'),
+    // C_ENEMYHITS
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 18; Mode: 3; AddOffset2: 0; Expr: C_ENEMYHITS;
+     Pattern: 'C7875401000000000000FFB76C010000C7051111111100000000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 2; Mode: 3; AddOffset2: 0; Expr: C_ENEMYHITS;
+     Pattern: '8B3D111111118B8750010000C7875801000000000000C7875401000000000000'),
+    // C_TARGETCURS
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 2; Mode: 3; AddOffset2: 0; Expr: C_TARGETCURS;
+     Pattern: '833D1111111100C7877001000000000000751183BF8000000000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 24; Mode: 3; AddOffset2: 0; Expr: C_TARGETCURS;
+     Pattern: 'C7876001000000000000FF9098020000FF0511111111833D1111111100'),
+    // C_CURSORKIND
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 3; Mode: 3; AddOffset2: 0; Expr: C_CURSORKIND;
+     Pattern: '0FB605111111118983340200008B01C6833802000000C6835C01000001'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 16; Mode: 3; AddOffset2: 0; Expr: C_CURSORKIND;
+     Pattern: '0FB68ECC040000884A5C8B48080FB6151111111166895136'),
+    // C_POPUPID
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 24; Mode: 3; AddOffset2: 0; Expr: C_POPUPID;
+     Pattern: 'C6834C01000001C7835001000000000000898354010000A111111111'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 5; Mode: 3; AddOffset2: 0; Expr: C_POPUPID;
+     Pattern: 'C1E80F893511111111C6442411BF85C07411B8030000006689442411'),
+    // C_LLIFTEDID
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 7; Mode: 3; AddOffset2: 0; Expr: C_LLIFTEDID;
+     Pattern: '8B8618010000A3111111118BC1250080000066893D1111111181E1FF3F0000'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 29; Mode: 3; AddOffset2: 0; Expr: C_LLIFTEDID;
+     Pattern: 'C74511FFFFFFFFEB1133F6C74511FFFFFFFFEB110FBE05111111118B0D11111111'),
+    // C_LHANDID
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 22; Mode: 3; AddOffset2: -12; Expr: C_LHANDID;
+     Pattern: '8B8E18010000BA210E0000A11111111166395670890D111111110F44C1'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 33; Mode: 3; AddOffset2: -12; Expr: C_LHANDID;
+     Pattern: '8D5511B9F4000000E811111111E911111111833D11111111000F84111111118B0D1111111185C90F8411111111'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 0; AddOffset2: 0; Expr: LISTEND; Pattern: nil)
+  );
+
+////////////////////////////////////////////////////////////////////////////////
+function TCstDB.Rebase(V : Cardinal) : Cardinal;
+begin
+  if V = 0 then Result := 0 else Result := V + ImageDelta;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Called with the CS write lock held (from Update).
+procedure TCstDB.ApplyModernBuild(const Info : TImageInfo);
+  procedure Apply(Entry : PSysVarListArray);
+  var
+    Cnt : Integer;
+  begin
+    if Entry = nil then Exit;
+    Cnt := 0;
+    while Entry^[Cnt].Expr <> LISTEND do
+    begin
+      Values[Entry^[Cnt].Expr] := Entry^[Cnt].Val;
+      Inc(Cnt);
+    end;
+  end;
+var
+  Cnt  : Integer;
+  Expr : TConstantNames;
+begin
+  // No fixed-base address is meaningful for this exe.
+  for Expr := Low(TConstantNames) to High(TConstantNames) do
+    if Expr in [C_BLOCKINFO..C_SKILLSPOS, E_REDIR..E_PATHFINDMID] then
+      Values[Expr] := 0;
+
+  Apply(ModernBuilds[0].Layout);      // one layout family so far: the first entry's
+  for Cnt := 0 to High(ModernBuilds) do
+    if ModernBuilds[Cnt].Stamp = Info.TimeDateStamp then
+      Apply(ModernBuilds[Cnt].Addrs);
+end;
+
 ////////////////////////////////////////////////////////////////////////////////
 constructor TCstDB.Create;
 begin
@@ -5411,6 +5929,7 @@ var
   Cnt2    : Integer;
   Expr    : TConstantNames;
   Entry   : PSysVarListArray;
+  Info    : TImageInfo;
 begin
   CS.BeginWrite;
   try
@@ -5418,6 +5937,9 @@ begin
     begin
       for Expr := Low(TConstantNames) to High(TConstantNames) do
         Values[Expr] := 0;
+      ImageDelta := 0;
+      ImgBase := $00400000;
+      Modern := False;
       Exit;
     end;
 
@@ -5445,8 +5967,24 @@ begin
       until False;
     end;
 
+    ImageDelta := 0;
+    ImgBase := $00400000;
+    Modern := False;
+    FillChar(Info, SizeOf(Info), 0);
     if PHnd <> 0 then
-      ScanMemory(PHnd, Milestones[MIdx].NormVer);
+    begin
+      // Where the client really is: ASLR'd ("modern") builds are loaded away from their
+      // preferred base, and need their own address table -- the milestone addresses above
+      // describe the fixed-base builds of the same version number, whose code differs.
+      if ReadImageInfo(PHnd, Info) then
+      begin
+        ImgBase := Info.Base;
+        ImageDelta := Info.Base - LINK_IMAGE_BASE;
+        Modern := (Info.DllChars and IMAGE_DYNAMIC_BASE) <> 0;
+        if Modern then ApplyModernBuild(Info);
+      end;
+      ScanMemory(PHnd, Milestones[MIdx].NormVer, Info);
+    end;
   finally
     CS.EndWrite;
   end;
@@ -5460,7 +5998,7 @@ end;
 // field -- this is a refinement layered ON TOP of the milestone-resolved state, not a
 // fallback only used when milestone data is missing. Called with the CS write lock
 // already held (see Update above) -- deliberately NOT re-entering CS itself.
-procedure TCstDB.ScanMemory(PHnd : Cardinal; const NormVer : String);
+procedure TCstDB.ScanMemory(PHnd : Cardinal; const NormVer : String; const Info : TImageInfo);
 var
   Table  : ^TScannerEntry;
   HexPat : String;
@@ -5469,7 +6007,8 @@ var
   FoundPos, TargetVal, TempDWord : Cardinal;
 begin
   if PHnd = 0 then Exit;
-  if NormVer < Threshold_6062 then Table := @ScannerTable_Pre6062[0]
+  if Modern then Table := @ScannerTable_Modern[0]
+  else if NormVer < Threshold_6062 then Table := @ScannerTable_Pre6062[0]
   else Table := @ScannerTable_Post6062[0];
 
   while Table^.Expr <> LISTEND do
@@ -5479,7 +6018,12 @@ begin
     for P := 1 to Length(BinPat) do
       BinPat[P] := Char(StrToIntDef('$' + Copy(HexPat, (P-1)*2+1, 2), 0));
 
-    FoundPos := SearchMem(PHnd, BinPat, Char(Table^.Joker));
+    // The fixed-base builds are scanned in SearchMem's legacy window; a modern build's
+    // code is larger and sits wherever the loader put it, so scan its code section.
+    if Modern and (Info.CodeEnd > Info.CodeStart) then
+      FoundPos := SearchMemRange(PHnd, BinPat, Char(Table^.Joker), Info.CodeStart, Info.CodeEnd)
+    else
+      FoundPos := SearchMem(PHnd, BinPat, Char(Table^.Joker));
     if FoundPos > 0 then
     begin
       TargetVal := FoundPos + Cardinal(Table^.AddOffset1);
@@ -5498,7 +6042,8 @@ begin
       // Values is already keyed by TConstantNames -- a direct write IS the dispatch, no
       // case-of-Expr helper needed (unlike Gemini's SetFieldByExpr, which existed only
       // because that reference kept 82 individually-named fields instead of this array).
-      Values[Table^.Expr] := TargetVal + Cardinal(Table^.AddOffset2);
+      // Scan results are live addresses; Values holds link-time ones (see ImageDelta).
+      Values[Table^.Expr] := TargetVal + Cardinal(Table^.AddOffset2) - ImageDelta;
     end;
     Inc(Table);
   end;
@@ -5520,14 +6065,29 @@ procedure TCstDB.RecoverPatchedEventHook(PHnd : Cardinal);
 var
   Cave : array[0..4] of Byte;
   Orig : Cardinal;
+  Op   : Byte;
 begin
+  // Port addition: InitEvents overwrites five bytes at E_REDIR, so it must be a `call rel32`.
+  // A signature that landed on anything else (an unknown build, a wrong match) would otherwise
+  // have uoevents.pas patch the middle of some other instruction -- refuse the hook instead.
+  if Values[E_REDIR] <> 0 then
+  begin
+    Op := 0;
+    ReadMem(PHnd, Values[E_REDIR] + ImageDelta, @Op, 1);
+    if Op <> $E8 then
+    begin
+      Values[E_REDIR] := 0;
+      Values[E_OLDDIR] := 0;
+    end;
+  end;
+
   if (Values[E_REDIR] = 0) or (Values[E_OLDDIR] <> EVENT_CAVE_BASE) then Exit;
 
   Orig := 0;
-  if ReadMem(PHnd, EVENT_CAVE_BASE, PChar(@Cave[0]), SizeOf(Cave)) and (Cave[0] = $68) then
+  if ReadMem(PHnd, EVENT_CAVE_BASE + ImageDelta, PChar(@Cave[0]), SizeOf(Cave)) and (Cave[0] = $68) then
   begin
     Move(Cave[1], Orig, 4);
-    if Orig = EVENT_CAVE_BASE then Orig := 0;
+    if Orig = EVENT_CAVE_BASE + ImageDelta then Orig := 0 else Orig := Orig - ImageDelta;
   end;
 
   if Orig <> 0 then Values[E_OLDDIR] := Orig
@@ -5540,29 +6100,29 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-function TCstDB.BLOCKINFO : Cardinal; begin CS.BeginRead; try Result:=Values[C_BLOCKINFO]; finally CS.EndRead; end; end;
-function TCstDB.CLILOGGED : Cardinal; begin CS.BeginRead; try Result:=Values[C_CLILOGGED]; finally CS.EndRead; end; end;
-function TCstDB.CLIXRES : Cardinal; begin CS.BeginRead; try Result:=Values[C_CLIXRES]; finally CS.EndRead; end; end;
-function TCstDB.ENEMYID : Cardinal; begin CS.BeginRead; try Result:=Values[C_ENEMYID]; finally CS.EndRead; end; end;
-function TCstDB.SHARDPOS : Cardinal; begin CS.BeginRead; try Result:=Values[C_SHARDPOS]; finally CS.EndRead; end; end;
-function TCstDB.NEXTCPOS : Cardinal; begin CS.BeginRead; try Result:=Values[C_NEXTCPOS]; finally CS.EndRead; end; end;
-function TCstDB.SYSMSG : Cardinal; begin CS.BeginRead; try Result:=Values[C_SYSMSG]; finally CS.EndRead; end; end;
-function TCstDB.CONTPOS : Cardinal; begin CS.BeginRead; try Result:=Values[C_CONTPOS]; finally CS.EndRead; end; end;
-function TCstDB.ENEMYHITS : Cardinal; begin CS.BeginRead; try Result:=Values[C_ENEMYHITS]; finally CS.EndRead; end; end;
-function TCstDB.LHANDID : Cardinal; begin CS.BeginRead; try Result:=Values[C_LHANDID]; finally CS.EndRead; end; end;
-function TCstDB.CHARDIR : Cardinal; begin CS.BeginRead; try Result:=Values[C_CHARDIR]; finally CS.EndRead; end; end;
-function TCstDB.TARGETCNT : Cardinal; begin CS.BeginRead; try Result:=Values[C_TARGETCNT]; finally CS.EndRead; end; end;
-function TCstDB.CURSORKIND : Cardinal; begin CS.BeginRead; try Result:=Values[C_CURSORKIND]; finally CS.EndRead; end; end;
-function TCstDB.TARGETCURS : Cardinal; begin CS.BeginRead; try Result:=Values[C_TARGETCURS]; finally CS.EndRead; end; end;
-function TCstDB.CLILEFT : Cardinal; begin CS.BeginRead; try Result:=Values[C_CLILEFT]; finally CS.EndRead; end; end;
-function TCstDB.CHARPTR : Cardinal; begin CS.BeginRead; try Result:=Values[C_CHARPTR]; finally CS.EndRead; end; end;
-function TCstDB.LLIFTEDID : Cardinal; begin CS.BeginRead; try Result:=Values[C_LLIFTEDID]; finally CS.EndRead; end; end;
-function TCstDB.LSHARD : Cardinal; begin CS.BeginRead; try Result:=Values[C_LSHARD]; finally CS.EndRead; end; end;
-function TCstDB.POPUPID : Cardinal; begin CS.BeginRead; try Result:=Values[C_POPUPID]; finally CS.EndRead; end; end;
-function TCstDB.JOURNALPTR : Cardinal; begin CS.BeginRead; try Result:=Values[C_JOURNALPTR]; finally CS.EndRead; end; end;
-function TCstDB.SKILLCAPS : Cardinal; begin CS.BeginRead; try Result:=Values[C_SKILLCAPS]; finally CS.EndRead; end; end;
-function TCstDB.SKILLLOCK : Cardinal; begin CS.BeginRead; try Result:=Values[C_SKILLLOCK]; finally CS.EndRead; end; end;
-function TCstDB.SKILLSPOS : Cardinal; begin CS.BeginRead; try Result:=Values[C_SKILLSPOS]; finally CS.EndRead; end; end;
+function TCstDB.BLOCKINFO : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_BLOCKINFO]); finally CS.EndRead; end; end;
+function TCstDB.CLILOGGED : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_CLILOGGED]); finally CS.EndRead; end; end;
+function TCstDB.CLIXRES : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_CLIXRES]); finally CS.EndRead; end; end;
+function TCstDB.ENEMYID : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_ENEMYID]); finally CS.EndRead; end; end;
+function TCstDB.SHARDPOS : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_SHARDPOS]); finally CS.EndRead; end; end;
+function TCstDB.NEXTCPOS : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_NEXTCPOS]); finally CS.EndRead; end; end;
+function TCstDB.SYSMSG : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_SYSMSG]); finally CS.EndRead; end; end;
+function TCstDB.CONTPOS : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_CONTPOS]); finally CS.EndRead; end; end;
+function TCstDB.ENEMYHITS : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_ENEMYHITS]); finally CS.EndRead; end; end;
+function TCstDB.LHANDID : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_LHANDID]); finally CS.EndRead; end; end;
+function TCstDB.CHARDIR : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_CHARDIR]); finally CS.EndRead; end; end;
+function TCstDB.TARGETCNT : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_TARGETCNT]); finally CS.EndRead; end; end;
+function TCstDB.CURSORKIND : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_CURSORKIND]); finally CS.EndRead; end; end;
+function TCstDB.TARGETCURS : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_TARGETCURS]); finally CS.EndRead; end; end;
+function TCstDB.CLILEFT : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_CLILEFT]); finally CS.EndRead; end; end;
+function TCstDB.CHARPTR : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_CHARPTR]); finally CS.EndRead; end; end;
+function TCstDB.LLIFTEDID : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_LLIFTEDID]); finally CS.EndRead; end; end;
+function TCstDB.LSHARD : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_LSHARD]); finally CS.EndRead; end; end;
+function TCstDB.POPUPID : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_POPUPID]); finally CS.EndRead; end; end;
+function TCstDB.JOURNALPTR : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_JOURNALPTR]); finally CS.EndRead; end; end;
+function TCstDB.SKILLCAPS : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_SKILLCAPS]); finally CS.EndRead; end; end;
+function TCstDB.SKILLLOCK : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_SKILLLOCK]); finally CS.EndRead; end; end;
+function TCstDB.SKILLSPOS : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_SKILLSPOS]); finally CS.EndRead; end; end;
 ////////////////////////////////////////////////////////////////////////////////
 function TCstDB.BTARGPROC : Cardinal; begin CS.BeginRead; try Result:=Values[B_TARGPROC]; finally CS.EndRead; end; end;
 function TCstDB.BCHARSTATUS : Cardinal; begin CS.BeginRead; try Result:=Values[B_CHARSTATUS]; finally CS.EndRead; end; end;
@@ -5599,27 +6159,43 @@ function TCstDB.BLTARGX : Cardinal; begin CS.BeginRead; try Result:=Values[B_LTA
 function TCstDB.BSTAT1 : Cardinal; begin CS.BeginRead; try Result:=Values[B_STAT1]; finally CS.EndRead; end; end;
 function TCstDB.BJCOL : Cardinal; begin CS.BeginRead; try Result:=Values[B_JCOL]; finally CS.EndRead; end; end;
 function TCstDB.BJKIND : Cardinal; begin CS.BeginRead; try Result:=Values[B_JKIND]; finally CS.EndRead; end; end;
+function TCstDB.BPOS : Cardinal; begin CS.BeginRead; try Result:=Values[B_POS]; if Result=0 then Result:=$24; finally CS.EndRead; end; end;
+function TCstDB.BNEXTCX : Cardinal; begin CS.BeginRead; try Result:=Values[B_NEXTCX]; if Result=0 then Result:=4; finally CS.EndRead; end; end;
+function TCstDB.BCLITOP : Cardinal; begin CS.BeginRead; try Result:=Values[B_CLITOP]; if Result=0 then Result:=4; finally CS.EndRead; end; end;
+function TCstDB.BLTARGID : Cardinal; begin CS.BeginRead; try Result:=Values[B_LTARGID]; if Result=0 then Result:=$18; finally CS.EndRead; end; end;
+function TCstDB.BLTARGKIND : Cardinal; begin CS.BeginRead; try Result:=Values[B_LTARGKIND]; if Result=0 then Result:=Values[B_LTARGTILE]+4; finally CS.EndRead; end; end;
+function TCstDB.BLSPELL : Cardinal; begin CS.BeginRead; try Result:=Values[B_LSPELL]; if Result=0 then Result:=$10; finally CS.EndRead; end; end;
+function TCstDB.BLSKILL : Cardinal; begin CS.BeginRead; try Result:=Values[B_LSKILL]; if Result=0 then Result:=$14; finally CS.EndRead; end; end;
+function TCstDB.IMAGEBASE : Cardinal; begin CS.BeginRead; try Result:=ImgBase; finally CS.EndRead; end; end;
+function TCstDB.ISMODERN : Boolean; begin CS.BeginRead; try Result:=Modern; finally CS.EndRead; end; end;
 function TCstDB.BJNEXTPTR : Cardinal; begin CS.BeginRead; try Result:=Values[B_JNEXTPTR]; finally CS.EndRead; end; end;
 ////////////////////////////////////////////////////////////////////////////////
-function TCstDB.EREDIR : Cardinal; begin CS.BeginRead; try Result:=Values[E_REDIR]; finally CS.EndRead; end; end;
-function TCstDB.EOLDDIR : Cardinal; begin CS.BeginRead; try Result:=Values[E_OLDDIR]; finally CS.EndRead; end; end;
-function TCstDB.EEXMSGADDR : Cardinal; begin CS.BeginRead; try Result:=Values[E_EXMSGADDR]; finally CS.EndRead; end; end;
-function TCstDB.EITEMPROPID : Cardinal; begin CS.BeginRead; try Result:=Values[E_ITEMPROPID]; finally CS.EndRead; end; end;
-function TCstDB.EITEMNAMEADDR : Cardinal; begin CS.BeginRead; try Result:=Values[E_ITEMNAMEADDR]; finally CS.EndRead; end; end;
-function TCstDB.EITEMPROPADDR : Cardinal; begin CS.BeginRead; try Result:=Values[E_ITEMPROPADDR]; finally CS.EndRead; end; end;
-function TCstDB.EITEMCHECKADDR : Cardinal; begin CS.BeginRead; try Result:=Values[E_ITEMCHECKADDR]; finally CS.EndRead; end; end;
-function TCstDB.EITEMREQADDR : Cardinal; begin CS.BeginRead; try Result:=Values[E_ITEMREQADDR]; finally CS.EndRead; end; end;
-function TCstDB.EPATHFINDADDR : Cardinal; begin CS.BeginRead; try Result:=Values[E_PATHFINDADDR]; finally CS.EndRead; end; end;
-function TCstDB.ESLEEPADDR : Cardinal; begin CS.BeginRead; try Result:=Values[E_SLEEPADDR]; finally CS.EndRead; end; end;
-function TCstDB.EDRAGADDR : Cardinal; begin CS.BeginRead; try Result:=Values[E_DRAGADDR]; finally CS.EndRead; end; end;
-function TCstDB.ESYSMSGADDR : Cardinal; begin CS.BeginRead; try Result:=Values[E_SYSMSGADDR]; finally CS.EndRead; end; end;
-function TCstDB.EMACROADDR : Cardinal; begin CS.BeginRead; try Result:=Values[E_MACROADDR]; finally CS.EndRead; end; end;
-function TCstDB.ESKILLLOCKADDR : Cardinal; begin CS.BeginRead; try Result:=Values[E_SKILLLOCKADDR]; finally CS.EndRead; end; end;
-function TCstDB.ESENDPACKET : Cardinal; begin CS.BeginRead; try Result:=Values[E_SENDPACKET]; finally CS.EndRead; end; end;
-function TCstDB.ESENDLEN : Cardinal; begin CS.BeginRead; try Result:=Values[E_SENDLEN]; finally CS.EndRead; end; end;
-function TCstDB.ESENDECX : Cardinal; begin CS.BeginRead; try Result:=Values[E_SENDECX]; finally CS.EndRead; end; end;
-function TCstDB.ECONTTOP : Cardinal; begin CS.BeginRead; try Result:=Values[E_CONTTOP]; finally CS.EndRead; end; end;
-function TCstDB.ESTATBAR : Cardinal; begin CS.BeginRead; try Result:=Values[E_STATBAR]; finally CS.EndRead; end; end;
+function TCstDB.EREDIR : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_REDIR]); finally CS.EndRead; end; end;
+function TCstDB.EOLDDIR : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_OLDDIR]); finally CS.EndRead; end; end;
+function TCstDB.EEXMSGADDR : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_EXMSGADDR]); finally CS.EndRead; end; end;
+function TCstDB.EITEMPROPID : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_ITEMPROPID]); finally CS.EndRead; end; end;
+function TCstDB.EITEMNAMEADDR : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_ITEMNAMEADDR]); finally CS.EndRead; end; end;
+function TCstDB.EITEMPROPADDR : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_ITEMPROPADDR]); finally CS.EndRead; end; end;
+function TCstDB.EITEMCHECKADDR : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_ITEMCHECKADDR]); finally CS.EndRead; end; end;
+function TCstDB.EITEMREQADDR : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_ITEMREQADDR]); finally CS.EndRead; end; end;
+function TCstDB.EPATHFINDADDR : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_PATHFINDADDR]); finally CS.EndRead; end; end;
+function TCstDB.ESLEEPADDR : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_SLEEPADDR]); finally CS.EndRead; end; end;
+function TCstDB.EDRAGADDR : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_DRAGADDR]); finally CS.EndRead; end; end;
+function TCstDB.ESYSMSGADDR : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_SYSMSGADDR]); finally CS.EndRead; end; end;
+function TCstDB.EMACROADDR : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_MACROADDR]); finally CS.EndRead; end; end;
+function TCstDB.ESKILLLOCKADDR : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_SKILLLOCKADDR]); finally CS.EndRead; end; end;
+function TCstDB.ESENDPACKET : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_SENDPACKET]); finally CS.EndRead; end; end;
+function TCstDB.ESENDLEN : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_SENDLEN]); finally CS.EndRead; end; end;
+function TCstDB.ESENDECX : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_SENDECX]); finally CS.EndRead; end; end;
+function TCstDB.ECONTTOP : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_CONTTOP]); finally CS.EndRead; end; end;
+function TCstDB.ENEWOBJ : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_NEWOBJ]); finally CS.EndRead; end; end;
+function TCstDB.EMSGGATE : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_MSGGATE]); finally CS.EndRead; end; end;
+function TCstDB.EMSGFLAGA : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_MSGFLAGA]); finally CS.EndRead; end; end;
+function TCstDB.EPATHFINDMID : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_PATHFINDMID]); finally CS.EndRead; end; end;
+function TCstDB.BPATHPROLOGUE : Cardinal; begin CS.BeginRead; try Result:=Values[B_PATHPROLOGUE]; finally CS.EndRead; end; end;
+function TCstDB.EMSGFLAGB : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_MSGFLAGB]); finally CS.EndRead; end; end;
+function TCstDB.EMACROTAB : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_MACROTAB]); finally CS.EndRead; end; end;
+function TCstDB.ESTATBAR : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[E_STATBAR]); finally CS.EndRead; end; end;
 ////////////////////////////////////////////////////////////////////////////////
 function TCstDB.FEXTSTAT : Cardinal; begin CS.BeginRead; try Result:=Values[F_EXTSTAT]; finally CS.EndRead; end; end;
 function TCstDB.FEVPROPERTY : Cardinal; begin CS.BeginRead; try Result:=Values[F_EVPROPERTY]; finally CS.EndRead; end; end;
@@ -5629,6 +6205,13 @@ function TCstDB.FPACKETVER : Cardinal; begin CS.BeginRead; try Result:=Values[F_
 function TCstDB.FPATHFINDVER : Cardinal; begin CS.BeginRead; try Result:=Values[F_PATHFINDVER]; finally CS.EndRead; end; end;
 function TCstDB.FFLAGS : Cardinal; begin CS.BeginRead; try Result:=Values[F_FLAGS]; finally CS.EndRead; end; end;
 function TCstDB.FSYSMSGDIRECT : Cardinal; begin CS.BeginRead; try Result:=Values[F_SYSMSGDIRECT]; finally CS.EndRead; end; end;
+function TCstDB.FPROPFAST : Cardinal; begin CS.BeginRead; try Result:=Values[F_PROPFAST]; finally CS.EndRead; end; end;
+function TCstDB.BLHAND : Cardinal; begin CS.BeginRead; try Result:=Values[B_LHAND]; if Result=0 then Result:=0; finally CS.EndRead; end; end;
+function TCstDB.BRHAND : Cardinal; begin CS.BeginRead; try Result:=Values[B_RHAND]; if Result=0 then Result:=4; finally CS.EndRead; end; end;
+function TCstDB.BPROPFLAG : Cardinal; begin CS.BeginRead; try Result:=Values[B_PROPFLAG]; if Result=0 then Result:=$CC; finally CS.EndRead; end; end;
+function TCstDB.FBLOCKINFOFAST : Cardinal; begin CS.BeginRead; try Result:=Values[F_BLOCKINFOFAST]; finally CS.EndRead; end; end;
+function TCstDB.FDRAGFASTCALL : Cardinal; begin CS.BeginRead; try Result:=Values[F_DRAGFASTCALL]; finally CS.EndRead; end; end;
+function TCstDB.FSENDTHISCALL : Cardinal; begin CS.BeginRead; try Result:=Values[F_SENDTHISCALL]; finally CS.EndRead; end; end;
 function TCstDB.FJOURNALDIRECT : Cardinal; begin CS.BeginRead; try Result:=Values[F_JOURNALDIRECT]; finally CS.EndRead; end; end;
 
 end.

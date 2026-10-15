@@ -433,8 +433,10 @@ begin
     Inc(ShopCnt);
   until Buf2=0;
 
-  SetLength(sBuf,256);
-  RWV(Read,Buf,@sBuf[1],256);
+  // Port addition: was 256 bytes. The relocated builds put the id at +$118 and the price at +$148,
+  // beyond that; the old builds' fields all sit well inside the larger buffer too.
+  SetLength(sBuf,512);
+  RWV(Read,Buf,@sBuf[1],512);
 
   ShopType:=Word((@sBuf[Cst.BITEMTYPE+1])^);
   ShopID:=Cardinal((@sBuf[Cst.BITEMID+1])^);
@@ -689,7 +691,7 @@ begin
     if Buf[0]=ID then Break;
     if Buf[3]=0 then Exit;
   until False;
-  RWV(Write,Buf[4]+$24,#0#0#0#0,4);
+  RWV(Write,Buf[4]+Cst.BPOS,#0#0#0#0,4);
   Result:=True;
 end;
 
@@ -815,7 +817,7 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 procedure TUOCmd.ScanItems(VisibleOnly : Boolean = True);
 var
-  Buf     : Array[0..$2FF] of Byte;
+  Buf     : Array[0..$3FF] of Byte;                        // port: was $2FF; the relocated builds keep the notoriety byte at id+$20C (offset $325)
   cBuf    : Cardinal;
   Dat     : TItemRes;
   PDat    : PItemRes;
@@ -834,10 +836,10 @@ begin
 
     Dat.ItemID:=Cardinal((@Buf[Cst.BITEMID])^);
     Dat.ItemType:=Word((@Buf[Cst.BITEMTYPE])^);
-    Dat.ItemKind:=Buf[$20];
-    Dat.ItemX:=SmallInt((@Buf[$24])^);
-    Dat.ItemY:=SmallInt((@Buf[$26])^);
-    Dat.ItemZ:=SmallInt((@Buf[$28])^);
+    Dat.ItemKind:=Buf[Cst.BPOS-4];
+    Dat.ItemX:=SmallInt((@Buf[Cst.BPOS])^);
+    Dat.ItemY:=SmallInt((@Buf[Cst.BPOS+2])^);
+    Dat.ItemZ:=SmallInt((@Buf[Cst.BPOS+4])^);
     Dat.ItemStack:=Word((@Buf[Cst.BITEMSTACK])^);
     Dat.ItemRep:=Buf[Cst.BITEMID+Cst.BFINDREP];
     Dat.ItemCol:=Word((@Buf[Cst.BITEMSTACK+2])^);
