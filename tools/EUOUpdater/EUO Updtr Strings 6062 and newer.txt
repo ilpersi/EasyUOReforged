@@ -85,3 +85,18 @@ C40484C0740955E8                       ; 11; +08; CB; +00; {ITEMREQADDR}
 8D4C243051E8                           ; 11; +06; CB; +00; {SENDPACKET}
 83EC24578BF98B078B90                   ; 11; +00; X ; +00; {CONTTOP}
 2064A3000000008BF9A1                   ; 11; -30; X ; +00; {STATBAR}
+
+// ---- Buff bar (ScanBuffs) --------------------------------------------------------------------------------
+// Added with the port's ScanBuffs command. Both patterns are unique in client.exe (7.0.117.1) and in client_tc.exe
+// (2013) and gave the addresses read live from client.exe: {CLILOC} $00A01B9C, {BUFFTIMERS} $01ECB63C.
+// {CLILOC}: the global holding the pointer to the client's cliloc manager (a std::map<int,char*>), read in the
+// cliloc lookup wrapper.  {BUFFTIMERS}: the buff-timer std::map OBJECT itself (not a pointer to it), loaded into ecx
+// by CBuffIconsGump::GetToolTipString just before it looks the icon's timer id up.
+8B500852B911111111E811111111E811111111578BCE8BE8 ; 11; +05; C ; +00; {BUFFTIMERS}
+0F94C0568B74240CC74424040000000050518B0D1111111156E8111111118BC65E59C3 ; 11; +20; C ; +00; {CLILOC}
+// {BUFFVEC_CHECK} is a diagnostic like {SYSMSGSTR_CHECK}, not a value for uoclidata.pas: B_* layout constants cannot be
+// scanned. It reads, from the CBuffIconsGump constructor, the offset of the icon vector's begin pointer inside the gump
+// (the constructor zeroes begin/end/capacity right after each other). $000000D0 -> B_BUFFVEC=$D0 as in client.exe and the
+// 2013 client_tc.exe. Anything else means this client's gump layout moved: B_BUFFVEC (and B_BUFFSIZE, the entry size) have
+// to be re-derived before ScanBuffs can be trusted -- see docs/adding-client-support.md (The buff bar).
+899E11111111899E11111111899E11111111899E54010000889E58010000 ; 11; +02; C ; +00; {BUFFVEC_CHECK}

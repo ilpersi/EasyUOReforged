@@ -79,7 +79,8 @@ below as unverified.
   is limited. I was able to add support for current last released client 7.0.117.0 and for a few other
   clients that I had available (7.0.108.0 and 7.0.99.1) and these are probably not the last ones needed.
   `tools\EUOUpdater` (see its `readme.txt`) covers most of what a new version needs -- including a 
-  `{SYSMSGSTR_CHECK}` diagnostic added specifically because of what 7.0.108.0 needed -- but some fields
+  `{SYSMSGSTR_CHECK}` diagnostic added specifically because of what 7.0.108.0 needed (and the buff bar
+  lines `{CLILOC}`, `{BUFFTIMERS}` and `{BUFFVEC_CHECK}` for `ScanBuffs`) -- but some fields
   are only ever hand-copied forward from the closest known version, so live disassembly may still be
   required for newer clients occasionally. See [`docs/adding-client-support.md`](docs/adding-client-support.md)
   for the full step-by-step process.
@@ -97,6 +98,37 @@ below as unverified.
   (scrollable `TMemo`; `$` in `<text>` becomes a line break, as in `MENU TEXT`). `MENU GET`
   returns its contents with line breaks folded back to `$`. Used by
   [`docs/report-diagnostics.euo`](docs/report-diagnostics.euo).
+- **`ScanBuffs [iconID]`** — reads the client's buff bar. It takes a snapshot (like `FindItem` /
+  `ScanJournal`), selects the first buff and sets `#BuffCnt`; the read/write `#BuffIndex` (1-based)
+  walks the snapshot the way `#FindIndex` walks `FindItem`'s. For the selected buff:
+  `#BuffID` (icon id, a plain number: Bless is 30018 = `$7542`), `#BuffCliloc` (title cliloc number),
+  `#BuffName`, `#BuffDesc` (the two lines of the tooltip) and `#BuffTime` (seconds left, `-1` = no
+  timer). `ScanBuffs 30018` keeps only the buffs with that icon id. Example:
+  `ScanBuffs` / `for %i 1 #BuffCnt` / `set #BuffIndex %i` / `msg #BuffName`. `uo.dll` has the same
+  data as the generic-API methods `ScanBuffs` and `GetBuff`. How it differs from a plain
+  implementation (and from the other commands):
+  - It only **reads** the client's memory (no code caving, nothing written), so it cannot disturb the client.
+  - The buff bar window has to be **open**: the data lives in the `BuffIcons Gump`. With the window
+    closed `#BuffCnt` is `0` and the other variables read `N/A` (the same for a buff without text:
+    `#BuffName` / `#BuffDesc` = `N/A`).
+  - It works on the clients whose buff bar layout was checked: the 7.0.117.1 beta (`client_beta.exe`)
+    and the fixed-base clients (checked on 7.0.117.1 and on a 2013 client; the two addresses it needs are
+    found by the signature scan, see `tools\EUOUpdater`). On any other client the command does nothing
+    and the variables read `N/A`, so it can never read garbage from a layout nobody verified.
+  - The texts are the client's own **cliloc** table, so they come in the client's language. The
+    `~1_STR~`-style arguments are filled in, `<br>` becomes a space and any other markup is dropped;
+    spaces become `_` like in every string variable, so `str pos #BuffName Bless` works.
+  - `#BuffTime` shows exactly what the tooltip shows: whole seconds, which the client refreshes in
+    coarse steps (about every 5 s), `-1` for buffs without a countdown (Hiding, for one);
+    a buff whose timer the client no longer knows shows `0`.
+  - The `#Buff...` variables follow the client while you read them (a variable tree shows `#BuffTime`
+    counting down): the selected buff is found again by its icon id when other buffs come and go, and
+    once it leaves the bar (its timer ran out) `#BuffID`, `#BuffCliloc`, `#BuffName`, `#BuffDesc`,
+    `#BuffTime` and `#BuffIndex` read `N/A` until the next `ScanBuffs` or `set #BuffIndex`. `#BuffCnt`
+    is the live number of buffs. Inside a loop over `#BuffIndex` the positions can shift if a buff
+    ends meanwhile -- `ScanBuffs` again if you need a fixed list.
+  - All names are new; no existing command, variable or script changes meaning. Selftest stage 9
+    (`tools\EUOSelfTest`) exercises all of it.
 
 ## Download & run
 

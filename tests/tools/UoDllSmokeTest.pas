@@ -16,6 +16,11 @@ program UoDllSmokeTest;
   live UO client attached). Does not exercise Execute's MGet/MSet/MCall
   paths, which need a live client to mean anything beyond what Phases 3-4's
   own unit tests already cover against the real engine underneath.
+
+  Port addition: the buff bar methods ScanBuffs / GetBuff (see uowrap.pas) are
+  checked for being listed by Query("GetKeywords") and for their no-client
+  results; with the environment variable EUO_DLL_BUFFS set, the first running
+  UO client is attached (Set CliNr 1) and its buff bar is read and printed.
 }
 
 {$mode delphi}{$H+}
@@ -66,6 +71,9 @@ var
 
   Hnd          : PtrInt;
   DllPath      : String;
+  HasScan      : Boolean;
+  HasGet       : Boolean;
+  I, Count     : Integer;
 
 function Load(const DecoratedName : String) : Pointer;
 begin
@@ -145,6 +153,67 @@ begin
   PushStrVal(Hnd, 'GetCommands');
   Check(Query(Hnd) = 0, 'Query("GetCommands") returns RES_OK');
   Check(GetTop(Hnd) >= 1, 'Query("GetCommands") pushed at least one command name');
+
+  // Buff bar (port addition). The keyword list is derived from the method table, so this also
+  // proves the new rows are in it; Execute then runs them. No client is attached to this DLL
+  // instance, so ScanBuffs finds nothing and GetBuff has nothing to return.
+  SetTop(Hnd, 0);
+  PushStrVal(Hnd, 'GetKeywords');
+  Check(Query(Hnd) = 0, 'Query("GetKeywords") returns RES_OK');
+  HasScan := False;
+  HasGet := False;
+  for I := 1 to GetTop(Hnd) do
+  begin
+    if StrPas(GetString(Hnd, I)) = 'ScanBuffs' then HasScan := True;
+    if StrPas(GetString(Hnd, I)) = 'GetBuff' then HasGet := True;
+  end;
+  Check(HasScan, 'GetKeywords lists ScanBuffs');
+  Check(HasGet, 'GetKeywords lists GetBuff');
+
+  SetTop(Hnd, 0);
+  PushStrVal(Hnd, 'Call');
+  PushStrVal(Hnd, 'ScanBuffs');
+  Check(Execute(Hnd) = 0, 'Call ScanBuffs returns RES_OK');
+  Check((GetTop(Hnd) = 1) and (GetInteger(Hnd, 1) = 0), 'ScanBuffs with no client finds 0 buffs');
+
+  SetTop(Hnd, 0);
+  PushStrVal(Hnd, 'Call');
+  PushStrVal(Hnd, 'ScanBuffs');
+  PushInteger(Hnd, 30018);
+  Check(Execute(Hnd) = 0, 'Call ScanBuffs <icon id> returns RES_OK');
+  Check((GetTop(Hnd) = 1) and (GetInteger(Hnd, 1) = 0), 'filtered ScanBuffs with no client finds 0 buffs');
+
+  SetTop(Hnd, 0);
+  PushStrVal(Hnd, 'Call');
+  PushStrVal(Hnd, 'GetBuff');
+  PushInteger(Hnd, 0);
+  Check(Execute(Hnd) = 0, 'Call GetBuff 0 returns RES_OK');
+
+  if GetEnvironmentVariable('EUO_DLL_BUFFS') <> '' then
+  begin
+    SetTop(Hnd, 0);
+    PushStrVal(Hnd, 'Set');
+    PushStrVal(Hnd, 'CliNr');
+    PushInteger(Hnd, 1);
+    Check(Execute(Hnd) = 0, 'Set CliNr 1 attaches the first running client');
+    SetTop(Hnd, 0);
+    PushStrVal(Hnd, 'Call');
+    PushStrVal(Hnd, 'ScanBuffs');
+    Check(Execute(Hnd) = 0, 'live: Call ScanBuffs returns RES_OK');
+    Count := GetInteger(Hnd, 1);
+    WriteLn('  live: ScanBuffs found ', Count, ' buffs');
+    for I := 0 to Count - 1 do
+    begin
+      SetTop(Hnd, 0);
+      PushStrVal(Hnd, 'Call');
+      PushStrVal(Hnd, 'GetBuff');
+      PushInteger(Hnd, I);
+      Check((Execute(Hnd) = 0) and (GetTop(Hnd) = 5), 'live: GetBuff ' + IntToStr(I) + ' returns 5 values');
+      WriteLn('  live: #', I + 1, ' icon=', GetInteger(Hnd, 1), ' cliloc=', GetInteger(Hnd, 2),
+        ' name="', StrPas(GetString(Hnd, 3)), '" desc="', StrPas(GetString(Hnd, 4)),
+        '" time=', GetInteger(Hnd, 5));
+    end;
+  end;
 
   SetTop(Hnd, 0);
   WriteLn('About to call Close...'); Flush(Output);

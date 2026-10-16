@@ -126,6 +126,16 @@ var
    '#SHOPITEMMAX'#13#10+
 
     #13#10+
+   '\Buff Bar'#13#10+
+   '#BUFFCNT'#13#10+
+   '#BUFFINDEX'#13#10+
+   '#BUFFID'#13#10+
+   '#BUFFCLILOC'#13#10+
+   '#BUFFNAME'#13#10+
+   '#BUFFDESC'#13#10+
+   '#BUFFTIME'#13#10+
+
+    #13#10+
    '\Extended Info'#13#10+
    '#SKILL'#13#10+
    '#SKILLLOCK'#13#10+

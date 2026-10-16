@@ -184,3 +184,11 @@ C74511FFFFFFFFEB1133F6C74511FFFFFFFFEB110FBE05111111118B0D11111111 ; 11; +29; C 
 // Base of the last-object/target cluster, found through the last USED object (base+$C) -- hence the -12 adjust.
 8B8E18010000BA210E0000A11111111166395670890D111111110F44C1 ; 11; +22; C ; -12; {LHANDID}
 8D5511B9F4000000E811111111E911111111833D11111111000F84111111118B0D1111111185C90F8411111111 ; 11; +33; C ; -12; {LHANDID}
+
+// Buff bar (ScanBuffs). Global holding the pointer to the client's cliloc manager (a std::map<int,char*>), read in the
+// cliloc lookup wrapper: mov esi,ecx; mov ecx,[manager]; push edx; push esi; call find.
+566A008BF18B0D111111115256E8111111118BC65EC3 ; 11; +07; C ; +00; {CLILOC}
+
+// Buff bar (ScanBuffs). Global holding the head node of the buff-timer std::map, read in CBuffIconsGump::GetToolTipString
+// just before the truncated time-left value is formatted.
+A111111111C645FC2E8B4DA03BC8740B ; 11; +01; C ; +00; {BUFFTIMERS}

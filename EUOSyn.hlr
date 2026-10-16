@@ -32,7 +32,7 @@
       <word value="NOTIN"/>
       <word value="&amp;&amp;"/>
       <word value="||"/>
-      <word value="¦¦"/>
+      <word value="ï¿½ï¿½"/>
       <word value="."/>
       <word value=","/>
     </Keywords>
@@ -74,6 +74,7 @@
       <word value="REPEAT"/>
       <word value="RETURN"/>
       <word value="SAVEPIX"/>
+      <word value="SCANBUFFS"/>
       <word value="SCANJOURNAL"/>
       <word value="SEND"/>
       <word value="SET"/>
@@ -96,6 +97,13 @@
     <Keywords Name="System" Attributes="12615680,16777215;False:False." Style="">
       <word value="#AR"/>
       <word value="#BACKPACKID"/>
+      <word value="#BUFFCLILOC"/>
+      <word value="#BUFFCNT"/>
+      <word value="#BUFFDESC"/>
+      <word value="#BUFFID"/>
+      <word value="#BUFFINDEX"/>
+      <word value="#BUFFNAME"/>
+      <word value="#BUFFTIME"/>
       <word value="#CHARDIR"/>
       <word value="#CHARGHOST"/>
       <word value="#CHARID"/>

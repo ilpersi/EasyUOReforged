@@ -26,6 +26,7 @@
 ;    2 variables, write + restore   6 vendor window (needs a buy gump open)
 ;    3 Event Macro                  7 combat macros (acts on a monster!)
 ;    4 Event / ExEvent              8 language, menu, namespace (all-commands-test.euo)
+;                                   9 buff bar (needs buffs on the character)
 ;
 ;  REPORT
 ;    selftest-<ReforgedVer>-<client>-<date>-<time>.md in the folder EasyUO was
@@ -66,6 +67,8 @@ set %ST_DO_EVENTS 1
 set %ST_DO_CMDS 1
 set %ST_DO_SHOP 0
 set %ST_DO_COMBAT 0
+set %ST_DO_BUFFS 0
+; stage 9: scanBuffs and the buff variables; needs the buff bar open with 2-3 buffs on the character
 set %ST_DO_LANG 1
 ; stage 8: runs tests\euo\all-commands-test.euo through CALL (needs that file)
 set %ST_LANG_DIR
@@ -169,6 +172,11 @@ if %ST_DO_LANG = 1
 {
   gosub st_stage Language_menu_namespace
   gosub st_s_lang
+}
+if %ST_DO_BUFFS = 1
+{
+  gosub st_stage Buff_bar
+  gosub st_s_buffs
 }
 
 gosub st_finish
@@ -708,6 +716,7 @@ sub st_s_vars
     ; client variables: N/A check (no client) or skipped (not logged in)
     gosub st_vg_character
     gosub st_vg_status
+    gosub st_vg_buff
     return
   }
   ; gumps the variables read from: status gump and backpack
@@ -722,6 +731,7 @@ sub st_s_vars
   gosub st_vg_skill
   gosub st_vg_journal
   gosub st_vg_lastaction
+  gosub st_vg_buff
 return
 
 ; ---- variables that work with or without a client --------------------------------
@@ -1007,6 +1017,23 @@ sub st_vg_lastaction
   gosub st_vc enemyID any
   gosub st_vc enemyHits any
 return
+
+; ---- 1.90  buff bar variables (port addition): the state before any scanBuffs -------------------------------
+;  the values themselves are checked in stage 9; here they are listed (N/A without a client)
+sub st_vg_buff
+  gosub st_case 1.90 buff_bar_variables
+  if %st_run = 0
+  {
+    return
+  }
+  gosub st_vc buffCnt num
+  gosub st_vc buffIndex any
+  gosub st_vc buffID any
+  gosub st_vc buffCliloc any
+  gosub st_vc buffName any
+  gosub st_vc buffDesc any
+  gosub st_vc buffTime any
+return
 ; ===========================================================================
 ;  STAGE 2  read/write variables: write a test value, read it back, restore
 ; ===========================================================================
@@ -1098,6 +1125,7 @@ sub st_s_writes
     gosub st_rwc contPosX 100
     gosub st_rwc nextCPosX 100
     gosub st_rwc targCurs 1
+    gosub st_rwc buffIndex 2
     return
   }
 
@@ -1119,6 +1147,7 @@ sub st_s_writes
     gosub st_rwc lObjectID #charID
     findItem * C_ , #backpackID
     gosub st_rwc findIndex 1
+    gosub st_rwc buffIndex 2
     gosub st_rwc findMod 5_6
     set #findMod 0_0
   }
@@ -2707,5 +2736,168 @@ sub st_emit_long
     set %st_line - , #spc , %st_lp , _ , #strres
     gosub st_emit
     set %st_p %st_p + 100
+  }
+return
+
+; ===========================================================================
+;  STAGE 9  buff bar  (port addition; needs the buff bar open with 2-3 buffs on the character: %ST_DO_BUFFS 1)
+; ===========================================================================
+sub st_s_buffs
+  gosub st_case 9.01 scanBuffs_and_the_buff_variables
+  if %st_run = 0
+  {
+    return
+  }
+  if %st_logged = 0
+  {
+    gosub st_skip buff_bar_stage no_logged_in_client
+    return
+  }
+  set %st_c9 %st_cid
+  st_rp_50:
+  set %st_prompt Buff_bar_stage.$Open_the_buff_bar_(Event_Macro_57_toggles_it)_and_put_2_or_3_different_buffs_on_your_character,_at_least_one_with_a_timer_(for_example_Bless,_Curse_or_Strength;_Hiding_has_no_timer).$Press_Pass_when_they_show_in_the_buff_bar,_Skip_to_skip_this_stage.
+  set %st_obs buff_bar
+  gosub st_ask
+  if %st_ans <> PASS
+  {
+    gosub st_skip buff_bar_stage not_confirmed_by_the_user
+    return
+  }
+  scanBuffs
+  set %st_bn #buffCnt
+  set %st_ck %st_bn > 0
+  set %st_ob buffCnt_ , %st_bn
+  gosub st_ok scanBuffs_finds_the_buffs_of_the_open_buff_bar %st_ob %st_ck
+  if %st_bn = 0
+  {
+    return
+  }
+  gosub st_eq scanBuffs_selects_the_first_buff_(buffIndex) #buffIndex 1
+
+  ; every buff in turn, through #buffIndex
+  set %st_list
+  set %st_timed 0
+  set %st_id1 0
+  for %st_bi 1 %st_bn
+  {
+    set #buffIndex %st_bi
+    gosub st_buff_one
+  }
+  set #buffIndex 1
+
+  set %st_cid %st_c9
+  set %st_prompt EasyUO_reads_ , %st_bn , _buffs:$ , %st_list , $Hover_each_icon_in_the_buff_bar:_do_the_names_and_the_times_match_the_tooltips?$(The_client_refreshes_the_time_about_every_5_seconds.)
+  set %st_obs %st_bn , _buffs
+  gosub st_human buff_names_and_times_match_the_buff_bar_tooltips
+  if %st_again = 1
+  {
+    goto st_rp_50
+  }
+
+  ; ---- 9.02  the time counts down --------------------------------------------------------------------------
+  gosub st_case 9.02 buff_time_counts_down
+  if %st_run = 0
+  {
+    return
+  }
+  if %st_timed = 0
+  {
+    gosub st_skip buff_time_counts_down no_buff_with_a_timer_(put_Bless_or_Curse_on_the_character)
+  }
+  else
+  {
+    wait 120
+    scanBuffs %st_tid
+    set %st_cnt2 #buffCnt
+    if %st_cnt2 = 0
+    {
+      gosub st_skip buff_time_counts_down the_buff_ran_out_during_the_12_second_wait
+    }
+    else
+    {
+      set %st_t1 #buffTime
+      set %st_ck ( %st_t1 <> N/A ) && ( %st_t1 < %st_tt0 )
+      set %st_ob %st_tt0 , _then_ , %st_t1
+      gosub st_ok buffTime_goes_down_over_12_seconds_(seconds_left_then_now) %st_ob %st_ck
+    }
+  }
+
+  ; ---- 9.03  scanBuffs with an icon id ----------------------------------------------------------------------
+  gosub st_case 9.03 scanBuffs_with_an_icon_id
+  if %st_run = 0
+  {
+    return
+  }
+  scanBuffs %st_id1
+  set %st_ck ( #buffCnt >= 1 ) && ( #buffID = %st_id1 )
+  set %st_ob %st_id1 , _gives_ , #buffCnt
+  gosub st_ok scanBuffs_with_the_icon_id_of_buff_1_keeps_that_icon %st_ob %st_ck
+  scanBuffs 1
+  set %st_ck ( #buffCnt = 0 ) && ( #buffName = N/A )
+  set %st_ob #buffCnt , _ , #buffName
+  gosub st_ok scanBuffs_with_an_icon_id_that_is_not_there_finds_nothing %st_ob %st_ck
+  scanBuffs
+  gosub st_eq scanBuffs_without_an_id_finds_all_buffs_again #buffCnt %st_bn
+
+  ; ---- 9.04  buff bar closed ------------------------------------------------------------------------------------
+  gosub st_case 9.04 buff_bar_closed
+  if %st_run = 0
+  {
+    return
+  }
+  st_rp_51:
+  event macro 57 0
+  wait 15
+  scanBuffs
+  gosub st_info buffCnt_with_the_buff_bar_closed #buffCnt
+  set %st_prompt Macro_57_toggled_the_buff_bar.$Is_it_CLOSED_now?$(scanBuffs_found_ , #buffCnt , _buffs;_with_the_window_closed_the_client_keeps_no_list_that_can_be_read.)
+  set %st_obs closed
+  gosub st_human buff_bar_closed_by_macro_57
+  if %st_again = 1
+  {
+    event macro 57 0
+    wait 10
+    goto st_rp_51
+  }
+  event macro 57 0
+  wait 15
+  scanBuffs
+  gosub st_eq buffCnt_after_the_buff_bar_is_opened_again #buffCnt %st_bn
+  set %st_prompt Macro_57_opened_the_buff_bar_again.$Is_it_open_and_do_the_buffs_show?
+  set %st_obs #buffCnt , _buffs
+  gosub st_human buff_bar_open_again
+return
+
+; ---- one buff of the walk in 9.01: #buffIndex is already set -----------------------------------------------------
+sub st_buff_one
+  set %st_cid %st_c9 , _b , %st_bi
+  gosub st_vc buffIndex eq %st_bi
+  gosub st_vc buffID pos
+  gosub st_vc buffCliloc pos
+  gosub st_vc buffName has
+  gosub st_vc buffDesc any
+  gosub st_vc buffTime rng -1 100000
+  ; no ~N_NAME~ placeholder may be left in the description
+  set %st_ds #buffDesc
+  str pos %st_ds ~
+  set %st_ck #strres = 0
+  set %st_id %st_cid , .buffDesc_markup
+  gosub st_ok buffDesc_has_all_its_arguments_filled_in %st_ds %st_ck
+  set %st_id %st_cid , .buff
+  set %st_bt #buffTime
+  gosub st_info buff_ , %st_bi , _icon_ , #buffID , _cliloc_ , #buffCliloc , _seconds_ , %st_bt #buffName
+  set %st_list %st_list , %st_bi , :_ , #buffName , _( , %st_bt , s) , $
+  if %st_bi = 1
+  {
+    set %st_id1 #buffID
+  }
+  if %st_timed = 0
+  {
+    if %st_bt > 0
+    {
+      set %st_timed 1
+      set %st_tid #buffID
+      set %st_tt0 %st_bt
+    }
   }
 return

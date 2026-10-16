@@ -38,6 +38,9 @@ type
     procedure TestMenuNamesAreCaseInsensitive;
     procedure TestMenuFontLinesAreHarmlessAndLeaveStateAlone;
     procedure TestClientGatedCommandIsSilentNoOpWithNoClient;
+    procedure TestScanBuffsIsASilentNoOpWithNoClient;
+    procedure TestBuffVariablesReadNAWithNoClient;
+    procedure TestBuffAdditionsLeaveTheOriginalVariablesAlone;
 
     procedure TestIfTrueRunsBodyAndSkipsElse;
     procedure TestIfFalseSkipsBodyAndRunsElse;
@@ -257,6 +260,57 @@ begin
     'SET %x reached' + #13#10 +
     'HALT');
   AssertEquals('reached', Interp.GetVar('%x'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// ScanBuffs is a port addition: client-gated like FINDITEM, so with no client it is a silent
+// no-op -- with or without the optional icon id.
+procedure TEuoInterpreterTests.TestScanBuffsIsASilentNoOpWithNoClient;
+begin
+  PlayScript(
+    'SCANBUFFS' + #13#10 +
+    'ScanBuffs 7542' + #13#10 +
+    'SET %x reached' + #13#10 +
+    'HALT');
+  AssertEquals('reached', Interp.GetVar('%x'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// All seven buff variables read N/A without a client, like every other client-dependent #variable.
+procedure TEuoInterpreterTests.TestBuffVariablesReadNAWithNoClient;
+var
+  Names : array[0..6] of String;
+  Cnt   : Integer;
+begin
+  Names[0] := '#BuffCnt';
+  Names[1] := '#BuffIndex';
+  Names[2] := '#BuffID';
+  Names[3] := '#BuffCliloc';
+  Names[4] := '#BuffName';
+  Names[5] := '#BuffDesc';
+  Names[6] := '#BuffTime';
+  for Cnt := 0 to High(Names) do
+    AssertEquals(Names[Cnt], 'N/A', Interp.GetVar(Names[Cnt]));
+  // #BuffIndex is settable like #FindIndex; without a client the write is simply harmless
+  PlayScript(
+    'SET #BuffIndex 2' + #13#10 +
+    'SET %x done' + #13#10 +
+    'HALT');
+  AssertEquals('done', Interp.GetVar('%x'));
+  AssertEquals('N/A', Interp.GetVar('#BuffName'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The additions are appended after every original name, so the original variables keep
+// their meaning (and their numbers in the interpreter's dispatch).
+procedure TEuoInterpreterTests.TestBuffAdditionsLeaveTheOriginalVariablesAlone;
+begin
+  AssertEquals('1_50_00', Interp.GetVar('#EUOVer'));
+  AssertEquals(REFORGED_VERSION, Interp.GetVar('#ReforgedVer'));
+  AssertEquals('-1', Interp.GetVar('#True'));
+  AssertEquals('0', Interp.GetVar('#False'));
+  AssertEquals(' ', Interp.GetVar('#SPC'));
+  AssertEquals('N/A', Interp.GetVar('#NoSuchVariable'));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

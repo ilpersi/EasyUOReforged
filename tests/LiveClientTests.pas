@@ -72,6 +72,8 @@ type
     procedure TestDynamicScanAgreesWithMilestoneData;
     procedure TestAllDiscoveredClientsHaveNonEmptyVersion;
     procedure TestScriptDoesNotHangWhenACommandRaises;
+    procedure TestBuffBarReadsSaneDataFromEveryClient;
+    procedure TestScanBuffsScriptReadsTheBuffBar;
   end;
 
 implementation
@@ -380,6 +382,123 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// ScanBuffs (port addition) against every logged-in client whose buff bar window is open: each
+// buff must have an icon id and a title cliloc, a readable title and a time of -1 (no timer) or
+// more. Set EUO_BUFF_DUMP=1 to print what was read. Clients with the window closed (or an
+// unknown layout) are skipped; when none can be read the test is ignored.
+procedure TLiveClientTests.TestBuffBarReadsSaneDataFromEveryClient;
+var
+  i, Checked : Cardinal;
+  k          : Integer;
+  Dump       : Boolean;
+begin
+  RequireClient;
+  Dump := SysUtils.GetEnvironmentVariable('EUO_BUFF_DUMP') <> '';
+  Checked := 0;
+  for i := 1 to Sel.Cnt do
+  begin
+    if not Sel.SelectClient(i) then Continue;
+    if Dump then
+      WriteLn(Format('client #%d of %d: version %s, logged in: %s',
+                     [i, Sel.Cnt, Sel.Ver, BoolToStr(Vr.CliLogged, True)]));
+    if not Vr.CliLogged then Continue;
+    if not Cmd.ScanBuffs then
+    begin
+      if Dump then
+        WriteLn(Format('client #%d (%s): buff bar not readable (window closed or layout unknown)',
+                       [i, Sel.Ver]));
+      Continue;
+    end;
+    Inc(Checked);
+    if Dump then
+      WriteLn(Format('client #%d (%s): %d buffs', [i, Sel.Ver, Cmd.BuffCnt]));
+    for k := 0 to Integer(Cmd.BuffCnt) - 1 do
+    begin
+      Cmd.GetBuff(k);
+      AssertTrue('selected', Cmd.BuffValid);
+      if Dump then
+        WriteLn(Format('  #%d icon=%d cliloc=%d time=%d name="%s" desc="%s"',
+          [k + 1, Cmd.BuffRes.ID, Cmd.BuffRes.Cliloc, Cmd.BuffRes.Time, Cmd.BuffRes.Name, Cmd.BuffRes.Desc]));
+      AssertTrue('icon id', Cmd.BuffRes.ID > 0);
+      AssertTrue('title cliloc number', Cmd.BuffRes.Cliloc > 0);
+      AssertTrue('title text', Cmd.BuffRes.Name <> '');
+      AssertTrue('time is -1 (no timer) or a number of seconds', Cmd.BuffRes.Time >= -1);
+      AssertTrue('no argument placeholder left in the description', Pos('~', Cmd.BuffRes.Desc) = 0);
+    end;
+  end;
+  if Checked = 0 then
+    Ignore('No logged-in client with a readable buff bar (open the buff window, or this client''s layout is not known).');
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The same buff bar through a real script: ScanBuffs, #BuffCnt, #BuffIndex and the #Buff... variables
+// on a fresh executor attached to the first client. Ignored when that client's bar cannot be read.
+procedure TLiveClientTests.TestScanBuffsScriptReadsTheBuffBar;
+var
+  MyExec : TExecutor;
+  Waited : Cardinal;
+  Cnt    : Integer;
+begin
+  RequireLoggedIn;
+  MyExec := TExecutor.Create(0);
+  try
+    if not MyExec.Parser.UOSel.SelectClient(1) then
+      Ignore('Could not select the client on this fresh TExecutor''s own TUOSel.');
+
+    MyExec.LoadScript(
+      'SCANBUFFS' + #13#10 +
+      'SET %cnt #BuffCnt' + #13#10 +
+      'SET %idx #BuffIndex' + #13#10 +
+      'SET %id #BuffID' + #13#10 +
+      'SET %cliloc #BuffCliloc' + #13#10 +
+      'SET %name #BuffName' + #13#10 +
+      'SET %desc #BuffDesc' + #13#10 +
+      'SET %time #BuffTime' + #13#10 +
+      'SET %all' + #13#10 +
+      'FOR %i 1 %cnt' + #13#10 +
+      '{' + #13#10 +
+      '  SET #BuffIndex %i' + #13#10 +
+      '  SET %all %all , #BuffName , |' + #13#10 +
+      '}' + #13#10 +
+      'SET #BuffIndex 99' + #13#10 +
+      'SET %gone #BuffName' + #13#10 +
+      'SCANBUFFS 1' + #13#10 +
+      'SET %none #BuffCnt' + #13#10 +
+      'HALT');
+    MyExec.State := PLAY;
+    Waited := 0;
+    while (MyExec.State = PLAY) and (Waited < 5000) do
+    begin
+      Sleep(50);
+      Inc(Waited, 50);
+    end;
+    AssertTrue('script finished', MyExec.State <> PLAY);
+
+    with MyExec.Parser do
+    begin
+      Cnt := StrToIntDef(GetVar('%cnt'), -1);
+      if Cnt <= 0 then
+        Ignore('The first client has no readable buffs (open the buff window / get a buff).');
+      if SysUtils.GetEnvironmentVariable('EUO_BUFF_DUMP') <> '' then
+        WriteLn(Format('script: cnt=%s idx=%s id=%s cliloc=%s name=%s desc=%s time=%s all=%s',
+          [GetVar('%cnt'), GetVar('%idx'), GetVar('%id'), GetVar('%cliloc'), GetVar('%name'),
+           GetVar('%desc'), GetVar('%time'), GetVar('%all')]));
+      AssertEquals('ScanBuffs selects the first buff', '1', GetVar('%idx'));
+      AssertTrue('icon id', StrToIntDef(GetVar('%id'), 0) > 0);
+      AssertTrue('title cliloc', StrToIntDef(GetVar('%cliloc'), 0) > 0);
+      AssertTrue('title text', GetVar('%name') <> 'N/A');
+      AssertTrue('time', StrToIntDef(GetVar('%time'), -2) >= -1);
+      AssertEquals('every buff visited through #BuffIndex', Cnt, Length(GetVar('%all')) -
+        Length(StringReplace(GetVar('%all'), '|', '', [rfReplaceAll])));
+      AssertEquals('an index past the last buff reads N/A', 'N/A', GetVar('%gone'));
+      AssertEquals('ScanBuffs with an icon id that is not there', '0', GetVar('%none'));
+    end;
+  finally
+    MyExec.Free;
+  end;
+end;
+
 initialization
   RegisterTest(TLiveClientTests);
 end.

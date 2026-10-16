@@ -97,6 +97,11 @@ type
     C_SYSMSG,C_CONTPOS,C_ENEMYHITS,C_LHANDID,C_CHARDIR,C_TARGETCNT,
     C_CURSORKIND,C_TARGETCURS,C_CLILEFT,C_CHARPTR,C_LLIFTEDID,
     C_LSHARD,C_POPUPID,C_JOURNALPTR,C_SKILLCAPS,C_SKILLLOCK,C_SKILLSPOS,
+    // Buff bar (ScanBuffs): C_CLILOC is the global holding the pointer to the client's cliloc
+    // manager (a std::map<int,char*>); C_BUFFTIMERS is the client's buff-timer std::map (see
+    // B_STLHEAD for where the tree head sits relative to it). Both are found by signature scan only;
+    // zero on a build the scanner could not resolve, in which case the buff bar is unsupported.
+    C_CLILOC,C_BUFFTIMERS,
     /// BASE CONSTANTS ////
     B_TARGPROC,B_CHARSTATUS,B_ITEMID,B_ITEMTYPE,
     B_ITEMSTACK,B_STATNAME,B_STATWEIGHT,B_STATAR,B_STATML,B_CONTSIZEX,
@@ -128,6 +133,13 @@ type
     // builds. On the modern build the macro reads them at C_LHANDID+$18/+$1C (the +0/+4 spot holds macro
     // playback state), so they get their own offsets.
     B_LHAND,B_RHAND,
+    // Buff bar (ScanBuffs). B_BUFFVEC: offset in the "BuffIcons Gump" object of the icon vector's
+    // BEGIN pointer (the END pointer is the next dword); its non-zero value is also what marks a
+    // client as buff-bar capable. B_BUFFSIZE: size of one icon entry. B_STLHEAD: offset of the tree
+    // head pointer inside the buff-timer map object and the cliloc manager (0 where the object is
+    // the pointer itself, 4 where the old STL puts a proxy in front). B_CLILOCKEY: offset of the key
+    // in a cliloc map node; the text pointer follows it. All zero on builds without a verified layout.
+    B_BUFFVEC,B_BUFFSIZE,B_STLHEAD,B_CLILOCKEY,
     /// EVENTS ////////////
     E_REDIR,E_OLDDIR,E_EXMSGADDR,
     E_ITEMPROPID,E_ITEMNAMEADDR,E_ITEMPROPADDR,E_ITEMCHECKADDR,
@@ -282,6 +294,8 @@ type
     function    SKILLCAPS       : Cardinal;
     function    SKILLLOCK       : Cardinal;
     function    SKILLSPOS       : Cardinal;
+    function    CLILOC          : Cardinal;
+    function    BUFFTIMERS      : Cardinal;
     ///////////////////////////////////////
     function    BTARGPROC       : Cardinal;
     function    BCHARSTATUS     : Cardinal;
@@ -370,6 +384,10 @@ type
     function    BPROPFLAG       : Cardinal;
     function    BLHAND          : Cardinal;
     function    BRHAND          : Cardinal;
+    function    BBUFFVEC        : Cardinal;
+    function    BBUFFSIZE       : Cardinal;
+    function    BSTLHEAD        : Cardinal;
+    function    BCLILOCKEY      : Cardinal;
   end;
 
 // Replaces the old flat SupportedCli string -- see this unit's header comment and
@@ -4803,7 +4821,18 @@ SysVarMS139 : array[0..31] of TSysVarList = (
 );
 
 // Milestone 140 -- first introduced at client '2.0.0' (normalized '002.000.000')
-SysVarMS140 : array[0..59] of TSysVarList = (
+// Buff bar (ScanBuffs) layout of the fixed-base builds, carried by this oldest milestone into every
+// later one: the BuffIcons gump keeps its icon vector (begin pointer at +$D0, end at +$D4) of $1B0-byte
+// entries; the buff-timer map object and the cliloc manager keep their tree head one dword in (a proxy
+// comes first), and a cliloc node's key sits at +$0C. Read from client.exe (7.0.117.1) and client_tc.exe
+// (2013) and checked live on client.exe. This alone enables nothing: ScanBuffs also needs C_CLILOC and
+// C_BUFFTIMERS, which only the signature scan provides (ScannerTable_Post6062) -- a build whose code
+// does not match stays unsupported.
+SysVarMS140 : array[0..63] of TSysVarList = (
+  (Expr: B_BUFFSIZE; Val: $000001B0),
+  (Expr: B_BUFFVEC; Val: $000000D0),
+  (Expr: B_CLILOCKEY; Val: $0000000C),
+  (Expr: B_STLHEAD; Val: $00000004),
   (Expr: B_BILLFIRST; Val: $000000BC),
   (Expr: B_CHARSTATUS; Val: $00000020),
   (Expr: B_CONTITEM; Val: $00000038),
@@ -5380,7 +5409,7 @@ const
   // C_TARGETCNT has no entry here (and never has) -- not covered by any scan string in
   // the file at all, and every known version's own milestone data also carries $00000000
   // for it, consistent with it being vestigial (see milestone 1's own comment).
-  ScannerTable_Post6062 : array[0..38] of TScannerEntry = (
+  ScannerTable_Post6062 : array[0..40] of TScannerEntry = (
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0;
      Expr: C_BLOCKINFO; Pattern: 'B820180000E8'),
     // NOT reused from the scan-string file -- that pattern is already known not to match
@@ -5447,6 +5476,15 @@ const
     (Joker: $11; Unused: (0,0,0); AddOffset1: 6; Mode: 2; AddOffset2: 0; Expr: E_SENDPACKET; Pattern: '8D4C243051E8'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_CONTTOP; Pattern: '83EC24578BF98B078B90'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: -30; Mode: 1; AddOffset2: 0; Expr: E_STATBAR; Pattern: '2064A3000000008BF9A1'),
+    // Buff bar (ScanBuffs), added with the port's ScanBuffs command. Both are unique in client.exe (7.0.117.1)
+    // and in client_tc.exe (2013) and resolve to the addresses read live (client.exe: $00A01B9C / $01ECB63C).
+    // C_CLILOC: the cliloc lookup wrapper `push 0; mov ecx,[manager]; push edx; push esi; call find`;
+    // C_BUFFTIMERS: in CBuffIconsGump::GetToolTipString, `mov edx,[icon+8]; push edx; mov ecx,TIMERMAP; call lookup`
+    // -- here the operand is the address of the map object itself, not of a pointer to it.
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 20; Mode: 3; AddOffset2: 0; Expr: C_CLILOC;
+     Pattern: '0F94C0568B74240CC74424040000000050518B0D1111111156E8111111118BC65E59C3'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 5; Mode: 3; AddOffset2: 0; Expr: C_BUFFTIMERS;
+     Pattern: '8B500852B911111111E811111111E811111111578BCE8BE8'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 0; AddOffset2: 0; Expr: LISTEND; Pattern: nil)
   );
 
@@ -5491,7 +5529,7 @@ const
 // pointer, slot byte, status pointer, B_CHARSTATUS ...) and the gump / stat-gump / message
 // object layouts are unchanged -- except the stat gump's name field, and the skill arrays,
 // whose stride grew from $78 to $80.
-SysVarModernLayout : array[0..34] of TSysVarList = (
+SysVarModernLayout : array[0..38] of TSysVarList = (
   (Expr: B_POS;       Val: $00000048),   // kind=$44, X=$48, Y=$4A, Z=$4C
   (Expr: B_ITEMTYPE;  Val: $00000070),
   (Expr: B_ITEMSTACK; Val: $00000076),   // type+6 as on every older build; hue (stack+2) = $78 seen live
@@ -5536,6 +5574,14 @@ SysVarModernLayout : array[0..34] of TSysVarList = (
   (Expr: B_FINDREP;   Val: $0000020C),
   // Client language ('ENU'): the 4-char string is at C_LHANDID - $200 (the only such string within +-$400 of it).
   (Expr: B_LANG;      Val: $00000200),
+  // Buff bar. The "BuffIcons Gump" keeps a std::vector of $1B0-byte icon entries: begin pointer at
+  // +$15C, end pointer at +$160 (read live: 2 icons = 2*$1B0 apart). The vector, the buff-timer map and
+  // the cliloc manager are plain MSVC containers whose head pointer is the first dword of the object
+  // (B_STLHEAD 0); in the cliloc map a node's key is at +$10 and its text pointer at +$14.
+  (Expr: B_BUFFVEC;   Val: $0000015C),
+  (Expr: B_BUFFSIZE;  Val: $000001B0),
+  (Expr: B_STLHEAD;   Val: $00000000),
+  (Expr: B_CLILOCKEY; Val: $00000010),
   (Expr: LISTEND;     Val: 0)
 );
 
@@ -5553,7 +5599,7 @@ SysVarModernLayout : array[0..34] of TSysVarList = (
 //   C_SKILLLOCK/CAPS/SPOS  58-entry arrays, found by their init loop ($7EEA20 bytes, then
 //                 words at $7EEA60/$7EEAE0, stride $80); all GM here so CAPS vs SPOS follows
 //                 the older builds' declaration order
-SysVarModernAddrs : array[0..44] of TSysVarList = (
+SysVarModernAddrs : array[0..46] of TSysVarList = (
   (Expr: C_CHARPTR;     Val: $00B33F44),
   //   C_CLILOGGED   byte, written by the same login/logout functions as the old build's flag
   //                 (two string-matched function pairs agree); set to 1 while in game
@@ -5635,6 +5681,13 @@ SysVarModernAddrs : array[0..44] of TSysVarList = (
   (Expr: E_CONTTOP;     Val: $00536690),
   // Target-cursor flag: the macro/targeting code tests it the way the old build tests its own.
   (Expr: C_TARGETCURS;  Val: $00B02444),
+  // Buff bar. C_CLILOC: global holding the pointer to the cliloc manager (read in front of every
+  // cliloc lookup: `mov ecx,[g]; push id; ...; call find`); live, manager -> head -> "Bless" for 1075847.
+  // C_BUFFTIMERS: global holding the head node of the buff-timer map; the node's int key is the
+  // timer id stored in an icon entry and the double at node+$28 is the seconds left (read live while
+  // the countdown ran; it is exactly what CBuffIconsGump::GetToolTipString prints as "time left").
+  (Expr: C_CLILOC;      Val: $007ED970),
+  (Expr: C_BUFFTIMERS;  Val: $05EAF71C),
   (Expr: LISTEND;       Val: 0)
 );
 
@@ -5644,13 +5697,13 @@ ModernBuilds : array[0..0] of TModernBuild = (
 
 // Runtime signature scan for the relocatable ("modern") builds. Mirrors
 // tools\EUOUpdater\"EUO Updtr Strings modern.txt" line for line (see that file's header for how the
-// patterns were built and verified): 73 patterns for 44 fields, each unique in the 7.0.117.1 beta's
+// patterns were built and verified): 75 patterns for 46 fields, each unique in the 7.0.117.1 beta's
 // code section and resolving to the hand-verified address, statically and live. Address operands,
 // rel32 targets and ebp/esp displacements are wildcards; the joker is picked per pattern so it never
 // collides with a fixed byte. They apply to the same compiler's code across rebuilds, so an unknown
 // beta of it fills in its own addresses here; nothing else is ever guessed for an unknown build.
 // A second pattern for a field is a fallback anchored in another function.
-ScannerTable_Modern : array[0..73] of TScannerEntry = (
+ScannerTable_Modern : array[0..75] of TScannerEntry = (
     // E_REDIR
     (Joker: $11; Unused: (0,0,0); AddOffset1: 12; Mode: 1; AddOffset2: 0; Expr: E_REDIR;
      Pattern: '6A0068E8030000FF75C86A00E8111111118BF0B85917B7D1F765C4'),
@@ -5841,6 +5894,13 @@ ScannerTable_Modern : array[0..73] of TScannerEntry = (
      Pattern: '8B8E18010000BA210E0000A11111111166395670890D111111110F44C1'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 33; Mode: 3; AddOffset2: -12; Expr: C_LHANDID;
      Pattern: '8D5511B9F4000000E811111111E911111111833D11111111000F84111111118B0D1111111185C90F8411111111'),
+    // C_CLILOC: the cliloc lookup wrapper, `mov esi,ecx; mov ecx,[manager]; push edx; push esi; call find`
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 7; Mode: 3; AddOffset2: 0; Expr: C_CLILOC;
+     Pattern: '566A008BF18B0D111111115256E8111111118BC65EC3'),
+    // C_BUFFTIMERS: in CBuffIconsGump::GetToolTipString, `mov eax,[timer map head]` just before the
+    // truncated time-left value is formatted
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 1; Mode: 3; AddOffset2: 0; Expr: C_BUFFTIMERS;
+     Pattern: 'A111111111C645FC2E8B4DA03BC8740B'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 0; AddOffset2: 0; Expr: LISTEND; Pattern: nil)
   );
 
@@ -5871,7 +5931,7 @@ var
 begin
   // No fixed-base address is meaningful for this exe.
   for Expr := Low(TConstantNames) to High(TConstantNames) do
-    if Expr in [C_BLOCKINFO..C_SKILLSPOS, E_REDIR..E_PATHFINDMID] then
+    if Expr in [C_BLOCKINFO..C_BUFFTIMERS, E_REDIR..E_PATHFINDMID] then
       Values[Expr] := 0;
 
   Apply(ModernBuilds[0].Layout);      // one layout family so far: the first entry's
@@ -6124,6 +6184,8 @@ function TCstDB.JOURNALPTR : Cardinal; begin CS.BeginRead; try Result:=Rebase(Va
 function TCstDB.SKILLCAPS : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_SKILLCAPS]); finally CS.EndRead; end; end;
 function TCstDB.SKILLLOCK : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_SKILLLOCK]); finally CS.EndRead; end; end;
 function TCstDB.SKILLSPOS : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_SKILLSPOS]); finally CS.EndRead; end; end;
+function TCstDB.CLILOC : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_CLILOC]); finally CS.EndRead; end; end;
+function TCstDB.BUFFTIMERS : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_BUFFTIMERS]); finally CS.EndRead; end; end;
 ////////////////////////////////////////////////////////////////////////////////
 function TCstDB.BTARGPROC : Cardinal; begin CS.BeginRead; try Result:=Values[B_TARGPROC]; finally CS.EndRead; end; end;
 function TCstDB.BCHARSTATUS : Cardinal; begin CS.BeginRead; try Result:=Values[B_CHARSTATUS]; finally CS.EndRead; end; end;
@@ -6214,5 +6276,9 @@ function TCstDB.FBLOCKINFOFAST : Cardinal; begin CS.BeginRead; try Result:=Value
 function TCstDB.FDRAGFASTCALL : Cardinal; begin CS.BeginRead; try Result:=Values[F_DRAGFASTCALL]; finally CS.EndRead; end; end;
 function TCstDB.FSENDTHISCALL : Cardinal; begin CS.BeginRead; try Result:=Values[F_SENDTHISCALL]; finally CS.EndRead; end; end;
 function TCstDB.FJOURNALDIRECT : Cardinal; begin CS.BeginRead; try Result:=Values[F_JOURNALDIRECT]; finally CS.EndRead; end; end;
+function TCstDB.BBUFFVEC : Cardinal; begin CS.BeginRead; try Result:=Values[B_BUFFVEC]; finally CS.EndRead; end; end;
+function TCstDB.BBUFFSIZE : Cardinal; begin CS.BeginRead; try Result:=Values[B_BUFFSIZE]; finally CS.EndRead; end; end;
+function TCstDB.BSTLHEAD : Cardinal; begin CS.BeginRead; try Result:=Values[B_STLHEAD]; finally CS.EndRead; end; end;
+function TCstDB.BCLILOCKEY : Cardinal; begin CS.BeginRead; try Result:=Values[B_CLILOCKEY]; finally CS.EndRead; end; end;
 
 end.

@@ -31,6 +31,11 @@ Edit the `%ST_DO_*` flags at the top of the script (1 = on):
 | 6 | `ST_DO_SHOP` (0) | `getShopInfo` / `setShopItem` (open a vendor BUY window first) |
 | 7 | `ST_DO_COMBAT` (0) | `event macro 27` / `53` - **attacks a monster**, asks first |
 | 8 | `ST_DO_LANG` (1) | language, menu, namespace and the rest through `tests\euo\all-commands-test.euo` (run in its embedded mode) |
+| 9 | `ST_DO_BUFFS` (0) | `scanBuffs` and the `#buff...` variables (port addition). Open the buff bar and put 2-3 buffs on the character, one with a timer (Bless, Curse, Strength; Hiding has none). AUTO checks on every field of every buff, the time counting down over 12 s, `scanBuffs <icon id>`, and the bar closed with `event macro 57`; you confirm names and times against the in-game tooltips |
+
+Stages 1 and 2 also list the buff variables (read-only `#buffCnt` ... `#buffTime`, and a write/restore of
+`#buffIndex`); they need no buffs. Stage 9 is off by default, like the vendor stage, because it needs buffs on the
+character; the report lines of the buffs it found (`9.01_b1.buff` ...) show icon id, cliloc number and seconds left.
 
 Never run by the tool: `event macro 20` (quit game), `terminate uo`, `uoXL new`, `shutdown`.
 

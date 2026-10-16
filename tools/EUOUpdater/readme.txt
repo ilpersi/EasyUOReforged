@@ -54,6 +54,27 @@ just because it's what's already in the table. Nothing has actually confirmed
 it correct for any real client yet; run this diagnostic for real on whatever
 version you're adding rather than assuming.
 
+The buff bar lines: {CLILOC}, {BUFFTIMERS} and {BUFFVEC_CHECK}
+----------------------------------------------------------------
+The port's ScanBuffs command (README, "Additions beyond the original") needs two
+addresses the scan strings find:
+  {CLILOC}      global holding the pointer to the client's cliloc manager
+                (the table of tooltip texts). client.exe 7.0.117.1: $00A01B9C.
+  {BUFFTIMERS}  the buff-timer map object (the seconds left of each timed buff).
+                client.exe 7.0.117.1: $01ECB63C.
+Paste both into the new version's block in uoclidata.pas; they are the only
+thing ScanBuffs needs from this tool (the dynamic scan fills them in at runtime
+too, ScannerTable_Post6062). {BUFFVEC_CHECK} is a diagnostic like
+{SYSMSGSTR_CHECK}: it reads where the BuffIcons gump keeps its icon vector.
+  - $000000D0 -> B_BUFFVEC=$D0, which is what the oldest milestone in
+    uoclidata.pas carries for every fixed-base client (client.exe 7.0.117.1 and
+    the 2013 client_tc.exe both read $D0).
+  - anything else -> the gump's layout changed: re-derive B_BUFFVEC and the icon
+    entry size B_BUFFSIZE from the client (docs/adding-client-support.md,
+    "The buff bar") before trusting ScanBuffs on it.
+A client where {CLILOC} or {BUFFTIMERS} finds nothing simply has no buff bar
+support: ScanBuffs does nothing there and the #Buff... variables read N/A.
+
 Relocatable ("modern") clients -- "EUO Updtr Strings modern.txt"
 =================================================================
 Clients linked with DYNAMIC_BASE (the 7.0.117.1 beta, client_beta.exe, is the first) are loaded
@@ -61,7 +82,7 @@ away from $400000 and were built with a different compiler, so none of the byte 
 "EUO Updtr Strings 6062 and newer.txt" match them. Use "EUO Updtr Strings modern.txt" instead:
   - EUO Updtr detects such a client from its PE header, scans its whole code section and prints
     LINK-TIME addresses (as if loaded at $400000) -- exactly what uoclidata.pas stores.
-  - 73 patterns cover 44 fields (the hook, the packet sender, the macro executor and most
+  - 75 patterns cover 46 fields (the hook, the packet sender, the macro executor and most
     variables). Each is unique in the 7.0.117.1 beta and resolves to the live-verified address.
   - A second line with the same {name} is a fallback in another function.
   - The same patterns are compiled into uoclidata.pas (ScannerTable_Modern), so Reforged itself

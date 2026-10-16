@@ -246,8 +246,33 @@ codegen), so the data has to be derived by comparing code and checking against t
    that is not among the fixed bytes, and keep the smallest window that is **unique** in the code
    section and resolves to the address you derived (check it against the file *and* the live process).
    `tools\EUOUpdater\EUO Updtr Strings modern.txt` and `ScannerTable_Modern` were produced this way
-   (73 patterns, 44 fields); `tests\CstDbModernBuildTests.pas` covers the hook signature on a fake
+   (75 patterns, 46 fields); `tests\CstDbModernBuildTests.pas` covers the hook signature on a fake
    client, and a scan-only run against the beta reproduced every hand-derived value.
+
+### The buff bar (`ScanBuffs`)
+
+`ScanBuffs` / `#BuffCnt` ... `#BuffTime` read the client's buff bar, which needs two scanned addresses
+and four layout constants per client generation. A client is "supported" only when `B_BUFFVEC` and both
+addresses are non-zero; anything else leaves the command a no-op (`N/A`), so an unverified build never
+reads garbage.
+
+| Field | Meaning | Beta (VS2015+) | Fixed-base clients (VS2008-ish) |
+|---|---|---|---|
+| `C_CLILOC` | global holding the pointer to the cliloc manager (a `std::map<int,char*>`) | scanned (`$7ED970` on the beta) | scanned (`$A01B9C` on `client.exe`) |
+| `C_BUFFTIMERS` | the buff-timer `std::map` (key = timer id; the double at node +`$28` = seconds left) | scanned; the global holds the head node | scanned; the address is the map object itself |
+| `B_BUFFVEC` | offset in the `BuffIcons Gump` of the icon vector's begin pointer (end = next dword) | `$15C` | `$D0` |
+| `B_BUFFSIZE` | size of one icon entry (`id +0`, duration +4, timer id +8, title cliloc +`$C`, title args +`$10`, description cliloc +`$DC`, description args +`$E0`) | `$1B0` | `$1B0` |
+| `B_STLHEAD` | offset of the tree head pointer inside the map objects | 0 | 4 (the old STL puts a proxy in front) |
+| `B_CLILOCKEY` | key offset in a cliloc map node; the text pointer follows it | `$10` | `$0C` |
+
+How these were found, for a new generation: the client logs its buff-gump code (`CBuffIconsGump::AddIcon`,
+`RemoveIcon`, `GetToolTipString` ... are in the string table), so find those strings, follow the references to
+the functions, and read the field offsets and the two `std::map` lookups off the disassembly -- the tooltip
+function shows the entry fields, the timer map (`time left = %d for timer id %d`) and the cliloc lookup in
+one place. Then confirm in a live client with a few buffs on (Hiding, Bless, Curse are enough): the vector
+holds one `B_BUFFSIZE` entry per icon, the cliloc map returns the tooltip text, and the timer double counts
+down. `tools\EUOSelfTest` stage 9 checks all of it on the real client. The two address patterns are in the
+strings files (`{CLILOC}`, `{BUFFTIMERS}`); the layout constants are not scannable.
 
 Always diff results against a live client: `tests\LiveClientTests.pas`, or read the variable
 getters through `TUOVar` and compare with a `client.exe` var dump of the same character.

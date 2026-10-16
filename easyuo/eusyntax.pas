@@ -72,20 +72,21 @@ uses
 // vocabulary -- see this unit's header comment -- no reason to also risk a
 // second, independent copy for completion).
 const
-  CommandKeywords : array[0..54] of String = (
+  CommandKeywords : array[0..55] of String = (
     'BREAK', 'CALL', 'CHOOSESKILL', 'CLICK', 'CMPPIX', 'CONTINUE', 'CONTPOS',
     'DELETEJOURNAL', 'DELETEVAR', 'DISPLAY', 'ELSE', 'EVENT', 'EXECUTE',
     'EXEVENT', 'EXIT', 'FINDITEM', 'FOR', 'GETSHOPINFO', 'GETUOTITLE',
     'GOSUB', 'GOTO', 'HALT', 'HIDEITEM', 'IF', 'IGNORECONT', 'IGNOREITEM',
     'KEY', 'MENU', 'MOVE', 'MSG', 'NAMESPACE', 'NEXTCPOS', 'ONHOTKEY',
-    'PAUSE', 'REPEAT', 'RETURN', 'SAVEPIX', 'SCANJOURNAL', 'SEND', 'SET',
+    'PAUSE', 'REPEAT', 'RETURN', 'SAVEPIX', 'SCANBUFFS', 'SCANJOURNAL', 'SEND', 'SET',
     'SETSHOPITEM', 'SETUOTITLE', 'SHUTDOWN', 'SLEEP', 'SOUND', 'STOP',
     'STR', 'SUB', 'TARGET', 'TERMINATE', 'TILE', 'UNTIL', 'UOXL', 'WAIT',
     'WHILE'
   );
 
-  SystemKeywords : array[0..137] of String = (
-    '#AR', '#BACKPACKID', '#CHARDIR', '#CHARGHOST', '#CHARID', '#CHARNAME',
+  SystemKeywords : array[0..144] of String = (
+    '#AR', '#BACKPACKID', '#BUFFCLILOC', '#BUFFCNT', '#BUFFDESC', '#BUFFID',
+    '#BUFFINDEX', '#BUFFNAME', '#BUFFTIME', '#CHARDIR', '#CHARGHOST', '#CHARID', '#CHARNAME',
     '#CHARPOSX', '#CHARPOSY', '#CHARPOSZ', '#CHARSTATUS', '#CLICNT',
     '#CLILANG', '#CLILEFT', '#CLILOGGED', '#CLINR', '#CLITOP', '#CLIVER',
     '#CLIXRES', '#CLIYRES', '#CONTHP', '#CONTID', '#CONTKIND', '#CONTNAME',

@@ -94,7 +94,7 @@ const
 ////////////////////////////////////////////////////////////////////////////////
 
 var
-  UOTbl : array[0..139] of TItem = (
+  UOTbl : array[0..142] of TItem = (
     (N: 'AR'          ;T: RO ;C: 206 ;P: 'n'        ),
     (N: 'BackpackID'  ;T: RO ;C: 224 ;P: 'n'        ),
     (N: 'BlockInfo'   ;T: ME ;C: 041 ;P: 'nnnnn'    ),
@@ -156,6 +156,7 @@ var
     (N: 'FilterItems' ;T: ME ;C: 042 ;P: 'nn'       ),
      (N:'FilterItems' ;T: ME ;C: 043 ;P: 'n'        ),
     (N: 'Followers'   ;T: RO ;C: 203 ;P: 'n'        ),
+    (N: 'GetBuff'     ;T: ME ;C: 056 ;P: 'n'        ),
     (N: 'GetCont'     ;T: ME ;C: 032 ;P: 'n'        ),
     (N: 'GetItem'     ;T: ME ;C: 024 ;P: 'n'        ),
     (N: 'GetJournal'  ;T: ME ;C: 027 ;P: 'n'        ),
@@ -212,6 +213,8 @@ var
     (N: 'Property'    ;T: ME ;C: 010 ;P: 'n'        ),
     (N: 'RHandID'     ;T: RW ;C: 179 ;P: 'n'        ),
     (N: 'RenamePet'   ;T: ME ;C: 020 ;P: 'ns'       ),
+    (N: 'ScanBuffs'   ;T: ME ;C: 054 ;P: 'n'        ),
+     (N:'ScanBuffs'   ;T: ME ;C: 055 ;P: ''         ),
     (N: 'ScanItems'   ;T: ME ;C: 023 ;P: 'b'        ),
      (N:'ScanItems'   ;T: ME ;C: 044 ;P: ''         ),
     (N: 'ScanJournal' ;T: ME ;C: 026 ;P: 'n'        ),
@@ -525,6 +528,28 @@ begin
     051: CloseClient;
     052: UOVar.IgnoreCont(GetString(3));
     053: UOVar.IgnoreCont(GetInteger(3));
+    // Buff bar (port addition). ScanBuffs([iconID]) -> count; GetBuff(index, 0-based) -> id,
+    // title cliloc, name, description, seconds left (-1 = no timer); nil when there is no such buff.
+    054: begin
+           ScanBuffs(GetInteger(3));
+           PushInteger(BuffCnt);
+         end;
+    055: begin
+           ScanBuffs;
+           PushInteger(BuffCnt);
+         end;
+    056: begin
+           GetBuff(GetInteger(3));
+           if BuffValid then
+           begin
+             PushInteger(BuffRes.ID);
+             PushInteger(BuffRes.Cliloc);
+             PushStrVal(PChar(BuffRes.Name));
+             PushStrVal(PChar(BuffRes.Desc));
+             PushInteger(BuffRes.Time);
+           end
+           else PushNil;
+         end;
     -01: Result:=ERR_NOTFOUND;
     -02: Result:=ERR_WRONGPAR;
     else Result:=ERR_GENERIC;

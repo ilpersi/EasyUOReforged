@@ -44,6 +44,11 @@ unit EuoInterpreter;
   - DisplayProc and MenuProc release the CS write lock for the duration of their
     blocking call (a modal MessageBox / a main-thread-synchronized menu-control
     update) so a UI thread polling variables isn't blocked meanwhile.
+
+  Port additions (not in the original, all purely additive -- no existing name,
+  index or behavior changes): the ScanBuffs command plus #BuffCnt/#BuffID/
+  #BuffCliloc/#BuffName/#BuffDesc/#BuffTime (indices 108..113) and the read/write
+  #BuffIndex (533). ReforgedVer stays 107 and every original index is untouched.
 }
 
 {$mode delphi}{$H+}
@@ -159,6 +164,7 @@ type
     procedure    HideItemProc;
     procedure    DeleteJournalProc;
     procedure    ScanJournalProc;
+    procedure    ScanBuffsProc;
     procedure    NextCPosProc;
     procedure    ChooseSkillProc;
     procedure    ContPosProc;
@@ -320,7 +326,7 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 const
-  VarNamesR : Array[0..107] of String = (
+  VarNamesR : Array[0..113] of String = (
     'CliCnt','CliNr','Time','Date','SysTime','Random','OSVer','CharPosX',
     'CharPosY','CharPosZ','CharID','CharGhost','CharStatus','CharDir',
     'CharName','Sex','Str','MaxWeight','Dex','Int','Hits','MaxHits',
@@ -337,14 +343,18 @@ const
     'TileZ','TileName','TileFlags','JIndex','NSName','NSType','True',
     'False','SPC','SMC','DOT','Property','EUOVer','Opts','BackpackID',
     'CurPath','ContSizeX','ContSizeY','CharType','ContHP',
-    'ReforgedVer');
+    'ReforgedVer',
+    // Port additions (ScanBuffs): indices 108..113, after the original names.
+    'BuffCnt','BuffID','BuffCliloc','BuffName','BuffDesc','BuffTime');
 
-  VarNamesRW : Array[0..32] of String = (
+  VarNamesRW : Array[0..33] of String = (
     'SCnt','SCnt2','LShard','ContPosX','ContPosY','NextCPosX','NextCPosY',
     'TargCurs','CliXRes','CliYRes','CliLeft','CliTop','LSpell','LSkill',
     'LTargetKind','LTargetTile','LTargetX','LTargetY','LTargetZ','LTargetID',
     'LHandID','RHandID','LObjectID','FindIndex','FindMod','Result','StrRes',
-    'MenuButton','MenuRes','LPC','SendHeader','SysMsgCol','CliTitle');
+    'MenuButton','MenuRes','LPC','SendHeader','SysMsgCol','CliTitle',
+    // Port addition (ScanBuffs): index 533.
+    'BuffIndex');
 
 ////////////////////////////////////////////////////////////////////////////////
 constructor TEuoInterpreter.Create(Wnd : Cardinal);
@@ -958,6 +968,37 @@ begin
            GetCont(0);
            Result:=IntToStr(ContHP);
          end;
+    // Port additions (ScanBuffs). Only the count is a plain number; the rest describe the
+    // selected buff and read N/A when there is none (or, for the texts, when the client has none).
+    108: begin
+           BuffRefresh;
+           Result:=IntToStr(BuffCnt);
+         end;
+    109: begin
+           BuffRefresh;
+           Result:=IntToStr(BuffRes.ID);
+           VarRes:=BuffValid;
+         end;
+    110: begin
+           BuffRefresh;
+           Result:=IntToStr(BuffRes.Cliloc);
+           VarRes:=BuffValid;
+         end;
+    111: begin
+           BuffRefresh;
+           Result:=UScore(BuffRes.Name);
+           VarRes:=BuffValid and (BuffRes.Name<>'');
+         end;
+    112: begin
+           BuffRefresh;
+           Result:=UScore(BuffRes.Desc);
+           VarRes:=BuffValid and (BuffRes.Desc<>'');
+         end;
+    113: begin
+           BuffRefresh;
+           Result:=IntToStr(BuffTimeNow);   // read live, so a variable tree sees it count down
+           VarRes:=BuffValid;
+         end;
     502: Result:=IntToStr   (LShard       );
     503: Result:=IntToStr   (ContPosX     );
     504: Result:=IntToStr   (ContPosY     );
@@ -983,6 +1024,11 @@ begin
     524: Result:=IntToStr(FindModX)+'_'+IntToStr(FindModY);
     531: Result:=IntToStr   (SysMsgCol    );
     532: Result:=CliTitle;
+    533: begin
+           BuffRefresh;
+           Result:=IntToStr(BuffPos);
+           VarRes:=not BuffGone;        // the selected buff left the bar: no selection any more
+         end;
   end;
   if UOVar.VarRes=False then Result:='N/A';
 
@@ -1023,7 +1069,7 @@ begin
   if iBuf<0 then Goto Leave;
 
   case iBuf of
-    500..518,523,529,531 :
+    500..518,523,529,531,533 :
       begin
         i:=SToI64Def(Value,0,ConvRes);
         if not ConvRes then Goto Leave;
@@ -1078,6 +1124,9 @@ begin
     530: CommObj.SendHeader:=Value;
     531: SysMsgCol:=i;
     532: CliTitle:=Value;
+    533: begin
+           BuffSelect(i);
+         end;
   end;
 
   Leave:
@@ -1191,6 +1240,7 @@ begin
   CmdRegistry.Register('ChooseSkill',ChooseSkillProc,True);
   CmdRegistry.Register('NextCPos',NextCPosProc,True);
   CmdRegistry.Register('ScanJournal',ScanJournalProc,True);
+  CmdRegistry.Register('ScanBuffs',ScanBuffsProc,True);   // port addition
   CmdRegistry.Register('DeleteJournal',DeleteJournalProc,True);
   CmdRegistry.Register('HideItem',HideItemProc,True);
   CmdRegistry.Register('SetUOTitle',SetUOTitleProc,True);
@@ -2725,6 +2775,22 @@ begin
   // return result
   DJournalSave:=d;
   UOCmd.GetJournal(c);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition. ScanBuffs [iconID]: snapshot of the client's buff bar (optionally only the
+// buffs with that icon id), the first one selected; #BuffIndex walks the snapshot like
+// #FindIndex walks FindItem's. Reads nothing but client memory; on a client whose layout is not
+// known (or with the buff window closed) the snapshot is empty and #BuffCnt is 0.
+procedure TEuoInterpreter.ScanBuffsProc;
+var
+  Filter : Int64;
+begin
+  Filter:=-1;
+  if ParList.Count>1 then
+    if ParList[1].IntValid and (ParList[1].Int>=0) then
+      Filter:=ParList[1].Int;
+  UOCmd.ScanBuffs(Filter);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
