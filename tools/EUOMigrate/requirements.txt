@@ -1,0 +1,3 @@
+# Pinned: the knowledge base stores instruction shapes in capstone's text form; another
+# capstone version may print some operands differently and blur the site matching.
+capstone==5.0.7

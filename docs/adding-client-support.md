@@ -11,6 +11,44 @@ at runtime, rather than every version independently restating its own full ~87-f
 1-5 (finding, scanning, and researching a new client's data) are unchanged by that redesign — only
 step 6 (where the results actually get written into the file) is different.
 
+## The automatic route: `tools\EUOMigrate`
+
+Try this first. `tools\EUOMigrate` (Python + Capstone, see its [README](../tools/EUOMigrate/README.md))
+does steps 2-6 below mechanically, for old and new builds alike:
+
+```
+pip install -r tools/EUOMigrate/requirements.txt
+python tools/EUOMigrate/euomigrate.py migrate "<path>\client.exe"
+python tools/EUOMigrate/euomigrate.py verify tools/EUOMigrate/out/<id>/candidates.json
+python tools/EUOMigrate/euomigrate.py probe  tools/EUOMigrate/out/<id>/candidates.json
+```
+
+- `migrate` locates every `C_*`/`E_*` field of the new exe from the **knowledge base**
+  (`tools\EUOMigrate\kb\`, fingerprints of builds whose tables are already verified -- no old exe
+  needed), using function matching, global-variable voting, instruction windows for hook sites and
+  the known builds' own signatures. It also reads the `F_*` calling-convention flags and the
+  global-relative `B_*` distances from the code, and writes, in `out\<version>-<stamp>\`: a report
+  with a confidence and the evidence for every value, the `uoclidata.pas` snippet (a milestone delta
+  for a fixed-base build, a `ModernBuilds` entry for a relocatable one), and fresh signatures (an
+  `EUO Updtr Strings` file and `ScannerTable` rows) so the *next* build of that compiler is covered
+  by the runtime scan.
+- `verify` (read-only, client running and logged in) checks the values in memory -- the player
+  object behind `C_CHARPTR`, 58 sane skill values, a gump chain behind `C_CONTPOS`, the shard name
+  from the window title, the tick function on the main thread's stack -- and swaps in a runner-up
+  when the first choice fails. `probe` finds the object / gump / status-gump offsets (`B_ITEMID`,
+  `B_ITEMTYPE`, `B_ITEMSLOT`, `B_POS`, `B_CONTNEXT`, `B_STATNAME`) by walking the client's lists.
+- Unverified values are written as 0 (the feature stays off rather than reading garbage or patching
+  the wrong code), and so is every member of a feature group with one unusable member.
+- Then paste the snippet, rebuild, run `tests\run_tests.ps1` and `tools\EUOSelfTest`. Once the build
+  is in `uoclidata.pas`, `euomigrate.py fingerprint <exe>` adds it to the knowledge base -- commit
+  the `kb\*.json.gz` file so the next migration can start from it.
+
+What it cannot decide alone: a hook whose *meaning* changed between compilers (on the beta the
+message wrappers were inlined, so `E_SYSMSGADDR` names a constructor instead, see `E_NEWOBJ`), a
+layout it has no probe for (journal node, shop, status flags -- inherited, listed in the report),
+and which of two identical copies of a function the client actually runs, when it is not running.
+The manual steps below remain the reference for those cases.
+
 ## 0. Check it isn't already supported
 
 ```

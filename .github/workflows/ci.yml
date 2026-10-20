@@ -56,3 +56,17 @@ jobs:
             uo.dll
             EUOUpdtr.exe
           if-no-files-found: error
+
+  # The client-table migration tool (Python). Its tests build synthetic executables, so no game
+  # files are needed; the uoclidata.pas reader is checked against tests/fixtures.
+  euomigrate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r tools/EUOMigrate/requirements.txt
+      - name: Run EUOMigrate tests
+        run: python -m unittest discover -s tools/EUOMigrate/tests -v

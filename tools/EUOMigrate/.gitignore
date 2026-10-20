@@ -1,0 +1,3 @@
+# migration results (one folder per client build: candidates.json, report, Pascal snippet)
+out/
+__pycache__/
