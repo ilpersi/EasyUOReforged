@@ -36,7 +36,8 @@ python tools/EUOMigrate/euomigrate.py probe  tools/EUOMigrate/out/<id>/candidate
   object behind `C_CHARPTR`, 58 sane skill values, a gump chain behind `C_CONTPOS`, the shard name
   from the window title, the tick function on the main thread's stack -- and swaps in a runner-up
   when the first choice fails. `probe` finds the object / gump / status-gump offsets (`B_ITEMID`,
-  `B_ITEMTYPE`, `B_ITEMSLOT`, `B_POS`, `B_CONTNEXT`, `B_STATNAME`) by walking the client's lists.
+  `B_ITEMTYPE`, `B_ITEMSLOT`, `B_POS`, `B_CONTNEXT`, `B_STATNAME`), the journal layout and the
+  system-message layout by walking the client's lists.
 - Unverified values are written as 0 (the feature stays off rather than reading garbage or patching
   the wrong code), and so is every member of a feature group with one unusable member.
 - Then paste the snippet, rebuild, run `tests\run_tests.ps1` and `tools\EUOSelfTest`. Once the build
@@ -45,7 +46,7 @@ python tools/EUOMigrate/euomigrate.py probe  tools/EUOMigrate/out/<id>/candidate
 
 What it cannot decide alone: a hook whose *meaning* changed between compilers (on the beta the
 message wrappers were inlined, so `E_SYSMSGADDR` names a constructor instead, see `E_NEWOBJ`), a
-layout it has no probe for (journal node, shop, status flags -- inherited, listed in the report),
+layout it has no probe for (shop, status flags -- inherited, listed in the report),
 and which of two identical copies of a function the client actually runs, when it is not running.
 The manual steps below remain the reference for those cases.
 

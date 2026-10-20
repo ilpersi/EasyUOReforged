@@ -231,6 +231,26 @@ def pascal(c, u):
                 '// every modern build, so it needs a layout list of its own (and the code to pick it):']
             out += ['//' + _entry(f, e['value'], e['how'])[1:] for f, e in diff]
         return '\n'.join(out) + '\n'
+    # fixed base, a version uoclidata.pas already has: check against its milestone instead
+    idx, exact = u.milestone_index(t['version'])
+    if exact:
+        known = u.milestone_state(idx)
+        state = dict(known)
+        for f, e in F.items():
+            if f[:2] in ('C_', 'E_') or (f[:2] in ('B_', 'F_') and e['status'] in USABLE):
+                state[f] = _value_for_table(e, G.get(f)) if f[:2] in ('C_', 'E_') else e['value']
+        # 0 in a B_ field means the getter's default: compare effective values
+        eff = {'B_POS': 0x24}
+        diff = [f for f in u.fields if (state.get(f, 0) or eff.get(f, 0)) != (known.get(f, 0) or eff.get(f, 0))]
+        out = head + ['// %s is already in uoclidata.pas (milestone %d, %s).' % (t['version'], idx, u.milestones[idx][1])]
+        if not diff:
+            out.append('// The migration reproduces it exactly: all %d fields agree. Nothing to change.' % len(u.fields))
+        else:
+            out.append('// %d of %d fields differ from it -- check each before changing %s:' % (
+                len(diff), len(u.fields), u.milestones[idx][1]))
+            out += ['//' + _entry(f, state.get(f, 0), 'table has $%08X; %s' % (
+                known.get(f, 0), _comment(F[f], G.get(f)) if f in F else ''))[1:] for f in diff]
+        return '\n'.join(out) + '\n'
     # fixed base: a milestone delta against the floor milestone
     floor_state, idx = u.floor_state(t['version'])
     if floor_state is None:

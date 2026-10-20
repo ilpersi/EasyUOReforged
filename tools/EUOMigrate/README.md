@@ -48,10 +48,15 @@ python tools/EUOMigrate/euomigrate.py probe  tools/EUOMigrate/out/<id>/candidate
   - `C_CLIXRES` must be a resolution, and imports and code bytes must match the exe.
 
   A value that fails is replaced by its first runner-up that does not fail, or is marked `rejected`.
-- **`probe`** finds `B_ITEMID`, `B_ITEMTYPE`, `B_ITEMSLOT`, `B_POS`, `B_CONTNEXT` and `B_STATNAME`
-  by searching for the offset that makes the client's whole object or gump list consistent at once.
-  Its anchors are a player with a human body, a backpack on layer 21 and the character name from the
-  window title.
+- **`probe`** finds the layout offsets by searching for the offset that makes one of the client's
+  whole lists consistent at once:
+  - `B_ITEMID`, `B_ITEMTYPE`, `B_ITEMSLOT`, `B_POS` from the object list (anchors: a player with a
+    human body, a backpack on layer 21);
+  - `B_CONTNEXT` from the gump list, `B_STATNAME` from the status gump (anchor: the character name
+    in the window title);
+  - the journal layout (`F_JOURNALDIRECT`, `B_JNEXTPTR`, `B_JCOL`, `B_JKIND`) from the journal chain
+    (kind $12 on exactly the UTF-16 lines);
+  - `F_SYSMSGDIRECT` / `B_SYSMSGSTR` from the newest system message.
 
 To finish:
 
@@ -160,9 +165,17 @@ set `EUOMIGRATE_CACHE` to put the cache elsewhere.
     are inlined (so `E_SYSMSGADDR` names a constructor), Pathfind enters mid-function, and the tick
     hook moved from `__allmul` to `__alldiv`. Those builds remain the knowledge base's job: once the
     beta is in it, a later beta build is matched against the beta, not against `client.exe`.
+- **A known build treated as unknown:** client 7.0.108.0 (stamp `67F4AA95`, which `uoclidata.pas`
+  has verified but the knowledge base does not contain), migrated while seeing only the older
+  milestone 7.0.99.1. All 38 addresses and the 14 flags and offsets read from the code equal the
+  verified table, with nothing wrong. Only the inherited journal layout differed (7.0.108.0 changed
+  it). Then `verify` and `probe` on the running client (logged in on a live shard) rejected nothing,
+  confirmed 8 addresses and 6 layout offsets, and corrected the four journal values: the final
+  result equals the verified table in all 114 fields.
 - **Live (read-only, on `client.exe`):**
   - Every verified value passes or is neutral, and deliberately corrupted values fail.
-  - `probe` reproduces `B_ITEMID`, `B_ITEMTYPE`, `B_ITEMSLOT`, `B_POS`, `B_CONTNEXT` and `B_STATNAME`.
+  - `probe` reproduces `B_ITEMID`, `B_ITEMTYPE`, `B_ITEMSLOT`, `B_POS`, `B_CONTNEXT`, `B_STATNAME`
+    and the journal layout (`F_JOURNALDIRECT`, `B_JNEXTPTR`, `B_JCOL`, `B_JKIND`).
 
 ## Limits
 
@@ -170,8 +183,6 @@ set `EUOMIGRATE_CACHE` to put the cache elsewhere.
   vs. inlined constructor, stack vs. register arguments), fields of the new form cannot be inferred.
   The report flags them; the `E_*` docs in `uoclidata.pas` say what each form needs.
 - **Layouts without a probe** stay inherited and are listed in the report as such:
-  - the journal node (`B_JNEXTPTR`, `B_JCOL`, `B_JKIND`);
-  - `B_SYSMSGSTR`;
   - shop and bill;
   - `B_CHARSTATUS`;
   - `B_FINDREP`;

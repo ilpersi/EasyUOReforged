@@ -98,7 +98,7 @@ def o_skills(kind):
             if trained and sum(1 for i in trained if base[i] == 0) > len(trained) // 5:
                 return 'fail', note + ', base array zero where real values are trained'
             if any(w[i] != base[i] for i in range(NSKILLS)):
-                note += ' (real and base differ: the pair order is confirmed)'
+                note += ' (real and base differ: two distinct arrays)'
         return ('pass' if ok else 'fail'), note
     return f
 

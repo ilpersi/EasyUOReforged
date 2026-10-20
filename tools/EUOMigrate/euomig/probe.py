@@ -187,6 +187,104 @@ class Probe:
             n, off, ', '.join(c.replace('.?AV', '').replace('@@', '') for c in chain[:6])))
 
 
+    # ---- journal --------------------------------------------------------------------------
+    def text_at(self, a, n=0x100):
+        """(text, unicode) if a holds a printable ASCII or UTF-16 string, else (None, None)"""
+        d = self.p.read(a, n)
+        if not d:
+            return None, None
+        if len(d) > 3 and d[1] == 0 and d[3] == 0 and 32 <= d[0] < 127:
+            s = d.decode('utf-16le', 'replace').split('\0')[0]
+            if s and all(32 <= ord(ch) < 0x10000 for ch in s):
+                return s, True
+        s = d.split(b'\0')[0]
+        if s and all(32 <= c < 127 or c >= 0xA0 for c in s):
+            return s.decode('latin1'), False
+        return None, None
+
+    def journal(self):
+        """Two layouts (uocommands.pas ScanJournal): the old fixed record -- text POINTER at +0,
+        colour +4, kind byte +8, next at +$1C -- or, from 7.0.108.0, the text INLINE at the node
+        start, colour/kind dwords at B_JCOL/B_JKIND (kind $12 = UTF-16) and the next-older node at
+        B_JNEXTPTR. The newest node is the head, so the longest chain picks the older-direction
+        pointer (the newer-direction one is 0 there)."""
+        head = self.u32(self.c.at(self.c.v['C_JOURNALPTR']))
+        if not head:
+            self.notes.append('journal: empty (say something in game, then probe again)')
+            return
+        # old record layout
+        n, old = head, 0
+        while n and old < 50:
+            t, _ = self.text_at(self.u32(n) or 0)
+            if t is None:
+                break
+            old += 1
+            n = self.u32(n + 0x1C)
+        # inline layout
+        best = (0, None)
+        if self.text_at(head)[0] is not None:
+            for off in range(0x100, 0x1000, 4):
+                n, k, seen = head, 0, set()
+                while n and n not in seen and k < 60:
+                    seen.add(n)
+                    if self.text_at(n)[0] is None:
+                        break
+                    k += 1
+                    n = self.u32(n + off)
+                if n == 0 or k >= 60:
+                    if k > best[0]:
+                        best = (k, off)
+        k, off = best
+        if old >= 2 and old >= k:
+            self.found['F_JOURNALDIRECT'] = (0, '%d entries in the old record layout (text pointer +0, next +$1C)' % old)
+            return
+        if k < 2:
+            self.notes.append('journal: fewer than two entries in either layout (say something, probe again)')
+            return
+        self.found['F_JOURNALDIRECT'] = (1, '%d entries with the text inline' % k)
+        self.found['B_JNEXTPTR'] = (off, '%d entries chained toward older ones by +$%X' % (k, off))
+        # colour / kind: kind is $12 exactly on the UTF-16 entries, the colour a hue
+        nodes, n = [], head
+        while n and len(nodes) < k:
+            nodes.append(n)
+            n = self.u32(n + off)
+        for koff in [0x804] + list(range(0x104, off, 4)):
+            kinds = [(self.u32(nd + koff), self.text_at(nd)[1]) for nd in nodes]
+            if any(v is None or v > 0x40 for v, u in kinds):
+                continue
+            if any((v == 0x12) != bool(u) for v, u in kinds):
+                continue
+            cols = [self.u32(nd + koff - 4) for nd in nodes]
+            # hues; 0 is the default colour (the welcome line), but not all of them
+            if all(c is not None and c <= 0xFFFF for c in cols) and any(cols):
+                self.found['B_JKIND'] = (koff, 'kind dword at +$%X: $12 on exactly the UTF-16 entries (%d of %d)' % (
+                    koff, sum(1 for v, u in kinds if u), len(kinds)))
+                self.found['B_JCOL'] = (koff - 4, 'colour dword at +$%X: hues %s' % (koff - 4, sorted(set(cols))[:6]))
+                break
+        else:
+            self.notes.append('journal: no kind/colour pair fits all %d entries' % len(nodes))
+
+    def sysmsg(self):
+        """the newest system message: its text inline at B_SYSMSGSTR (F_SYSMSGDIRECT) or behind a
+        pointer there"""
+        m = self.u32(self.c.at(self.c.v['C_SYSMSG']))
+        if not m:
+            self.notes.append('sysmsg: no system message yet')
+            return
+        for off in (0x800, 0x100):
+            t, _ = self.text_at(m + off)
+            if t and len(t) >= 3:
+                self.found['F_SYSMSGDIRECT'] = (1, 'text inline at +$%X: %r' % (off, t[:40]))
+                self.found['B_SYSMSGSTR'] = (off, 'text inline at +$%X' % off)
+                return
+            t, _ = self.text_at(self.u32(m + off) or 0)
+            if t and len(t) >= 3:
+                self.found['F_SYSMSGDIRECT'] = (0, 'text behind the pointer at +$%X: %r' % (off, t[:40]))
+                self.found['B_SYSMSGSTR'] = (off, 'text pointer at +$%X' % off)
+                return
+        self.notes.append('sysmsg: no text at +$800 inline or behind +$100')
+
+
 def run(ctx, title=None):
     pr = Probe(ctx)
     title = title if title is not None else window_title(ctx.p.pid)
@@ -194,4 +292,6 @@ def run(ctx, title=None):
     pr.objects()
     pr.statname(name)
     pr.gumps()
+    pr.journal()
+    pr.sysmsg()
     return pr.found, pr.notes, (name, shard)

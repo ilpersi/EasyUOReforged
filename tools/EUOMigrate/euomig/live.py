@@ -82,7 +82,12 @@ class Process:
         self.pid = pid
         self.h = k32.OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, pid)
         if not self.h:
-            raise OSError('OpenProcess(%d) failed, error %d' % (pid, ctypes.get_last_error()))
+            err = ctypes.get_last_error()
+            if err == 5:
+                raise OSError('OpenProcess(%d): access denied -- the client runs with more rights than '
+                              'this Python (as administrator?): start the client normally, or run this '
+                              'command from an elevated prompt' % pid)
+            raise OSError('OpenProcess(%d) failed, error %d' % (pid, err))
         self.base, self.path = self._main_module()
 
     def _main_module(self):
@@ -96,22 +101,28 @@ class Process:
 
     @classmethod
     def attach(cls, target, pid=None):
-        """the running process of exactly this exe (same path, or same file size + stamp)"""
+        """the running process of this exe: same path, or (a renamed / patched copy, e.g. a client
+        with its encryption removed -- pass its pid) the same PE stamp"""
         cands = [p for p, n in processes() if pid in (None, p) and
                  n.lower() == os.path.basename(target.path).lower()]
         if pid and not cands:
             cands = [pid]
+        errors = []
         for p in cands:
             try:
                 pr = cls(p)
-            except OSError:
+            except OSError as e:
+                errors.append(str(e))
                 continue
             if os.path.normcase(os.path.abspath(pr.path)) == os.path.normcase(target.path) or \
                     pr.u32(pr.base + 0x3C) is not None and pr._stamp() == target.stamp:
                 pr.delta = (pr.base - target.pe.base) & 0xFFFFFFFF
                 return pr
             pr.close()
-        raise SystemExit('no running %s found (start the client and log in first)' % os.path.basename(target.path))
+        if errors:
+            raise SystemExit('\n'.join(errors))
+        raise SystemExit('no running %s found (start the client and log in first; for a renamed or '
+                         'patched copy pass --pid)' % os.path.basename(target.path))
 
     def _stamp(self):
         e = self.u32(self.base + 0x3C)
