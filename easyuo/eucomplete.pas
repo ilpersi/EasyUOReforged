@@ -31,7 +31,10 @@ unit eucomplete;
   what seeds the popup's initial search string) uses a completely different,
   simpler rule (EndOfTokenChr, defaulting to '()[].') that DOES include the
   sigil, so the mismatch is one-sided: the popup finds/positions on the
-  right item correctly, but naive acceptance would insert it wrong. Fixed
+  right item correctly (provided the list is already populated when that
+  search runs -- hence main.pas builds it in OnBeforeExecute, not
+  OnExecute; see CompletionBeforeExecute there), but naive acceptance would
+  insert it wrong. Fixed
   in main.pas via TSynCompletion.OnCodeCompletion (a supported extension
   point precisely for this kind of adjustment, not a workaround) -- widen
   the replacement span left by one character when the character immediately

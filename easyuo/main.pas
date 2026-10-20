@@ -72,7 +72,9 @@ type
     procedure ToolButtonReopen(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure FindDiagFind(Sender: TObject);
     procedure ReplaceDiagReplace(Sender: TObject);
-    procedure CompletionExecute(Sender: TObject);
+    procedure CompletionBeforeExecute(ASender: TSynBaseCompletion; var ACurrentString: String;
+                var APosition: Integer; var AnX, AnY: Integer;
+                var AnResult: TOnBeforeExeucteFlags);
     procedure CompletionCodeCompletion(var Value: String; SourceValue: String;
                 var SourceStart, SourceEnd: TPoint; KeyChar: TUTF8Char;
                 Shift: TShiftState);
@@ -467,7 +469,7 @@ begin
   // trigger is Ctrl+Space, the component's own default, left unchanged since
   // this feature has no original behavior to match.
   Completion := TSynCompletion.Create(Self);
-  Completion.OnExecute := CompletionExecute;
+  Completion.OnBeforeExecute := CompletionBeforeExecute;
   Completion.OnCodeCompletion := CompletionCodeCompletion;
 
   UpdateTimer := TTimer.Create(Self);
@@ -621,13 +623,25 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-procedure TMainForm.CompletionExecute(Sender: TObject);
+procedure TMainForm.CompletionBeforeExecute(ASender: TSynBaseCompletion; var ACurrentString: String;
+  var APosition: Integer; var AnX, AnY: Integer; var AnResult: TOnBeforeExeucteFlags);
 begin
   // See eucomplete.pas's header comment for what goes into this list and why
   // it's rebuilt fresh on every trigger rather than cached. CurrentEditor is
   // only exposed on TheForm, not on TSynCompletion itself (confirmed by
   // reading syncompletion.pas's class declarations, not assumed).
-  BuildCompletionList(Completion.ItemList, TSynEdit(Completion.TheForm.CurrentEditor));
+  //
+  // Must be OnBeforeExecute, NOT OnExecute: TSynBaseCompletion.Execute sets
+  // CurrentString (which runs the prefix search that picks the highlighted
+  // item) AFTER OnBeforeExecute but BEFORE OnExecute, and refilling the list
+  // later doesn't re-run that search. Built in OnExecute, the search ran
+  // against an empty list (first trigger) or the previous trigger's stale
+  // one, so the typed prefix was never the preselected item (confirmed by
+  // reading syncompletion.pas's Execute). CurrentEditor is already set here
+  // -- ProcessSynCommand assigns Editor before calling Execute. APosition is
+  // deliberately left at its default -1, so the component computes the
+  // position from ACurrentString itself.
+  BuildCompletionList(ASender.ItemList, TSynEdit(Completion.TheForm.CurrentEditor));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
