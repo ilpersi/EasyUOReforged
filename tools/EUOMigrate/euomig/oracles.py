@@ -157,6 +157,111 @@ def o_ptr_or_null(c, v):
     return 'fail', '%08X is not a readable pointer' % x
 
 
+# ---- buff bar: the cliloc table and the buff-timer map are MSVC std::map<int,...> trees ----------
+# A tree is addressed by its head (sentinel) node: root at head+4, left at +0, right at +8; every
+# leaf points back at the head. The head pointer sits at +B_STLHEAD in the container object.
+def _s32(x):
+    return x - 0x100000000 if x & 0x80000000 else x
+
+
+def stl_find(p, head, key, koff):
+    """the node holding int `key` (at node+koff) in the tree under `head`, or None"""
+    if not head:
+        return None
+    node, best, guard = p.u32(head + 4), head, 0
+    while node and node != head and guard < 256:
+        k = p.u32(node + koff)
+        if k is None:
+            return None
+        if _s32(k) < key:
+            node = p.u32(node + 8)
+        else:
+            best, node = node, p.u32(node)
+        guard += 1
+    if best != head:
+        k = p.u32(best + koff)
+        if k is not None and _s32(k) == key:
+            return best
+    return None
+
+
+def stl_nodes(p, head, koff, limit=64):
+    """[(node, key)] in key order, or None when head is not a consistent small tree. An empty tree
+    (root == head) is []. At most `limit` nodes are walked."""
+    root = p.u32(head + 4) if head else None
+    if root is None:
+        return None
+    if root == head:
+        return []
+    out, stack, node = [], [], root
+    while (node and node != head) or stack:
+        while node and node != head:
+            if len(stack) > 64 or not p.readable(node, koff + 4):
+                return None
+            stack.append(node)
+            node = p.u32(node)
+        if not stack:
+            break
+        node = stack.pop()
+        out.append((node, _s32(p.u32(node + koff))))
+        if len(out) > limit:
+            return None
+        node = p.u32(node + 8)
+    keys = [k for _, k in out]
+    if not out or keys != sorted(set(keys)):
+        return None
+    return out
+
+
+CLILOC_PROBES = (1075847, 1075655, 1075835)       # Bless, Hidden/Stealthing, Curse
+
+
+def o_cliloc(c, v):
+    """C_CLILOC: a global -> the cliloc manager, whose tree maps cliloc numbers to texts"""
+    hoff, koff = c.v.get('B_STLHEAD'), c.v.get('B_CLILOCKEY')
+    if hoff is None or not koff:
+        return o_ptr_or_null(c, v)
+    mgr = c.p.u32(c.at(v))
+    if mgr is None:
+        return 'fail', 'unreadable'
+    if not mgr:
+        return 'weak', 'null (cliloc table not loaded yet)'
+    head = c.p.u32(mgr + hoff)
+    if not head or not c.p.readable(head, 12):
+        return 'fail', 'manager %08X has no tree head at +$%X' % (mgr, hoff)
+    for key in CLILOC_PROBES:
+        node = stl_find(c.p, head, key, koff)
+        if node:
+            ok, s = printable(c.p.read(c.p.u32(node + koff + 4) or 0, 64))
+            if ok:
+                return 'pass', 'cliloc %d = %r' % (key, s[:40])
+            return 'fail', 'cliloc %d found but its text pointer (+$%X) is no text' % (key, koff + 4)
+    return 'weak', 'tree at %08X, none of the probe cliloc numbers %s in it' % (head, list(CLILOC_PROBES))
+
+
+def o_bufftimers(c, v):
+    """C_BUFFTIMERS: the buff-timer map (key = timer id, a double at node+$28 = seconds left)"""
+    hoff = c.v.get('B_STLHEAD')
+    if hoff is None:
+        return o_ptr_or_null(c, v)
+    head = c.p.u32((c.at(v) + hoff) & 0xFFFFFFFF)
+    if not head:
+        return 'fail', 'no tree head at +$%X' % hoff
+    nodes = stl_nodes(c.p, head, 0x10)
+    if nodes is None:
+        return 'fail', 'head %08X is not a consistent std::map tree' % head
+    if not nodes:
+        return 'weak', 'an empty tree (no timed buff yet)'
+    left = []
+    for n, k in nodes:
+        d = c.p.read(n + 0x28, 8)
+        x = struct.unpack('<d', d)[0] if len(d) == 8 else -1
+        if not (0 <= x < 1e7) or not (0 <= k < 100000):
+            return 'fail', 'node %08X: timer id %d, seconds %r' % (n, k, x)
+        left.append((k, round(x)))
+    return 'pass', '%d timers (id, seconds left) %s' % (len(nodes), left[:6])
+
+
 def o_code(c, v):
     live = c.p.read(c.at(v), 8)
     file = c.t.pe.read(v, 8)
@@ -191,7 +296,7 @@ ORACLES = {
     'C_CLILEFT': o_small(-16384, 16384), 'C_NEXTCPOS': o_small(-16384, 16384),
     'C_CLILOGGED': o_small(0, 1, 1), 'C_CURSORKIND': o_small(0, 255, 1),
     'C_SYSMSG': o_ptr_or_null, 'C_JOURNALPTR': o_ptr_or_null, 'C_ENEMYHITS': o_ptr_or_null,
-    'C_CLILOC': o_ptr_or_null, 'E_SENDECX': o_ptr_or_null,
+    'C_CLILOC': o_cliloc, 'C_BUFFTIMERS': o_bufftimers, 'E_SENDECX': o_ptr_or_null,
     'E_REDIR': o_tick_site,
     'E_SLEEPADDR': o_import,
 }

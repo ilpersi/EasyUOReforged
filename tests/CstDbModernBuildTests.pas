@@ -668,6 +668,7 @@ procedure TCstDbModernBuildTests.TestBuffBarIsReadFromTheClientsMemory;
 begin
   OpenBuffWorld(KnownStamp);
 
+  AssertTrue('the buff bar window is open', Cmd.BuffBarOpen);
   AssertTrue('the bar is readable', Cmd.ScanBuffs);
   Eq('buffs', 3, Cmd.BuffCnt);
   AssertTrue('first one selected', Cmd.BuffValid);
@@ -771,6 +772,8 @@ procedure TCstDbModernBuildTests.TestBuffBarNeedsTheBuffWindow;
 begin
   OpenBuffWorld(KnownStamp, 'paperdoll gump');
 
+  AssertTrue('the layout is known...', Cmd.BuffAvailable);
+  AssertFalse('...and the window is not open', Cmd.BuffBarOpen);
   AssertFalse(Cmd.ScanBuffs);
   Eq('count', 0, Cmd.BuffCnt);
   AssertFalse(Cmd.BuffValid);
@@ -785,6 +788,8 @@ begin
 
   Eq('C_CLILOC', 0, Sel.CstDB.CLILOC);
   Eq('C_BUFFTIMERS', 0, Sel.CstDB.BUFFTIMERS);
+  AssertFalse('unsupported', Cmd.BuffAvailable);
+  AssertFalse('so it cannot be called open', Cmd.BuffBarOpen);
   AssertFalse(Cmd.ScanBuffs);
   Eq('count', 0, Cmd.BuffCnt);
 end;

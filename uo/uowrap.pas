@@ -94,10 +94,11 @@ const
 ////////////////////////////////////////////////////////////////////////////////
 
 var
-  UOTbl : array[0..142] of TItem = (
+  UOTbl : array[0..143] of TItem = (
     (N: 'AR'          ;T: RO ;C: 206 ;P: 'n'        ),
     (N: 'BackpackID'  ;T: RO ;C: 224 ;P: 'n'        ),
     (N: 'BlockInfo'   ;T: ME ;C: 041 ;P: 'nnnnn'    ),
+    (N: 'BuffBarOpen' ;T: RO ;C: 255 ;P: 'b'        ),
     (N: 'CR'          ;T: RO ;C: 212 ;P: 'n'        ),
     (N: 'CharDir'     ;T: RO ;C: 207 ;P: 'n'        ),
     (N: 'CharID'      ;T: RO ;C: 204 ;P: 'n'        ),
@@ -331,6 +332,7 @@ begin
     252: PushInteger(LObjectType);
     253: PushInteger(CursorX);
     254: PushInteger(CursorY);
+    255: PushBoolean(UOCmd.BuffBarOpen);          // port addition; False also when unsupported
     -01: Result:=ERR_NOTFOUND;
     -02: Result:=ERR_WRONGPAR;
     else Result:=ERR_GENERIC;

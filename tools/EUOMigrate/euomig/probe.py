@@ -12,6 +12,8 @@ import ctypes
 import ctypes.wintypes as wt
 import struct
 
+from .oracles import stl_find
+
 BODIES = {0x190, 0x191, 0x192, 0x193, 0x25D, 0x25E, 0x29A, 0x29B, 0x3DB, 0x3DF, 0x3E2}
 BACKPACKS = {0x0E75, 0x09B2}
 LAYER_BACKPACK = 21
@@ -187,6 +189,78 @@ class Probe:
             n, off, ', '.join(c.replace('.?AV', '').replace('@@', '') for c in chain[:6])))
 
 
+    # ---- buff bar -------------------------------------------------------------------------
+    def buff_entry(self, a):
+        """does a look like a buff icon entry: icon id, duration, timer id, title/description cliloc?"""
+        d = self.p.read(a, 0xE0)
+        if len(d) < 0xE0:
+            return False
+        icon, dur, timer, title = struct.unpack_from('<IiiI', d, 0)
+        desc = struct.unpack_from('<I', d, 0xDC)[0]
+        return (0 < icon < 0x10000 and -1 <= dur < 86400 * 30 and -1 <= timer < 100000
+                and 500000 <= title < 4000000 and 500000 <= desc < 4000000)
+
+    def buffbar(self):
+        """The 'BuffIcons Gump' keeps a std::vector of fixed-size icon entries: begin, end and
+        capacity pointers in a row somewhere in the gump, entries that decode (icon id, cliloc numbers
+        at +$C and +$DC). The cliloc map's head offset and key offset follow from looking up an entry's
+        title cliloc in the manager (C_CLILOC). Needs the buff window open with at least one buff."""
+        nxt = self.found['B_CONTNEXT'][0] if 'B_CONTNEXT' in self.found else self.c.v.get('B_CONTNEXT')
+        head = self.u32(self.c.at(self.c.v['C_CONTPOS'])) if self.c.v.get('C_CONTPOS') else None
+        if not head or not nxt:
+            self.notes.append('buff bar: no gump list to search')
+            return
+        gump, seen, g = None, set(), head
+        while g and g not in seen and len(seen) < 300:
+            seen.add(g)
+            if self.text_at(self.u32(g + 8) or 0, 32)[0] == 'BuffIcons Gump':
+                gump = g
+                break
+            g = self.u32(g + nxt)
+        if not gump:
+            self.notes.append('buff bar: no BuffIcons gump (open the buff window with a buff on, then probe again)')
+            return
+        best = None
+        for off in range(0x40, 0x400, 4):
+            b, e, cap = self.u32(gump + off), self.u32(gump + off + 4), self.u32(gump + off + 8)
+            if not b or not e or cap is None or not (b < e <= cap) or e - b > 0x10000:
+                continue
+            for size in [0x1B0] + [s for s in range(0x100, 0x300, 4) if s != 0x1B0]:
+                if (e - b) % size or (e - b) // size > 64:
+                    continue
+                n = (e - b) // size
+                if all(self.buff_entry(b + i * size) for i in range(n)):
+                    if best is None or n > best[0]:
+                        best = (n, off, size, b)
+                    break
+        if not best:
+            self.notes.append('buff bar: no pointer pair in the gump holds buff icon entries (is a buff active?)')
+            return
+        n, off, size, b = best
+        self.found['B_BUFFVEC'] = (off, '%d buff entries of $%X bytes from the pointer pair at gump+$%X' % (n, size, off))
+        self.found['B_BUFFSIZE'] = (size, 'entry size: the vector spans %d x $%X' % (n, size))
+        link = self.c.v.get('C_CLILOC')
+        mgr = self.u32(self.c.at(link)) if link else None
+        if not mgr:
+            self.notes.append('buff bar: C_CLILOC unusable, so B_STLHEAD / B_CLILOCKEY stay inherited')
+            return
+        titles = [self.u32(b + i * size + 0xC) for i in range(n)]
+        for hoff in (0, 4, 8):
+            hd = self.u32(mgr + hoff)
+            if not hd:
+                continue
+            for koff in (0x0C, 0x10, 0x14):
+                hits = 0
+                for t in titles:
+                    nd = stl_find(self.p, hd, t, koff)
+                    s = self.text_at(self.u32(nd + koff + 4) or 0, 64)[0] if nd else None
+                    hits += bool(s and len(s) >= 2)
+                if hits == len(titles):
+                    self.found['B_STLHEAD'] = (hoff, 'cliloc manager keeps its tree head at +$%X' % hoff)
+                    self.found['B_CLILOCKEY'] = (koff, 'all %d title cliloc numbers resolve with the key at node+$%X' % (n, koff))
+                    return
+        self.notes.append('buff bar: no head/key offset resolves the %d title cliloc numbers' % n)
+
     # ---- journal --------------------------------------------------------------------------
     def text_at(self, a, n=0x100):
         """(text, unicode) if a holds a printable ASCII or UTF-16 string, else (None, None)"""
@@ -292,6 +366,7 @@ def run(ctx, title=None):
     pr.objects()
     pr.statname(name)
     pr.gumps()
+    pr.buffbar()
     pr.journal()
     pr.sysmsg()
     return pr.found, pr.notes, (name, shard)

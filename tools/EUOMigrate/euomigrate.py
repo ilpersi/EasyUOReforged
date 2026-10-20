@@ -93,6 +93,14 @@ def cmd_fingerprint(a):
                              'it, verify it, then either add it to uoclidata.pas or fingerprint it '
                              'with --candidates out/<id>/candidates.json.' % t.label())
         source = 'uoclidata.pas'
+    # values uoclidata.pas cannot carry for this exact build (found by its runtime scan only, e.g. the
+    # buff bar's C_CLILOC / C_BUFFTIMERS on a fixed-base client) but that were checked in the live client
+    for item in a.set or ():
+        f, _, v = item.partition('=')
+        if f not in u.fields or not v:
+            raise SystemExit('--set FIELD=VALUE with a field of uoclidata.pas, got %r' % item)
+        table[f] = int(v, 0)
+        source += ' + %s from the live client' % f
     d = make_entry(u, t, table, source)
     path = KB.save(d, a.kb)
     log('wrote %s (%.0f KB)' % (path, os.path.getsize(path) / 1024))
@@ -309,6 +317,8 @@ def main(argv=None):
     s = sub.add_parser('fingerprint', help='add a known build to the knowledge base')
     s.add_argument('exe')
     s.add_argument('--candidates', help='take the table from a (verified) migration instead of uoclidata.pas')
+    s.add_argument('--set', action='append', metavar='FIELD=VALUE',
+                   help='add a value checked in the live client that uoclidata.pas does not hold (repeatable)')
     s.set_defaults(fn=cmd_fingerprint)
     s = sub.add_parser('migrate', help='derive the tables of an unknown build')
     s.add_argument('exe')

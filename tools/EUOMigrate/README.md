@@ -46,6 +46,9 @@ python tools/EUOMigrate/euomigrate.py probe  tools/EUOMigrate/out/<id>/candidate
   - `C_SHARDPOS` must equal the shard name in the window title.
   - The `E_REDIR` function must be on a thread stack, i.e. running.
   - `C_CLIXRES` must be a resolution, and imports and code bytes must match the exe.
+  - `C_CLILOC` must lead to the client's cliloc table: a known number (1075847, "Bless") must resolve to text.
+  - `C_BUFFTIMERS` must be a consistent `std::map` whose nodes hold plausible timer ids and seconds
+    (an empty map is only `weak`: apply a timed buff such as Bless and verify again).
 
   A value that fails is replaced by its first runner-up that does not fail, or is marked `rejected`.
 - **`probe`** finds the layout offsets by searching for the offset that makes one of the client's
@@ -56,7 +59,10 @@ python tools/EUOMigrate/euomigrate.py probe  tools/EUOMigrate/out/<id>/candidate
     in the window title);
   - the journal layout (`F_JOURNALDIRECT`, `B_JNEXTPTR`, `B_JCOL`, `B_JKIND`) from the journal chain
     (kind $12 on exactly the UTF-16 lines);
-  - `F_SYSMSGDIRECT` / `B_SYSMSGSTR` from the newest system message.
+  - `F_SYSMSGDIRECT` / `B_SYSMSGSTR` from the newest system message;
+  - `B_BUFFVEC`, `B_BUFFSIZE` from the `BuffIcons Gump` (open the buff window with a buff on): the
+    pointer pair in the gump whose span is whole icon entries that decode, and `B_STLHEAD`,
+    `B_CLILOCKEY` from resolving those entries' title cliloc numbers through `C_CLILOC`.
 
 To finish:
 
@@ -71,6 +77,10 @@ To finish:
 
    The first form applies once the build is in `uoclidata.pas`. The second form adds a migrated build
    straight from its usable values. Then commit the new `kb\<version>-<stamp>.json.gz`.
+
+`fingerprint` also takes `--set FIELD=VALUE` (repeatable) for a value checked in the live client that
+`uoclidata.pas` cannot hold for that exact build -- the fixed-base buff bar addresses `C_CLILOC` /
+`C_BUFFTIMERS`, which only the runtime scan provides, went into the `client.exe` entry this way.
 
 `emit <candidates.json>` regenerates the report and snippet after you have edited statuses by hand.
 `kb` lists the knowledge base.

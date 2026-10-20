@@ -191,6 +191,8 @@ type
     procedure   BuffRefresh;
     function    ClilocText(ID : Cardinal) : String;
     function    BuffTimeNow : Integer;
+    function    BuffAvailable : Boolean;
+    function    BuffBarOpen : Boolean;
     function    OpenClient(SwitchTo : Boolean) : Boolean;
     procedure   CloseClient;
   end;
@@ -924,6 +926,21 @@ begin
     Inc(K);
   end;
   Result:=K<>Length(BuffList);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Can this client's buff bar be read at all (client attached, layout and both scanned addresses known)?
+function TUOCmd.BuffAvailable : Boolean;
+begin
+  Result:=BuffSupported;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Is the buff bar window open? The window is the "BuffIcons Gump" in the client's gump list and the
+// client removes it when the window is closed, so "the gump is there" is the answer. Needs no ScanBuffs.
+function TUOCmd.BuffBarOpen : Boolean;
+begin
+  Result:=BuffSupported and (FindGumpByName(BUFF_GUMP_NAME)<>0);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

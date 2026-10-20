@@ -276,10 +276,10 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-// All seven buff variables read N/A without a client, like every other client-dependent #variable.
+// All eight buff variables read N/A without a client, like every other client-dependent #variable.
 procedure TEuoInterpreterTests.TestBuffVariablesReadNAWithNoClient;
 var
-  Names : array[0..6] of String;
+  Names : array[0..7] of String;
   Cnt   : Integer;
 begin
   Names[0] := '#BuffCnt';
@@ -289,6 +289,7 @@ begin
   Names[4] := '#BuffName';
   Names[5] := '#BuffDesc';
   Names[6] := '#BuffTime';
+  Names[7] := '#BuffBarOpen';
   for Cnt := 0 to High(Names) do
     AssertEquals(Names[Cnt], 'N/A', Interp.GetVar(Names[Cnt]));
   // #BuffIndex is settable like #FindIndex; without a client the write is simply harmless

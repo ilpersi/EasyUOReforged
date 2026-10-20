@@ -54,6 +54,7 @@ type
   TGetInteger   = function(Hnd : PtrInt; Index : Integer) : Integer; stdcall;
   TPushStrVal   = procedure(Hnd : PtrInt; Value : PChar); stdcall;
   TGetString    = function(Hnd : PtrInt; Index : Integer) : PChar; stdcall;
+  TGetBoolean   = function(Hnd : PtrInt; Index : Integer) : LongBool; stdcall;
 
 var
   DllHnd       : THandle;
@@ -68,6 +69,7 @@ var
   GetInteger   : TGetInteger;
   PushStrVal   : TPushStrVal;
   GetString    : TGetString;
+  GetBoolean   : TGetBoolean;
 
   Hnd          : PtrInt;
   DllPath      : String;
@@ -112,6 +114,7 @@ begin
   GetInteger  := TGetInteger(Load('_UOGetInteger@8'));
   PushStrVal  := TPushStrVal(Load('_UOPushStrVal@8'));
   GetString   := TGetString(Load('_UOGetString@8'));
+  GetBoolean  := TGetBoolean(Load('_UOGetBoolean@8'));
 
   if Failed > 0 then
   begin
@@ -189,6 +192,12 @@ begin
   PushInteger(Hnd, 0);
   Check(Execute(Hnd) = 0, 'Call GetBuff 0 returns RES_OK');
 
+  SetTop(Hnd, 0);
+  PushStrVal(Hnd, 'Get');
+  PushStrVal(Hnd, 'BuffBarOpen');
+  Check(Execute(Hnd) = 0, 'Get BuffBarOpen returns RES_OK');
+  Check((GetTop(Hnd) = 1) and (not GetBoolean(Hnd, 1)), 'BuffBarOpen with no client is false');
+
   if GetEnvironmentVariable('EUO_DLL_BUFFS') <> '' then
   begin
     SetTop(Hnd, 0);
@@ -202,6 +211,11 @@ begin
     Check(Execute(Hnd) = 0, 'live: Call ScanBuffs returns RES_OK');
     Count := GetInteger(Hnd, 1);
     WriteLn('  live: ScanBuffs found ', Count, ' buffs');
+    SetTop(Hnd, 0);
+    PushStrVal(Hnd, 'Get');
+    PushStrVal(Hnd, 'BuffBarOpen');
+    Check(Execute(Hnd) = 0, 'live: Get BuffBarOpen returns RES_OK');
+    WriteLn('  live: BuffBarOpen = ', GetBoolean(Hnd, 1));
     for I := 0 to Count - 1 do
     begin
       SetTop(Hnd, 0);

@@ -326,7 +326,7 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 const
-  VarNamesR : Array[0..113] of String = (
+  VarNamesR : Array[0..114] of String = (
     'CliCnt','CliNr','Time','Date','SysTime','Random','OSVer','CharPosX',
     'CharPosY','CharPosZ','CharID','CharGhost','CharStatus','CharDir',
     'CharName','Sex','Str','MaxWeight','Dex','Int','Hits','MaxHits',
@@ -344,8 +344,8 @@ const
     'False','SPC','SMC','DOT','Property','EUOVer','Opts','BackpackID',
     'CurPath','ContSizeX','ContSizeY','CharType','ContHP',
     'ReforgedVer',
-    // Port additions (ScanBuffs): indices 108..113, after the original names.
-    'BuffCnt','BuffID','BuffCliloc','BuffName','BuffDesc','BuffTime');
+    // Port additions (ScanBuffs): indices 108..114, after the original names.
+    'BuffCnt','BuffID','BuffCliloc','BuffName','BuffDesc','BuffTime','BuffBarOpen');
 
   VarNamesRW : Array[0..33] of String = (
     'SCnt','SCnt2','LShard','ContPosX','ContPosY','NextCPosX','NextCPosY',
@@ -993,6 +993,11 @@ begin
            BuffRefresh;
            Result:=UScore(BuffRes.Desc);
            VarRes:=BuffValid and (BuffRes.Desc<>'');
+         end;
+    114: begin
+           // 1 = the buff bar window is open, 0 = closed (N/A: no readable buff bar on this client)
+           Result:=IntToStr(Byte(BuffBarOpen));
+           VarRes:=BuffAvailable;
          end;
     113: begin
            BuffRefresh;

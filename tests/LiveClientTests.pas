@@ -402,6 +402,10 @@ begin
     if Dump then
       WriteLn(Format('client #%d of %d: version %s, logged in: %s',
                      [i, Sel.Cnt, Sel.Ver, BoolToStr(Vr.CliLogged, True)]));
+    if Dump then
+      WriteLn(Format('  C_CLILOC=$%.8x C_BUFFTIMERS=$%.8x B_BUFFVEC=$%x C_CONTPOS=$%.8x available=%s open=%s',
+        [Sel.CstDB.CLILOC, Sel.CstDB.BUFFTIMERS, Sel.CstDB.BBUFFVEC, Sel.CstDB.CONTPOS,
+         BoolToStr(Cmd.BuffAvailable, True), BoolToStr(Cmd.BuffBarOpen, True)]));
     if not Vr.CliLogged then Continue;
     if not Cmd.ScanBuffs then
     begin

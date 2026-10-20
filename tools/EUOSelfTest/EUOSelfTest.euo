@@ -1026,6 +1026,7 @@ sub st_vg_buff
   {
     return
   }
+  gosub st_vc buffBarOpen one 0 1
   gosub st_vc buffCnt num
   gosub st_vc buffIndex any
   gosub st_vc buffID any
@@ -2763,6 +2764,7 @@ sub st_s_buffs
     gosub st_skip buff_bar_stage not_confirmed_by_the_user
     return
   }
+  gosub st_eq buffBarOpen_is_1_with_the_buff_bar_open #buffBarOpen 1
   scanBuffs
   set %st_bn #buffCnt
   set %st_ck %st_bn > 0
@@ -2848,6 +2850,7 @@ sub st_s_buffs
   st_rp_51:
   event macro 57 0
   wait 15
+  gosub st_eq buffBarOpen_is_0_with_the_buff_bar_closed #buffBarOpen 0
   scanBuffs
   gosub st_info buffCnt_with_the_buff_bar_closed #buffCnt
   set %st_prompt Macro_57_toggled_the_buff_bar.$Is_it_CLOSED_now?$(scanBuffs_found_ , #buffCnt , _buffs;_with_the_window_closed_the_client_keeps_no_list_that_can_be_read.)
@@ -2861,6 +2864,7 @@ sub st_s_buffs
   }
   event macro 57 0
   wait 15
+  gosub st_eq buffBarOpen_is_1_with_the_buff_bar_open_again #buffBarOpen 1
   scanBuffs
   gosub st_eq buffCnt_after_the_buff_bar_is_opened_again #buffCnt %st_bn
   set %st_prompt Macro_57_opened_the_buff_bar_again.$Is_it_open_and_do_the_buffs_show?

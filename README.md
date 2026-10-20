@@ -107,7 +107,10 @@ below as unverified.
   `#BuffID` (icon id, a plain number: Bless is 30018 = `$7542`), `#BuffCliloc` (title cliloc number),
   `#BuffName`, `#BuffDesc` (the two lines of the tooltip) and `#BuffTime` (seconds left, `-1` = no
   timer). `ScanBuffs 30018` keeps only the buffs with that icon id. Example:
-  `ScanBuffs` / `for %i 1 #BuffCnt` / `set #BuffIndex %i` / `msg #BuffName`. `uo.dll` has the same
+  `ScanBuffs` / `for %i 1 #BuffCnt` / `set #BuffIndex %i` / `msg #BuffName`. `#BuffBarOpen` is `1`
+  when the buff bar window is open and `0` when it is closed (like `#CliLogged`; `N/A` on a client whose
+  buff bar cannot be read), so an open bar with no buffs (`#BuffBarOpen` 1, `#BuffCnt` 0) is told apart
+  from a closed one. The `uo.dll` variable is `BuffBarOpen`. `uo.dll` has the same
   data as the generic-API methods `ScanBuffs` and `GetBuff`. How it differs from a plain
   implementation (and from the other commands):
   - It only **reads** the client's memory (no code caving, nothing written), so it cannot disturb the client.

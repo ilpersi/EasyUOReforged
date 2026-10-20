@@ -127,6 +127,7 @@ var
 
     #13#10+
    '\Buff Bar'#13#10+
+   '#BUFFBAROPEN'#13#10+
    '#BUFFCNT'#13#10+
    '#BUFFINDEX'#13#10+
    '#BUFFID'#13#10+

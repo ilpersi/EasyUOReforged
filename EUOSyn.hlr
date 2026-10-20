@@ -97,6 +97,7 @@
     <Keywords Name="System" Attributes="12615680,16777215;False:False." Style="">
       <word value="#AR"/>
       <word value="#BACKPACKID"/>
+      <word value="#BUFFBAROPEN"/>
       <word value="#BUFFCLILOC"/>
       <word value="#BUFFCNT"/>
       <word value="#BUFFDESC"/>

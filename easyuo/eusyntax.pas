@@ -84,8 +84,8 @@ const
     'WHILE'
   );
 
-  SystemKeywords : array[0..144] of String = (
-    '#AR', '#BACKPACKID', '#BUFFCLILOC', '#BUFFCNT', '#BUFFDESC', '#BUFFID',
+  SystemKeywords : array[0..145] of String = (
+    '#AR', '#BACKPACKID', '#BUFFBAROPEN', '#BUFFCLILOC', '#BUFFCNT', '#BUFFDESC', '#BUFFID',
     '#BUFFINDEX', '#BUFFNAME', '#BUFFTIME', '#CHARDIR', '#CHARGHOST', '#CHARID', '#CHARNAME',
     '#CHARPOSX', '#CHARPOSY', '#CHARPOSZ', '#CHARSTATUS', '#CLICNT',
     '#CLILANG', '#CLILEFT', '#CLILOGGED', '#CLINR', '#CLITOP', '#CLIVER',
