@@ -47,3 +47,14 @@ tests/perf_samples_*.txt
 # Reports written by tools\EUOSelfTest\EUOSelfTest.euo (selftest-<version>-<client>-<date>-<time>.md).
 # They land in the folder EasyUO was started from, so match them in any directory.
 selftest-*.md
+
+# SQLite databases scripts create with the SQL command (docs\sql.md), plus the -journal / -wal /
+# -shm side files SQLite keeps next to them. A relative "sql open" path lands in the folder of
+# EasyUOReforged.exe (#CurPath) -- the repo root in a development checkout -- so match them in
+# any directory.
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
