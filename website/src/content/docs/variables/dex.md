@@ -1,23 +1,23 @@
 ---
 title: "#Dex"
-description: "Returns the dexterity of the character."
+description: "Your character’s dexterity."
 kind: variable
 category: status
 access: ro
 type: number
 needsClient: true
+related: ["#Str", "#Int", "#MaxStats"]
+aliases: ["dexterity"]
 source: wiki
 ---
 
-The #dex system variable determines the dexterity of the character.
+`#Dex` is your character's dexterity.
 
-:::note
-This variable will not work unless the character status bar is open. You can use [Event Macro 8 2](/commands/event/macro/) to open it from your script.
-:::
+It is read from your character's status, which the client only has once the status window has been opened.
+If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2`.
 
 ## Example
 
 ```euo
-msg My dexterity is #DEX $
-halt
+event SysMessage My dexterity is #Dex
 ```

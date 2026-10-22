@@ -1,31 +1,25 @@
 ---
 title: "#CharGhost"
-description: "Returns if your character is dead."
+description: "yes when your character is dead (a ghost), no otherwise."
 kind: variable
 category: character
 access: ro
 type: string
 needsClient: true
+related: ["#CharType", "#Hits"]
+aliases: ["dead", "ghost"]
 source: wiki
 ---
 
-The #charGhost system variable determines if your character is dead. If the character is dead it holds "YES", if it is alive it holds "NO".
-
-| Value | Description         |
-|-------|---------------------|
-| YES   | Character is dead.  |
-| NO    | Character is alive. |
-
-Table of #charGhost values
+`#CharGhost` is `yes` when your character is a ghost and `no` when it is alive. It looks at the character's
+body, so it recognises the human and elf ghost bodies. Comparisons ignore case: `#CharGhost = YES` works.
 
 ## Example
 
 ```euo
-...
-if #charGhost = YES
+if #CharGhost = yes
 {
-    gosub logOut
-    halt
+  gosub logout
+  halt
 }
-...
 ```

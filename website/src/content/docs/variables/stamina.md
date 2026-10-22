@@ -1,23 +1,24 @@
 ---
 title: "#Stamina"
-description: "Returns the current stamina level or the character."
+description: "Your character’s current stamina."
 kind: variable
 category: status
 access: ro
 type: number
 needsClient: true
+related: ["#MaxStam", "#Hits"]
+aliases: ["stam", "fatigue"]
 source: wiki
 ---
 
-The #stamina system variable determines the current stamina level of the character.
+`#Stamina` is your character's current stamina; [`#MaxStam`](/variables/maxstam/) is the most it can have.
 
-:::note
-This variable will not work unless the character status bar is open. You can use [Event Macro 8 2](/commands/event/macro/) to open it from your script.
-:::
+It is read from your character's status, which the client only has once the status window has been opened.
+If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2`.
 
 ## Example
 
 ```euo
-msg My stamina is #stamina
-halt
+if #Stamina < 10
+  wait 5s
 ```

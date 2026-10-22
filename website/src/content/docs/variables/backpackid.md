@@ -1,20 +1,24 @@
 ---
 title: "#BackpackID"
-description: "Displays the ID of your player's backPack (Inventory)."
+description: "ID of your character’s backpack."
 kind: variable
 category: character
 access: ro
 type: id
 needsClient: true
+related: ["#CharID", "FindItem", "exevent DropC"]
+aliases: ["backpack", "inventory"]
 source: wiki
 ---
 
-The #backpackId variable contains the id of the current characters main backpack.
+`#BackpackID` is the ID of your character's main backpack. Use it to search the backpack with
+[`finditem`](/commands/finditem/) or to drop things into it with [`exevent DropC`](/commands/exevent/dropc/).
+
+It reads `N/A` while the client does not know the backpack yet, for example right after logging in.
 
 ## Example
 
 ```euo
-findItem * C_ , #backpackId
-display ok there are #findCnt items in your backpack.
-halt
+finditem * C_ , #BackpackID
+display ok There are #FindCnt items in your backpack.
 ```

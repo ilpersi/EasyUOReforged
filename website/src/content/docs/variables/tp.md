@@ -1,23 +1,24 @@
 ---
 title: "#TP"
-description: "Returns the Tithing Points of the character."
+description: "Your character’s tithing points."
 kind: variable
 category: status
 access: ro
 type: number
 needsClient: true
+related: ["#Mana"]
+aliases: ["tithing points"]
 source: wiki
 ---
 
-The #TP system variable determines the Tithing Points Available to the character.
+`#TP` is your character's tithing points, used by Chivalry spells.
 
-:::note
-This variable will not work unless the character status bar is open. You can use [Event Macro 8 2](/commands/event/macro/) to open it from your script.
-:::
+It is read from your character's status, which the client only has once the status window has been opened.
+If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2`. It also needs a client with the
+extended status of Age of Shadows and later; on older clients it reads `N/A`.
 
 ## Example
 
 ```euo
-msg My Tithing Points are currently #TP$
-halt
+event SysMessage I have #TP tithing points
 ```

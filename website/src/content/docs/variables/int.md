@@ -1,23 +1,23 @@
 ---
 title: "#Int"
-description: "Returns the intelligence of the character."
+description: "Your character’s intelligence."
 kind: variable
 category: status
 access: ro
 type: number
 needsClient: true
+related: ["#Str", "#Dex", "#MaxStats"]
+aliases: ["intelligence"]
 source: wiki
 ---
 
-The #int system variable determines the intelligence of the character.
+`#Int` is your character's intelligence.
 
-:::note
-This variable will not work unless the character status bar is open. You can use [Event Macro 8 2](/commands/event/macro/) to open it from your script.
-:::
+It is read from your character's status, which the client only has once the status window has been opened.
+If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2`.
 
 ## Example
 
 ```euo
-msg My intelligence is #INT $
-halt
+event SysMessage My intelligence is #Int
 ```

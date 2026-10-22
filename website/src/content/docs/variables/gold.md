@@ -1,25 +1,24 @@
 ---
 title: "#Gold"
-description: "Returns the amount of gold on the character."
+description: "Gold your character carries, as the status window shows it."
 kind: variable
 category: status
 access: ro
 type: number
 needsClient: true
+related: ["#Weight", "FindItem"]
+aliases: ["money"]
 source: wiki
 ---
 
-The #gold system variable determines the amount of gold on the character.
+`#Gold` is the amount of gold your character carries, as shown in the status window.
 
-:::note
-This variable will not work unless the character status bar is open. You can use [Event Macro 8 2](/commands/event/macro/) to open it from your script.
-:::
+It is read from your character's status, which the client only has once the status window has been opened.
+If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2`.
 
 ## Example
 
 ```euo
-...
-if #gold < 1000
-gosub gotoBank
-...
+if #Gold < 1000
+  gosub gotobank
 ```

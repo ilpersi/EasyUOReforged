@@ -1,23 +1,24 @@
 ---
 title: "#Hits"
-description: "Returns the current number of hitpoints of the character."
+description: "Your character’s current hit points."
 kind: variable
 category: status
 access: ro
 type: number
 needsClient: true
+related: ["#MaxHits", "#Stamina", "#Mana"]
+aliases: ["health", "hp", "hit points"]
 source: wiki
 ---
 
-The #hits system variable determines the current number of hitpoints of the character.
+`#Hits` is your character's current hit points; [`#MaxHits`](/variables/maxhits/) is the most it can have.
 
-:::note
-This variable will not work unless the character status bar is open. You can use [Event Macro 8 2](/commands/event/macro/) to open it from your script.
-:::
+It is read from your character's status, which the client only has once the status window has been opened.
+If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2`.
 
 ## Example
 
 ```euo
-msg I have #HITS hitpoints $
-halt
+if #Hits < #MaxHits / 2
+  gosub heal
 ```

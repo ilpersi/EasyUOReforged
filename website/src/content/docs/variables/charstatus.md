@@ -1,39 +1,37 @@
 ---
 title: "#CharStatus"
-description: "Returns different states that the character can be in."
+description: "Letters for your character’s states: poisoned, hidden, war mode and more."
 kind: variable
 category: character
 access: ro
 type: string
 needsClient: true
+related: ["#CharGhost", "event Macro"]
+aliases: ["poisoned", "hidden", "war mode", "status flags"]
 source: wiki
 ---
 
-Determines different states that the character can be in.
+`#CharStatus` is a short string of letters, one for each state your character is in, or empty when none
+applies. Test a letter with `in`:
 
-| Value | Description |
-|----|----|
-| C | Character is poisoned. |
-| H | Character is hidden. |
-| B | Character is female. |
-| G | Character is in war mode. |
-| D | Character is affected with lethal strike. |
-| A | Character is frozen (actively casting a spell / Waiting for transport after using help-menu) . |
+| Letter | State |
+|---|---|
+| `A` | Frozen: paralysed, casting a spell, or waiting after using the help menu. |
+| `B` | Female. |
+| `C` | Poisoned. |
+| `D` | Affected by lethal strike. |
+| `G` | War mode. |
+| `H` | Hidden. |
 
-Table of #charStatus values
+The letters come from the client's status flags, one letter per flag (`A` for the first, `B` for the second,
+and so on), so other letters can appear for flags not listed here. They are in reverse order: war mode and
+female read `GB`.
 
 ## Example
 
 ```euo
-...
-if C in #charStatus
-{
-    gosub cureMe
-}
-
-...
-
-sub cureMe
-    ...
-    return
+if C in #CharStatus
+  gosub cureme
+if H notin #CharStatus
+  event macro 13 21          ; use Hiding
 ```

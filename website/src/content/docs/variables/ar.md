@@ -1,23 +1,23 @@
 ---
 title: "#AR"
-description: "Returns the Armor Rating of the character."
+description: "Your character’s physical resistance (armour rating before Age of Shadows)."
 kind: variable
 category: status
 access: ro
 type: number
 needsClient: true
+related: ["#FR", "#CR", "#PR", "#ER"]
+aliases: ["armor", "armour", "physical resist"]
 source: wiki
 ---
 
-The #AR system variable determines the Armor Rating (Physical Resistance with AoS system) of the character.
+`#AR` is your character's physical resistance; on shards without the Age of Shadows resistances, its armour rating.
 
-:::note
-This variable will not work unless the character status bar is open. You can use [Event Macro 8 2](/commands/event/macro/) to open it from your script.
-:::
+It is read from your character's status, which the client only has once the status window has been opened.
+If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2`.
 
 ## Example
 
 ```euo
-msg My Physical Resist is #AR $
-halt
+event SysMessage My physical resist is #AR
 ```

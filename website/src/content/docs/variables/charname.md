@@ -1,23 +1,23 @@
 ---
 title: "#CharName"
-description: "Returns the name of the character."
+description: "Your character’s name."
 kind: variable
 category: status
 access: ro
 type: string
 needsClient: true
+related: ["#CharID", "#Shard"]
+aliases: ["name", "character name"]
 source: wiki
 ---
 
-The #charName system variable contains the name of the character.
+`#CharName` is your character's name. Unlike most string variables, its spaces stay spaces.
 
-:::note
-This variable will not work unless the character status bar is open. You can use [Event Macro 8 2](/commands/event/macro/) to open it from your script.
-:::
+It is read from your character's status, which the client only has once the status window has been opened.
+If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2`.
 
 ## Example
 
 ```euo
-msg My name is #CHARNAME $
-halt
+event SysMessage My name is #CharName
 ```

@@ -1,22 +1,22 @@
 ---
 title: "#CharPosY"
-description: "Returns the characters world Y-coordinate."
+description: "Your character’s Y position in the world (north–south)."
 kind: variable
 category: character
 access: ro
 type: number
 needsClient: true
+related: ["#CharPosX", "#CharPosZ", "event PathFind", "Move"]
+aliases: ["position", "coordinates", "location"]
 source: wiki
 ---
 
-Determines the characters world Y-coordinate.The #charPosY system variable determines the characters world Y-coordinate. It is the same coordinate system as used in UO Auto Map.
+`#CharPosY` is your character's Y coordinate in the world, the north–south position, in the
+same coordinates as map tools such as UO Auto Map use. [`#CharPosZ`](/variables/charposz/) is the height.
 
 ## Example
 
 ```euo
-if #charPosY = 328
-{
-  event SysMessage Y marks the spot!
-  pause
-}
+if #CharPosY = 4515
+  event SysMessage X marks the spot!
 ```

@@ -1,25 +1,24 @@
 ---
 title: "#MaxStam"
-description: "Returns the maximum stamina level or the character."
+description: "The most stamina your character can have."
 kind: variable
 category: status
 access: ro
 type: number
 needsClient: true
+related: ["#Stamina"]
+aliases: ["max stamina"]
 source: wiki
 ---
 
-The #maxStam system variable determines the maximum stamina level of the character.
+`#MaxStam` is the most stamina your character can have.
 
-:::note
-This variable will not work unless the character status bar is open. You can use [Event Macro 8 2](/commands/event/macro/) to open it from your script.
-:::
+It is read from your character's status, which the client only has once the status window has been opened.
+If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2`.
 
 ## Example
 
 ```euo
-...
-if #stamina < #maxStam
-  gosub drinkRefresh
-...
+if #Stamina = #MaxStam
+  gosub run
 ```

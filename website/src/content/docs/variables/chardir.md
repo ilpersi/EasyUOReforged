@@ -1,35 +1,28 @@
 ---
 title: "#CharDir"
-description: "Returns the direction the character is facing."
+description: "Direction your character is facing, 0 (north) to 7."
 kind: variable
 category: character
 access: ro
 type: number
 needsClient: true
+related: ["#CharPosX", "Move"]
+aliases: ["direction", "facing"]
 source: wiki
 ---
 
-The #charDir system variable determines the direction the character is facing.
+`#CharDir` is the direction your character is facing:
 
-| Value | Facing     |
-|-------|------------|
-| 0     | North      |
-| 1     | North East |
-| 2     | East       |
-| 3     | South East |
-| 4     | South      |
-| 5     | South West |
-| 6     | West       |
-| 7     | North West |
-
-Table of #charDir values
+| Value | Facing | Value | Facing |
+|---|---|---|---|
+| 0 | North | 4 | South |
+| 1 | North-east | 5 | South-west |
+| 2 | East | 6 | West |
+| 3 | South-east | 7 | North-west |
 
 ## Example
 
 ```euo
-top:
-if #CHARDIR = 0
-    msg : Looking North $
-wait 2s
-goto top
+if #CharDir = 0
+  event SysMessage Looking north.
 ```

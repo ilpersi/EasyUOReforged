@@ -1,22 +1,22 @@
 ---
 title: "#CharPosZ"
-description: "Returns the characters world Z-coordinate."
+description: "Your character’s height (Z coordinate)."
 kind: variable
 category: character
 access: ro
 type: number
 needsClient: true
+related: ["#CharPosX", "#CharPosY"]
+aliases: ["height", "altitude"]
 source: wiki
 ---
 
-Determines the characters world Z-coordinate (Height). The #charPosZ system variable determines the characters world Z-coordinate. It is the same coordinate system as used in UO Auto Map.
+`#CharPosZ` is your character's height in the world, the Z coordinate. Ground level is usually around 0;
+upper floors and hills are higher.
 
 ## Example
 
 ```euo
-if #charPosZ = 35
-{
-  event SysMessage Climb that mountain!
-  pause
-}
+if #CharPosZ > 20
+  event SysMessage You are upstairs.
 ```

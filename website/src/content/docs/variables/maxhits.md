@@ -1,23 +1,24 @@
 ---
 title: "#MaxHits"
-description: "Returns the maximum number of hitpoints of the character."
+description: "The most hit points your character can have."
 kind: variable
 category: status
 access: ro
 type: number
 needsClient: true
+related: ["#Hits"]
+aliases: ["max health", "max hp"]
 source: wiki
 ---
 
-The #maxHits system variable determines the maximum number of hitpoints of the character.
+`#MaxHits` is the most hit points your character can have.
 
-:::note
-This variable will not work unless the character status bar is open. You can use [Event Macro 8 2](/commands/event/macro/) to open it from your script.
-:::
+It is read from your character's status, which the client only has once the status window has been opened.
+If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2`.
 
 ## Example
 
 ```euo
-msg I can have total of #MAXHITS hitpoints $
-halt
+if #Hits < #MaxHits
+  gosub heal
 ```

@@ -1,25 +1,26 @@
 ---
 title: "#MaxWeight"
-description: "Returns the maximum weight of the character."
+description: "Most weight your character can carry, calculated from strength: 3.5 × Str + 40."
 kind: variable
 category: status
 access: ro
 type: number
 needsClient: true
+related: ["#Weight", "#Str"]
+aliases: ["max weight", "carry capacity"]
 source: wiki
 ---
 
-The #maxWeight system variable determines the maximum weight of the character.
+`#MaxWeight` is the most weight your character can carry, in stones. EasyUO calculates it from your strength
+with the classic formula, 3.5 × [`#Str`](/variables/str/) + 40. Shards that use another rule (racial bonuses,
+for example) show a different maximum in the status window.
 
-:::note
-This variable will not work unless the character status bar is open. You can use [Event Macro 8 2](/commands/event/macro/) to open it from your script.
-:::
+It is read from your character's status, which the client only has once the status window has been opened.
+If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2`.
 
 ## Example
 
 ```euo
-...
-if #weight > #maxWeight
-   display ok You are over weight!
-...
+if #Weight > #MaxWeight
+  display ok You are overweight!
 ```

@@ -1,23 +1,24 @@
 ---
 title: "#Sex"
-description: "Returns the sex of the character."
+description: "Your character’s sex: 0 male, 1 female."
 kind: variable
 category: status
 access: ro
 type: number
 needsClient: true
+related: ["#CharStatus", "#CharType"]
+aliases: ["gender"]
 source: wiki
 ---
 
-The #sex system variable determines the sex of the character.
+`#Sex` is `0` when your character is male and `1` when female.
 
-| Value | Description         |
-|:-----:|---------------------|
-|   0   | Character is Male   |
-|   1   | Character is Female |
+It is read from your character's status, which the client only has once the status window has been opened.
+If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2`.
 
-#sex System Variable Values
+## Example
 
-:::note
-This variable will not work unless the character status bar is open. You can use [Event Macro 8 2](/commands/event/macro/) to open it from your script.
-:::
+```euo
+if #Sex = 1
+  event SysMessage Lady #CharName
+```

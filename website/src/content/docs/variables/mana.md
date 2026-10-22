@@ -1,23 +1,24 @@
 ---
 title: "#Mana"
-description: "Returns the current mana pool for the character."
+description: "Your character’s current mana."
 kind: variable
 category: status
 access: ro
 type: number
 needsClient: true
+related: ["#MaxMana", "#Hits"]
+aliases: ["mana points"]
 source: wiki
 ---
 
-The #mana system variable determines the current mana pool for the character.
+`#Mana` is your character's current mana; [`#MaxMana`](/variables/maxmana/) is the most it can have.
 
-:::note
-This variable will not work unless the character status bar is open. You can use [Event Macro 8 2](/commands/event/macro/) to open it from your script.
-:::
+It is read from your character's status, which the client only has once the status window has been opened.
+If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2`.
 
 ## Example
 
 ```euo
-msg I have #MANA mana in my pool $
-halt
+if #Mana < 20
+  gosub meditate
 ```
