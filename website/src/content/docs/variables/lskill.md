@@ -1,37 +1,29 @@
 ---
 title: "#LSkill"
-description: "Returns the skill last used."
+description: "Number of the last skill used; set it, then event Macro 14 uses that skill."
 kind: variable
 category: lastaction
 access: rw
 type: number
 needsClient: true
+related: ["event Macro", "ChooseSkill", "#LSpell"]
+aliases: ["last skill", "use skill"]
 source: wiki
 ---
 
-The #lSkill system variable determines the skill last used. You can also write to this variable and use it in conjuction with "event Macro 14" (LastSkill), which will perform the skill as if you clicked the blue diamond in the skill list.
+`#LSkill` is the number of the skill you used last. Set it and run [`event Macro 14`](/commands/event/macro/)
+(*Last Skill*) to use a skill, as if you had clicked its button in the skills list.
 
-| Skill Number | Skill name              | \+**Use Skills** |
-|--------------|-------------------------|------------------|
-| 1            | Anatomy                 |                  |
-| 2            | Animal Lore             |                  |
-| 35           | Animal Taming           |                  |
-| 4            | Arms Lore               |                  |
-| 6            | Begging                 |                  |
-| 12           | Cartography             |                  |
-| 14           | Detecting Hidden        |                  |
-| 15           | Discordance             |                  |
-| 16           | Evaluating Intelligence |                  |
-| 19           | Forensic Evaluation     |                  |
-| 21           | Hiding                  |                  |
-| 23           | Inscription             |                  |
-| 3            | Item Identification     |                  |
-| 46           | Meditation              |                  |
-| 9            | Peacemaking             |                  |
-| 30           | Poisoning               |                  |
-| 22           | Provocation             |                  |
-| 48           | Remove Trap             |                  |
-| 32           | Stealing                |                  |
-| 47           | Stealth                 |                  |
-| 36           | Taste Identification    |                  |
-| 38           | Tracking                |                  |
+The numbers are listed under [Use Skills](/commands/event/macro/#use-skills) on the `event Macro` page; they are
+the same numbers that skill uses everywhere, for example Hiding is `21`, Meditation `46`, Spirit Speak `32`.
+
+The value lives in the client, not in the script: setting it changes it for every script attached to that
+client, and the client changes it too as you play. Save the old value and put it back if other scripts may
+rely on it.
+
+## Example
+
+```euo
+set #LSkill 21               ; Hiding
+event Macro 14 0
+```

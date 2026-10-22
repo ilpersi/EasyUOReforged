@@ -1,12 +1,15 @@
 ---
 title: "#LObjectType"
-description: "Returns the type of the last used object."
+description: "Type of the last object used."
 kind: variable
 category: lastaction
 access: ro
 type: id
 needsClient: true
+related: ["#LObjectID"]
+aliases: ["last object type"]
 source: wiki
 ---
 
-The #lObjectType system variable determines the type of the last used object.
+`#LObjectType` is the item type of the object you used last, in the same form as
+[`#FindType`](/variables/findtype/).

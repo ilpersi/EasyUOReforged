@@ -1,29 +1,28 @@
 ---
 title: "#ContKind"
-description: "Returns the kind of the currently selected container/gump."
+description: "Kind of the gump on top, as a code; tells crafting menus, runebooks and more apart."
 kind: variable
 category: container
 access: ro
 type: id
 needsClient: true
+related: ["#ContName", "IgnoreCont"]
+aliases: ["gump kind"]
 source: wiki
 ---
 
-The #contKind system variable determines the kind of the currently selected container/gump. Most menus have a kind attached to them. The can be utilized to find out if a crafting menu is open, if something is being dragged, if a runebook is open and many other things.
+`#ContKind` is a short code for the kind of the gump on top. Most gumps have one, so it tells whether a
+crafting menu, a runebook or something else is open. Like all `#Cont…` variables, it describes the gump on top: the one opened, clicked or moved last. Gumps on the
+[`IgnoreCont`](/commands/ignorecont/) list are skipped.
 
-:::note
-This variable can change every time a new patch is released for the client, and EasyUO is updated. Good scripting standards dictate that you use variables in top of your script for #contKind's. In this way #contKind values can easily be updated when the client is patched.
-:::
-
-:::note
-EasyUO currently only holds information in the #cont\* on the "top most" gump. This means that the last gump that was opened or moved in any way is what EUO is reporting.
-:::
+The codes can change when the client is updated. Keep them in variables at the top of your script, so they
+are easy to change. [`IgnoreCont`](/commands/ignorecont/) accepts a `#ContKind` value to skip that kind of
+gump.
 
 ## Example
 
 ```euo
-...
-if #contKind <> %craftMenuKind
-     gosub useNewTool
-...
+set %craftmenu GHCE          ; the crafting menu's #ContKind on your client
+if #ContKind <> %craftmenu
+  gosub usetool
 ```

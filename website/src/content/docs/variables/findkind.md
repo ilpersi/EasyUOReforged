@@ -1,31 +1,31 @@
 ---
 title: "#FindKind"
-description: "Returns the kind of the object returned by findItem."
+description: "Where the object FindItem selected is: 0 in a container, 1 on the ground, -1 not found."
 kind: variable
 category: finditem
 access: ro
 type: number
 needsClient: true
+related: ["#FindCnt", "#FindX", "#FindBagID"]
+aliases: ["ground or container"]
 source: wiki
 ---
 
-The #findKind system variable contains the kind of the object returned by [findItem](/commands/finditem/).
+`#FindKind` tells where the object is. It describes the object [`FindItem`](/commands/finditem/) selected, at the current
+[`#FindIndex`](/variables/findindex/).
 
-| Value | Description               |
-|-------|---------------------------|
-| -1    | No objects found.         |
-| 0     | Object is in a container. |
-| 1     | Object is on the ground.  |
+| Value | Meaning |
+|---|---|
+| `-1` | Nothing was found. |
+| `0` | In a container. |
+| `1` | On the ground. |
 
-:::note
-1.  Findkind is not the preferred method to check whether an item was found or not because it is harder for humans to debug. Please use [#FINDCNT](/variables/findcnt/) instead, whenever possible.
-:::
+To test whether something was found, [`#FindCnt`](/variables/findcnt/) is clearer to read.
 
 ## Example
 
 ```euo
-if #findkind = -1
-{
-event sysmessage item not found.
-}
+finditem POF
+if #FindKind = 1
+  event SysMessage There is gold on the ground.
 ```

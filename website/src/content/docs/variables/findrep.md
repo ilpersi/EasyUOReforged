@@ -1,33 +1,33 @@
 ---
 title: "#FindRep"
-description: "Returns the reputation of the object returned by findItem."
+description: "Notoriety of the character FindItem selected: 1 innocent to 7 invulnerable."
 kind: variable
 category: finditem
 access: ro
 type: number
 needsClient: true
+related: ["FindItem", "#EnemyID"]
+aliases: ["notoriety", "reputation", "name colour"]
 source: wiki
 ---
 
-The #findRep system variable contains the reputation of the object returned by [findItem](/commands/finditem/).
+`#FindRep` is the notoriety (name colour) of the character. It describes the object [`FindItem`](/commands/finditem/) selected, at the current
+[`#FindIndex`](/variables/findindex/).
 
-| Value | Description           |
-|-------|-----------------------|
-| 1     | Innocent (Blue)       |
-| 2     | Friend (Green)        |
-| 3     | Grey (Grey - Animal)  |
-| 4     | Criminal (Grey)       |
-| 5     | Enemy (Orange)        |
-| 6     | Murderer (Red)        |
-| 7     | Invulnerable (Yellow) |
+| Value | Notoriety |
+|---|---|
+| 1 | Innocent (blue) |
+| 2 | Friend, ally (green) |
+| 3 | Attackable without penalty, such as animals (grey) |
+| 4 | Criminal (grey) |
+| 5 | Enemy (orange) |
+| 6 | Murderer (red) |
+| 7 | Invulnerable (yellow) |
 
 ## Example
 
 ```euo
 finditem HS_IS G_10
-
-if #findrep = 1
-   display ok The item found is (blue) Innocent
-
-halt
+if #FindRep = 6
+  display ok A murderer is near!
 ```

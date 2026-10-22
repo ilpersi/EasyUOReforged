@@ -1,33 +1,32 @@
 ---
 title: "#LTargetID"
-description: "Returns the id of the last target used."
+description: "ID of the last object targeted; set it, then event Macro 22 targets that object."
 kind: variable
 category: lastaction
 access: rw
 type: id
 needsClient: true
+related: ["#LTargetKind", "#LObjectID", "Target", "event Macro"]
+aliases: ["last target", "target object"]
 source: wiki
 ---
 
-The #lTargetID system variable determines the id of the last target used. You can also write to this variable and use it in conjuction with "event Macro 22" (LastTarget), which will target the object as if it was clicked with the mouse.
+`#LTargetID` is the ID of the object you targeted last. To target any object from a script: wait for the
+target cursor, set `#LTargetID` and [`#LTargetKind`](/variables/ltargetkind/) `1`, then run
+[`event Macro 22`](/commands/event/macro/) (*Last Target*).
 
-:::note
-[#lTargetKind](/variables/ltargetkind/) must be set to 2 or 3 for event Macro 22 to use the target position.
-:::
+The value lives in the client, not in the script: setting it changes it for every script attached to that
+client, and the client changes it too as you play. Save the old value and put it back if other scripts may
+rely on it.
 
 ## Example
 
 ```euo
-; use the dagger
-set #lObjectID %dagger
-event Macro 17
-
-; wait for target cursor
+; carve a corpse with a dagger
+set #LObjectID %dagger
+event Macro 17 0
 target 5s
-
-; carve the hides from the corpse
-set #lTargetID %cowCorpse
-set #lTargetKind 1 ; make sure it targets an object
-event Macro 22
-...
+set #LTargetID %corpse
+set #LTargetKind 1
+event Macro 22 0
 ```

@@ -1,37 +1,23 @@
 ---
 title: "#FindCnt"
-description: "Returns the number of objects that matches what was searched for with the findItem command."
+description: "How many objects the last FindItem found."
 kind: variable
 category: finditem
 access: ro
 type: number
 needsClient: true
+related: ["FindItem", "#FindIndex", "#FindKind"]
+aliases: ["find count", "how many"]
 source: wiki
 ---
 
-The #findCnt system variable contains the number of objects that matches what was searched for with the [findItem](/commands/finditem/) command.
+`#FindCnt` is the number of objects the last [`FindItem`](/commands/finditem/) found; `0` means none. It is the
+way to check whether a search found anything, and the upper bound for [`#FindIndex`](/variables/findindex/).
 
 ## Example
 
 ```euo
-....
-loop:
-finditem %housesign G_5
-if #findcnt < 1
-{
-gosub placement
-}
-goto loop
-....
-
-finditem * C_ , #BACKPACKID
-if #FINDCNT > 0
-{
- display ok There are #FINDCNT items in your backpack!
-}
-if #FINDCNT < 1
-{
- display ok No items were found in your backpack!
-}
-halt
+finditem * C_ , #BackpackID
+if #FindCnt > 0
+  display ok There are #FindCnt items in your backpack.
 ```

@@ -1,19 +1,24 @@
 ---
 title: "#LLiftedKind"
-description: "Returns if an object is being dragged/lifted."
+description: "1 while something hangs on the cursor, 0 otherwise."
 kind: variable
 category: lastaction
 access: ro
 type: number
 needsClient: true
+related: ["#LLiftedID", "event Drag"]
+aliases: ["holding", "on cursor"]
 source: wiki
 ---
 
-The #lLiftedKind system variable determines if an object is being dragged/lifted. The possible values of this variable are included in the table below.
+`#LLiftedKind` is `1` while an object hangs on the cursor (picked up and not dropped yet) and `0` otherwise.
+[`event Drag`](/commands/event/drag/) does nothing while it is `1`.
 
-| Value | Description                    |
-|-------|--------------------------------|
-| 0     | An object is not on the cursor |
-| 1     | An object is on the cursor     |
+## Example
 
-#lLiftedKind values
+```euo
+event Drag %item
+wait 10
+if #LLiftedKind = 0
+  event SysMessage The pick-up failed.
+```

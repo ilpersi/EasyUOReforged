@@ -1,14 +1,15 @@
 ---
 title: "#FindZ"
-description: "Returns the z-coordinate of the object returned by findItem."
+description: "Height of the object FindItem selected."
 kind: variable
 category: finditem
 access: ro
 type: number
 needsClient: true
+related: ["#FindX", "#FindY"]
+aliases: ["item height"]
 source: wiki
 ---
 
-The #findZ system variable contains the z-coordinate of the object returned by [findItem](/commands/finditem/). If [#findKind](/variables/findkind/) equals 0, the coordinate is a screen coordinate, if [#findKind](/variables/findkind/) equals 1, the coordinate is a world coordinate.
-
-## Example
+`#FindZ` is the height (Z position) of the object, for an object on the ground. It describes the object [`FindItem`](/commands/finditem/) selected, at the current
+[`#FindIndex`](/variables/findindex/).

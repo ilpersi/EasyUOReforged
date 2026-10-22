@@ -1,24 +1,24 @@
 ---
 title: "#FindType"
-description: "Returns the type of the object returned by findItem."
+description: "Type of the object FindItem selected."
 kind: variable
 category: finditem
 access: ro
 type: id
 needsClient: true
+related: ["#FindID", "FindItem"]
+aliases: ["item type"]
 source: wiki
 ---
 
-The #findType system variable contains the type of the object returned by [findItem](/commands/finditem/).
+`#FindType` is the item type of the object, the 2–3 letter code shared by all items of the same kind (`POF`
+for gold). It describes the object [`FindItem`](/commands/finditem/) selected, at the current
+[`#FindIndex`](/variables/findindex/). It reads `X` when nothing was found.
 
 ## Example
 
 ```euo
-finditem * C_ , #BACKPACKID
-for #FINDINDEX 1 #FINDCNT
-{
- event sysmessage Found item, the type of that item is #FINDTYPE
- wait 20
-}
-halt
+finditem * C_ , #BackpackID
+for #FindIndex 1 #FindCnt
+  event SysMessage #FindID is of type #FindType
 ```

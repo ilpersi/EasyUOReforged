@@ -1,22 +1,15 @@
 ---
 title: "#LLiftedType"
-description: "Returns the type of the object last dragged/lifted."
+description: "Type of the object last picked up (dragged)."
 kind: variable
 category: lastaction
 access: ro
 type: id
 needsClient: true
+related: ["#LLiftedID", "#LLiftedKind"]
+aliases: ["dragged item type"]
 source: wiki
 ---
 
-The #lLiftedType system variable determines the type of the object last dragged/lifted.
-
-## Example
-
-```euo
-finditem JTL
-event Drag #findID
-wait 20
-msg The type of the item you lifted is #lLiftedType $
-halt
-```
+`#LLiftedType` is the item type of the object you picked up last, in the same form as
+[`#FindType`](/variables/findtype/).

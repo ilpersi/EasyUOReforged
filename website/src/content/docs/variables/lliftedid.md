@@ -1,22 +1,24 @@
 ---
 title: "#LLiftedID"
-description: "Returns the id of the object last dragged/lifted."
+description: "ID of the object last picked up (dragged)."
 kind: variable
 category: lastaction
 access: ro
 type: id
 needsClient: true
+related: ["#LLiftedKind", "#LLiftedType", "event Drag"]
+aliases: ["dragged item"]
 source: wiki
 ---
 
-The #lLiftedID system variable determines the id of the object last dragged/lifted.
+`#LLiftedID` is the ID of the object you picked up (dragged) last, with the mouse or with
+[`event Drag`](/commands/event/drag/). [`#LLiftedKind`](/variables/lliftedkind/) tells whether it is still on
+the cursor.
 
 ## Example
 
 ```euo
-finditem JTL
-event Drag #findID
+event Drag %item
 wait 20
-msg The ID of the item you lifted is #lLiftedID $
-halt
+event SysMessage You picked up #LLiftedID
 ```

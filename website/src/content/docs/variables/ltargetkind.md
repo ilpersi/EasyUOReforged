@@ -1,60 +1,41 @@
 ---
 title: "#LTargetKind"
-description: "Returns the kind of what was last targeted."
+description: "What the last target was: 1 object, 2 ground, 3 resource such as a tree or water."
 kind: variable
 category: lastaction
 access: rw
 type: number
 needsClient: true
+related: ["#LTargetID", "#LTargetX", "#LTargetTile", "event Macro"]
+aliases: ["target kind"]
 source: wiki
 ---
 
-The #LTargetKind system variable determines the class of object that was last targeted. The possible values of this variable are listed in the table below.
+`#LTargetKind` is what kind of thing was targeted last, and what [`event Macro 22`](/commands/event/macro/)
+(*Last Target*) will target:
 
-| Setting | Object Class           |
-|---------|------------------------|
-| 1       | Object                 |
-| 2       | Ground,Mountains,Caves |
-| 3       | Resource: Tree,Water   |
+| Value | Target | Uses |
+|---|---|---|
+| `1` | An object | [`#LTargetID`](/variables/ltargetid/) |
+| `2` | The ground, mountains, caves | [`#LTargetX`](/variables/ltargetx/), [`#LTargetY`](/variables/ltargety/), [`#LTargetZ`](/variables/ltargetz/) |
+| `3` | A resource on the map: tree, water | The position, and [`#LTargetTile`](/variables/ltargettile/) |
 
-LTargetKind Values
+**Set it every time before `event Macro 22`.** Leaving it as it was is one of the most common causes of
+targeting going wrong now and then.
 
-:::note
-Not setting #LTargetKind (usually to 1) is by far one of the most common mistakes made when scripting. Simply put, every time that you use Event Macro 22 you must *always* make sure #LTargetKind is set properly or you will most likely have sporadic targeting problems.
-:::
+The value lives in the client, not in the script: setting it changes it for every script attached to that
+client, and the client changes it too as you play. Save the old value and put it back if other scripts may
+rely on it.
 
-## Object Example
-
-```euo
-; use the dagger
-set #LObjectID %dagger
-event Macro 17
-
-; wait for target cursor
-target 5s
-
-; carve the hides from the corpse
-set #LTargetID %cowCorpse
-set #LTargetKind 1 ; make sure it targets an object
-event Macro 22
-...
-```
-
-## World Position Example
+## Example
 
 ```euo
-; use the shovel
-set #LObjectID %shovel
-event Macro 17
-
-; wait for target cursor
+; teleport to a spot on the ground
+event Macro 15 21            ; cast Teleport
 target 5s
-
-; mine a spot
 set #LTargetX 1000
 set #LTargetY 1000
-set #LTargetZ -1
-set #LTargetKind 3
-event Macro 22
-...
+set #LTargetZ 0
+set #LTargetKind 2
+event Macro 22 0
 ```

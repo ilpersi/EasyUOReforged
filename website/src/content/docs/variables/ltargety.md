@@ -1,35 +1,20 @@
 ---
 title: "#LTargetY"
-description: "Returns the world y-coordinate of the last target used."
+description: "World Y position of the last target; used when targeting the ground or a resource."
 kind: variable
 category: lastaction
 access: rw
 type: number
 needsClient: true
+related: ["#LTargetKind", "#LTargetX", "#LTargetTile"]
+aliases: ["target position"]
 source: wiki
 ---
 
-The #lTargetY system variable determines the world y-coordinate of the last target used.
+`#LTargetY` is the world Y position of the spot you targeted last. With [`#LTargetKind`](/variables/ltargetkind/)
+`2` or `3`, [`event Macro 22`](/commands/event/macro/) targets the position in `#LTargetX`, `#LTargetY` and
+`#LTargetZ`. See `#LTargetKind` for an example.
 
-:::note
-[#lTargetKind](/variables/ltargetkind/) must be set to 2 or 3 for event Macro 22 to use the target position.
-:::
-
-## Example
-
-```euo
-; use the shovel
-set #lObjectID %shovel
-event Macro 17
-
-; wait for target cursor
-target 5s
-
-; mine a spot
-set #lTargetX 1000
-set #lTargetY 1000
-set #lTargetZ -1
-set #lTargetKind 3
-event Macro 22
-...
-```
+The value lives in the client, not in the script: setting it changes it for every script attached to that
+client, and the client changes it too as you play. Save the old value and put it back if other scripts may
+rely on it.

@@ -1,27 +1,23 @@
 ---
 title: "#FindBagID"
-description: "Returns the bag the object returned by findItem is contained in."
+description: "ID of the container holding the object FindItem selected."
 kind: variable
 category: finditem
 access: ro
 type: id
 needsClient: true
+related: ["#FindKind", "#ContID"]
+aliases: ["container", "bag"]
 source: wiki
 ---
 
-The #findBagID system variable contains the bagID the object returned by [findItem](/commands/finditem/) is contained in.
+`#FindBagID` is the ID of the container the object is in. It describes the object [`FindItem`](/commands/finditem/) selected, at the current
+[`#FindIndex`](/variables/findindex/). It reads `X` for objects on the ground.
 
 ## Example
 
 ```euo
 finditem POF C
-if #FINDCNT > 0
-{
-    display ok I found a stack of gold in a bag, the ID of the bag I found it in is #FINDBAGID
-}
-if #FINDCNT < 1
-{
-    display ok I could not find any gold in open containers.
-}
-halt
+if #FindCnt > 0
+  display ok Gold found in container #FindBagID
 ```

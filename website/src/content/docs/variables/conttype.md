@@ -1,25 +1,23 @@
 ---
 title: "#ContType"
-description: "Returns the object type of the currently selected container/gump."
+description: "Type of the item a container gump on top belongs to."
 kind: variable
 category: container
 access: ro
 type: id
 needsClient: true
+related: ["#ContID", "#FindType"]
+aliases: ["container type"]
 source: wiki
 ---
 
-The #contType system variable determines the object type of the currently selected container/gump.
-
-:::note
-EasyUO currently only holds information in the #cont\* on the "top most" gump. This means that the last gump that was opened or moved in any way is what EUO is reporting.
-:::
+`#ContType` is the item type of the container the gump on top belongs to, in the same form as
+[`#FindType`](/variables/findtype/). It reads `YC` for a gump that belongs to no item. Like all `#Cont…` variables, it describes the gump on top: the one opened, clicked or moved last. Gumps on the
+[`IgnoreCont`](/commands/ignorecont/) list are skipped.
 
 ## Example
 
 ```euo
-....
-if #contType <> %trashbarreltype
-       gosub opentrash
-....
+if #ContType <> %trashbarrel
+  gosub opentrash
 ```

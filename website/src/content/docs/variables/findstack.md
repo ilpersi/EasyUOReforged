@@ -1,27 +1,24 @@
 ---
 title: "#FindStack"
-description: "Returns the number of stacked items in the object returned by findItem."
+description: "Number of items in the stack FindItem selected; 0 for characters."
 kind: variable
 category: finditem
 access: ro
 type: number
 needsClient: true
+related: ["#FindID", "exevent Drag"]
+aliases: ["amount", "stack size"]
 source: wiki
 ---
 
-The #findStack system variable contains the number of stacked items in the object returned by [findItem](/commands/finditem/).
+`#FindStack` is the number of items in the stack. It describes the object [`FindItem`](/commands/finditem/) selected, at the current
+[`#FindIndex`](/variables/findindex/). Characters (mobiles) read `0`, which is a quick way to
+tell them from items.
 
 ## Example
 
 ```euo
-finditem POF C_ , #BACKPACKID
-if #FINDCNT > 0
-{
-    display ok I found a stack of gold and there are #FINDSTACK gold pieces in it.
-}
-if #FINDCNT < 1
-{
-    display ok No gold was found in backpack.
-}
-halt
+finditem POF C_ , #BackpackID
+if #FindCnt > 0
+  display ok That pile holds #FindStack gold.
 ```

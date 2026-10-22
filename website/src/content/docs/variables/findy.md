@@ -1,26 +1,28 @@
 ---
 title: "#FindY"
-description: "Returns the y-coordinate of the object returned by findItem."
+description: "Y position of the object FindItem selected: world position on the ground, screen position in a container."
 kind: variable
 category: finditem
 access: ro
 type: number
 needsClient: true
+related: ["#FindX", "#FindZ", "#FindKind", "#FindMod"]
+aliases: ["item position"]
 source: wiki
 ---
 
-The #findY system variable contains the y-coordinate of the object returned by [findItem](/commands/finditem/). If [#findKind](/variables/findkind/) equals 0, the coordinate is a screen coordinate, if [#findKind](/variables/findkind/) equals 1, the coordinate is a world coordinate.
+`#FindY` is the Y position of the object. It describes the object [`FindItem`](/commands/finditem/) selected, at the current
+[`#FindIndex`](/variables/findindex/).
+
+- For an object **on the ground** ([`#FindKind`](/variables/findkind/) `1`), it is a world position, like
+  [`#CharPosY`](/variables/charposy/).
+- For an object **in a container** (`#FindKind` `0`), it is its position on screen inside the container, where
+  you would click it. [`#FindMod`](/variables/findmod/) is added to it.
 
 ## Example
 
 ```euo
-....
-loop:
-finditem %target
-if #CHARPOSX <> #findx || #CHARPOSY <> #findy
-{
-move #findx #findy 0 0
-goto loop
-}
-....
+finditem %target G_10
+if #FindCnt > 0
+  event PathFind #FindX #FindY #FindZ
 ```

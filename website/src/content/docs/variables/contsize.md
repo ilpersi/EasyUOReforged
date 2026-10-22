@@ -1,25 +1,24 @@
 ---
 title: "#ContSize"
-description: "Returns the size of the currently selected container/gump."
+description: "Width and height of the gump on top, as width_height."
 kind: variable
 category: container
 access: ro
 type: string
 needsClient: true
+related: ["#ContSizeX", "#ContSizeY", "#ContName"]
+aliases: ["gump size"]
 source: wiki
 ---
 
-The [#contSize](/variables/contsize/) system variable determines the size of the currently selected container/gump. The format is as follows: "{Width}\_{Height}".
-
-:::note
-EasyUO currently only holds information in the #cont\* on the "top most" gump. This means that the last gump that was opened or moved in any way is what EUO is reporting.
-:::
+`#ContSize` is the size of the gump on top, in pixels, written `width_height`, for example `230_204`. The
+size often tells gumps apart that share a name. [`#ContSizeX`](/variables/contsizex/) and
+[`#ContSizeY`](/variables/contsizey/) give the two numbers separately. Like all `#Cont…` variables, it describes the gump on top: the one opened, clicked or moved last. Gumps on the
+[`IgnoreCont`](/commands/ignorecont/) list are skipped.
 
 ## Example
 
 ```euo
-if #contSize = 101_101 ;if the front container/gump's size is 101 101
-{
-.....
-}
+if #ContSize = 230_204
+  gosub handlebank
 ```

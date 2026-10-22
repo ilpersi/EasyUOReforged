@@ -1,27 +1,24 @@
 ---
 title: "#FindCol"
-description: "Returns the color of the object returned by findItem."
+description: "Colour (hue) of the object FindItem selected."
 kind: variable
 category: finditem
 access: ro
 type: number
 needsClient: true
+related: ["FindItem", "#FindType"]
+aliases: ["colour", "color", "hue"]
 source: wiki
 ---
 
-The #findCol system variable contains the color of the object returned by [findItem](/commands/finditem/).
+`#FindCol` is the colour (hue) number of the object. It describes the object [`FindItem`](/commands/finditem/) selected, at the current
+[`#FindIndex`](/variables/findindex/). `0` is the item's normal colour. It tells apart items
+of the same type that differ only in colour, such as dyed cloth or coloured ore.
 
 ## Example
 
 ```euo
-finditem POF C_ , #BACKPACKID
-if #FINDCNT > 0
-{
-    display ok I found a stack of gold, the color value of it is #FINDCOL
-}
-if #FINDCNT < 1
-{
-    display ok No gold was found.
-}
-halt
+finditem %ore C_ , #BackpackID
+if #FindCol = 0
+  event SysMessage Plain iron ore.
 ```
