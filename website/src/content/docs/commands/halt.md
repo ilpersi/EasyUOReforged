@@ -4,15 +4,19 @@ description: "Stops the script."
 kind: command
 category: flow
 syntax: "halt"
-related: ["stop"]
+related: ["stop", "pause", "exit"]
 source: wiki
 ---
 
-The *halt* command ends the execution of the script. The script cannot be restarted. This command does exactly the same as [stop](/commands/stop/).
+`halt` stops the script. Unlike [`pause`](/commands/pause/), it cannot be resumed: pressing Play starts the
+script again from the first line. [`stop`](/commands/stop/) does exactly the same.
+
+A main script that reaches its last line without `halt` starts over from the top, as with
+[`exit`](/commands/exit/).
 
 ## Example
 
 ```euo
-if #findcnt < %amountNeeded
-    halt
+if #FindCnt < %amountNeeded
+  halt
 ```

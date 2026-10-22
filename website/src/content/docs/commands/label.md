@@ -1,25 +1,24 @@
 ---
 title: "Label"
-description: "This is a marked spot for a goto command."
+description: "Marks a line that goto can jump to."
 kind: command
 category: flow
-syntax: "label"
+syntax: "{name}:"
 related: ["goto"]
+aliases: ["labels", "jump target"]
 source: wiki
 ---
 
-This is a marked spot for a [goto](/commands/goto/) command. The label is created by using a word (not a command) and suffixing it with a colon.
-
-## Example 1
-
-```euo
-mylabel:
-```
-
-## Example 2
+A label is a word followed by a colon, on a line of its own. [`goto`](/commands/goto/) jumps to the line
+after it.
 
 ```euo
 mainloop:
-   gosub dostuff
+  gosub dostuff
 goto mainloop
 ```
+
+- **Names:** case does not matter, and `goto` can leave out the colon: `goto mainloop`.
+- **Nothing else on the line** except a comment (`mainloop: ; main loop`). The label line itself runs
+  nothing, so a command written after the label on the same line is ignored.
+- **Duplicate names** are allowed, but `goto` takes the nearest one. See [`goto`](/commands/goto/).

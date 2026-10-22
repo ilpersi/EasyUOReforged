@@ -1,95 +1,106 @@
 ---
 title: "If"
-description: "Executes code based on the evaluation of an expression."
+description: "Runs a line or a block only when a condition is true."
 kind: command
 category: flow
-syntax: "if ( ! ) ( expression ) ( lines | { } )\n:''or''\nif ( ! ) ( expression ) ( lines | { } ) else ( lines | { } )"
-related: ["else"]
+syntax: "if {condition}\nif {condition} {lines}"
+related: ["else", "while", "#True", "#False"]
 source: wiki
 ---
 
-The `if` construct is one of the most important features of many languages, the EasyUO scripting language included. It allows for conditional execution of code fragments.
+`if` runs the line or block after it only when the condition is true; otherwise the script skips it. An
+[`else`](/commands/else/) after it runs instead when the condition is false.
 
-As described in the section about [expressions](/language/expressions/), `expression` is evaluated to its boolean value. If it evaluates to [true](/variables/true/), the next statement will be executed. If `else` is present and the expression evaluates to [false](/variables/false/), then the statement after `else` will be executed instead.
+## Parameters
 
-If `%a > %b` evaluates to [true](/variables/true/) in the following code fragment, it will display *"a is bigger than b"*; if it evaluates to [false](/variables/false/), *"a is equal or less than b"* will be displayed instead:
+| Parameter | Meaning |
+|---|---|
+| `condition` | An [expression](/language/expressions/), such as `%a > %b` or `#FindCnt = 0`. |
+| `lines` | Optional. Without a block, how many of the following lines belong to the `if`. Default: 1. |
+
+## When is it true?
+
+The condition is true only when it evaluates to [`#true`](/variables/true/), which is `-1`. Comparisons
+(`=`, `<`, `in`, …) produce `-1` or `0`, and `&&`, `||` and `!` combine those as expected.
+A plain value is **not** turned into true or false: `if 1` and `if yes` are both false, and `if %flag` is
+true only when `%flag` holds `#true`. See [`#True` and `#False`](/guides/true-and-false/).
+
+## One line, a block, or a number of lines
+
+Without a block, the `if` controls only the next line:
 
 ```euo
 set %a 100
 set %b #random
 if %a > %b
-    display ok a is bigger than b
+  display ok a is bigger than b
 else
-    display ok a is equal or less than b
+  display ok a is equal to or less than b
 halt
 ```
 
-Often you would want to have more than one statement executed conditionally. Of course, there is no need to wrap each statement in an if clause. Instead, you have two options. You can group several statements into a statement group or you can specify how many lines after the if statement are to be evaluated. For example, if `%a > %b` evaluates to [true](/variables/true/) in the following fragment, it would display *"a is bigger than b"* and would then assign the value of `%a` into `%b`; if it evaluates to [false](/variables/false/), *"b is equal or bigger than a"* would be displayed and the value of `%b` assigned into `%a` instead:
+To control several lines, put them in a block:
 
 ```euo
-set %a 100
-set %b #random
 if %a > %b
 {
-    display ok a is bigger than b
-    set %b %a
+  display ok a is bigger than b
+  set %b %a
 }
 else
 {
-    display ok b is equal or bigger than a
-    set %a %b
+  display ok b is equal to or bigger than a
+  set %a %b
 }
-halt
 ```
 
-OR
+A block is a `{` line, the lines to run, and a matching `}` line. The `{` has to be **the very next line**:
+a blank line or a comment in between means only that line belongs to the command, and the block after it
+runs every time. Braces go on lines of their own.
+
+The older form gives the number of lines instead of a block. Every script line counts, blank lines and
+comments included:
 
 ```euo
-set %a 100
-set %b #random
 if %a > %b 2
-
-    display ok a is bigger than b
-    set %b %a
+  display ok a is bigger than b
+  set %b %a
 else 2
-    display ok b is equal or bigger than a
-    set %a %b
-halt
+  display ok b is equal to or bigger than a
+  set %a %b
 ```
 
-The ! right after the command is a reversal of the expression which is following.
+## Negating a condition
+
+`!` reverses only the value **right after it**, before any comparison is made. So `if ! %var = world` does
+not mean "if `%var` is not `world`": it compares `! %var` with `world`, which is never equal. Use `<>`, or
+put the condition in parentheses:
 
 ```euo
 set %var hello
-if %var = world
-    display ok This shouldnt be displayed.
 if %var <> world
-    display ok This should be displayed because hello is another (<>) than world.
+  display ok shown: hello is not world
+if ! ( %var = world )
+  display ok shown as well
 if ! %var = world
-    display ok this should be displayed because hello is not equal world.
-stop
+  display ok never shown
+halt
 ```
 
-## Nesting Conditional Statements
+## Nesting
 
-`if` statements can be nested indefinitely within other `if` or `else` statements, which provides you with complete flexibility for conditional execution of the various parts of your script.
+`if` and `else` can be nested to any depth:
 
 ```euo
 set %a #random % 3 + 1
 if %a = 1
-{
   display ok One
-}
 else
 {
   if %a = 2
-  {
     display ok Two
-  }
   else
-  {
     display ok Three
-  }
 }
 halt
 ```

@@ -1,40 +1,47 @@
 ---
 title: "Exit"
-description: "Exits a called script."
+description: "Ends a called script, or starts the main script over from the top."
 kind: command
 category: flow
 syntax: "exit"
-related: ["call"]
+related: ["call", "halt", "return"]
 source: wiki
 ---
 
-*exit* will stop the execution of the current script. If it's called from inside a script that was called using [call](/commands/call/) it will resume execution from the line under the [call](/commands/call/) statement. If the *exit* is used from the main script, the script will start over.
+`exit` ends the script it is in:
+
+- **In a script started with [`call`](/commands/call/)**, the calling script goes on with the line after
+  its `call`.
+- **In the main script**, the script **starts over from the first line**. It does not stop: use
+  [`halt`](/commands/halt/) for that. Variables keep their values.
+
+Reaching the last line of a script does the same as `exit`. That is why a main script that should run once
+ends with `halt`, and why a script without one runs again and again.
 
 ## Example
 
 ```euo
 event macro 1 0 %pet %command
 if %pet = all
-    exit
+  exit                       ; back to the top of the script
 event macro 1 0 %pet follow me
 ```
 
-EDIT on 23 jan 2008: As you can see, when calling a file (with the call command), there is no possibility to return a value with exit as you would do when returning from a subroutine.
+## Returning a value from a called script
 
-Here's a way to get around this "problem":
-
-calling file
+`exit` cannot return a value the way [`return`](/commands/return/) does from a sub. Set a variable
+instead; called scripts share their variables with the script that called them.
 
 ```euo
+; main script
 set %a 0
-call a.txt ;You may need to ajust the path here
+call a.euo
 display ok a = %a
 halt
 ```
 
-called file (a.txt)
-
 ```euo
-set %a Hello,_I_am_the_variable_%a_set_in_a.txt
+; a.euo
+set %a set_by_a.euo
 exit
 ```

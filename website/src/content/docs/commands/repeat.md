@@ -1,27 +1,39 @@
 ---
 title: "Repeat … Until"
-description: "Creates a loop that checks condition after execution."
+description: "Repeats lines until a condition is true, testing it after each round."
 kind: command
 category: flow
-syntax: "repeat { } until ( expression )"
-aliases: ["repeat", "until", "repeat until"]
+syntax: "repeat\n...\nuntil {condition}"
+related: ["while", "for", "break", "continue"]
+aliases: ["repeat", "until", "repeat until", "do while"]
 source: wiki
 ---
 
-The *repeat..until* control structure executes the code block between the statements, and then evaluates the expression. This will make it so that [repeat..until](/commands/repeat/) loops will always execute the code within the loop at least once. This command differs from the [while](/commands/while/) command because the expression is evaluated prior to the code inside the code block, where [while](/commands/while/) evaluates the expression after executing it's code block.
+`repeat` and `until` repeat the lines between them. After each round the condition of `until` is tested:
+when it is true the loop ends, otherwise it starts again from `repeat`. The lines therefore always run at
+least once, unlike a [`while`](/commands/while/) loop, which tests its condition before the first round.
+
+The condition is true only when it evaluates to [`#true`](/variables/true/), which is `-1`. Comparisons
+(`=`, `<`, `in`, …) produce `-1` or `0`, and `&&`, `||` and `!` combine those as expected.
+A plain value is **not** turned into true or false: `if 1` and `if yes` are both false, and `if %flag` is
+true only when `%flag` holds `#true`. See [`#True` and `#False`](/guides/true-and-false/).
+
+Braces between `repeat` and `until` are optional; they only make the loop easier to read. Loops can be
+nested: each `until` belongs to the nearest `repeat` before it that is not already taken.
+
+Leave the loop early with [`break`](/commands/break/), or skip to the test with
+[`continue`](/commands/continue/).
 
 ## Example
 
 ```euo
 set %str Hello , #spc , World
 repeat
-{
   set %str %str , !
   str len %str
-}
-until #strres >= 30
+until #StrRes >= 30
 display ok %str
 halt
 ```
 
-The example above illustrates the difference between a repeat..until loop and a while loop. the exclamation point will always be concatinated to the end of the %str variable, and str len will be executed once before the test for #strRes \>= 30 is first evaluated.
+The `!` is added and `str len` runs once before `#StrRes >= 30` is tested for the first time.

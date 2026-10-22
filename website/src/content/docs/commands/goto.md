@@ -1,35 +1,48 @@
 ---
 title: "Goto"
-description: "Jumps to another part of the script given by a label."
+description: "Jumps to a label; the nearest label with that name wins."
 kind: command
 category: flow
 syntax: "goto {label}"
-related: ["label"]
+related: ["label", "gosub", "sub"]
 source: wiki
 ---
 
-The *goto* command moves the execution to another part of the script. The destination point is given by a [label](/commands/label/).
+`goto` makes the script go on at the line after a [label](/commands/label/).
 
-:::note
-- Don't goto out of a [sub](/commands/sub/). Always use [return](/commands/return/)! EasyUO will probably not crash but it is VERY bad programming style.
-- A label in the code must be followed by a colon, where as gotoing to the label does **not** require a following colon.
-- Inline comments do not work with labels in EasyUO 1.4.
+## Parameters
+
+| Parameter | Meaning |
+|---|---|
+| `label` | Name of the label, with or without the trailing `:`. Case does not matter. |
+
+## Which label
+
+`goto` looks for the label starting from its own line, one line further each step, **forward and backward
+at the same time**, and takes the first match. At equal distance the forward one wins. So if a label name is
+used twice, the nearest one is chosen, not the first one in the script.
+
+When no label matches, nothing happens and the script goes on with the next line.
+
+:::caution
+Don't `goto` out of a [`sub`](/commands/sub/): use [`return`](/commands/return/). A sub left with `goto`
+stays open, and enough of them fill up the `gosub` stack.
 :::
 
-## Example
+## Examples
 
 ```euo
 loop:
-if %donotloop
-    goto exit
+  if %done
+    goto finished
+  gosub work
 goto loop
 
-exit:
+finished:
+halt
 ```
 
-## Simulating a Switch Statement
-
-Switch structures (like seen in C/C++) can be simulated in EasyUO using the goto statement:
+A `switch` built from labels. The comma glues `case` and the number into one label name:
 
 ```euo
 set %a #random % 3 + 1
@@ -37,16 +50,12 @@ goto case , %a
 
 case1:
   display ok One
-  goto case_exit
-
+  goto case_end
 case2:
   display ok Two
-  goto case_exit
-
+  goto case_end
 case3:
   display ok Three
-  goto case_exit
-
-case_exit:
+case_end:
 halt
 ```

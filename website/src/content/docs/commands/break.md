@@ -1,27 +1,28 @@
 ---
 title: "Break"
-description: "Jumps to first statement outside of loop."
+description: "Leaves the loop it is in and goes on after the loop."
 kind: command
 category: flow
-syntax: "Break"
+syntax: "break"
+related: ["continue", "for", "while", "repeat"]
 source: wiki
 ---
 
-*break* can be used to immediately exit any loop structure.
+`break` leaves the [`for`](/commands/for/), [`while`](/commands/while/) or
+[`repeat … until`](/commands/repeat/) loop it is in. The script goes on with the line after the loop.
+
+Only the innermost loop is left. A `break` outside any loop does nothing.
 
 ## Example
 
 ```euo
-set %Test 1
-while %Test < 10
+set %test 1
+while %test < 10
 {
-;Code between these brackets, gets executed, while %Test is smaller than 10
-;When its 10, it wont jump back to first bracket.
-if %Test = 7
-   break
-set %Test %Test + 1
+  if %test = 7
+    break
+  set %test %test + 1
 }
-display ok %Test $
+display ok %test     ; shows 7
 halt
-;%Test will hold the value of 7, notice how we break out from the loop when %Test is 7.
 ```

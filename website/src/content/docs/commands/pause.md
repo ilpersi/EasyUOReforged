@@ -1,31 +1,25 @@
 ---
 title: "Pause"
-description: "Temporarily stops the execution of the current script."
+description: "Pauses the script until Play is pressed."
 kind: command
 category: flow
 syntax: "pause"
+related: ["halt", "stop"]
 source: wiki
 ---
 
-The *pause* command will stop execution of the current script, but it can be resumed by pressing the "Play" button.
+`pause` pauses the script. Pressing Play goes on with the line after it, with every variable as it was.
+Use [`halt`](/commands/halt/) to stop the script instead.
 
-## Example 1
+While a script is paused, the variable inspector shows the current values, which makes `pause` a simple
+breakpoint. EasyUO Reforged also has real breakpoints: see [Editing and debugging](/guide/debugging/).
 
-```euo
-onhotkey F12
-{
-    display ok The script is currently paused. press the EasyUO play button to restart.
-    pause
-}
-```
-
-## Example 2
+## Example
 
 ```euo
 sub somesub
-   ; If we are debugging, pause script execution here to check current variables...
-   if %debug
-      pause
-   set %something %1
+  if %debug = #true
+    pause                ; check the variables here
+  set %something %1
 return %something
 ```

@@ -1,33 +1,35 @@
 ---
 title: "Call"
-description: "Transfers execution to another script file."
+description: "Runs another script file, then comes back when it exits."
 kind: command
 category: flow
 syntax: "call {file} [parameter...]"
+related: ["exit", "gosub", "#CurPath"]
+aliases: ["include", "run script"]
 source: wiki
 ---
 
-*call* command will transfer execution to another script. It will run the script until it meets the [exit](/commands/exit/) command or the end of the file.
+`call` runs another script file. When that script reaches [`exit`](/commands/exit/) or its last line, the
+calling script goes on with the line after the `call`.
 
-:::note
-Right now EasyUO doesn't really support strings. Therefore, CALL won't work if the path to a file contains any spaces. Use the DOS short filename syntax to get around this problem.
+## Parameters
 
-wrong: C:\My Documents\blabla.txt
+| Parameter | Meaning |
+|---|---|
+| `file` | The script to run. A relative path starts from [`#CurPath`](/variables/curpath/), the folder of `EasyUOReforged.exe`. When the file is not found as written, `.txt` and then `.euo` are added. |
+| `parameter` | Optional values passed to the script. In it, `%1`, `%2`, … hold them and `%0` holds how many there are, as with [`gosub`](/commands/gosub/). |
 
-correct: C:\MyDocu~1\blabla.txt
-:::
+## Details
+
+- **File not found:** nothing happens and the script goes on with the next line.
+- **Variables are shared** between the two scripts. A called script cannot return a value, so set a
+  variable; see [`exit`](/commands/exit/) for an example.
+- **Spaces in the path:** a space separates parameters, so `C:\My Scripts\a.euo` is read as two words.
+  Glue the parts together with commas and `#spc`: `call C:\My , #spc , Scripts\a.euo`.
 
 ## Example
 
 ```euo
-call subs.txt recall %runebookid %runenum
+call subs.euo recall %runebookid %runenum
 halt
 ```
-
-Note: call arguments handling work exactly the same as goSub command. Thus, %0 will hold the number of parameters passed, %1 will hold the first argument passed value and so on. See [exit command](/commands/exit/) page for more infos.
-
-EDIT on 23 jan 2008: For those who know nothing about MS-DOS shortcut thing, here's a way to get around it when using paths containing spaces(Tested on Windows Vista):
-
-Wrong: C:\My Documents\file.txt
-
-Correct: C:\My , #spc , Documents\file.txt (tested on Windows Vista, compatibility with older systems isn't guaranteed)

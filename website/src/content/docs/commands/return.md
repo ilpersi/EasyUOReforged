@@ -1,28 +1,33 @@
 ---
 title: "Return"
-description: "Returns from a sub."
+description: "Ends a sub and goes back to the line after its gosub, optionally with a value."
 kind: command
 category: flow
-syntax: "return { expression }"
-related: ["gosub", "sub"]
+syntax: "return [value]"
+related: ["gosub", "sub", "#Result"]
 source: wiki
 ---
 
-The *return* command transfers the execution back to where the [sub](/commands/sub/) was called using [gosub](/commands/gosub/).
+`return` ends the [`sub`](/commands/sub/) it is in. The script goes on with the line after the
+[`gosub`](/commands/gosub/) that called it.
 
-providing a variable or expression to *return* will put the given value into the [result](/variables/result/) system variable.
+## Parameters
+
+| Parameter | Meaning |
+|---|---|
+| `value` | Optional. A value or [expression](/language/expressions/) to put in [`#Result`](/variables/result/). Without it, `#Result` reads `N/A`. |
+
+A `return` that is not inside a sub called with `gosub` does nothing at all, and leaves `#Result` as it was.
 
 ## Example
 
 ```euo
-gosub makeLowerCase #charname
-event macro 1 0 my name is #result
+gosub lowercase #CharName
+event sysmessage My name is #Result
 halt
 
-;The following sub takes the first parameter
-;makes it lowercase, and then returns the
-;lowercase version.
-sub makeLowerCase
-    str lower %1
-return #strRes    ; the lowercase version of %1 is now stored in #result and control is returned to the main script.
+; returns its first parameter in lower case
+sub lowercase
+  str lower %1
+return #StrRes
 ```

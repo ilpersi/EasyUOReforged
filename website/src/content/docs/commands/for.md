@@ -1,28 +1,50 @@
 ---
 title: "For"
-description: "Creates a counting loop."
+description: "Repeats a line or block while a variable counts from one number to another."
 kind: command
 category: flow
-syntax: "for {variable} {start} {end} { }"
-related: ["continue"]
+syntax: "for {variable} {start} {end}"
+related: ["while", "repeat", "break", "continue", "#FindIndex"]
 source: wiki
 ---
 
-The for command controls a loop that iterates a variable over a range of numbers. Both positive and negative iterations are legal.
+`for` runs the line or block after it once for each value of `variable`, counting from `start` to `end`.
+It counts up when `start` is smaller than `end` and down when it is larger.
 
-The variable is assigned the starting number to begin with. After each iteration it either increments or decrements the variable, until it reaches the ending number.
+## Parameters
 
-:::note
-In EasyUO 1.4, you *must* use brackets, even if there is only a single line of code in a for loop. In EasyUO 1.5 however, brackets are optional when the for loop is only a single line of code.
-:::
+| Parameter | Meaning |
+|---|---|
+| `variable` | The counter. Any variable works, including system variables such as [`#FindIndex`](/variables/findindex/). |
+| `start` | First value, a whole number. |
+| `end` | Last value, a whole number. It is read once, when the loop starts: changing it inside the loop has no effect. |
 
-## Example
+A block is a `{` line, the lines to run, and a matching `}` line. The `{` has to be **the very next line**:
+a blank line or a comment in between means only that line belongs to the command, and the block after it
+runs every time. Braces go on lines of their own. Without a block, only the next line is repeated.
+
+Leave a loop early with [`break`](/commands/break/), or skip to the next value with
+[`continue`](/commands/continue/).
+
+## Examples
 
 ```euo
 for %i 1 20
 {
-    msg %i $
-    wait 10
+  event sysmessage %i
+  wait 10
 }
+halt
+```
+
+Counting down, and using a system variable as the counter:
+
+```euo
+for %i 10 1
+  event sysmessage %i
+
+finditem POF C_ , #BackpackID
+for #FindIndex 1 #FindCnt
+  event sysmessage #FindID holds #FindStack gold
 halt
 ```

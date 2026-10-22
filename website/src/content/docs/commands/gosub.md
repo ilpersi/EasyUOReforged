@@ -1,52 +1,56 @@
 ---
 title: "Gosub"
-description: "Transfers execution to the matching sub."
+description: "Runs a sub and comes back when it returns, optionally passing parameters."
 kind: command
 category: flow
-syntax: "gosub {sub name} {param1, param2, ...}"
-related: ["sub", "return"]
+syntax: "gosub {sub name} [parameter...]"
+related: ["sub", "return", "#Result", "call"]
 source: wiki
 ---
 
-The *gosub* command transfers the execution to a [sub](/commands/sub/) with the name given by the parameter.
+`gosub` runs the [`sub`](/commands/sub/) with the given name. When the sub reaches
+[`return`](/commands/return/), the script goes on with the line after the `gosub`.
 
-Parameters can be added after the sub name. They will be transfered in the variables %1, %2, and so on. The variable %0 holds the number of parameters passed.
+## Parameters
 
-:::note
-You must not jump out of a sub! Use return to properly terminate a sub routine. To prevent a stack overflow, EUO only supports 1000 consecutive GoSubs without returning. Remember this when using recursion! When the GoSub stack is about to get 1001 levels, the very first level in the bottom of the stack is deleted to make room.
-:::
+| Parameter | Meaning |
+|---|---|
+| `sub name` | Name of the sub. Case does not matter. |
+| `parameter` | Optional values passed to the sub. Inside it, `%1`, `%2`, … hold them and `%0` holds how many there are. |
 
-## Example 1
+## Details
+
+- **No sub with that name:** nothing happens and the script goes on with the next line.
+- **Several subs with the same name:** the last one in the script is used.
+- **Nesting:** about 1000 `gosub` calls can be open at once without returning. Beyond that the oldest one is
+  dropped, so recursion that deep loses track of where to come back to.
+- **Leave a sub with `return`**, never with [`goto`](/commands/goto/): every `gosub` that does not return
+  stays open.
+
+A sub can return a value in [`#Result`](/variables/result/): `return %value`.
+
+## Examples
 
 ```euo
-gosub s7IsGreaterThan CEO RK
-; %1 = CEO
-; %2 = RK
-; %0 = 2
-sub s7IsGreaterThan
-   display ok %1 && %2 even %0 , gether < una
+gosub greet Jim Bob
+halt
+
+sub greet
+  ; %0 = 2, %1 = Jim, %2 = Bob
+  display ok Hello %1 and %2
 return
 ```
 
-## Example 2
+Any number of parameters, walked with `%0`:
 
 ```euo
-; syntax =
-;   gosub {subName} [parameters...]
-
-gosub example_goSub These are the parameters
-
-sub example_goSub
-; %0 = 4
-; %1 = These
-; %2 = are
-; %3 = the
-; %4 = parameters
-set %message
-for %_cnt 1 %0
-{
-   set %message %message , % . %_cnt , #spc
-}
-display ok %message
+gosub joinwords These are the parameters
+display ok #Result
 halt
+
+sub joinwords
+  set %message
+  for %n 1 %0
+    set %message %message , % . %n , #spc
+return %message
 ```

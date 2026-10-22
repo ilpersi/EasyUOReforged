@@ -1,33 +1,27 @@
 ---
 title: "Continue"
-description: "Jumps execution of a loop to next iteration."
+description: "Skips the rest of the loop body and goes on with the next round of the loop."
 kind: command
 category: flow
 syntax: "continue"
-related: ["for"]
+related: ["break", "for", "while", "repeat"]
 source: wiki
 ---
 
-Continue stops execution of code inside of a loop. Control is returned at the point of the next evaluation.
+`continue` skips the rest of the body of the [`for`](/commands/for/), [`while`](/commands/while/) or
+[`repeat … until`](/commands/repeat/) loop it is in. The loop then goes on as if the body had ended: a
+`for` moves its counter to the next value, a `while` or an `until` tests its condition again.
+
+Only the innermost loop is affected. A `continue` outside any loop does nothing.
 
 ## Example
 
 ```euo
-gosub testrandom
-sub testrandom
+for %i 1 10
 {
-  for %cnt 1 10
-  {
-    if #random % 10 <> 5
-      continue
-    display ok Five has been found!
-    return
-  }
-  display ok Nothing could be found!
-  return
+  if %i % 2 = 1
+    continue                       ; skip the odd numbers
+  event sysmessage %i is even
 }
-display ok HALT!
 halt
 ```
-
-When random is something other than 5, the if sentence is true and therefore continue is executed. It jumps over the [display](/commands/display/) and [return](/commands/return/) commands and continues the [for](/commands/for/) loop with it's next iteration. In the case that the evaluation is false, execution proceeds to the statement following the loop structure.
