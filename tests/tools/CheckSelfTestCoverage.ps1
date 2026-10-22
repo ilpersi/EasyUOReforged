@@ -1,9 +1,9 @@
 # Checks that every #variable and every script command of the interpreter is mentioned by at least one
 # self-test script (tools\EUOSelfTest\EUOSelfTest.euo or tests\euo\all-commands-test.euo).
 #
-# Names come straight from parser\EuoInterpreter.pas (the VarNamesR / VarNamesRW arrays and the
-# CmdRegistry.Register(...) calls), so a variable or command added to the interpreter without a test case
-# makes this script - and run_tests.ps1, which calls it - fail.
+# Names come straight from parser\EuoInterpreter.pas (the VarNamesR / VarNamesRW arrays, the
+# CmdRegistry.Register(...) calls and the event / exevent types; see EuoNames.ps1), so a variable or command
+# added to the interpreter without a test case makes this script - and run_tests.ps1, which calls it - fail.
 #
 # A name counts as covered when it appears as a word in one of the self-test scripts (case-insensitive).
 # Names that cannot be exercised at all are listed in $NotTestable with the reason.
@@ -11,8 +11,8 @@
 # Usage:  pwsh ./tests/tools/CheckSelfTestCoverage.ps1
 
 $ErrorActionPreference = 'Stop'
-$Root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-$Interp = Join-Path $Root 'parser\EuoInterpreter.pas'
+. (Join-Path $PSScriptRoot 'EuoNames.ps1')
+$Root = $EuoRoot
 $Scripts = @(
   (Join-Path $Root 'tools\EUOSelfTest\EUOSelfTest.euo'),
   (Join-Path $Root 'tests\euo\all-commands-test.euo')
@@ -24,20 +24,13 @@ $NotTestable = @{
   'PlayCD'   = 'recognised, deliberately a no-op (see the interpreter header)'
 }
 
-$src = Get-Content $Interp -Raw
-
-function Get-Names([string]$text, [string]$arrayName) {
-  $m = [regex]::Match($text, "$arrayName\s*:\s*Array\[[^\]]*\]\s*of\s*String\s*=\s*\((.*?)\);", 'Singleline')
-  if (-not $m.Success) { throw "Could not find $arrayName in EuoInterpreter.pas" }
-  [regex]::Matches($m.Groups[1].Value, "'([^']+)'") | ForEach-Object { $_.Groups[1].Value }
-}
-
-$vars = @(Get-Names $src 'VarNamesR') + @(Get-Names $src 'VarNamesRW')
-$cmds = [regex]::Matches($src, "CmdRegistry\.Register\('([^']+)'") | ForEach-Object { $_.Groups[1].Value }
+$names = Get-EuoNames
+$vars = $names.Variables
+$cmds = $names.Commands
 
 # subcommands of the multi-purpose commands that scripts use constantly
-$events = 'Property','Drag','SysMessage','Macro','ContTop','StatBar','PathFind','Sleep','SkillLock','ExMsg'
-$exevents = 'Drag','DropC','DropG','DropPD','PopUp','RenamePet','SkillLock','StatLock'
+$events = $names.Events
+$exevents = $names.ExEvents
 
 $words = @{}
 foreach ($s in $Scripts) {

@@ -63,4 +63,8 @@ $TestExit = $LASTEXITCODE
 & (Join-Path $PSScriptRoot 'tools\CheckSelfTestCoverage.ps1')
 if ($LASTEXITCODE -ne 0) { $TestExit = $LASTEXITCODE }
 
+# ...and must have a page on the documentation site (website\src\content\docs)
+& (Join-Path $PSScriptRoot 'tools\CheckDocsCoverage.ps1')
+if ($LASTEXITCODE -ne 0) { $TestExit = $LASTEXITCODE }
+
 exit $TestExit
