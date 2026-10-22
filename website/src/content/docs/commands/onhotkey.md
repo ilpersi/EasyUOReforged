@@ -1,65 +1,46 @@
 ---
 title: "OnHotKey"
-description: "Performs a line of code if a specific key is pressed."
+description: "Runs a line or block only if a key is held down at that moment."
 kind: command
 category: client
-syntax: "onHotKey {key-specifier} {[alt] | [ctrl] | [shift]}"
-needsClient: true
+syntax: "onhotkey {key} [ctrl] [alt] [shift]"
+related: ["Key", "If"]
+aliases: ["hotkey", "key pressed"]
 source: wiki
 ---
 
-The onHotKey command performs the following line of code (brackets do NOT work) when a certain key is pressed. The key-specifier can either be A-Z, 0-9, F1-F12 and ESC, BACK, TAB, ENTER, PAUSE, CAPSLOCK, SPACE, PGDN, PGUP, END, HOME, LEFT, RIGHT, UP, DOWN, PRNSCR, INSERT, DELETE, NUMLOCK or SCROLLLOCK.
+`onhotkey` runs the next line or block only if the key is held down at the moment the line runs;
+otherwise it skips it, like an [`if`](/commands/if/).
 
-:::note
-The code is only executed when the parser passes it, if you want a key-press to perform a certain action you have to make a loop. See the example.
-:::
+## Parameters
 
-:::note
-This function is **NOT** client or focus specific. Be careful what you type when running a script with onhotkey, chatting on one client, or in a different application may cause your character to do things in game you do not intend.
-:::
+| Parameter | Meaning |
+|---|---|
+| `key` | The key: `A`–`Z`, `0`–`9`, `F1`–`F12`, `ESC`, `BACK`, `TAB`, `ENTER`, `PAUSE`, `CAPSLOCK`, `SPACE`, `PGUP`, `PGDN`,
+`END`, `HOME`, `LEFT`, `RIGHT`, `UP`, `DOWN`, `PRNSCR`, `INSERT`, `DELETE`, `NUMLOCK` and `SCROLLLOCK`. |
+| `ctrl`, `alt`, `shift` | Optional. These must be held as well. The match is exact: a modifier you did not list must **not** be held. |
 
-## Example
+As with `if`, a block's `{` has to be the very next line, and a number at the end of the line controls that
+many lines instead.
 
-```euo
-set #lpc 1000
-repeat
-  onhotkey a
-    gosub hotkey a
-  onhotkey b
-    gosub hotkey b
-  onhotkey c
-    gosub hotkey c
-  onhotkey d
-    gosub hotkey d
-  onhotkey e
-    gosub hotkey e
-  sleep 1
-until #false
+## Details
 
-sub hotkey
-{
-  event sysmessage %1
-  Loop:
-  sleep 1
-  onhotkey %1
-    goto Loop
-  return
-}
-```
+- The key is only checked when the line runs. To react to a key at any time, check it in a loop.
+- The check is for the whole computer, not for one client or window: typing in another program, or in
+  another client, triggers it too.
 
 ## Example
 
 ```euo
-set #lpc 1000
-desactive:
-  onhotkey t alt
-    goto active
-  onhotkey y alt
+set #LPC 1000
+loop:
+  onhotkey F1
+    gosub heal
+  onhotkey F2 ctrl
+  {
+    display ok Script stopped with Ctrl+F2.
     halt
-goto desactive
-
-active:
-    onhotkey r alt
-      goto desactive
-    goto active
+  }
+  sleep 10
+goto loop
 ```

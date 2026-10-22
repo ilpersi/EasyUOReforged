@@ -1,12 +1,22 @@
 ---
 title: "GetUOTitle"
-description: "Gets the text on the title bar of the client."
+description: "Puts the title of the client window in #StrRes."
 kind: command
 category: client
-syntax: "getUOTitle"
+syntax: "getuotitle"
 needsClient: true
-related: ["setuotitle"]
+sets: ["#StrRes"]
+related: ["SetUOTitle", "#CliTitle"]
+aliases: ["window title"]
 source: wiki
 ---
 
-The getUOTitle command retrieves the title of the UO client. The title is returned in the system variable [#strRes](/variables/strres/).
+`getuotitle` puts the title of the client window in [`#StrRes`](/variables/strres/).
+[`#CliTitle`](/variables/clititle/) holds the same text and can be read directly, without a command.
+
+## Example
+
+```euo
+getuotitle
+display ok The window is called #StrRes
+```

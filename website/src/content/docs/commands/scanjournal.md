@@ -1,40 +1,54 @@
 ---
 title: "ScanJournal"
-description: "Scans the users journal and stores the string for examination."
+description: "Reads one journal line into #Journal and #JColor."
 kind: command
 category: client
-syntax: "scanJournal {index}"
+syntax: "scanjournal [line]"
 needsClient: true
-related: ["deletejournal"]
+sets: ["#Journal", "#JColor"]
+related: ["DeleteJournal", "#JIndex", "#Journal", "#SysMsg"]
+aliases: ["journal", "read journal", "chat"]
+dll: GetJournal
 source: wiki
 ---
 
-The scanJournal command scans the users journal and puts the matching string into the [#journal](/variables/journal/) system variable. The system variable [#jColor](/variables/jcolor/) is updated with the line's color.
+`scanjournal` reads one line of the client's journal into [`#Journal`](/variables/journal/), and its colour
+into [`#JColor`](/variables/jcolor/).
 
-The *index* specifies which line in the journal to use. 1 is the bottom line, 2 is the second to the last line and so on. If the index is 1000 or over it is considered a [#jIndex](/variables/jindex/) value.
+## Parameters
 
-## Example
+| Parameter | Meaning |
+|---|---|
+| `line` | Optional. `1` (the default) is the newest line, `2` the one before, and so on, up to 100 lines back. A number above 500 is a [`#JIndex`](/variables/jindex/) value instead: the line with that running number. |
+
+`#Journal` reads `N/A` when the line does not exist, is too old, or was hidden by
+[`deletejournal`](/commands/deletejournal/). Like every string variable, its spaces read as `_`.
+
+## Examples
+
+Following `#JIndex` handles every new line exactly once, however many arrive between two checks:
 
 ```euo
-; example 1 (old way)
+set %next #JIndex + 1
+loop:
+  while %next <= #JIndex
+  {
+    scanjournal %next
+    if is_attacking_you in #Journal
+      event macro 1 0 Guards!
+    set %next %next + 1
+  }
+  wait 5
+goto loop
+```
 
-waitForAttack:
-scanjournal 1
-if is_attacking_you in #journal
-  msg guards $
-goto waitForAttack
+The older way only looks at the newest line, so it can miss lines that arrive together:
 
-; example 2 (new way) (won't skip lines like the old way will)
-
-set %jrnl #jindex
-while #true
-   {
-   if #jindex > %jrnl
-      {
-      set %jrnl %jrnl + 1
-      scanjournal %jrnl
-      if is_attacking_you in #journal
-         event macro 1 0 Guards
-      }
-   }
+```euo
+check:
+  scanjournal 1
+  if is_attacking_you in #Journal
+    msg guards$
+  wait 5
+goto check
 ```

@@ -1,24 +1,35 @@
 ---
 title: "SavePix"
-description: "Saves the color of a pixel in a specified location."
+description: "Reads the colour of a pixel into #PixCol and a numbered slot for cmppix."
 kind: command
 category: client
-syntax: "savePix {X-coordinate} {Y-coordinate} [number]"
+syntax: "savepix {x} {y} {slot} [colour]"
 needsClient: true
-related: ["cmppix"]
+sets: ["#PixCol"]
+related: ["CmpPix", "#PixCol"]
+aliases: ["pixel", "read pixel"]
+dll: GetPix
 source: wiki
 ---
 
-The savePix command saves the color value of the pixel given by the coordinate parameters into the memory slot given by the number parameter. saving the values into number parameter's is usefull when utilizing the [cmpPix](/commands/cmppix/) command. The last color read is also always saved to the [#pixCol](/variables/pixcol/) system variable.
+`savepix` reads the colour of the pixel at `x`, `y` in the client window. It stores it in
+[`#PixCol`](/variables/pixcol/) and in a numbered slot, together with the position, for
+[`cmppix`](/commands/cmppix/) to compare later.
 
-:::note
-the UO client **must** be top most in order for savepix and #pixcol to work
-:::
+## Parameters
+
+| Parameter | Meaning |
+|---|---|
+| `x`, `y` | Position in the client window. |
+| `slot` | Slot number, `0` to `1000`. |
+| `colour` | Optional. Store this colour instead of reading the screen; `#PixCol` is not changed. |
+
+Pixels are read from the screen, so the client window has to be visible, not covered by another window.
 
 ## Example
 
 ```euo
-; This will save the color on the screen where your cursor is into
-; the number 1 pixel slot to be used with the cmpPix command.
-savePix #cursorX #cursorY 1
+; remember the colour under the mouse in slot 1
+savepix #CursorX #CursorY 1
+display ok Colour #PixCol saved
 ```

@@ -1,29 +1,39 @@
 ---
 title: "Move"
-description: "Moves the character to a specified location."
+description: "Walks the character towards a position with the arrow keys; no pathfinding."
 kind: command
 category: client
-syntax: "move {X-Coordinate} {Y-Coordinate} [tolerance] [timeout]"
+syntax: "move {x} {y} [tolerance] [timeout]"
 needsClient: true
-related: ["event pathfind"]
+related: ["event PathFind", "#CharPosX", "#CharPosY"]
+aliases: ["walk", "go to"]
+dll: Move
 source: wiki
 ---
 
-The move command moves the character to a specified position. No pathfinding is done, so you should probably use [event PathFind](/commands/event/pathfind/) instead.
+`move` walks the character towards the world position `x`, `y` by pressing the movement keys, step by step
+in a straight line. It does **no pathfinding**: walls and obstacles stop it. [`event PathFind`](/commands/event/pathfind/)
+lets the client find a way around them.
 
-If unspecified, tolerance defaults to 2.
+## Parameters
 
-if unspecified, timeout defaults to 3s.
+| Parameter | Meaning |
+|---|---|
+| `x`, `y` | World position, as in [`#CharPosX`](/variables/charposx/) and [`#CharPosY`](/variables/charposy/). |
+| `tolerance` | Optional. How many tiles away counts as arrived. Default: 2. |
+| `timeout` | Optional. Give up after this long. A time is a number of **ticks** of 50 ms (`20` is one second), or a whole number of **seconds** followed by
+`s` (`5s`). |
 
-:::note
-Please note that if you are using UOAssist, you need to make sure these keys are not assigned to anything: Cursor Up, Cursor Down, Cursor Left, Cursor Right, Home, End, Page Up and Page Down. EasyUO uses these keys to move your character.
+Without a timeout, `move` keeps walking until it arrives, or until it notices it is stuck and stops trying.
+
+:::caution
+`move` uses the cursor keys, Home, End, Page Up and Page Down. If UOAssist or a similar tool has those keys
+assigned to something else, the character won't walk.
 :::
 
 ## Example
 
 ```euo
-; This will attempt to get within 2 tiles of location 1234 1234.
-; If it does not get there within 3 seconds it will give up.
-; The closest it will get is 2 tiles away, lower that arguement to get closer.
+; get within 2 tiles of 1234,1234, giving up after 3 seconds
 move 1234 1234 2 3s
 ```

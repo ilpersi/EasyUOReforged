@@ -1,24 +1,27 @@
 ---
 title: "Terminate"
-description: "Terminates the current client."
+description: "Closes the client, or the EasyUO Reforged window."
 kind: command
 category: client
-syntax: "terminate [{\"uo\"} | {\"euo\"}]"
-needsClient: true
-related: ["uoxl", "execute"]
+syntax: "terminate {uo|euo}"
+related: ["UOXL", "#CliCnt"]
+aliases: ["close client", "quit"]
+dll: CloseClient
 source: wiki
 ---
 
-The terminate command terminates the current client or the current EasyUO instance. If the current client is terminated the system variables #cliNr and #cliCnt are updated accordingly.
+`terminate` closes something:
 
-| uo (default) | Closes the current UO client |
+| Parameter | Effect |
 |---|---|
-| euo | Closes the current EasyUO instance |
+| `uo` | Closes the client the script drives, then waits one second. [`#CliCnt`](/variables/clicnt/) and [`#CliNr`](/variables/clinr/) change accordingly. |
+| `euo` | Closes the EasyUO Reforged window, as if you had closed it yourself. |
+
+Without a parameter, `terminate` does nothing.
 
 ## Example
 
 ```euo
-; This will cause the script containing this line to close and will NOT
-; automatically save your work!
-terminate euo
+if #CharGhost = yes
+  terminate uo
 ```

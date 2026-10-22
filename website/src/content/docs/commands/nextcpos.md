@@ -1,26 +1,29 @@
 ---
 title: "NextCPos"
-description: "Denotes where the next opened container/gump will open."
+description: "Sets where the next gump will open."
 kind: command
 category: client
-syntax: "nextCPos {X-coordinate} {Y-coordinate}"
+syntax: "nextcpos {x} {y}"
 needsClient: true
+related: ["ContPos", "#NextCPosX", "#NextCPosY"]
+aliases: ["gump position"]
 source: wiki
 ---
 
-The nextCPos sets the position where the next container/gump will open at.
+`nextcpos` sets the position, in the client window, where the next gump opens. It does the same as setting
+[`#NextCPosX`](/variables/nextcposx/) and [`#NextCPosY`](/variables/nextcposy/).
 
 :::note
-The "Offset interface windows rather than perfectly stacking them" option, in Interface options (Mouse Icon) must be turned on for this to work.
+It only works when the client option *Offset interface windows rather than perfectly stacking them*
+(interface options) is turned on.
 :::
 
 ## Example
 
 ```euo
-;Closes the paperdoll and reopens it at 0,0
+; close the paperdoll and open it again at 0,0
 event Macro 9 1
 wait 20
-nextCPos 0 0
+nextcpos 0 0
 event Macro 8 1
-halt
 ```

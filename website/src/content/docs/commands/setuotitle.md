@@ -1,23 +1,25 @@
 ---
 title: "SetUOTitle"
-description: "Sets the text on the title bar of the client."
+description: "Sets the title of the client window."
 kind: command
 category: client
-syntax: "setUOTitle {title}"
+syntax: "setuotitle {title}"
 needsClient: true
-related: ["getuotitle"]
+related: ["GetUOTitle", "#CliTitle"]
+aliases: ["window title", "rename window"]
 source: wiki
 ---
 
-The setUOTitle command changes the title bar on the client window.
+`setuotitle` changes the title of the client window, for example to tell several clients apart. Setting
+[`#CliTitle`](/variables/clititle/) does the same.
 
 :::note
-If you are using UOAssist or razor, you should turn off the "Use titlebar for display" option on the "Display" tab.
+UOAssist and Razor can write their own information in the title bar. Turn that option off ("Use titlebar
+for display") if they overwrite your title.
 :::
 
 ## Example
 
 ```euo
-; This will set the title of your UO Client window to Easy UO rox your sox!
-setUOTitle Easy UO rox your sox!
+setuotitle Mule - #CharName
 ```

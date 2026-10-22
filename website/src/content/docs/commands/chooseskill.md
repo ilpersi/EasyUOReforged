@@ -1,94 +1,75 @@
 ---
 title: "ChooseSkill"
-description: "Reads the current skill value/lock status for a specific skill."
+description: "Selects the skill that #Skill, #SkillCap and #SkillLock report."
 kind: command
 category: client
-syntax: "chooseSkill {skill name} [\"real\"]"
+syntax: "chooseskill {skill} [real]"
 needsClient: true
+sets: ["#Skill", "#SkillCap", "#SkillLock"]
+related: ["exevent SkillLock", "#Skill"]
+aliases: ["skill", "skill value", "skill level"]
+dll: GetSkill
 source: wiki
 ---
 
-:::note
-From EUO 1.5 Test version 53 and up [Event SkillLock](/commands/event/skilllock/) has been replaced by [Exevent SkillLock](/commands/exevent/skilllock/). For compatibility, the obsolete Event is internally rerouted to the ExEvent.
-:::
+`chooseskill` selects the skill that [`#Skill`](/variables/skill/), [`#SkillCap`](/variables/skillcap/) and
+[`#SkillLock`](/variables/skilllock/) describe. The variables are read from the client each time you use
+them, so they always show the current value; you do not need to run `chooseskill` again to refresh them.
 
-The chooseSkill command reads the skill value for the specified skill and places the value into the #skill system variable. The current lock status is placed in the #skillLock system variable and the current skill cap is placed in the #skillCap system variable.
+## Parameters
 
-The skill name is the first four characters of the actual skill name, with the exception of animal lore (ANIL) and stealth (STLT). See the list below for more info.
+| Parameter | Meaning |
+|---|---|
+| `skill` | The skill. Only the first four letters count, so `mage` and `magery` both work. See the table below. |
+| `real` | Optional. `#Skill` reports the base value, without bonuses from items and stats. |
+
+Skill values are in tenths: `700` is 70.0. `#SkillLock` is `up`, `down` or `locked`. An unknown name
+gives `0` everywhere.
+
+## Skill codes
+
+The code is the first four letters of the skill's name, with two exceptions: **Animal Lore** is `ANIL`
+(`ANIM` is Animal Taming) and **Stealth** is `STLT` (`STEA` is Stealing).
+
+| Code | Skill | Code | Skill |
+|---|---|---|---|
+| `ALCH` | Alchemy | `LUMB` | Lumberjacking |
+| `ANAT` | Anatomy | `MACE` | Mace Fighting |
+| `ANIL` | Animal Lore | `MAGE` | Magery |
+| `ANIM` | Animal Taming | `MEDI` | Meditation |
+| `ARCH` | Archery | `MINI` | Mining |
+| `ARMS` | Arms Lore | `MUSI` | Musicianship |
+| `BEGG` | Begging | `MYST` | Mysticism |
+| `BLAC` | Blacksmithy | `NECR` | Necromancy |
+| `BOWC` | Bowcraft / Fletching | `NINJ` | Ninjitsu |
+| `BUSH` | Bushido | `PARR` | Parrying |
+| `CAMP` | Camping | `PEAC` | Peacemaking |
+| `CARP` | Carpentry | `POIS` | Poisoning |
+| `CART` | Cartography | `PROV` | Provocation |
+| `CHIV` | Chivalry | `REMO` | Remove Trap |
+| `COOK` | Cooking | `RESI` | Resisting Spells |
+| `DETE` | Detecting Hidden | `SNOO` | Snooping |
+| `DISC` | Discordance | `SPEL` | Spellweaving |
+| `EVAL` | Evaluating Intelligence | `SPIR` | Spirit Speak |
+| `FENC` | Fencing | `STEA` | Stealing |
+| `FISH` | Fishing | `STLT` | Stealth |
+| `FOCU` | Focus | `SWOR` | Swordsmanship |
+| `FORE` | Forensic Evaluation | `TACT` | Tactics |
+| `HEAL` | Healing | `TAIL` | Tailoring |
+| `HERD` | Herding | `TAST` | Taste Identification |
+| `HIDI` | Hiding | `THRO` | Throwing |
+| `IMBU` | Imbuing | `TINK` | Tinkering |
+| `INSC` | Inscription | `TRAC` | Tracking |
+| `ITEM` | Item Identification | `VETE` | Veterinary |
+| `LOCK` | Lockpicking | `WRES` | Wrestling |
 
 ## Example
 
 ```euo
-chooseSkill mage
-if #skill < 700
+chooseskill mage
+if #Skill < 700
 {
-msg You don't have enough magery $
-halt
+  display ok You need at least 70 Magery for this script.
+  halt
 }
-...
-
-TSPerry72@…
-26-Feb-2005 15:52   #39
-Here is a list of 4 letter codes for each skill as of February 2005. Listed by UO catagory and alphebetized.
-
-Miscellaneous Skills
-Alch - Alchemy
-Blac - Blacksmithy
-Bowc - Bowcraft Fletching
-Bush - Bushido
-Carp - Carpentry
-Chiv - Chivalry
-Cook - Cooking
-Fish - Fishing
-Focu - Focus
-Heal - Healing
-Herd - Herding
-Lock - Lockpicking
-Lumb - Lumberjacking
-Mage - Magery
-Medi - Meditation
-Mini - Mining
-Musi - Musicianship
-Necr - Necromancy
-Ninj - Ninjitsu
-Remo - Remove Trap
-Resi - Resisting Spells
-Snoo - Snooping
-Stea - Stealing
-Stlt - Stealth
-Tail - Tailoring
-Tink - Tinkering
-Vete - Veterinary
-
-Combat Skills
-Arch - Archery
-Fenc - Fencing
-Mace - Mace Fighting
-Parr - Parrying
-Swor - Swordsmanship
-Tact - Tactics
-Wres - Wrestling
-
-Actions
-Anim - Animal Taming
-Begg - Begging
-Camp - Camping
-Dete - Detecting Hidden
-Disc - Discordance
-Hidi - Hiding
-Insc - Inscription
-Peac - Peacemaking
-Pois - Poisoning
-Prov - Provocation
-Spir - Spirit Speak
-Trac - Tracking
-
-Lore & Knowledge
-Anat - Anatomy
-Anil - Animal Lore
-Arms - Arms Lore
-Eval - Evaluating Intelligence
-Fore - Forensic Evaluation
-Item - Item Identification
-Tast - Taste Identification
 ```

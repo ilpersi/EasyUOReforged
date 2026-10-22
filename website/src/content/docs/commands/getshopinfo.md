@@ -1,17 +1,30 @@
 ---
 title: "GetShopInfo"
-description: "Retrieves information from the client about the currently shown top entry on a shopping gump."
+description: "Reads the entry shown at the top of the shop gump into the #Shop… variables."
 kind: command
 category: client
-syntax: "getShopInfo"
+syntax: "getshopinfo"
 needsClient: true
-sets: ["#shopcurpos", "#shopcnt", "#shopitemtype", "#shopitemid", "#shopitemname", "#shopitemprice", "#shopitemmax"]
-related: ["setshopitem"]
+sets: ["#ShopItemID", "#ShopItemType", "#ShopItemName", "#ShopItemPrice", "#ShopItemMax", "#ShopCurPos", "#ShopCnt"]
+related: ["SetShopItem"]
+aliases: ["vendor", "buy", "shop"]
+dll: GetShop
 source: wiki
 ---
 
-The getShopInfo command retrives information about the currently shown top entry on an open gump. When it is called it fills all the #shop\* system variables with their appropriate information
+`getshopinfo` reads the entry currently shown at the top of an open shop gump (a vendor's list of items for sale)
+and fills the `#Shop…` variables with it: [`#ShopItemID`](/variables/shopitemid/),
+[`#ShopItemType`](/variables/shopitemtype/), [`#ShopItemName`](/variables/shopitemname/),
+[`#ShopItemPrice`](/variables/shopitemprice/), [`#ShopItemMax`](/variables/shopitemmax/),
+[`#ShopCurPos`](/variables/shopcurpos/) and [`#ShopCnt`](/variables/shopcnt/).
 
-:::note
-Every time you scroll to a new entry, you have to call getShopInfo to update the #shop\* system variables.
-:::
+The shop gump has to be open, but it does not have to be on top. The variables do not follow the gump:
+after scrolling to another entry, run `getshopinfo` again.
+
+## Example
+
+```euo
+; buy as many of the top item as the vendor has
+getshopinfo
+setshopitem #ShopItemID #ShopItemMax
+```

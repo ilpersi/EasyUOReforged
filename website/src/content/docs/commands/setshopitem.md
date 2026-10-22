@@ -1,26 +1,26 @@
 ---
 title: "SetShopItem"
-description: "Sets the number of items to purchase given by ID."
+description: "Sets how many of an item to buy in the shop’s buy list."
 kind: command
 category: client
-syntax: "setShopItem {ID} {amount}"
+syntax: "setshopitem {id} {amount}"
 needsClient: true
-related: ["getshopinfo"]
+related: ["GetShopInfo", "#ShopItemID", "#ShopItemMax"]
+aliases: ["buy amount"]
+dll: SetShop
 source: wiki
 ---
 
-The setShopItem command sets the amount to purchase given by an items ID. The ID is usually gotten from the system variable #shopItemID.
+`setshopitem` sets how many of the item with that ID to buy, in the shop's buy list (the bill). Take the ID
+from [`#ShopItemID`](/variables/shopitemid/) after [`getshopinfo`](/commands/getshopinfo/).
 
-:::note
-- Despite the fact that using setShopItem will not update the graphics in the buy gump, the ammount to sell is set in the client's memory.
-- Before calling setShopItem you have to add at least **one** item to the buy list. This means you first have to double click the item so it gets added to the buy list with amount equal to 1, then you may call setShopItem to change that amount.
-:::
+- The item has to be **in the buy list already**: double-click it once in the shop gump so it is added with
+  an amount of 1, then change the amount with `setshopitem`.
+- The buy list on screen does not show the new amount, but it is set, and it is what you buy.
 
 ## Example
 
 ```euo
-; This will set the amount to buy of the top item to the total number that
-; is available to be bought.
-getShopInfo
-setShopItem #shopItemID #shopItemMax
+getshopinfo
+setshopitem #ShopItemID #ShopItemMax
 ```

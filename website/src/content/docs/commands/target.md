@@ -1,22 +1,31 @@
 ---
 title: "Target"
-description: "Waits for a target cursor to appear."
+description: "Waits until a target cursor appears, or the timeout passes."
 kind: command
 category: client
-syntax: "target {timeout}"
+syntax: "target [timeout]"
 needsClient: true
-related: ["event macro"]
+related: ["#TargCurs", "#LTargetID", "event Macro"]
+aliases: ["wait for target", "target cursor"]
 source: wiki
 ---
 
-The target command waits for a target cursor to appear. If no timeout is given, the default timeout is 2 seconds.
+`target` waits until the client shows a target cursor. It returns at once if one is already showing.
+
+## Parameters
+
+| Parameter | Meaning |
+|---|---|
+| `timeout` | Optional. The longest to wait. Default: 2 seconds. A time is a number of **ticks** of 50 ms (`20` is one second), or a whole number of **seconds** followed by
+`s` (`5s`). |
+
+`target` does not say whether the cursor appeared. Check [`#TargCurs`](/variables/targcurs/) afterwards.
 
 ## Example
 
 ```euo
-; This will pause the script until either the target cursor is displayed,
-; or 3 seconds passes.
-; Set the timout just over what you expect the delay to take, otherwise
-; you may miss the target cursor and cause errors in your script.
+event macro 15 %spell        ; cast a spell that needs a target
 target 3s
+if #TargCurs = 1
+  event macro 22 0           ; target the last target
 ```

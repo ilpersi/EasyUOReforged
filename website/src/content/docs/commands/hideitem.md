@@ -1,21 +1,25 @@
 ---
 title: "HideItem"
-description: "Removes an items graphic from the client."
+description: "Hides an item from your screen; nothing changes on the server."
 kind: command
 category: client
-syntax: "hideItem {id}"
+syntax: "hideitem {id}"
 needsClient: true
-related: ["finditem"]
+related: ["FindItem", "IgnoreItem"]
+aliases: ["hide item"]
+dll: HideItem
 source: wiki
 ---
 
-The hideItem command removes a specific items graphic from the client. It can be used to unclutter the visual appreance of the EasyUO client however, it does **nothing** on the server. Only non static items that are on the ground can be hidden.
+`hideitem` makes an item disappear from your screen, to unclutter it. It only changes the client's copy of
+the item: nothing is sent to the server, and the item is back as soon as the server sends it again, for
+example when you walk away and come back.
+
+Only items lying on the ground can be hidden; static map art cannot.
 
 ## Example
 
 ```euo
-; This will hide the item returned by the findItem command
-findItem * G_12
-hideItem #findId
-halt
+finditem * G_12
+hideitem #FindID
 ```

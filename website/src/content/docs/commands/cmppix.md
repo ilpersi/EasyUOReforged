@@ -1,41 +1,42 @@
 ---
 title: "CmpPix"
-description: "Compares a current pixel to a previously saved pixel."
+description: "Runs a line or block depending on whether a saved pixel still has the same colour."
 kind: command
 category: client
-syntax: "cmpPix {number} [true | false]"
+syntax: "cmppix {slot} [t|f] [lines]"
 needsClient: true
-related: ["savepix"]
+related: ["SavePix", "#PixCol"]
+aliases: ["compare pixel", "pixel colour"]
 source: wiki
 ---
 
-The cmpPix command compares the pixel given by {number} previously saved with [savePix](/commands/savepix/) command. If it evaluates to either true or false (given by the option) it will execute the next statement or statement block.
+`cmppix` reads the pixel saved in a slot by [`savepix`](/commands/savepix/) again and compares it with the
+colour saved there. Depending on the result, it runs the next line or block, or skips it, like an
+[`if`](/commands/if/).
 
-| Option | Description |
-|----|----|
-| **true** | Executes next statement if current pixel **equals** to the previously saved pixel. |
-| **false** | Executes next statement if current pixel **differs** from the previously saved pixel. |
+## Parameters
 
-:::note
-the UO client **must** be top most in order for savepix and #pixcol to work
-:::
+| Parameter | Meaning |
+|---|---|
+| `slot` | The slot `savepix` used, `0` to `1000`. |
+| `t` / `f` | Optional. `t` (the default): run the next line or block when the colour is the **same**. `f`: run it when the colour is **different**. |
+| `lines` | Optional. Without a block, how many of the following lines are controlled. Default: 1. |
+
+As with `if`, a block's `{` has to be the very next line.
+
+Pixels are read from the screen, so the client window has to be visible, not covered by another window.
 
 ## Example
 
 ```euo
-;Go to the client login screen and make
-;sure your mouse cursor is not over the
-;Quit button (upper right corner)
-;Start the script and move your mouse
-;over the Quit button. The client will
-;close even if you don't make a click.
-
-savePix 580 13 1
-comparePixelAgain:
-cmpPix 1 f
+; wait until the colour at 580,13 changes, then press Alt+F4
+savepix 580 13 1
+check:
+cmppix 1 f
 {
-  key F4 Alt
+  key F4 alt
   halt
 }
-goto comparePixelAgain
+wait 5
+goto check
 ```

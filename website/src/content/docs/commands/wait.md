@@ -1,27 +1,31 @@
 ---
 title: "Wait"
-description: "Waits a specified amount of time."
+description: "Pauses the script for a time, in 50 ms ticks or seconds, plus an optional random extra."
 kind: command
-category: client
-syntax: "wait {time} [random time]"
-needsClient: true
-related: ["sleep"]
+category: flow
+syntax: "wait {time} [random]"
+related: ["Sleep", "Pause"]
+aliases: ["delay", "pause script"]
 source: wiki
 ---
 
-The wait command waits for a specified amount of time. Time is given in steps of 50 miliseconds by default, or in seconds by using the "s" specifier after the number.
+`wait` pauses the script.
 
-Random time adds to the length of time the script waits, with a random time between 0 and the random time given.
+## Parameters
 
-## Example
+| Parameter | Meaning |
+|---|---|
+| `time` | How long. A time is a number of **ticks** of 50 ms (`20` is one second), or a whole number of **seconds** followed by
+`s` (`5s`). |
+| `random` | Optional. Up to this much longer, a different random amount each time. Same units. |
+
+For pauses in milliseconds, or shorter than one tick, use [`sleep`](/commands/sleep/). Pressing Stop ends
+a `wait` at once.
+
+## Examples
 
 ```euo
-; Wait for 5 seconds
-wait 5s
-
-; Wait for 1 second
-wait 20
-
-; Wait for 2 seconds with a random length of 1 second
-wait 2s 1s
+wait 20          ; 1 second
+wait 5s          ; 5 seconds
+wait 2s 1s       ; between 2 and 3 seconds
 ```
