@@ -1,20 +1,22 @@
 ---
 title: "#CliTop"
-description: "Returns the Y coordinate of the top edge of the gameplay window."
+description: "Y position of the game area inside the client window; set it to move the game area."
 kind: variable
 category: client
 access: rw
 type: number
+needsClient: true
+related: ["#CliLeft", "#CliXRes", "#CliYRes"]
+aliases: ["game window position"]
 source: wiki
 ---
 
-Returns the Y coordinate of the top edge of the gameplay window
+`#CliTop` is the Y position of the game area (where the world is drawn) inside the client window,
+in pixels. Setting it moves the game area. The value lives in the client: setting it changes it for every script attached to that client.
 
 ## Example
 
 ```euo
-; Move the gameplay window to the top/left corner
-set #cliLeft 0
-set #cliTop 0
-halt
+set #CliLeft 0
+set #CliTop 0                ; game area in the top-left corner
 ```

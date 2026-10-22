@@ -20,5 +20,5 @@ turn into a ghost.
 set %normal #CharType
 ; ... later
 if #CharType <> %normal
-  display ok Your body changed (polymorph, death, ...).
+  display ok Your body changed.
 ```

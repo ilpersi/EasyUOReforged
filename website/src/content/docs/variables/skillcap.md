@@ -1,21 +1,23 @@
 ---
 title: "#SkillCap"
-description: "Returns the current skill cap for a skill chosen with chooseSkill command."
+description: "Cap of the skill chosen with chooseskill, in tenths."
 kind: variable
 category: extended
 access: ro
 type: number
+needsClient: true
+related: ["ChooseSkill", "#Skill"]
+aliases: ["skill cap"]
 source: wiki
 ---
 
-The #SkillCap system variable determines the current skill cap for a skill chosen with [chooseSkill](/commands/chooseskill/) command.
+`#SkillCap` is the most the skill can reach, in tenths: `1000` is 100.0. It describes the skill selected with [`chooseskill`](/commands/chooseskill/), and is read from the client each
+time you use it.
 
 ## Example
 
 ```euo
-....
-chooseSkill mage
-if #skill = #skillCap
-    halt
-....
+chooseskill mage
+if #Skill >= #SkillCap
+  halt
 ```

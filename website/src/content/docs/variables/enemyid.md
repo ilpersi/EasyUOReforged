@@ -1,23 +1,23 @@
 ---
 title: "#EnemyID"
-description: "Returns the ID of the current enemy."
+description: "ID of the enemy whose health bar the client shows, or N/A."
 kind: variable
 category: combat
 access: ro
 type: id
 needsClient: true
+related: ["#EnemyHits", "event StatBar"]
+aliases: ["enemy", "attacker", "opponent"]
 source: wiki
 ---
 
-The #enemyID system variable holds the ID of the current enemy.
-
-:::note
-It is only possible to see one enemy at a time using this variable. If you have more than one enemy, the variable will switch ID's randomly.
-:::
+`#EnemyID` is the ID of the enemy the client shows a health bar for, usually the one you are fighting, or `N/A`
+when there is none. With more than one enemy, it shows whichever the client currently tracks, which can
+change from moment to moment.
 
 ## Example
 
 ```euo
-if #enemyID <> N/A
-  display ok You're being attacked! The attacker has , #enemyHits , % Hits.
+if #EnemyID <> N/A
+  display ok You are fighting! The enemy has #EnemyHits percent health.
 ```

@@ -1,16 +1,22 @@
 ---
 title: "#ShopItemMax"
-description: "Returns the number of items in the stack of the current line in the shop menu."
+description: "How many of the shop entry’s item the vendor has."
 kind: variable
 category: shop
 access: ro
 type: number
 needsClient: true
+related: ["GetShopInfo", "SetShopItem"]
+aliases: ["available", "stock"]
 source: wiki
 ---
 
-The #shopItemMax system variable determines the number of items in the stack of the current line in the shop menu.
+`#ShopItemMax` is how many of the item the vendor has, the most you can buy. It is filled by [`getshopinfo`](/commands/getshopinfo/) from the entry shown at the top of the shop gump, and
+does not follow the gump: after scrolling, run `getshopinfo` again.
 
-:::note
-To initialize this variable, you need to call [getShopInfo](/commands/getshopinfo/).
-:::
+## Example
+
+```euo
+getshopinfo
+setshopitem #ShopItemID #ShopItemMax       ; buy them all
+```

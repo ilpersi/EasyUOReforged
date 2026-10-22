@@ -1,23 +1,25 @@
 ---
 title: "#RHandID"
-description: "Returns the ID of the item to be armed in the right hand."
+description: "ID of the item for the right hand; set it, then event Macro 24 2 arms it."
 kind: variable
 category: combat
 access: rw
 type: id
 needsClient: true
+related: ["#LHandID", "event Macro", "exevent Equip"]
+aliases: ["right hand", "arm", "weapon"]
 source: wiki
 ---
 
-The #rHandID system variable holds the ID of the item to be armed in the right hand.
+`#RHandID` is the ID of the item the client arms in your right hand with the *Arm/Disarm* macro. Set it to
+an item that can be held in that hand, then run [`event Macro 24 2`](/commands/event/macro/) to put it in
+your hand, or run the macro again to take it off.
 
-:::note
-This variable is used with [event Macro](/commands/event/macro/) in order to place an item in your characters right hand. It must be set to a valid items ID, and the item must be able to be held in the characters right hand in order to work.
-:::
+The value lives in the client: setting it changes it for every script attached to that client.
 
 ## Example
 
 ```euo
-set #rHandID %weaponID
-event macro 24 2
+set #RHandID %sword
+event Macro 24 2
 ```

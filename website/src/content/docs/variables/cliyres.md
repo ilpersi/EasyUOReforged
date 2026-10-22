@@ -1,20 +1,22 @@
 ---
 title: "#CliYRes"
-description: "Returns the height of the gameplay window."
+description: "Height of the game area in pixels; set it to resize the game area."
 kind: variable
 category: client
 access: rw
 type: number
+needsClient: true
+related: ["#CliXRes", "#CliLeft", "#CliTop"]
+aliases: ["game window size", "resolution"]
 source: wiki
 ---
 
-The #cliYRes system variable determines the height of the gameplay window.
+`#CliYRes` is the height of the game area (where the world is drawn), in pixels. Setting it resizes the game
+area. The value lives in the client: setting it changes it for every script attached to that client.
 
 ## Example
 
 ```euo
-; Make the game play window small
-set #cliXRes 100
-set #cliYRes 100
-halt
+set #CliXRes 800
+set #CliYRes 600
 ```

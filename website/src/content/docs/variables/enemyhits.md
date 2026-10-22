@@ -1,23 +1,22 @@
 ---
 title: "#EnemyHits"
-description: "Returns the percentage of hit points left on the current enemy."
+description: "Health in percent of the enemy in #EnemyID."
 kind: variable
 category: combat
 access: ro
 type: number
 needsClient: true
+related: ["#EnemyID", "#ContHP"]
+aliases: ["enemy health"]
 source: wiki
 ---
 
-The #enemyHits system variable represents the percentage of hit points left on the current enemy.
-
-:::note
-It is only possible to see one enemy at a time using this variable. If you have more than one enemy, the variable will switch values randomly.
-:::
+`#EnemyHits` is the health of the enemy in [`#EnemyID`](/variables/enemyid/), in percent: `100` is full health.
+On older clients the value moves in steps of 4. It reads `N/A` when the client shows no enemy health bar.
 
 ## Example
 
 ```euo
-if #enemyID <> N/A
-  display ok You're being attacked! The attacker has , #enemyHits , % Hits.
+if #EnemyHits < 20
+  event SysMessage Almost dead!
 ```

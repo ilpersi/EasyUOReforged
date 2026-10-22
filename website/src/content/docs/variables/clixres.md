@@ -1,20 +1,22 @@
 ---
 title: "#CliXRes"
-description: "Returns the width of the gameplay window."
+description: "Width of the game area in pixels; set it to resize the game area."
 kind: variable
 category: client
 access: rw
 type: number
+needsClient: true
+related: ["#CliYRes", "#CliLeft", "#CliTop"]
+aliases: ["game window size", "resolution"]
 source: wiki
 ---
 
-The #cliXRes system variable determines the width of the gameplay window.
+`#CliXRes` is the width of the game area (where the world is drawn), in pixels. Setting it resizes the game
+area. The value lives in the client: setting it changes it for every script attached to that client.
 
 ## Example
 
 ```euo
-; Make the game play window small
-set #cliXRes 100
-set #cliYRes 100
-halt
+set #CliXRes 800
+set #CliYRes 600
 ```

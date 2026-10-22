@@ -1,15 +1,17 @@
 ---
 title: "#JColor"
-description: "Returns the color of the text in the journal."
+description: "Colour of the journal line read by the last scanjournal."
 kind: variable
 category: extended
 access: ro
 type: number
+needsClient: true
+related: ["#Journal", "ScanJournal"]
+aliases: ["journal colour"]
 source: wiki
 ---
 
-The #jColor system variable determines the color of the text in the journal.
+`#JColor` is the colour (hue) of the journal line read by the last [`scanjournal`](/commands/scanjournal/).
+It tells apart lines with the same text, such as system messages and speech.
 
-:::note
-This variable is readonly, it cannot be written to. But even if it could there really is no reason to since you can't change the color of text already in the journal.
-:::
+It cannot be set.

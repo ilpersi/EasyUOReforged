@@ -1,20 +1,22 @@
 ---
 title: "#CliLeft"
-description: "Returns the X coordinate of the left edge of the gameplay window."
+description: "X position of the game area inside the client window; set it to move the game area."
 kind: variable
 category: client
 access: rw
 type: number
+needsClient: true
+related: ["#CliTop", "#CliXRes", "#CliYRes"]
+aliases: ["game window position"]
 source: wiki
 ---
 
-Returns the X coordinate of the left edge of the gameplay window
+`#CliLeft` is the X position of the game area (where the world is drawn) inside the client window,
+in pixels. Setting it moves the game area. The value lives in the client: setting it changes it for every script attached to that client.
 
 ## Example
 
 ```euo
-; Move the gameplay window to the top/left corner
-set #cliLeft 0
-set #cliTop 0
-halt
+set #CliLeft 0
+set #CliTop 0                ; game area in the top-left corner
 ```

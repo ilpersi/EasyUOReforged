@@ -1,21 +1,21 @@
 ---
 title: "#CliVer"
-description: "Returns the version of the client."
+description: "Version of the attached client, such as 7.0.117.1."
 kind: variable
 category: client
 access: ro
 type: string
+needsClient: true
+related: ["#CliLang", "#EUOVer"]
+aliases: ["client version"]
 source: wiki
 ---
 
-Contains the version of the Ultima Online client that EasyUO is attached to.
+`#CliVer` is the version of the attached client, as EasyUO Reforged recognised it, for example `7.0.117.1`.
 
 ## Example
 
 ```euo
-if #cliVer <> 4.0.0e
-{
-  event SysMessage This script was developed for client 4.0.0e. Be aware of any changes.
-  pause
-}
+if #CliVer <> 7.0.117.1
+  event SysMessage This script was written for 7.0.117.1.
 ```

@@ -1,39 +1,32 @@
 ---
 title: "#CursKind"
-description: "Returns the facet where the character is."
+description: "Facet you are on: 0 Felucca, 1 Trammel, 2 Ilshenar, 3 Malas, 4 Tokuno, 5 Ter Mur."
 kind: variable
 category: extended
 access: ro
 type: number
+needsClient: true
+related: ["Tile", "#CharPosX"]
+aliases: ["facet", "map"]
 source: wiki
 ---
 
-The #cursKind system variable determines the facet where the character is.
+`#CursKind` is the facet your character is on:
 
-| Value | Description |
-|-------|-------------|
-| 0     | Felucca     |
-| 1     | Trammel     |
-| 2     | Ilshenar    |
-| 3     | Malas       |
-| 4     | Tokuno      |
+| Value | Facet |
+|---|---|
+| 0 | Felucca |
+| 1 | Trammel |
+| 2 | Ilshenar |
+| 3 | Malas |
+| 4 | Tokuno |
+| 5 | Ter Mur |
 
-#cursKind Values
+[`tile`](/commands/tile/) uses the same numbers.
 
 ## Example
 
 ```euo
-msg Hmmm I wonder where I am$
-if #cursKind = 0
-     set %iamin Felucca
-if #cursKind = 1
-     set %iamin Trammel
-if #cursKind = 2
-     set %iamin Ilshenar
-if #cursKind = 3
-     set %iamin Malas
-if #cursKind = 4
-     set %iamin Tokuno
-msg Oh Ok I am in %iamin $
-halt
+if #CursKind = 0
+  event SysMessage Careful - this is Felucca.
 ```
