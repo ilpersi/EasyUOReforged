@@ -49,6 +49,10 @@ unit EuoInterpreter;
   index or behavior changes): the ScanBuffs command plus #BuffCnt/#BuffID/
   #BuffCliloc/#BuffName/#BuffDesc/#BuffTime (indices 108..113) and the read/write
   #BuffIndex (533). ReforgedVer stays 107 and every original index is untouched.
+  Likewise the SQL command (SQLite access, engine in EuoSql.pas) plus the read-only
+  #SqlCnt/#SqlChanges/#SqlLastID/#SqlRes (indices 115..118). SQL is the only new
+  command word -- a line starting with it was a silent no-op before -- and it reads
+  its statement from the raw source line (RawLineText) rather than changing ParseLine.
 }
 
 {$mode delphi}{$H+}
@@ -58,7 +62,8 @@ uses
   Windows, SysUtils, Classes, Graphics,
   EuoTokens, EuoConversion, EuoExpression, EuoVariables, EuoScriptStack,
   EuoSortedList, EuoCommandRegistry, EuoStdCommands, EuoComm, EuoMenu,
-  uotypes, access, ReforgedVersion, uoselector, uovariables, uocommands, uoevents, EuoLock;
+  uotypes, access, ReforgedVersion, uoselector, uovariables, uocommands, uoevents, EuoLock,
+  EuoSql;
 
 const
   RES_OK    = 0;
@@ -105,8 +110,16 @@ type
     DJournal     : Cardinal;
     DJournalSave : Cardinal;
     CmdRegistry  : TEuoCommandRegistry;
+    Sql          : TEuoSql;       // port addition (SQL)
+    SqlCnt       : Int64;
+    SqlChanges   : Int64;
+    SqlLastID    : Int64;
+    SqlRes       : String;
 
     procedure    RegisterCommands;
+    function     RawLineText : String;
+    function     SqlGetVar(const Name : String) : String;
+    procedure    SqlLoadRow(Row : Integer);
     procedure    Parameterize(Str : String; StrList : TStringList);
     function     GetParStr(Nr : Integer) : String;
     function     GetCmd(Line : Integer) : String;
@@ -152,6 +165,7 @@ type
     procedure    IfProc;
     procedure    SetProc;
     procedure    WaitProc;
+    procedure    SqlProc;
 
     // Cmd2 (client-dependent) command handlers
     procedure    TileProc;
@@ -244,6 +258,23 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Port addition (SQL): everything after the first two words (SQL and the
+// sub-command), taken verbatim.
+function SqlStatementText(const Line : String) : String;
+var
+  Cnt1  : Integer;
+  Words : Integer;
+begin
+  Cnt1:=1;
+  for Words:=1 to 2 do
+  begin
+    while (Cnt1<=Length(Line))and(Line[Cnt1] in [#9,#32]) do Inc(Cnt1);
+    while (Cnt1<=Length(Line))and not(Line[Cnt1] in [#9,#32]) do Inc(Cnt1);
+  end;
+  Result:=Trim(Copy(Line,Cnt1,MaxInt));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 function SysTimeVal : Int64;
 var
   ft : TFileTime;
@@ -326,7 +357,7 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 const
-  VarNamesR : Array[0..114] of String = (
+  VarNamesR : Array[0..118] of String = (
     'CliCnt','CliNr','Time','Date','SysTime','Random','OSVer','CharPosX',
     'CharPosY','CharPosZ','CharID','CharGhost','CharStatus','CharDir',
     'CharName','Sex','Str','MaxWeight','Dex','Int','Hits','MaxHits',
@@ -345,7 +376,9 @@ const
     'CurPath','ContSizeX','ContSizeY','CharType','ContHP',
     'ReforgedVer',
     // Port additions (ScanBuffs): indices 108..114, after the original names.
-    'BuffCnt','BuffID','BuffCliloc','BuffName','BuffDesc','BuffTime','BuffBarOpen');
+    'BuffCnt','BuffID','BuffCliloc','BuffName','BuffDesc','BuffTime','BuffBarOpen',
+    // Port additions (SQL): indices 115..118.
+    'SqlCnt','SqlChanges','SqlLastID','SqlRes');
 
   VarNamesRW : Array[0..33] of String = (
     'SCnt','SCnt2','LShard','ContPosX','ContPosY','NextCPosX','NextCPosY',
@@ -413,6 +446,12 @@ begin
   DJournal:=0;
   DJournalSave:=0;
 
+  Sql:=TEuoSql.Create(@Brk);
+  SqlCnt:=0;
+  SqlChanges:=0;
+  SqlLastID:=0;
+  SqlRes:='N/A';
+
   CmdRegistry:=TEuoCommandRegistry.Create;
   RegisterCommands;
 end;
@@ -430,6 +469,7 @@ begin
   ScrList.Free;
   MenuObj.Free;
   CommObj.Free;
+  Sql.Free;
 
   CS.Free;
 
@@ -461,6 +501,12 @@ begin
   UOCmd.IgnoreItemReset;
   MenuObj.Clear;
   NSStack.Clear;
+
+  Sql.Close;   // port addition (SQL): rolls back a transaction a stopped script left open
+  SqlCnt:=0;
+  SqlChanges:=0;
+  SqlLastID:=0;
+  SqlRes:='N/A';
 
   UOVar.IgnoreCont($FFFFFFFF);
 end;
@@ -575,6 +621,30 @@ begin
     Result:=Copy(Result,1,Cnt-1);
     Break;
   end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (SQL): the current line exactly as written, with its '+'
+// continuation lines appended the way ParseLine joins them -- for commands that need
+// the text before substitution and tokenizing. ParseLine itself is left untouched.
+function TEuoInterpreter.RawLineText : String;
+var
+  Cnt  : Integer;
+  sBuf : String;
+begin
+  Result:='';
+  if (CurLine<0)or(CurLine>=ScrList.Scr.Count) then Exit;
+
+  Result:=Trim(ScrList.Scr[CurLine]);
+  Cnt:=CurLine;
+  repeat
+    Inc(Cnt);
+    if Cnt>=ScrList.Scr.Count then Break;
+    sBuf:=Trim(ScrList.Scr[Cnt]);
+    if Copy(sBuf,1,1)<>'+' then Break;
+    Delete(sBuf,1,1);
+    Result:=Result+sBuf;
+  until False;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -806,6 +876,11 @@ begin
                                              // independent of #EUOVer. Single
                                              // source: common\ReforgedVersion.pas
                                              // (generated by tools\gen-version.ps1).
+    // Port additions (SQL).
+    115: Result:=IntToStr   (SqlCnt       );
+    116: Result:=IntToStr   (SqlChanges   );
+    117: Result:=IntToStr   (SqlLastID    );
+    118: Result:=            SqlRes        ;
     500: Result:=IntToStr   (GetTickCount div 1000 - SCntBase);
     501: Result:=IntToStr   (GetTickCount div 100 - SCnt2Base);
     525: Result:=            _Result       ;
@@ -1232,6 +1307,7 @@ begin
   CmdRegistry.Register('Break',ContinueBreakProc);
   CmdRegistry.Register('Continue',ContinueBreakProc);
   CmdRegistry.Register('LinesPerCycle',LinesPerCycleProc);
+  CmdRegistry.Register('Sql',SqlProc);   // port addition
 
   // Cmd2 -- client-dependent (RequiresClient=True).
   CmdRegistry.Register('Key',KeyProc,True);
@@ -2353,6 +2429,147 @@ begin
   end;
 
   SetVar(ParList[1].StrU,sBuf);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition. SQL OPEN|CLOSE|EXEC|QUERY|ROW|SAVE|LOAD|DELETE -- engine in
+// EuoSql.pas, reference in docs\sql.md. EXEC/QUERY take their statement verbatim from
+// the raw source line (no substitution, comma/dot gluing or space collapsing; the
+// variables in it are bound by EuoSql), and SAVE/LOAD/DELETE take their variable
+// names from its raw words, so SQL SAVE %hp means %hp itself rather than a variable
+// named after its value. As in DisplayProc, the lock is released while SQLite works
+// so the GUI never waits on a query or a lock wait -- GetVar/SetVar take it
+// themselves, and the #Sql* fields are only written once it is held again. Never
+// raises: every failure ends up in #SqlRes.
+procedure TEuoInterpreter.SqlProc;
+var
+  Sub    : String;
+  Arg    : String;
+  Err    : String;
+  Names  : TStringList;
+  Values : TStringList;
+  Ok     : Boolean;
+  Cnt    : Integer;
+  i      : Integer;
+begin
+  Sub:='';
+  if ParList.Count>1 then Sub:=ParList[1].StrU;
+
+  if Sub='ROW' then
+  begin
+    if ParList[2].IntValid and (ParList[2].Int>=1) and (ParList[2].Int<=Sql.RowCount) then
+    begin
+      SqlLoadRow(ParList[2].Int-1);
+      SqlRes:='OK';
+    end
+    else SqlRes:='row '+GetParStr(2)+' out of range (1..'+IntToStr(Sql.RowCount)+')';
+    Exit;
+  end;
+
+  Arg:='';
+  Err:='';
+  Ok:=False;
+  Cnt:=0;
+  Names:=TStringList.Create;
+  Values:=TStringList.Create;
+  try
+    if (Sub='EXEC')or(Sub='QUERY') then
+      Arg:=SqlStatementText(RawLineText)
+    else if Sub='OPEN' then
+    begin
+      Arg:=GetParStr(2);
+      if (Arg<>'')and(LowerCase(Arg)<>':memory:') then
+        if not(IsAbsolutePath(Arg)or(Copy(Arg,2,2)=':/')) then
+          Arg:=GetVar('#curpath')+Arg;
+    end
+    else if (Sub='SAVE')or(Sub='LOAD')or(Sub='DELETE') then
+    begin
+      Parameterize(RawLineText,Names);
+      for i:=1 to 2 do
+        if Names.Count>0 then Names.Delete(0);   // SQL and the sub-command
+      if Names.Count=0 then Err:='no variables given';
+      for i:=0 to Names.Count-1 do
+        if not(IsVar(Names[i]) and (Names[i][1] in ['%','!'])) then
+        begin
+          Err:='not a % or ! variable: '+Names[i];
+          Break;
+        end;
+    end
+    else if Sub<>'CLOSE' then
+      Err:='unknown SQL command: '+GetParStr(1);
+
+    if Err='' then
+    begin
+      CS.EndWrite;
+      try
+        try
+          if Sub='OPEN' then Ok:=Sql.Open(Arg)
+          else if Sub='CLOSE' then
+          begin
+            Sql.Close;
+            Ok:=True;
+          end
+          else if Sub='EXEC' then Ok:=Sql.Run(Arg,False,SqlGetVar)
+          else if Sub='QUERY' then Ok:=Sql.Run(Arg,True,SqlGetVar)
+          else if Sub='SAVE' then Ok:=Sql.KvSave(Names,SqlGetVar,Cnt)
+          else if Sub='LOAD' then Ok:=Sql.KvLoad(Names,Values,Cnt)
+          else if Sub='DELETE' then Ok:=Sql.KvDelete(Names,Cnt);
+          if not Ok then Err:=Sql.LastError;
+        except
+          on E: Exception do
+          begin
+            Ok:=False;
+            Err:=E.Message;
+          end;
+        end;
+      finally
+        CS.BeginWrite;
+      end;
+    end;
+
+    if Ok then SqlRes:='OK'
+    else SqlRes:=Err;
+
+    if (Sub='OPEN')or(Sub='CLOSE')or(Sub='QUERY') then
+      SqlCnt:=Sql.RowCount;
+    if (Sub='EXEC')or(Sub='QUERY') then
+    begin
+      SqlChanges:=0;
+      if Ok then
+      begin
+        SqlChanges:=Sql.Changes;
+        SqlLastID:=Sql.LastID;
+      end;
+    end;
+    if (Sub='SAVE')or(Sub='LOAD')or(Sub='DELETE') then
+      SqlChanges:=Cnt;
+
+    if (Sub='QUERY')and(SqlCnt>0) then
+      SqlLoadRow(0);
+    if Sub='LOAD' then
+      for i:=0 to Values.Count-1 do
+        SetVar(Values.Names[i],Values.ValueFromIndex[i]);
+  finally
+    Names.Free;
+    Values.Free;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (SQL): snapshot row Row (0-based) into one %variable per column.
+procedure TEuoInterpreter.SqlLoadRow(Row : Integer);
+var
+  Col : Integer;
+begin
+  for Col:=0 to Sql.ColCount-1 do
+    SetVar('%'+Sql.ColName(Col),Sql.Cell(Row,Col));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (SQL): GetVar in the shape EuoSql's binder wants.
+function TEuoInterpreter.SqlGetVar(const Name : String) : String;
+begin
+  Result:=GetVar(Name);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -135,6 +135,16 @@ below as unverified.
     ends meanwhile -- `ScanBuffs` again if you need a fixed list.
   - All names are new; no existing command, variable or script changes meaning. Selftest stage 9
     (`tools\EUOSelfTest`) exercises all of it.
+- **`SQL`** — keeps data in an SQLite database file. `sql open <file>`, then `sql exec` / `sql query`
+  with ordinary SQL, where script variables are written as usual and passed to SQLite as values (never
+  pasted into the text, so quotes and commas in them are harmless):
+  `sql query SELECT name, hp FROM pets WHERE hp < %limit`. The columns of a row land in `%name`, `%hp`,
+  and `sql row <n>` moves through the rows (`#SqlCnt` of them). `sql save %a !b` / `sql load %a !b`
+  keep variables between sessions, like `*` variables but in your own file. `#SqlRes` is `OK` or the
+  error text; an `sql` line never stops a script. Uses the SQLite built into Windows 10/11
+  (`winsqlite3.dll`); nothing to install, and it is loaded only when a script uses it. Full reference:
+  [`docs/sql.md`](docs/sql.md). `SQL` is the only new command word (a line starting with it did
+  nothing before) and the four `#Sql...` variables are new, so existing scripts are unaffected.
 
 ## Download & run
 

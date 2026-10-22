@@ -36,9 +36,12 @@ common/   OS-facing primitives  ── package: uocommon
   tokeniser/expression evaluator (`EuoTokens`, `EuoExpression`), value
   conversion (`EuoConversion`), thread-safe script variables (`EuoVariables`),
   the loaded-script / call-return model (`EuoScriptStack`), the `MENU` command
-  driving real LCL controls (`EuoMenu`), `Send` (`EuoComm`), and the background
-  execution state machine with breakpoints and stepping (`EuoExecutor`,
-  `EuoBreakCondition`, `EuoCallStackFormat`).
+  driving real LCL controls (`EuoMenu`), `Send` (`EuoComm`), the `SQL`
+  command's SQLite engine (`EuoSql`, a port addition that loads Windows'
+  `winsqlite3.dll` lazily through FPC's `sqlite3dyn`; see
+  [`sql.md`](sql.md)), and the background execution state machine with
+  breakpoints and stepping (`EuoExecutor`, `EuoBreakCondition`,
+  `EuoCallStackFormat`).
 - **`easyuo/`** — the GUI: a multi-tab `TSynEdit` editor, the syntax
   highlighter, a live variable-inspector tree, and the menu/toolbar that drive
   `TExecutor`. The whole window is built in code (see below).

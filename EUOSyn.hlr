@@ -83,6 +83,7 @@
       <word value="SHUTDOWN"/>
       <word value="SLEEP"/>
       <word value="SOUND"/>
+      <word value="SQL"/>
       <word value="STOP"/>
       <word value="STR"/>
       <word value="SUB"/>
@@ -223,6 +224,10 @@
       <word value="#SKILLLOCK"/>
       <word value="#SMC"/>
       <word value="#SPC"/>
+      <word value="#SQLCHANGES"/>
+      <word value="#SQLCNT"/>
+      <word value="#SQLLASTID"/>
+      <word value="#SQLRES"/>
       <word value="#STAMINA"/>
       <word value="#STR"/>
       <word value="#STRMAX"/>

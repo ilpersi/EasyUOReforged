@@ -137,6 +137,13 @@ var
    '#BUFFTIME'#13#10+
 
     #13#10+
+   '\SQL'#13#10+
+   '#SQLRES'#13#10+
+   '#SQLCNT'#13#10+
+   '#SQLCHANGES'#13#10+
+   '#SQLLASTID'#13#10+
+
+    #13#10+
    '\Extended Info'#13#10+
    '#SKILL'#13#10+
    '#SKILLLOCK'#13#10+

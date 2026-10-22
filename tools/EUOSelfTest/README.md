@@ -30,7 +30,7 @@ Edit the `%ST_DO_*` flags at the top of the script (1 = on):
 | 5 | `ST_DO_CMDS` (1) | `msg`, `key`, `target`, `click` (right-click closes a gump; double-click on yourself is confirmed by you), `move`, `tile`, `getUOTitle`, `uoXL swap`, journal commands, `onHotKey` (you press F9) |
 | 6 | `ST_DO_SHOP` (0) | `getShopInfo` / `setShopItem` (open a vendor BUY window first) |
 | 7 | `ST_DO_COMBAT` (0) | `event macro 27` / `53` - **attacks a monster**, asks first |
-| 8 | `ST_DO_LANG` (1) | language, menu, namespace and the rest through `tests\euo\all-commands-test.euo` (run in its embedded mode) |
+| 8 | `ST_DO_LANG` (1) | language, menu, namespace, `sql` (in-memory database only) and the rest through `tests\euo\all-commands-test.euo` (run in its embedded mode) |
 | 9 | `ST_DO_BUFFS` (0) | `scanBuffs` and the `#buff...` variables (port addition). Open the buff bar and put 2-3 buffs on the character, one with a timer (Bless, Curse, Strength; Hiding has none). AUTO checks on every field of every buff, the time counting down over 12 s, `scanBuffs <icon id>`, and the bar closed with `event macro 57`; you confirm names and times against the in-game tooltips |
 
 Stages 1 and 2 also list the buff variables (read-only `#buffCnt` ... `#buffTime`, and a write/restore of

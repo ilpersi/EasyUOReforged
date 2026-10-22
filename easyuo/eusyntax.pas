@@ -72,19 +72,19 @@ uses
 // vocabulary -- see this unit's header comment -- no reason to also risk a
 // second, independent copy for completion).
 const
-  CommandKeywords : array[0..55] of String = (
+  CommandKeywords : array[0..56] of String = (
     'BREAK', 'CALL', 'CHOOSESKILL', 'CLICK', 'CMPPIX', 'CONTINUE', 'CONTPOS',
     'DELETEJOURNAL', 'DELETEVAR', 'DISPLAY', 'ELSE', 'EVENT', 'EXECUTE',
     'EXEVENT', 'EXIT', 'FINDITEM', 'FOR', 'GETSHOPINFO', 'GETUOTITLE',
     'GOSUB', 'GOTO', 'HALT', 'HIDEITEM', 'IF', 'IGNORECONT', 'IGNOREITEM',
     'KEY', 'MENU', 'MOVE', 'MSG', 'NAMESPACE', 'NEXTCPOS', 'ONHOTKEY',
     'PAUSE', 'REPEAT', 'RETURN', 'SAVEPIX', 'SCANBUFFS', 'SCANJOURNAL', 'SEND', 'SET',
-    'SETSHOPITEM', 'SETUOTITLE', 'SHUTDOWN', 'SLEEP', 'SOUND', 'STOP',
+    'SETSHOPITEM', 'SETUOTITLE', 'SHUTDOWN', 'SLEEP', 'SOUND', 'SQL', 'STOP',
     'STR', 'SUB', 'TARGET', 'TERMINATE', 'TILE', 'UNTIL', 'UOXL', 'WAIT',
     'WHILE'
   );
 
-  SystemKeywords : array[0..145] of String = (
+  SystemKeywords : array[0..149] of String = (
     '#AR', '#BACKPACKID', '#BUFFBAROPEN', '#BUFFCLILOC', '#BUFFCNT', '#BUFFDESC', '#BUFFID',
     '#BUFFINDEX', '#BUFFNAME', '#BUFFTIME', '#CHARDIR', '#CHARGHOST', '#CHARID', '#CHARNAME',
     '#CHARPOSX', '#CHARPOSY', '#CHARPOSZ', '#CHARSTATUS', '#CLICNT',
@@ -108,7 +108,8 @@ const
     '#SCNT', '#SCNT2', '#SENDHEADER', '#SEX', '#SHARD', '#SHOPCNT',
     '#SHOPCURPOS', '#SHOPITEMID', '#SHOPITEMMAX', '#SHOPITEMNAME',
     '#SHOPITEMPRICE', '#SHOPITEMTYPE', '#SKILL', '#SKILLCAP', '#SKILLLOCK',
-    '#SMC', '#SPC', '#STAMINA', '#STR', '#STRMAX', '#STRRES', '#SYSMSG',
+    '#SMC', '#SPC', '#SQLCHANGES', '#SQLCNT', '#SQLLASTID', '#SQLRES',
+    '#STAMINA', '#STR', '#STRMAX', '#STRRES', '#SYSMSG',
     '#SYSMSGCOL', '#SYSTIME', '#TARGCURS', '#TILECNT', '#TILEFLAGS',
     '#TILENAME', '#TILETYPE', '#TILEZ', '#TIME', '#TP', '#TRUE', '#WEIGHT'
   );

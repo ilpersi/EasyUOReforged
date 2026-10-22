@@ -172,6 +172,7 @@ gosub sec_strings
 gosub sec_namespaces
 gosub sec_misc
 gosub sec_sysvars
+gosub sec_sql
 if %DO_MENU = 1
 {
   gosub sec_menu
@@ -1540,6 +1541,73 @@ sub sec_sysvars
 return
 
 ; ===========================================================================
+;  09b  sql  [Reforged]  (SQLite, :memory: only - nothing is written to disk)
+; ===========================================================================
+;  Column values land in %variables named after the columns, so every query
+;  here renames its columns with AS sq_... to stay clear of this file's own
+;  variables.
+sub sec_sql
+  gosub t_head 09b_sql_[Reforged]
+  gosub t_eq sql_res_is_NA_before_any_sql_command #sqlres N/A
+  set %exp no , #spc , database , #spc , open
+  sql exec SELECT 1
+  gosub t_eq sql_exec_without_a_database_says_so #sqlres %exp
+  sql open :memory:
+  if #sqlres = OK
+  {
+    gosub sql_checks
+  }
+  else
+  {
+    gosub t_skip sql_commands no_SQLite_library_(sqlite3.dll_next_to_the_exe_or_Windows'_winsqlite3.dll)
+  }
+return
+
+sub sql_checks
+  gosub t_eq sql_open_memory #sqlres OK
+  sql exec CREATE TABLE pets(id TEXT PRIMARY KEY, name TEXT, hp INTEGER)
+  gosub t_eq sql_exec_create_table #sqlres OK
+  set %sq_id ABCDEF
+  set %sq_name it's , #spc , a , #spc , dog
+  set %sq_hp 42
+  sql exec INSERT INTO pets VALUES(%sq_id, %sq_name, %sq_hp)
+  gosub t_eq sql_insert_changes_one_row #sqlchanges 1
+  gosub t_eq sql_lastid_after_the_first_insert #sqllastid 1
+  sql exec INSERT INTO pets VALUES('B', 'cat', 9), ('C', 'rat', 100)
+  sql query SELECT name AS sq_n, hp AS sq_h FROM pets ORDER BY hp
+  gosub t_eq sql_query_row_count #sqlcnt 3
+  gosub t_eq sql_query_loads_row_1_(numbers_sort_as_numbers) %sq_h 9
+  sql row 3
+  gosub t_eq sql_row_3 %sq_h 100
+  sql row 2
+  gosub t_eq sql_row_2_keeps_the_quote_and_spaces %sq_n %sq_name
+  sql row 9
+  gosub t_eq sql_row_out_of_range_leaves_the_variables_alone %sq_h 42
+  sql query SELECT count(*) AS sq_c FROM pets WHERE name LIKE '%dog%'
+  gosub t_eq sql_text_inside_quotes_is_literal_(like_pattern) %sq_c 1
+  sql query SELECT %sq_unset AS sq_u
+  gosub t_eq sql_null_and_unset_variables_read_NA %sq_u N/A
+  set %r 0
+  sql exec SELEC 1
+  if #sqlres <> OK
+    set %r 1
+  gosub t_eq sql_syntax_error_lands_in_sqlres_and_the_script_goes_on %r 1
+  sql save %sq_hp %sq_name
+  gosub t_eq sql_save_two_variables #sqlchanges 2
+  set %sq_hp 0
+  sql load %sq_hp %sq_missing
+  gosub t_eq sql_load_finds_the_saved_one #sqlchanges 1
+  gosub t_eq sql_load_restores_the_value %sq_hp 42
+  gosub t_eq sql_load_leaves_an_unsaved_variable_alone %sq_missing N/A
+  sql delete %sq_hp
+  gosub t_eq sql_delete_removes_one #sqlchanges 1
+  sql close
+  gosub t_eq sql_close_empties_the_row_snapshot #sqlcnt 0
+  sql exec SELECT 1
+  gosub t_eq sql_exec_after_close_says_no_database #sqlres %exp
+return
+
+; ===========================================================================
 ;  11  wait / sleep timing
 ; ===========================================================================
 sub sec_timing
@@ -1806,6 +1874,10 @@ sub sec_vartable
   gosub v_any menuRes
   gosub v_any lpc
   gosub v_any sendHeader
+  gosub v_any sqlCnt
+  gosub v_any sqlChanges
+  gosub v_any sqlLastID
+  gosub v_any sqlRes
 
   ; ---- character -------------------------------------------------------------------
   gosub v_cli charPosX
