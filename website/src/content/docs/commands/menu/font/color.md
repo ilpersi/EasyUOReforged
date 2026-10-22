@@ -1,16 +1,20 @@
 ---
 title: "menu Font Color"
-description: "Changes the font color in the EasyUO menu window."
+description: "Sets the text colour of the controls created after it."
 kind: subcommand
 category: menu
-syntax: "menu Font Color {color-descriptor}"
+syntax: "menu Font Color {colour}"
+related: ["menu Font BGColor", "menu Window Color"]
 source: wiki
 ---
 
-The [menu Font Color](/commands/menu/font/color/) command changes the color of the font used in the EasyUO menu window.
+`menu Font Color` sets the text colour of the controls created after it. The default is black.
 
-Color-descriptor can be a few different things: black, red, btnface or a hexadecimal (i.e. $aabbcc).
+A colour, see [Colours](/commands/menu/#colours): a name such as `red` or `btnface`, or a `$BBGGRR` number.
 
-:::note
-When using hexadecimal you may get confused if attempting to use #RRBBGG standard as used in web pages. If you've got a hex value and want to use it with this function then swap the GG and RR, so an RGB value of #0099FF would be $FF9900 (GGBBRR)
-:::
+## Example
+
+```euo
+menu Font Color red
+menu Text warn 10 10 Low on reagents
+```

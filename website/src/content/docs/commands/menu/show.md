@@ -1,14 +1,20 @@
 ---
 title: "menu Show"
-description: "Shows the EasyUO menu window."
+description: "Shows the menu window, optionally at a position on the screen."
 kind: subcommand
 category: menu
-syntax: "menu Show {x} {y}"
+syntax: "menu Show [x y]"
+related: ["menu Hide", "menu HideEUO"]
 source: wiki
 ---
 
-The [menu Show](/commands/menu/show/) command shows the main EasyUO window at the specified position.
+`menu Show` shows the menu window. With `x` and `y`, it first moves the window so that its top-left corner is
+at that position on the screen.
 
-:::note
-Calling menu Show is the only way to make a menu, hidden by calling [menu Hide](/commands/menu/hide/) visible again.
-:::
+[`menu Hide`](/commands/menu/hide/) hides it again.
+
+## Example
+
+```euo
+menu Show 200 150
+```

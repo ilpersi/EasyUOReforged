@@ -1,12 +1,21 @@
 ---
 title: "menu Font BGColor"
-description: "Changes the font background color in the EasyUO menu window."
+description: "Sets the background colour of the controls created after it."
 kind: subcommand
 category: menu
-syntax: "menu Font BGColor {color-descriptor}"
+syntax: "menu Font BGColor {colour}"
+related: ["menu Font Color", "menu Font Transparent"]
 source: wiki
 ---
 
-The [menu Font BGColor](/commands/menu/font/bgcolor/) command changes the background color of the font used in the EasyUO menu window.
+`menu Font BGColor` sets the background colour of the controls created after it: behind a label's text,
+inside an edit field or list, on a button. The default is the standard button colour, `btnface`.
 
-Color-descriptor can be a few different things: black, red, btnface or a hexadecial (i.e. $aabbcc).
+A colour, see [Colours](/commands/menu/#colours): a name such as `red` or `btnface`, or a `$BBGGRR` number.
+
+## Example
+
+```euo
+menu Font BGColor white
+menu List Create lst 10 10 180 120
+```

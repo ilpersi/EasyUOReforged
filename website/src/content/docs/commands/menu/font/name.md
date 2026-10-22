@@ -1,10 +1,22 @@
 ---
 title: "menu Font Name"
-description: "Changes the font in the EasyUO menu window."
+description: "Sets the font of the controls created after it."
 kind: subcommand
 category: menu
-syntax: "menu Font Name {font-descriptor}"
+syntax: "menu Font Name {font}"
+related: ["menu Font Size", "menu Font Style", "menu Clear"]
 source: wiki
 ---
 
-The [menu Font Name](/commands/menu/font/name/) command changes the font used in the EasyUO menu window.
+`menu Font Name` sets the font of the controls created after it, by its name as Windows knows it. Names with
+spaces are fine. The default is Arial.
+
+Symbol fonts such as Wingdings only show the intended symbols if that exact font is installed; otherwise
+Windows substitutes another font and the characters look unrelated.
+
+## Example
+
+```euo
+menu Font Name Times New Roman
+menu Text title 10 10 Hello
+```

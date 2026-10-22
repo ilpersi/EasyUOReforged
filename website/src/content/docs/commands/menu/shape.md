@@ -1,42 +1,44 @@
 ---
 title: "menu Shape"
-description: "Creates a shape in the EasyUO menu window."
+description: "Draws a rectangle, circle or other shape in the menu window."
 kind: subcommand
 category: menu
-syntax: "menu Shape {name} {left} {top} {width} {height} {shapetype} {linetype} {linewidth} {linecolor} {filltype} {fillcolor}"
+syntax: "menu Shape {name} {x} {y} {width} {height} {shape} {line style} {line width} {line colour} {fill style} {fill colour}"
+related: ["menu Image Create"]
+aliases: ["rectangle", "circle", "frame"]
 source: wiki
 ---
 
-The [menu Shape](/commands/menu/shape/) command creates a shape in the EasyUO menu window.
+`menu Shape` draws a shape, useful for frames, separators and coloured backgrounds behind other controls.
 
-**Table 17. menu Shape shapetype**
+## Parameters
 
-| Value | Description     |
-|-------|-----------------|
-| 1     | Circle          |
-| 2     | Ellipse         |
-| 3     | Rectangle       |
-| 4     | Round Rectangle |
-| 5     | Round Square    |
-| 6     | Square          |
+| Parameter | Meaning |
+|---|---|
+| `name` | The control's name, used later by [`menu Get`](/commands/menu/get/), [`menu Set`](/commands/menu/set/) and [`menu Delete`](/commands/menu/delete/). Case does not matter. |
+| `x`, `y`, `width`, `height` | Position and size of the box the shape fills. |
+| `shape` | Which shape, see below. |
+| `line style`, `line width`, `line colour` | How the outline is drawn. |
+| `fill style`, `fill colour` | How the inside is filled. |
 
-| Value | Description  |
-|-------|--------------|
-| 1     | Clear        |
-| 2     | Dash         |
-| 3     | Dash Dot     |
-| 4     | Dash Dot Dot |
-| 5     | Dot          |
-| 6     | Inside Frame |
-| 7     | Solid        |
+Colours are names such as `white` or `$BBGGRR` numbers, see [Colours](/commands/menu/#colours).
 
-| Value | Description    |
-|-------|----------------|
-| 1     | BDiagonal      |
-| 2     | Clear          |
-| 3     | Cross          |
-| 4     | Diagonal Cross |
-| 5     | FDiagonal      |
-| 6     | Horizontal     |
-| 7     | Solid          |
-| 8     | Vertical       |
+| Shape | | Line style | | Fill style | |
+|---|---|---|---|---|---|
+| `1` | Circle | `1` | None | `1` | Diagonal lines `/` |
+| `2` | Ellipse | `2` | Dashes | `2` | None |
+| `3` | Rectangle | `3` | Dash dot | `3` | Cross-hatch |
+| `4` | Rounded rectangle | `4` | Dash dot dot | `4` | Diagonal cross-hatch |
+| `5` | Rounded square | `5` | Dots | `5` | Diagonal lines `\` |
+| `6` | Square | `6` | Solid, inside the box | `6` | Horizontal lines |
+| | | `7` | Solid | `7` | Solid |
+| | | | | `8` | Vertical lines |
+
+Any other number gives a rectangle, a solid line and a solid fill.
+
+## Example
+
+```euo
+; a white frame with a dark inside
+menu Shape frame 5 5 190 90 3 7 2 white 7 $303030
+```

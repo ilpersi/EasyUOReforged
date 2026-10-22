@@ -1,21 +1,31 @@
 ---
 title: "menu Image Create"
-description: "Creates a new image control in the menu."
+description: "Places an empty, transparent image in the menu window to draw in."
 kind: subcommand
 category: menu
 syntax: "menu Image Create {name} {x} {y} {width} {height}"
+related: ["menu Image File", "menu Image Rectangle", "menu Image Pos"]
+aliases: ["picture", "canvas"]
 source: wiki
 ---
 
-The **menu Image Create** command creates a new image control with the specified name at the given positions and dimensions.
+`menu Image Create` places an image in the menu window: a rectangle you can draw in or load a picture into
+with the other `menu Image` commands. It starts completely transparent.
 
-name is any valid EUO name. It is used to reference the created container.
+## Parameters
 
-The X and Y parameters place the control at the specified position on the menu. These parameter's are in pixels, with 0,0 being the top left of the menu.
+| Parameter | Meaning |
+|---|---|
+| `name` | The control's name, used later by [`menu Get`](/commands/menu/get/), [`menu Set`](/commands/menu/set/) and [`menu Delete`](/commands/menu/delete/). Case does not matter. |
+| `x`, `y` | Position of the top-left corner in the window. |
+| `width`, `height` | Size in pixels. |
 
-width and height are the size of the image container, in pixels.
+`$FEEEED` is the transparent colour of images: painting with it makes those pixels see-through.
 
-:::note
-- This command is only available from EUO 1.5.''
-- The image is completely transparent at the beginning. For a different background, simply use [Menu Image Rectangle](/commands/menu/image/rectangle/)
-:::
+## Example
+
+```euo
+menu Image Create pic 10 10 64 64
+menu Image Rectangle pic 0 0 64 64 navy 1
+menu Image Ellipse pic 8 8 56 56 yellow 1
+```

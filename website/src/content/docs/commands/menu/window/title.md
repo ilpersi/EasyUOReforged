@@ -1,10 +1,17 @@
 ---
 title: "menu Window Title"
-description: "Changes the title of the EasyUO menu window."
+description: "Sets the title of the menu window."
 kind: subcommand
 category: menu
 syntax: "menu Window Title {title}"
+related: ["menu Window Size"]
 source: wiki
 ---
 
-The [menu Window Title](/commands/menu/window/title/) command changes the window title of the EasyUO menu window.
+`menu Window Title` sets the text in the menu window's title bar.
+
+## Example
+
+```euo
+menu Window Title Loot settings
+```

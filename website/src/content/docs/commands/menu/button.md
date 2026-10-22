@@ -1,23 +1,41 @@
 ---
 title: "menu Button"
-description: "Creates a button at position x/y with specified size on the EasyUO menu window."
+description: "Places a button in the menu window; a click puts its name in #MenuButton."
 kind: subcommand
 category: menu
 syntax: "menu Button {name} {x} {y} {width} {height} {text}"
+related: ["#MenuButton", "menu Set"]
 source: wiki
 ---
 
-The [menu Button](/commands/menu/button/) command creates a button on the EasyUO menu window at the specified postion with the specified size.
+`menu Button` places a button in the menu window. Clicking it puts the button's name in
+[`#MenuButton`](/variables/menubutton/).
 
-The #[MenuButton](/variables/menubutton/) system variable gives the name of the last button that was pressed.
+## Parameters
 
-## Example
+| Parameter | Meaning |
+|---|---|
+| `name` | The control's name, used later by [`menu Get`](/commands/menu/get/), [`menu Set`](/commands/menu/set/) and [`menu Delete`](/commands/menu/delete/). Case does not matter. This is what `#MenuButton` holds after a click, in capital letters. |
+| `x`, `y` | Position of the top-left corner. |
+| `width`, `height` | Size in pixels. |
+| `text` | The caption on the button. |
+
+It uses the current [font settings](/commands/menu/#fonts).
+
+## Waiting for a click
+
+`#MenuButton` keeps the last click until something else is clicked, so clear it before you wait. Comparisons
+ignore case, so `ok` matches `OK`:
 
 ```euo
-; This will create a button named button_1 in position 10 20
-; with a width of 50 and hight of 25. The text on the button
-; will say Click me!
-; Note that when refering to this button later in the script
-; you will reference the NAME and not the displayed TEXT.
-menu Button button_1 10 20 50 25 Click me!
+menu Button ok 10 70 60 25 OK
+menu Button cancel 80 70 60 25 Cancel
+menu Show
+set #MenuButton N/A
+while #MenuButton = N/A
+  wait 1
+if #MenuButton = cancel || #MenuButton = closed
+  halt
 ```
+
+Change the caption later with [`menu Set`](/commands/menu/set/).

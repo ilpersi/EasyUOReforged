@@ -1,21 +1,40 @@
 ---
 title: "menu Image PixLine"
-description: "Prints a horizontal line of pixels within a specified image."
+description: "Paints a row of pixels of an image from a compact text code."
 kind: subcommand
 category: menu
 syntax: "menu Image PixLine {name} {x} {y} {data}"
+related: ["menu Image Pix", "menu Image File"]
+aliases: ["sprite"]
 source: wiki
 ---
 
-The [menu Image PixLine](/commands/menu/image/pixline/) command prints a horizontal line of pixels starting at position x/y within the specified image. "data" is encoded as follows:
+`menu Image PixLine` paints a row of pixels, starting at `x`, `y` and going right. Positions are inside the image, `0, 0` being its top-left corner. It is the fast
+way to draw small pictures pixel by pixel.
 
-Each pixel has an RGB value that is defined by three consecutive characters in the data string. Valid characters are A-Z, 1-6 and 9. These characters specify the intensity of each color (RGB) whereas A=0, B=8, C=16 ... Z=200, 1=208 ... 6=248 and 9=transparent.
+## The data
 
-Examples: AAA = black, 666 = white (equals $F8F8F8), 6AA = red (equals $0000F8) AAAPPP666999AAP = black,gray,white,transparent,navy (=5 pixels).
+Each pixel is **three characters**: red, green and blue, in that order. Each character is one of:
 
-You can create interesting effects by using partial transparency like in 9A9 which only removes the green intensity from the overpainted pixel. Transparency only works for the specified image, i.e. other images below or above do not have any influence.
+| Character | Value |
+|---|---|
+| `A` … `Z` | 0, 8, 16, … 200 |
+| `1` … `6` | 208, 216, … 248 |
+| `9` | Leave this colour of the pixel as it is. |
+| `8` | Transparent. Use `888` for a fully transparent pixel. |
 
-:::note
-- This command is only available from EUO 1.5.
-- Do not overuse this feature. Small images (also called Sprites) are okay, but we don't want 200KB scripts just because you like to have a nice background. Use external JPG or GIF images instead. Very advanced scripters may also consider creating their own image compression format and converting it into a data string at the initial script run. Resulting strings can be stored in persistent variables for future access.
-:::
+So `AAA` is black, `666` white, `6AA` red, `PPP` grey and `AAP` navy: `AAAPPP666AAP` paints four pixels.
+`9A9` keeps a pixel's red and blue but removes its green. On a new image every pixel is transparent, so
+`999` leaves it transparent.
+
+The whole row has to fit in the image, or nothing is painted. Any other character stops the command at that pixel.
+
+Keep pictures painted this way small. For anything bigger, load a file with
+[`menu Image File`](/commands/menu/image/file/).
+
+## Example
+
+```euo
+; a 4-pixel black, grey, white, navy row
+menu Image PixLine pic 0 0 AAAPPP666AAP
+```

@@ -1,12 +1,22 @@
 ---
 title: "menu Image FloodFill"
-description: "Applies the FloodFill effect in the area around a specified pixel within a specified image."
+description: "Fills an area of one colour in an image with another, like a paint bucket."
 kind: subcommand
 category: menu
-syntax: "menu Image FloodFill {name} {x} {y} {color}"
+syntax: "menu Image FloodFill {name} {x} {y} {colour}"
+related: ["menu Image Ellipse", "menu Image Rectangle"]
+aliases: ["paint bucket", "fill"]
 source: wiki
 ---
 
-The [menu Image FloodFill](/commands/menu/image/floodfill/) command applies the FloodFill effect in the area around the pixel x/y within the specified image. The effect will only spread as far as the pixel colors do not change.
+`menu Image FloodFill` works like the paint bucket of a drawing program: starting at `x`, `y`, it fills the
+connected area that has the same colour as that pixel with the new colour. Positions are inside the image, `0, 0` being its top-left corner.
 
-For the color parameter, you can use names like "red", "yellow" or "windowtext" or use a hexadecimal number like $AABBCC (BBGGRR encoded). $FEEEED is used for transparency.
+A colour, see [Colours](/commands/menu/#colours): a name such as `red` or `btnface`, or a `$BBGGRR` number. `$FEEEED` is the transparent colour of images: painting with it makes those pixels see-through.
+
+## Example
+
+```euo
+menu Image Ellipse pic 8 8 56 56 black #false
+menu Image FloodFill pic 32 32 green      ; fill the inside of the circle
+```

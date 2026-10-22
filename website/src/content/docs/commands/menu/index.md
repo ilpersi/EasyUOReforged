@@ -1,50 +1,90 @@
 ---
 title: "Menu"
-description: "Commands to interact with menu elements."
+description: "Builds a window of buttons, text, fields, lists and images that a script can show and read."
 kind: command
 category: menu
 syntax: "menu {element} [parameters...]"
+related: ["#MenuButton", "#MenuRes", "#LPC"]
+aliases: ["gui", "window", "dialog", "form"]
 source: wiki
 ---
 
-Commands to interact with menu elements.
+`menu` builds a small window of your own, the *menu window*, with text, buttons, edit fields, check boxes,
+lists and images. The script shows it, reacts to clicks, and reads what the user typed or chose.
 
-| Command | Summary |
+```euo
+menu Clear
+menu Window Title Loot settings
+menu Window Size 220 110
+menu Text lbl 10 12 Minimum gold:
+menu Edit gold 110 10 90 100
+menu Check bags 10 40 200 20 #true Also open bags
+menu Button ok 70 75 80 25 Start
+menu Show
+set #MenuButton N/A
+while #MenuButton = N/A
+  wait 1
+menu GetNum gold 100
+set %mingold #MenuRes
+menu Get bags
+set %openbags #MenuRes
+menu Hide
+```
+
+## How it works
+
+- **Every control has a name**, chosen when you create it. Names are not case-sensitive. Use a different name
+  for each control: [`menu Get`](/commands/menu/get/) reads only the first one with a name.
+- **Clicks** put the button's name in [`#MenuButton`](/variables/menubutton/). Closing the window, with its
+  × or with [`menu Hide`](/commands/menu/hide/), puts `CLOSED` there.
+- **Values** are read with [`menu Get`](/commands/menu/get/) and [`menu GetNum`](/commands/menu/getnum/) into
+  [`#MenuRes`](/variables/menures/), and changed with [`menu Set`](/commands/menu/set/).
+- **Positions and sizes** are in pixels, from the top-left corner of the window's inside.
+- The window stays open when the script stops. Start a script with [`menu Clear`](/commands/menu/clear/) so
+  it doesn't add to an old menu.
+
+### Fonts
+
+[`menu Font …`](/commands/menu/font/name/) commands set the font, size, colours, style and alignment of the
+controls created **after** them; controls that already exist keep theirs. [`menu Clear`](/commands/menu/clear/)
+puts every font setting back to its default: Arial 10, black on the standard button colour, left-aligned,
+plain, not transparent.
+
+### Colours
+
+Wherever a colour is asked for, give either:
+
+- a **name**: `black`, `white`, `red`, `green`, `blue`, `yellow`, `navy`, `gray`, `silver`, … or a system
+  colour such as `btnface` or `windowtext`;
+- a **number** in Windows' order, `$BBGGRR`: blue first, red last. `$0000FF` is red, `$FF0000` is blue. A
+  web colour `#0099FF` becomes `$FF9900`.
+
+### Building big menus quickly
+
+A script runs [`#LPC`](/variables/lpc/) lines (10 by default) and then pauses 50 ms, so a menu with a
+hundred controls takes about half a second to appear. Put `set #LPC 1000` before building it.
+
+## Commands
+
+| Window | |
 |---|---|
-| [menu Activate](/commands/menu/activate/) | Activates a window element in the EasyUO menu window |
-| [menu Button](/commands/menu/button/) | Creates a button at position x/y with specified size on the EasyUO menu window |
-| [menu Check](/commands/menu/check/) | Creates a checkbox at position x/y with specified size on the EasyUO menu window |
-| [menu Clear](/commands/menu/clear/) | Clears all window elements from the EasyUO menu window |
-| [menu Combo](/commands/menu/combo/) | Creates a combobox at position x/y with specified size on the EasyUO menu window or adds entries to the combobox |
-| [menu Delete](/commands/menu/delete/) | Deletes a window element from the EasyUO menu window |
-| [menu Edit](/commands/menu/edit/) | Creates a edit field at position x/y with specified width in the EasyUO menu window |
-| [menu Font Align](/commands/menu/font/align/) | Changes the font alignment in the EasyUO menu window |
-| [menu Font BGColor](/commands/menu/font/bgcolor/) | Changes the font background color in the EasyUO menu window |
-| [menu Font Color](/commands/menu/font/color/) | Changes the font color in the EasyUO menu window |
-| [menu Font Name](/commands/menu/font/name/) | Changes the font in the EasyUO menu window |
-| [menu Font Size](/commands/menu/font/size/) | Changes the font size in the EasyUO menu window |
-| [menu Font Style](/commands/menu/font/style/) | Changes the font style in the EasyUO menu window |
-| [menu Font Transparent](/commands/menu/font/transparent/) | Sets the transparency of the background color of the font |
-| [menu Get](/commands/menu/get/) | Returns the value associated with a control in the EasyUO menu window |
-| [menu GetNum](/commands/menu/getnum/) | Returns the number in an edit field in the EasyUO menu window |
-| [menu Hide](/commands/menu/hide/) | Hides the EasyUO menu window |
-| [menu HideEUO](/commands/menu/hideeuo/) | Hides the main EasyUO window |
-| [menu Image Create](/commands/menu/image/create/) | Creates a new image control in the menu |
-| [menu Image Ellipse](/commands/menu/image/ellipse/) | Draws an ellipse/circle within a specified image |
-| [menu Image File](/commands/menu/image/file/) | Loads an external image file |
-| [menu Image FloodFill](/commands/menu/image/floodfill/) | Applies the FloodFill effect in the area around a specified pixel within a specified image |
-| [menu Image Line](/commands/menu/image/line/) | Draws a line within a specified image |
-| [menu Image Pix](/commands/menu/image/pix/) | Paints a single pixel within a specified image |
-| [menu Image PixLine](/commands/menu/image/pixline/) | Prints a horizontal line of pixels within a specified image |
-| [menu Image Pos](/commands/menu/image/pos/) | Moves an already existing image control to a different position |
-| [menu Image Rectangle](/commands/menu/image/rectangle/) | Draws a rectangle within a specified image |
-| [menu List](/commands/menu/list/) | Creates a listbox at position x/y with specified size on the EasyUO menu window or adds entires to the listbox |
-| [menu Memo](/commands/menu/memo/) | Creates a multi-line, scrollable text field (new in Reforged) |
-| [menu Set](/commands/menu/set/) | Sets the text of a control |
-| [menu Shape](/commands/menu/shape/) | Creates a shape in the EasyUO menu window |
-| [menu Show](/commands/menu/show/) | Shows the EasyUO menu window |
-| [menu Text](/commands/menu/text/) | Creates a label at the specified position in the EasyUO menu window |
-| [menu Window Color](/commands/menu/window/color/) | Changes the color of the EasyUO menu window |
-| [menu Window Size](/commands/menu/window/size/) | Changes the size of the EasyUO menu window |
-| [menu Window Title](/commands/menu/window/title/) | Changes the title of the EasyUO menu window |
-| [menu Window Transparent](/commands/menu/window/transparent/) | Sets the transparency of the window |
+| [menu Show](/commands/menu/show/) / [menu Hide](/commands/menu/hide/) | Shows or hides the menu window. |
+| [menu HideEUO](/commands/menu/hideeuo/) | Minimises EasyUO, leaving only the menu window. |
+| [menu Window Size](/commands/menu/window/size/), [Title](/commands/menu/window/title/), [Color](/commands/menu/window/color/), [Transparent](/commands/menu/window/transparent/) | The window's size, title, colour and opacity. |
+| [menu Clear](/commands/menu/clear/) / [menu Delete](/commands/menu/delete/) | Removes all controls, or one. |
+
+| Controls | |
+|---|---|
+| [menu Text](/commands/menu/text/) | A label. |
+| [menu Button](/commands/menu/button/) | A button. |
+| [menu Edit](/commands/menu/edit/) / [menu Memo](/commands/menu/memo/) | A one-line / multi-line text field. |
+| [menu Check](/commands/menu/check/) | A check box. |
+| [menu Combo](/commands/menu/combo/) / [menu List](/commands/menu/list/) | A drop-down list / a list box. |
+| [menu Shape](/commands/menu/shape/) | A rectangle, circle or other shape. |
+| [menu Image Create](/commands/menu/image/create/) | An image to draw in or load a picture into: see the other `menu Image` commands. |
+
+| Reading and changing | |
+|---|---|
+| [menu Get](/commands/menu/get/) / [menu GetNum](/commands/menu/getnum/) | Reads a control's value into `#MenuRes`. |
+| [menu Set](/commands/menu/set/) | Changes a control's text or state. |
+| [menu Activate](/commands/menu/activate/) | Gives a control the keyboard focus. |

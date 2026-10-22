@@ -1,12 +1,20 @@
 ---
 title: "menu Window Color"
-description: "Changes the color of the EasyUO menu window."
+description: "Sets the background colour of the menu window."
 kind: subcommand
 category: menu
-syntax: "menu Window Color {color-descriptor}"
+syntax: "menu Window Color {colour}"
+related: ["menu Font BGColor", "menu Window Transparent"]
 source: wiki
 ---
 
-The [menu Window Color](/commands/menu/window/color/) command changes the color of the EasyUO menu window.
+`menu Window Color` sets the background colour of the menu window.
 
-Color-descriptor can be a few different things: black, red, btnface or a hexadecial (i.e. $aabbcc).
+A colour, see [Colours](/commands/menu/#colours): a name such as `red` or `btnface`, or a `$BBGGRR` number.
+
+## Example
+
+```euo
+menu Window Color black
+menu Window Color $202020
+```

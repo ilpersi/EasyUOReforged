@@ -1,14 +1,21 @@
 ---
 title: "menu Clear"
-description: "Clears all window elements from the EasyUO menu window."
+description: "Removes every control from the menu window and resets the font settings."
 kind: subcommand
 category: menu
 syntax: "menu Clear"
+related: ["menu Delete", "menu Font Name"]
 source: wiki
 ---
 
-The *menu Clear* command clears all window elements (i.e. text, button, edit) from the EasyUO menu window
+`menu Clear` removes every control from the menu window and puts the [font settings](/commands/menu/#fonts)
+back to their defaults. The window itself, its size, title and colour stay as they are.
 
-:::note
-stopping your EasyUO script will not clear the current menu, so you may want to put *menu Clear* at the top of your script to preserve memory.
-:::
+The menu window stays when a script stops, so start your menu code with `menu Clear`.
+
+## Example
+
+```euo
+menu Clear
+menu Window Size 200 100
+```

@@ -1,21 +1,34 @@
 ---
 title: "menu Edit"
-description: "Creates a edit field at position x/y with specified width in the EasyUO menu window."
+description: "Places a one-line text field in the menu window."
 kind: subcommand
 category: menu
 syntax: "menu Edit {name} {x} {y} {width} {text}"
+related: ["menu Get", "menu GetNum", "menu Memo", "menu Set"]
+aliases: ["text field", "input"]
 source: wiki
 ---
 
-The [menu Edit](/commands/menu/edit/) command creates an edit field at the specified postion and with the specified dimensions in the EasyUO window menu.
+`menu Edit` places a one-line text field the user can type in. Its height follows the font size. For more
+than one line, use [`menu Memo`](/commands/menu/memo/).
+
+## Parameters
+
+| Parameter | Meaning |
+|---|---|
+| `name` | The control's name, used later by [`menu Get`](/commands/menu/get/), [`menu Set`](/commands/menu/set/) and [`menu Delete`](/commands/menu/delete/). Case does not matter. |
+| `x`, `y` | Position of the top-left corner. |
+| `width` | Width in pixels. |
+| `text` | The starting text. |
+
+It uses the current [font settings](/commands/menu/#fonts). Read what the user typed with [`menu Get`](/commands/menu/get/) or, for a number,
+[`menu GetNum`](/commands/menu/getnum/).
 
 ## Example
 
 ```euo
-; This will create an editable field named edit_1 in position 10 20
-; with a width of 50 and hight of 25. The text in the field
-; will say Change me!
-; Note that when refering to this field later in the script
-; you will reference the NAME and not the displayed TEXT.
-menu Edit edit_1 10 20 150 Change , #spc , me!
+menu Edit pet 10 10 150 Fluffy
+; later
+menu Get pet
+set %petname #MenuRes
 ```

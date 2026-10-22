@@ -1,19 +1,21 @@
 ---
 title: "menu Activate"
-description: "Activates a window element in the EasyUO menu window."
+description: "Gives a control the keyboard focus."
 kind: subcommand
 category: menu
 syntax: "menu Activate {name}"
+related: ["menu Edit"]
+aliases: ["focus"]
 source: wiki
 ---
 
-The [menu Activate](/commands/menu/activate/) command activates the window element given by its name, in the EasyUO menu window
+`menu Activate` gives the keyboard focus to a control: an edit field, memo, button, check box, drop-down list
+or list box. What the user types then goes into it.
 
 ## Example
 
 ```euo
-; This will choose the menu element called EditBox. This is
-; useful if you want your script to type something into an edit
-; box as the script runs.
-menu Activate EditBox
+menu Edit search 10 10 150
+menu Show
+menu Activate search
 ```

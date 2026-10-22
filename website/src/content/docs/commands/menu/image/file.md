@@ -1,21 +1,34 @@
 ---
 title: "menu Image File"
-description: "Loads an external image file."
+description: "Draws a picture file into an image."
 kind: subcommand
 category: menu
-syntax: "menu Image File {name} {x} {y} {filename}"
+syntax: "menu Image File {name} {x} {y} {file}"
+related: ["menu Image Create", "#CurPath"]
+aliases: ["load picture", "png", "bmp"]
 source: wiki
 ---
 
-The **menu Image File** command loads an external image file at position x/y within the specified image.
+`menu Image File` loads a picture file and draws it into an image, with its top-left corner at `x`, `y`.
 
-name is a valid EUO name. it should match the name used with the [menu Image Create](/commands/menu/image/create/) command.
+## Parameters
 
-The X and Y values provided to this command are relative to within the Image created with the [menu Image Create](/commands/menu/image/create/) command, not the window itself. Therefore, menu Image File Test 0 0 test.bmp will place the image at the top right of the image container, not the top right of the window.
+| Parameter | Meaning |
+|---|---|
+| `name` | Name of an image created with [`menu Image Create`](/commands/menu/image/create/). |
+| `x`, `y` | Where to draw it. Positions are inside the image, `0, 0` being its top-left corner. |
+| `file` | The picture. BMP, PNG, JPEG and GIF work; transparency in the file is kept. |
 
-filename must be a valid path to an existing file.
+When the file does not exist, nothing happens. A relative path starts from the folder EasyUO Reforged runs
+in, which is not always [`#CurPath`](/variables/curpath/): give a full path, or build one with `#CurPath`.
 
-:::note
-- This command is only available from EUO 1.5.
-- The number of supported formats may depend on your OS, but BMP, GIF and JPG should always be suppored. File types that support transparency should also appear transparent in the image.
-:::
+## Reforged notes
+
+Older formats the original accepted, such as WMF, EMF and ICO, may not load.
+
+## Example
+
+```euo
+menu Image Create logo 10 10 100 50
+menu Image File logo 0 0 #CurPath , images\logo.png
+```

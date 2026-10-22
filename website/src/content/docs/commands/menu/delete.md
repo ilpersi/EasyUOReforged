@@ -1,20 +1,21 @@
 ---
 title: "menu Delete"
-description: "Deletes a window element from the EasyUO menu window."
+description: "Removes one control from the menu window."
 kind: subcommand
 category: menu
 syntax: "menu Delete {name}"
+related: ["menu Clear", "menu Set"]
 source: wiki
 ---
 
-The *menu Delete* command deletes a window element (i.e. text, button, edit) from the EasyUO window menu.
+`menu Delete` removes the control with that name from the menu window. If several controls share the name,
+all of them are removed.
+
+To change what a control shows, [`menu Set`](/commands/menu/set/) is lighter than deleting and creating it
+again.
 
 ## Example
 
 ```euo
-; This will remove the menu item named button_1 from the current menu
-; and from memory. Please use this command and do not just create
-; new items over old ones. This is expecially important when using
-; menu Text items, as they sometimes need to be updated regularly.
 menu Delete button_1
 ```

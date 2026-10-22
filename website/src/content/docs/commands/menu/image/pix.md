@@ -1,17 +1,21 @@
 ---
 title: "menu Image Pix"
-description: "Paints a single pixel within a specified image."
+description: "Paints one pixel of an image."
 kind: subcommand
 category: menu
-syntax: "menu Image Pix {name} {x} {y} {color}"
+syntax: "menu Image Pix {name} {x} {y} {colour}"
+related: ["menu Image PixLine", "menu Image Create"]
 source: wiki
 ---
 
-The [menu Image Pix](/commands/menu/image/pix/) command paints a single pixel at x/y within the specified image.
+`menu Image Pix` paints the pixel at `x`, `y` of an image. Positions are inside the image, `0, 0` being its top-left corner.
 
-For the color parameter, you can use names like "red", "yellow" or "windowtext" or use a hexadecimal number like $AABBCC (BBGGRR encoded). $FEEEED is used for transparency.
+A colour, see [Colours](/commands/menu/#colours): a name such as `red` or `btnface`, or a `$BBGGRR` number. `$FEEEED` is the transparent colour of images: painting with it makes those pixels see-through.
 
-:::note
-- This command is only available from EUO 1.5.
-- For faster pixel output, use [Menu Image PixLine](/commands/menu/image/pixline/) instead.
-:::
+For more than a few pixels, [`menu Image PixLine`](/commands/menu/image/pixline/) is much faster.
+
+## Example
+
+```euo
+menu Image Pix pic 10 10 red
+```

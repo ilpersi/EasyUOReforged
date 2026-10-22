@@ -1,30 +1,37 @@
 ---
 title: "menu List"
-description: "Creates a listbox at position x/y with specified size on the EasyUO menu window or adds entires to the listbox."
+description: "Places a list box in the menu window, and fills or selects its entries."
 kind: subcommand
 category: menu
-syntax: "menu List Create {name} {x} {y} {width} {height}\nmenu List Add {name} {string}\nmenu List Select {list name} {item number}"
+syntax: "menu List Create {name} {x} {y} {width} {height}\nmenu List Add {name} {text}\nmenu List Select {name} {number}\nmenu List Clear {name}"
+related: ["menu Combo", "menu Get"]
+aliases: ["listbox"]
 source: wiki
 ---
 
-The [menu List](/commands/menu/list/) creates a listbox at position x/y with specified size on the EasyUO menu window, adds entires to the listbox or selects an entry in the list.
+`menu List` places a list box, which shows several entries at once, and manages its entries.
+
+| Form | What it does |
+|---|---|
+| `Create {name} {x} {y} {width} {height}` | Places an empty list box. It uses the current [font settings](/commands/menu/#fonts). |
+| `Add {name} {text}` | Adds an entry at the end. Without text, adds an empty line. |
+| `Select {name} {number}` | Selects entry `number`, counting from 1. `0` selects nothing. |
+| `Clear {name}` | Removes every entry. |
+
+[`menu Get`](/commands/menu/get/) returns the number of the selected entry, counting from 1, or `0` when
+nothing is selected.
 
 ## Example
 
 ```euo
 menu Clear
-menu Font BGColor white                           ; sets list's background color to white
-menu List Create lstTest 10 10 180 120            ; create listbox
-menu List Add lstTest This is a simple example    ; add a string
-menu List Add lstTest showing how to use          ; another one
-menu List Add lstTest a listbox!                  ; and another...
-
-menu List Add lstTest                             ; adds a blank line
-menu List Add lstTest This line will be selected. ; yet another line
-menu List Select lstTest 5                        ; select line with index 5
-
-menu Window Title Listbox Example
+menu Font BGColor white
+menu List Create lst 10 10 180 120
+menu List Add lst This is a simple example
+menu List Add lst showing how to use
+menu List Add lst a list box.
+menu List Select lst 2
+menu Window Title List example
 menu Window Size 200 140
 menu Show
-halt
 ```

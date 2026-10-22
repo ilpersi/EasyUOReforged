@@ -1,30 +1,27 @@
 ---
 title: "menu Window Transparent"
-description: "Sets the transparency of the window."
+description: "Makes the whole menu window see-through, from 0 to 100 percent opaque."
 kind: subcommand
 category: menu
 syntax: "menu Window Transparent {opacity}"
+related: ["menu Window Color"]
 source: wiki
 ---
 
-`menu Window Transparent` sets the transparency of the menu window: `0` is almost invisible and
-`100` is fully opaque.
+`menu Window Transparent` makes the whole menu window see-through. `opacity` goes from `0`, almost invisible,
+to `100`, fully opaque. Even at `0` the window stays faintly visible, so it can still be found.
 
 :::note
-This command didn't work under Linux + Wine (1.1.2).
+This did not work under Linux and Wine (1.1.2) in the original EasyUO.
 :::
 
 ## Example
 
 ```euo
-menu window $000000 ;Window will be dark black
-menu show 200 200 ;Shows window
-
-for %i 0 100 ;Loops from 0 to 100
+; fade the window in
+for %i 0 100
 {
-    menu window transparent %i ;Sets the transparency of the window
-    wait 5 ;Waits 1/4 second
+  menu Window Transparent %i
+  wait 1
 }
-
-halt ;Terminates the script
 ```
