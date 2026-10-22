@@ -21,6 +21,15 @@ unit uoscanver;
   REMOTE client process handle (safe per the above), and hMod is always passed
   literal 0.
 
+  A second bug of the same kind, found later: EnumCliWnd's Obj parameter, the
+  TStringList that EnumWindows hands back through its lParam, was a Cardinal and
+  callers passed Cardinal(wList). That list lives in THIS process, so it is a
+  64-bit pointer too: once it sat above 4 GB the callback got a truncated address
+  and crashed. EasyUOReforged.exe's heap happens to stay below 4 GB, which hid it;
+  uo.dll loaded into 64-bit Python crashed during startup. Obj is now an LPARAM
+  (pointer-sized on Win64) and callers pass LPARAM(wList). Wnd stays Cardinal:
+  window handles are 32-bit values, like the client handles above.
+
   Retained as module-level state exactly as the original: LastScan/LastAddr cache
   the previously-successful scan method/address so a second call (from the same
   process, e.g. a periodic re-check) can skip straight to VerifyBase instead of
@@ -38,7 +47,7 @@ uses Windows, SysUtils, Classes, access;
   function GetExePath(PHnd : Cardinal) : String;
   function ScanVer(Wnd : Cardinal) : String;
   function ClientAccessDenied(Wnd : Cardinal) : Boolean;
-  function EnumCliWnd(Wnd, Obj : Cardinal) : Boolean; stdcall;
+  function EnumCliWnd(Wnd : Cardinal; Obj : LPARAM) : Boolean; stdcall;
 
 implementation
 
@@ -194,7 +203,7 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-function EnumCliWnd(Wnd, Obj : Cardinal) : Boolean; stdcall;
+function EnumCliWnd(Wnd : Cardinal; Obj : LPARAM) : Boolean; stdcall;
 var
   Buf  : array[1..14] of Char;
 begin

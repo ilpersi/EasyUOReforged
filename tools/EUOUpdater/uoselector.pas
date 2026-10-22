@@ -21,6 +21,10 @@ unit UOSelector;
   Port addition: DeniedCnt (see its own comment) so main.pas can say why nothing
   scans when the client is elevated and this tool isn't.
 
+  Port fix: EnumWnd's Obj (the window list, handed back through EnumWindows'
+  lParam) was a Cardinal and Update passed Cardinal(WndList), which truncates the
+  64-bit pointer once the list sits above 4 GB. Now LPARAM, as in uo\uoscanver.pas.
+
   Everything else -- the two client-version byte-signature scans (CliVer1 for
   1.26.x-2.0.x, CliVer2 for 3.0.x+), GetCurVer's cache-by-HWnd, GetNr's
   self-clearing "client went away" behavior -- is unchanged.
@@ -95,7 +99,7 @@ begin
 end;
 
 {******************************************************************************}
-function EnumWnd(Wnd : HWnd; Obj : Cardinal) : Boolean; stdcall;
+function EnumWnd(Wnd : HWnd; Obj : LPARAM) : Boolean; stdcall;
 var
   Buf  : Array[1..14] of Char;
 begin
@@ -111,7 +115,7 @@ end;
 procedure TUOSel.Update;
 begin
   WndList.Clear;
-  EnumWindows(@EnumWnd,Cardinal(WndList));
+  EnumWindows(@EnumWnd,LPARAM(WndList));
   GetNr;
 end;
 

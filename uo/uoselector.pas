@@ -111,7 +111,7 @@ begin
   wList.CaseSensitive:=True;
   wList.UseLocale:=False;
   wList.Sorted:=True;
-  EnumWindows(@EnumCliWnd,Cardinal(wList));
+  EnumWindows(@EnumCliWnd,LPARAM(wList));   // was Cardinal(wList): see uoscanver.pas
 
   vList:=TStringList.Create;
   RCS.BeginWrite;

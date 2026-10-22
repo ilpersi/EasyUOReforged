@@ -11,6 +11,11 @@ unit UoScanVerTests;
   - EnumCliWnd's exact window-class matching, using two real (invisible) windows
     created with distinct classes -- one literally named "Ultima Online", one not
     -- so the callback's own logic is exercised end-to-end, not just assumed.
+  - EnumCliWnd with its list allocated above 4 GB. The list reaches the callback
+    through EnumWindows' lParam; it was passed as Cardinal(List), so a list above
+    4 GB arrived truncated and the callback crashed. This test process's heap sits
+    below 4 GB, which is why nothing here caught it; uo.dll loaded into 64-bit
+    Python, whose heap does not, crashed on startup.
 }
 
 {$mode delphi}{$H+}
@@ -26,6 +31,7 @@ type
     procedure TestGetExePathAgainstOwnProcess;
     procedure TestGetExePathWithNullHandleReturnsEmpty;
     procedure TestEnumCliWndMatchesOnlyExactClassName;
+    procedure TestEnumCliWndWithListAbove4GB;
   end;
 
 implementation
@@ -88,7 +94,7 @@ begin
 
   List := TStringList.Create;
   try
-    EnumWindows(@EnumCliWnd, Cardinal(List));
+    EnumWindows(@EnumCliWnd, LPARAM(List));
     AssertTrue('the "Ultima Online"-classed window must be picked up',
       List.IndexOf(IntToStr(UOWnd)) >= 0);
     AssertTrue('a differently-classed window must NOT be picked up',
@@ -97,6 +103,52 @@ begin
     List.Free;
     DestroyWindow(UOWnd);
     DestroyWindow(OtherWnd);
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+type
+  // A TStringList whose instance lives at the top of the address space, far above 4 GB.
+  THighStringList = class(TStringList)
+  public
+    class function NewInstance : TObject; override;
+    procedure FreeInstance; override;
+  end;
+
+class function THighStringList.NewInstance : TObject;
+var
+  Mem : Pointer;
+begin
+  Mem := VirtualAlloc(nil, InstanceSize, MEM_RESERVE or MEM_COMMIT or MEM_TOP_DOWN, PAGE_READWRITE);
+  if Mem = nil then
+    raise EOutOfMemory.Create('VirtualAlloc failed');
+  Result := InitInstance(Mem);
+end;
+
+procedure THighStringList.FreeInstance;
+begin
+  CleanupInstance;
+  VirtualFree(Pointer(Self), 0, MEM_RELEASE);
+end;
+
+procedure TUoScanVerTests.TestEnumCliWndWithListAbove4GB;
+var
+  UOWnd : HWND;
+  List : TStringList;
+begin
+  UOWnd := MakeInvisibleWindow('Ultima Online', 'fake client for testing');
+  AssertTrue('failed to create the test window', UOWnd <> 0);
+
+  List := THighStringList.Create;
+  try
+    AssertTrue('the list must sit above 4 GB for this test to mean anything',
+      PtrUInt(List) > High(Cardinal));
+    EnumWindows(@EnumCliWnd, LPARAM(List));
+    AssertTrue('the "Ultima Online"-classed window must be picked up',
+      List.IndexOf(IntToStr(UOWnd)) >= 0);
+  finally
+    List.Free;
+    DestroyWindow(UOWnd);
   end;
 end;
 

@@ -11,11 +11,9 @@ reading and automation that EasyUO scripts use, called from your own code. EasyU
 need it; it only matters if you write such a program. Keep `uo.dll` next to your program, or give its full path.
 
 :::caution[uo.dll is 64-bit and new in this form]
-This `uo.dll` is a 64-bit build, so the program that loads it has to be 64-bit too. It is built and tested by
-the project's own test programs, but no external program has used it in real life yet.
-
-**Known issue:** loading it into a program that uses memory above 4 GB, such as 64-bit Python, currently
-crashes while the DLL starts up. A fix is being prepared.
+This `uo.dll` is a 64-bit build, so the program that loads it has to be 64-bit too. It is tested by the
+project's own test programs and by the Python example below against a live client, but no real external
+program has used it yet.
 :::
 
 ## How it works
