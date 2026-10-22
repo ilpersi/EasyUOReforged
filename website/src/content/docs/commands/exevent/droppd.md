@@ -1,31 +1,34 @@
 ---
-title: "exevent Droppd"
-description: "Drops wearable items into the paperdoll."
+title: "exevent DropPD"
+description: "Puts the held item on: drops it on your paperdoll."
 kind: subcommand
 category: exevent
-syntax: "Exevent Droppd"
+syntax: "exevent DropPD"
 needsClient: true
-related: ["exevent"]
+related: ["exevent Drag", "exevent Equip"]
+aliases: ["equip", "wear", "paperdoll"]
+dll: DropPD
 source: wiki
 ---
 
-The *Exevent Droppd* command drops previously dragged (using [Exevent Drag](/commands/exevent/drag/)) wearable item into the paperdoll.
+`exevent DropPD` puts on the item picked up with [`exevent Drag`](/commands/exevent/drag/), as if you had
+dropped it on your paperdoll. It takes no parameters.
 
-:::note
-- This command is only available from EUO 1.5 TV 57
-- You shouldn't use [Event Drag](/commands/event/drag/) in connection with [Exevent Droppd](/commands/exevent/droppd/) command or you'll end up with a ghost item on your cursor. That's why there is an [Exevent Drag](/commands/exevent/drag/) command
-:::
+- It only works after **`exevent Drag`**, which records what kind of item is held. After `event Drag` it
+  does nothing.
+- The item has to be something EasyUO knows how to wear; for anything else nothing happens.
+
+To put on several items at once, [`exevent Equip`](/commands/exevent/equip/) is simpler.
 
 ## Example
 
 ```euo
-finditem %weapon C_ , #backpackid
-if #FINDCNT > 0
+finditem %weapon C_ , #BackpackID
+if #FindCnt > 0
 {
-    Exevent Drag #findid #findstack
-    wait 10
-    Exevent Droppd
-    wait 10
+  exevent Drag #FindID
+  wait 10
+  exevent DropPD
+  wait 10
 }
-halt
 ```

@@ -1,31 +1,38 @@
 ---
-title: "exevent Dropg"
-description: "Drops an object on the ground using packets."
+title: "exevent DropG"
+description: "Drops the held item on the ground at a world position."
 kind: subcommand
 category: exevent
-syntax: "Exevent Dropg {x} {y} [z]"
+syntax: "exevent DropG {x} {y} [z]"
 needsClient: true
-related: ["exevent"]
+related: ["exevent Drag", "exevent DropC", "#CharPosX"]
+aliases: ["drop on ground"]
+dll: DropG
 source: wiki
 ---
 
-The *Exevent Dropg* command drops obects you drag using the [Exevent Drag](/commands/exevent/drag/) command to the given ground coordinate. If no Z coordinate is specified, the default will be [#charPosZ](/variables/charposz/).
+`exevent DropG` drops the item picked up with [`exevent Drag`](/commands/exevent/drag/) on the ground.
 
-:::note
-- This command is only available from EUO 1.5
-- You shouldn't use [Event Drag](/commands/event/drag/) in connection with [Exevent Dropg](/commands/exevent/dropg/) command or you'll end up with a ghost item on your cursor. That's why there is an [Exevent Drag](/commands/exevent/drag/) command
-:::
+## Parameters
+
+| Parameter | Meaning |
+|---|---|
+| `x`, `y` | World position, within reach. |
+| `z` | Optional height. Default: your current [`#CharPosZ`](/variables/charposz/). |
+
+Pick the item up with `exevent Drag`, not [`event Drag`](/commands/event/drag/): mixing `event Drag` with
+the `exevent Drop…` commands can leave a ghost item on the cursor.
 
 ## Example
 
 ```euo
-finditem %trash C_ , #backpackid
-if #FINDCNT > 0
+; drop a piece of trash at your feet
+finditem %trash C_ , #BackpackID
+if #FindCnt > 0
 {
-    Exevent Drag #findid #findstack
-    wait 10
-    Exevent Dropg #charposx #charposy #charposz
-    wait 10
+  exevent Drag #FindID #FindStack
+  wait 10
+  exevent DropG #CharPosX #CharPosY
+  wait 10
 }
-halt
 ```

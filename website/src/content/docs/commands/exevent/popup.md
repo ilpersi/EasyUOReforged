@@ -1,25 +1,29 @@
 ---
-title: "exevent Popup"
-description: "Opens the context menu of an item/npc."
+title: "exevent PopUp"
+description: "Opens the context menu of an item or character."
 kind: subcommand
 category: exevent
-syntax: "Exevent Popup {id} [x] [y]"
+syntax: "exevent PopUp {id}"
 needsClient: true
-related: ["exevent"]
+related: ["FindItem", "Click"]
+aliases: ["context menu"]
+dll: Popup
 source: wiki
 ---
 
-The *Exevent Popup* command opens the context menu of an item/npc given by its id. Default values for x and y are 0/0.
+`exevent PopUp` opens the context menu of an item or character, the menu you get when you click it with
+the mouse: vendor *Buy* and *Sell*, *Open Paperdoll*, pet commands, and so on. Then click the entry you
+want.
 
-:::note
-This command is only available from EUO 1.5 TV 56. The syntax for this command has been changed in EasyUO 1.5.1 build 252. It used to be Exevent: Popup {id} \[entry\] **SCRIPT USING OLD SYNTAX MUST BE UPDATED**.
-:::
+The item or character has to be known to the client, which usually means on screen.
+
+Older documentation shows `x` and `y` after the ID. They are accepted but ignored: the interpreter always
+passes `0, 0`.
 
 ## Example
 
 ```euo
 finditem %vendor G_10
-if #FINDCNT > 0
-    exevent Popup #findid 10 10
-halt
+if #FindCnt > 0
+  exevent PopUp #FindID
 ```

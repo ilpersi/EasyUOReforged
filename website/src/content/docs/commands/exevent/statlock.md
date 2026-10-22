@@ -1,25 +1,28 @@
 ---
 title: "exevent StatLock"
-description: "Changes the stat locks on the different stats."
+description: "Sets the lock of strength, dexterity or intelligence."
 kind: subcommand
 category: exevent
-syntax: "Exevent StatLock {str|dex|int} {[up] | [down] | [locked]}"
+syntax: "exevent StatLock {str|dex|int} {up|down|locked}"
 needsClient: true
-related: ["exevent"]
+related: ["exevent SkillLock", "#Str", "#Dex", "#Int"]
+aliases: ["stat lock"]
+dll: StatLock
 source: wiki
 ---
 
-The Exevent StatLock command changes the stat lock on the specified stat to either: up, down or locked.
+`exevent StatLock` sets whether a stat may go up, go down, or stay where it is.
 
-:::note
-This command is only available from EUO 1.5 Test version 53.
-:::
+## Parameters
+
+| Parameter | Meaning |
+|---|---|
+| stat | `str`, `dex` or `int`. |
+| lock | `up`, `down` or `locked`. |
 
 ## Example
 
 ```euo
-; changes dex to down
-Exevent StatLock dex down
-; locks str
-Exevent StatLock str locked
+exevent StatLock dex down
+exevent StatLock str locked
 ```

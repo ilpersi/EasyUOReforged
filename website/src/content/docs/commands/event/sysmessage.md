@@ -1,22 +1,27 @@
 ---
 title: "event SysMessage"
-description: "Outputs text to the client as a system message."
+description: "Shows a system message in the client; only you see it."
 kind: subcommand
 category: event
 syntax: "event SysMessage {message}"
 needsClient: true
+related: ["event ExMsg", "#SysMsgCol", "Display"]
+aliases: ["system message", "show message"]
+dll: SysMessage
 source: wiki
 ---
 
-The event SysMessage command outputs a message as a system message inside the client.
+`event SysMessage` shows a message in the client's system message area, at the bottom of the game window
+and in the journal. Only you see it; nothing is sent to the server. It is a quiet way for a script to report
+what it is doing.
 
-:::note
-This command does NOT work unless you have enabled the "Enable Event Sysmessage" configuration option.
-:::
+The message uses the colour in [`#SysMsgCol`](/variables/sysmsgcol/).
+
+The command calls a function inside the client. On a client version where that function's address is not
+known, it does nothing.
 
 ## Example
 
 ```euo
-;prints "Your character name is <your character's name>" to the bottom of the screen
-event sysMessage Your character name is #charname
+event SysMessage Your character name is #CharName
 ```

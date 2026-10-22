@@ -1,20 +1,35 @@
 ---
 title: "event Macro"
-description: "Performs a UO internal macro."
+description: "Runs one of the client's built-in macros: speech, gumps, skills, spells, targeting."
 kind: subcommand
 category: event
-syntax: "event Macro {param 1} [param 2] [param 3]"
+syntax: "event Macro {macro} [parameter] [text]"
 needsClient: true
+related: ["#LObjectID", "#LTargetID", "Target", "Msg"]
+aliases: ["client macro", "use skill", "cast spell", "open backpack"]
+dll: Macro
 source: wiki
 ---
 
-The event Macro command causes the client to use one of the pre-defined, internal UO client macros.
+`event Macro` makes the client run one of its built-in macros, the same ones you can bind to keys in the
+client's options: speak, open a gump, use a skill, cast a spell, target, and so on.
 
-:::note
-As noted by Cheffe in the old documentation format, EasyUO 1.5 now automatically maps any unspecified parameters to 0 if nothing is specified. For example, using *event Macro 17 0* is no longer neccesary. Using just *event Macro 17* instead, will work just as reliably. If a third parameter is required (for example, for any of the Speech macros), using the 0 as a second parameter is still required however.
-:::
+## Parameters
 
-## Event Macro Table
+| Parameter | Meaning |
+|---|---|
+| `macro` | Which macro, see the tables below. |
+| `parameter` | Optional. Selects a variant: which gump to open, which skill or spell. Default: `0`. |
+| `text` | Optional. Text for the speech macros and others marked `^`. When you give text, write the `parameter` too, even if it is `0`. |
+
+The macros that use something "last" ([`#LObjectID`](/variables/lobjectid/), [`#LTargetID`](/variables/ltargetid/),
+[`#LSkill`](/variables/lskill/), [`#LSpell`](/variables/lspell/)) read those variables, so set them first to
+choose what the macro acts on.
+
+The command calls a function inside the client. On a client version where that function's address is not
+known, it does nothing.
+
+## Macro numbers
 
 ### Speech
 
@@ -330,7 +345,7 @@ As noted by Cheffe in the old documentation format, EasyUO 1.5 now automatically
 | 15      | 692     |         | Cast Spell Nether Cyclone  |
 | 15      | 693     |         | Cast Spell Rising Colossus |
 
-### Miscellanous
+### Miscellaneous
 
 | Param 1 | Param 2 | Param 3 | Description       |
 |---------|---------|---------|-------------------|
@@ -386,7 +401,7 @@ As noted by Cheffe in the old documentation format, EasyUO 1.5 now automatically
 | 49      | 7       |         | Invoke Justice Protection               |
 | 49      | 8       |         | Invoke \*1 Virtue                       |
 
-- 1 - These are Humility Honesty and Spirituality. At present time they do nothing. Which is which is as yet unknown.
+\*1: Humility, Honesty and Spirituality, in an unknown order. They currently do nothing.
 
 ### Targeting System
 
@@ -399,15 +414,14 @@ As noted by Cheffe in the old documentation format, EasyUO 1.5 now automatically
 | 54      |         |         | use selected                    |
 | 55      |         |         | current target                  |
 | 56      |         |         | targeting system on/off         |
-| 57      |         |         | toggle buff window (open/close) |
+| 57      |         |         | toggle buff window (open/close), see [`#BuffBarOpen`](/variables/buffbaropen/) |
 | 58      |         |         | bandage self                    |
 | 59      |         |         | bandage target                  |
 
-- Sets #ltargetid , Opens and Sets Target_status_gump to current targets healthbar
+The targeting system macros set [`#LTargetID`](/variables/ltargetid/) and show the current target's health bar.
 
-`1 = hostile   2 = Party Members `\
-`3 = Followers 4 = Objects  `\
-`5 = Mobiles`
+\*Parameter 2 chooses what to cycle through: `1` hostile, `2` party members, `3` followers, `4` objects,
+`5` mobiles.
 
 ### Gargoyle
 
@@ -415,21 +429,21 @@ As noted by Cheffe in the old documentation format, EasyUO 1.5 now automatically
 |---------|---------|---------|---------------------|
 | 60      |         |         | toggle gargoyle fly |
 
-## Example
+## Examples
 
 ```euo
-set #lTargetX 1000
-set #lTargetY 1000
-set #lTargetKind 3
-
-; uses a shovel and targets ground at 1000, 1000
-set #lObjectID %shovel
-event Macro 17 ; use shovel
-target 5s
-event macro 22 ; target ground
-halt
+event Macro 1 0 Hello everyone        ; say
+event Macro 8 7                        ; open the backpack
 ```
 
-## Available Tutorials
+Dig with a shovel at a spot on the ground:
 
-[Event Macro 22/26/27 Tutorial](http://www.easyuo.com/forum/viewtopic.php?t=15047)
+```euo
+set #LObjectID %shovel
+event Macro 17 0                       ; use the last object: the shovel
+target 5s
+set #LTargetX 1000
+set #LTargetY 1000
+set #LTargetKind 3
+event Macro 22 0                       ; target the last target: the ground at 1000,1000
+```

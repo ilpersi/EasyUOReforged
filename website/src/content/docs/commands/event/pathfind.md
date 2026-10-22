@@ -1,105 +1,49 @@
 ---
 title: "event PathFind"
-description: "Moves you to a specified position if it is possible."
+description: "Walks to a nearby spot, letting the client find a way around obstacles."
 kind: subcommand
 category: event
-syntax: "event PathFind {X-Coordinate} {Y-Coordinate} [Z-Coordinate]"
+syntax: "event PathFind {x} {y} [z]"
 needsClient: true
+related: ["Move", "#CharPosX", "#CharPosY", "#SCnt"]
+aliases: ["pathfinding", "walk to", "go to"]
+dll: Pathfind
 source: wiki
 ---
 
-The event PathFind moves you to the position given by the coordinates. If the Z coordinate os omitted, it is assumed to be -1.
+`event PathFind` makes the client walk your character to a world position, finding a way around walls and
+obstacles.
 
-:::note
-- Please note that your script will keep on executing while the character is moving. Take a look at the example below which mimics the way that the move command works.
-- The event PathFind command only works within one screen. If you need to move longer you need to break up the path in to several calls.
-:::
+## Parameters
+
+| Parameter | Meaning |
+|---|---|
+| `x`, `y` | World position, as in [`#CharPosX`](/variables/charposx/) and [`#CharPosY`](/variables/charposy/). |
+| `z` | Optional height. Default: your current [`#CharPosZ`](/variables/charposz/). |
+
+## Details
+
+- **The script does not wait** for the character to arrive. To wait, compare `#CharPosX` and `#CharPosY`
+  with the target in a loop, with a timeout.
+- **It only reaches spots within about one screen.** For longer trips, walk in several steps.
+- When the client cannot find a way, it says so in the journal and the character does not move.
+
+The command calls a function inside the client. On a client version where that function's address is not
+known, it does nothing.
 
 ## Example
 
+Walk to a spot and wait up to 10 seconds to get there:
+
 ```euo
-;===========================================================
-; Name: pathFind
-; Author: ScriptFellow (the.WZA)
-; Parameters: %1 = X
-;             %2 = Y
-;             %3 = Z
-;             %4 = tolerance
-;             %5 = timeout (in seconds)
-; Purpose: Pathfind to the given coordinates
-; Return: %return (#true or #false )
-;-----------------------------------------------------------
-sub pathFind
-set %_x %1
-set %_y %2
-if %0 <= 2 || %2 = N/A
-   set %_z -1
-else
-   set %_z %3
-if %0 <= 3 || %3 = N/A
-   set %_tolerance 0
-else
-   set %_tolerance %4
-if %0 <= 4
-   set %_endTime #sCnt + 15
-else
-   set %_endTime #sCnt + %5
-set %return #false
-deleteJournal
-scanJournal 2
-event PathFind %_x %_y %_z
-_pathFindScanAgain:
-scanJournal 1
-if pathfinding in #journal
-   goto _pathFindOkay
-if can't_get_there in #journal || #sCnt > %_endTime
-   return
-goto _pathFindScanAgain
-_pathFindOkay:
-gosub _pathFindDist %_x %_y %_z #charPosX #charPosY #charPosZ
-set %return %return <= %_tolerance
-if %return
+set %x 1450
+set %y 1630
+event PathFind %x %y
+set %until #SCnt + 10
+while #CharPosX <> %x || #CharPosY <> %y
 {
-   if %_tolerance > 0
-   {
-      set %1 #cliLeft + #cliXRes / 2
-      set %2 #cliTop + #cliYRes / 2
-      if #charDir < 3
-          set %1 %1 + 1
-      else
-      {
-         if #charDir > 3 && #charDir < 7
-            set %1 %1 - 1
-      }
-      if #charDir = 0 || #charDir = 6
-         set %2 %2 - 1
-      else
-      {
-         if #charDir > 1 && #charDir < 5
-            set %2 %2 + 1
-      }
-      click %1 %2 R
-   }
-   return
+  if #SCnt > %until
+    break
+  wait 5
 }
-if #sCnt > %_endTime
-   return
-goto _pathFindOkay
-
-sub _pathFindDist
-set %1 %1 - %4 abs
-set %2 %2 - %5 abs
-set %3 %3 - %6 abs
-gosub max %1 %2 %3
-return
-
-; to be defined
-sub max
-set %return %1
-for %_idx 2 %0
-{
-   if % . %_idx > %return
-   set %return % . %_idx
-}
-return
 ```

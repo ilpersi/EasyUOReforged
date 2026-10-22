@@ -1,27 +1,23 @@
 ---
 title: "exevent RenamePet"
-description: "Renames a pet."
+description: "Renames one of your pets."
 kind: subcommand
 category: exevent
-syntax: "Exevent RenamePet {id} {name}"
+syntax: "exevent RenamePet {id} {name}"
 needsClient: true
-related: ["exevent"]
+related: ["FindItem"]
+aliases: ["rename pet"]
+dll: RenamePet
 source: wiki
 ---
 
-The *Exevent RenamePet* command changes the name of the pet given by its id to name.
-
-:::note
-This command is only available from EUO 1.5 TV 56
-:::
+`exevent RenamePet` gives one of your pets a new name. The pet has to be known to the client, usually on
+screen. Keep the name to 30 characters at most: the rename request has room for no more.
 
 ## Example
 
 ```euo
 finditem %horse G_2
-if #FINDCNT > 0
-{
-    exevent RenamePet #FINDID Name
-}
-halt
+if #FindCnt > 0
+  exevent RenamePet #FindID Buttercup
 ```
