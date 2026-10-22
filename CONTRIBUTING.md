@@ -66,6 +66,15 @@ Add or extend tests for any logic change that doesn't strictly require a live
 client (interpreter, expression/token handling, conversions, client-data tables,
 UOP/MUL parsing, dispatch). CI runs the suite on every PR and must stay green.
 
+## Documentation
+
+The [documentation site](https://ilpersi.github.io/EasyUOReforged/) is built
+from [`website/`](website/README.md), one Markdown page per command, sub-command,
+`#variable` and `uo.dll` member. `run_tests.ps1` fails when one of them has no
+page (`tests/tools/CheckDocsCoverage.ps1`), so a new command or variable comes
+with its page in the same PR. Mark it `origin: reforged` in the frontmatter.
+`website/README.md` explains the page format and how to preview the site.
+
 ## Pull requests
 
 - Branch from `main`, one logical change per PR.

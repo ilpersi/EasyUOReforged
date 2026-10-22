@@ -8,6 +8,7 @@ type: id
 needsClient: true
 related: ["#ContName", "IgnoreCont"]
 aliases: ["gump kind"]
+dll: ContKind
 source: wiki
 ---
 

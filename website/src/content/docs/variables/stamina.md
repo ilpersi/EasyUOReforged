@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#MaxStam", "#Hits"]
 aliases: ["stam", "fatigue"]
+dll: Stamina
 source: wiki
 ---
 

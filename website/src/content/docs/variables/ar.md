@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#FR", "#CR", "#PR", "#ER"]
 aliases: ["armor", "armour", "physical resist"]
+dll: AR
 source: wiki
 ---
 

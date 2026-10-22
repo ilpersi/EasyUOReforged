@@ -8,6 +8,7 @@ type: id
 needsClient: true
 related: ["#EnemyHits", "event StatBar"]
 aliases: ["enemy", "attacker", "opponent"]
+dll: EnemyID
 source: wiki
 ---
 

@@ -34,6 +34,12 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 - **[`Tile`](/commands/tile/)** reads the `.uop` map files of newer client installs directly; there is no
   need to extract them to the old `.mul` format first.
 
+## uo.dll
+
+- [`uo.dll`](/dll/) is a 64-bit build, for 64-bit programs. Its API is unchanged, plus
+  [`ScanBuffs`](/dll/scanbuffs/), [`GetBuff`](/dll/getbuff/) and [`BuffBarOpen`](/dll/buffbaropen/) for the
+  buff bar.
+
 ## The editor
 
 - Line numbers, **Ctrl+Space** autocomplete, find and replace.

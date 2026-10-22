@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["event Macro", "#LSkill", "Target"]
 aliases: ["last spell", "cast spell"]
+dll: LSpell
 source: wiki
 ---
 

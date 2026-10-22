@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#Mana"]
 aliases: ["max mana"]
+dll: MaxMana
 source: wiki
 ---
 

@@ -8,6 +8,7 @@ type: id
 needsClient: true
 related: ["#CharID", "#FindType"]
 aliases: ["body type", "character graphic"]
+dll: CharType
 ---
 
 `#CharType` is your character's body type: the graphic the client draws for it, in the same Sys26 form as

@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#Hits"]
 aliases: ["max health", "max hp"]
+dll: MaxHits
 source: wiki
 ---
 

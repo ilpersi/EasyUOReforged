@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#CharPosX", "#CharPosY"]
 aliases: ["height", "altitude"]
+dll: CharPosZ
 source: wiki
 ---
 

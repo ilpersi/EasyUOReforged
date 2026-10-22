@@ -25,7 +25,7 @@ const dll: RefLink | undefined = d.dll ? resolveRef(`dll:${d.dll}`, entries) : u
 const categoryHref = slugHref(d.kind === 'variable' ? 'variables' : d.kind?.startsWith('dll-') ? 'dll' : 'commands');
 
 // The sigil-less and spaced spellings, so "findid", "#FindID" and "find id" all find the page.
-const searchTerms = [d.title, d.title.replace(/^#/, ''), ...d.aliases].join(' · ');
+const searchTerms = [...new Set([d.title, d.title.replace(/^#/, ''), ...d.aliases])].join(' · ');
 ---
 
 <div class="ref-header">

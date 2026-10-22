@@ -8,6 +8,7 @@ type: string
 needsClient: true
 related: ["#CharGhost", "event Macro"]
 aliases: ["poisoned", "hidden", "war mode", "status flags"]
+dll: CharStatus
 source: wiki
 ---
 

@@ -8,6 +8,7 @@ type: id
 needsClient: true
 related: ["#LObjectID"]
 aliases: ["last object type"]
+dll: LObjectType
 source: wiki
 ---
 

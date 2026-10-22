@@ -8,6 +8,7 @@ type: string
 needsClient: true
 related: ["#CliVer"]
 aliases: ["client language"]
+dll: CliLang
 ---
 
 `#CliLang` is the three-letter language code of the attached client, for example `ENU` for English. It is

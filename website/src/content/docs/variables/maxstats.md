@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#Str", "#Dex", "#Int", "exevent StatLock"]
 aliases: ["stat cap"]
+dll: MaxStats
 source: wiki
 ---
 

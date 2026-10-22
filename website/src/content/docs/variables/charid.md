@@ -8,6 +8,7 @@ type: id
 needsClient: true
 related: ["#BackpackID", "#CharName", "FindItem"]
 aliases: ["character id", "my id"]
+dll: CharID
 source: wiki
 ---
 

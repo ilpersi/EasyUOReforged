@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#ContSizeX", "#ContSize", "#ContPosY", "IgnoreCont"]
 aliases: ["container height", "gump height"]
+dll: ContSizeY
 ---
 
 `#ContSizeY` is the height, in pixels, of the gump on top. It is the second half of

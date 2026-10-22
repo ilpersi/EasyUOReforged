@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#LTargetID", "#LTargetX", "#LTargetTile", "event Macro"]
 aliases: ["target kind"]
+dll: LTargetKind
 source: wiki
 ---
 

@@ -7,7 +7,7 @@ syntax: "event Drag {id}"
 needsClient: true
 related: ["exevent Drag", "Click", "#LLiftedID"]
 aliases: ["pick up", "drag item"]
-dll: Drag
+dll: CliDrag
 source: wiki
 ---
 

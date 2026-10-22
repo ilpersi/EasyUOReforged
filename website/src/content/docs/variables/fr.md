@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#AR", "#CR", "#PR", "#ER"]
 aliases: ["fire resist"]
+dll: FR
 source: wiki
 ---
 

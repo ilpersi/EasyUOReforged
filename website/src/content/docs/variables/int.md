@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#Str", "#Dex", "#MaxStats"]
 aliases: ["intelligence"]
+dll: Int
 source: wiki
 ---
 

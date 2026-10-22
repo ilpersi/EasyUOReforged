@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#CliXRes", "#CliLeft", "#CliTop"]
 aliases: ["game window size", "resolution"]
+dll: CliYRes
 source: wiki
 ---
 

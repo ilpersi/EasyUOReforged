@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#ContPosY", "ContPos", "#ContSize"]
 aliases: ["gump position"]
+dll: ContPosX
 source: wiki
 ---
 

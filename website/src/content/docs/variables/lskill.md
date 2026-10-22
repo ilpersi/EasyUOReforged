@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["event Macro", "ChooseSkill", "#LSpell"]
 aliases: ["last skill", "use skill"]
+dll: LSkill
 source: wiki
 ---
 

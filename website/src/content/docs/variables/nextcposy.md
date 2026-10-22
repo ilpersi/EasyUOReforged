@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#NextCPosX", "NextCPos"]
 aliases: ["gump position"]
+dll: NextCPosY
 source: wiki
 ---
 

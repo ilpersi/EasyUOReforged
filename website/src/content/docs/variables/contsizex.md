@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#ContSizeY", "#ContSize", "#ContPosX", "IgnoreCont"]
 aliases: ["container width", "gump width"]
+dll: ContSizeX
 ---
 
 `#ContSizeX` is the width, in pixels, of the gump on top (the last one opened or clicked). It is the first half

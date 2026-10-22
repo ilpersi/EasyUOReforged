@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#Str", "#Int", "#MaxStats"]
 aliases: ["dexterity"]
+dll: Dex
 source: wiki
 ---
 

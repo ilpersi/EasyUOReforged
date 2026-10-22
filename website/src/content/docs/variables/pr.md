@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#AR", "#FR", "#CR", "#ER"]
 aliases: ["poison resist"]
+dll: PR
 source: wiki
 ---
 

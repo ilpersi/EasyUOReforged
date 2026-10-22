@@ -7,6 +7,7 @@ access: ro
 type: number
 needsClient: true
 related: ["#Str"]
+dll: Luck
 source: wiki
 ---
 

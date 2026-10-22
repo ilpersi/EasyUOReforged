@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#AR", "#FR", "#PR", "#ER"]
 aliases: ["cold resist"]
+dll: CR
 source: wiki
 ---
 

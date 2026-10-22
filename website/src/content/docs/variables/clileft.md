@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#CliTop", "#CliXRes", "#CliYRes"]
 aliases: ["game window position"]
+dll: CliLeft
 source: wiki
 ---
 

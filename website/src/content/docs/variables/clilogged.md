@@ -8,6 +8,7 @@ type: boolean
 needsClient: true
 related: ["#CliVer", "#CharName"]
 aliases: ["logged in"]
+dll: CliLogged
 source: wiki
 ---
 

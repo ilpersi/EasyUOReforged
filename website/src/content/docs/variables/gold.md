@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#Weight", "FindItem"]
 aliases: ["money"]
+dll: Gold
 source: wiki
 ---
 

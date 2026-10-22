@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#AR", "#FR", "#CR", "#PR"]
 aliases: ["energy resist"]
+dll: ER
 source: wiki
 ---
 

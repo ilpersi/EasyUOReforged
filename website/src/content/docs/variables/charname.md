@@ -8,6 +8,7 @@ type: string
 needsClient: true
 related: ["#CharID", "#Shard"]
 aliases: ["name", "character name"]
+dll: CharName
 source: wiki
 ---
 

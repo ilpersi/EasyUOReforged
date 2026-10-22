@@ -8,6 +8,7 @@ type: id
 needsClient: true
 related: ["#LTargetKind", "#LObjectID", "Target", "event Macro"]
 aliases: ["last target", "target object"]
+dll: LTargetID
 source: wiki
 ---
 

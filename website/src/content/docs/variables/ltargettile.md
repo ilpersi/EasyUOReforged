@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#LTargetKind", "#LTargetX", "Tile"]
 aliases: ["tree", "resource tile"]
+dll: LTargetTile
 source: wiki
 ---
 

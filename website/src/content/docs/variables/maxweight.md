@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#Weight", "#Str"]
 aliases: ["max weight", "carry capacity"]
+dll: MaxWeight
 source: wiki
 ---
 

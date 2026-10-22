@@ -8,6 +8,7 @@ type: id
 needsClient: true
 related: ["#ContID", "#FindType"]
 aliases: ["container type"]
+dll: ContType
 source: wiki
 ---
 

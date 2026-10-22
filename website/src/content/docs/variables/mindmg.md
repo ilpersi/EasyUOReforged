@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#MaxDmg", "#LHandID", "#RHandID"]
 aliases: ["damage", "weapon damage"]
+dll: MinDmg
 source: wiki
 ---
 

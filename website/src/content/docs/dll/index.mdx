@@ -1,0 +1,128 @@
+---
+title: uo.dll API
+description: "How an external program drives a UO client through uo.dll, the EasyUO engine as a DLL: handles, the stack, Get / Set / Call, and every property and method."
+tableOfContents: true
+---
+
+import RefIndex from '../../../components/RefIndex.astro';
+
+`uo.dll` is the EasyUO engine packaged as a DLL, for programs written in other languages: the same client
+reading and automation that EasyUO scripts use, called from your own code. EasyUO Reforged itself does not
+need it; it only matters if you write such a program. Keep `uo.dll` next to your program, or give its full path.
+
+:::caution[uo.dll is 64-bit and new in this form]
+This `uo.dll` is a 64-bit build, so the program that loads it has to be 64-bit too. It is built and tested by
+the project's own test programs, but no external program has used it in real life yet.
+
+**Known issue:** loading it into a program that uses memory above 4 GB, such as 64-bit Python, currently
+crashes while the DLL starts up. A fix is being prepared.
+:::
+
+## How it works
+
+Everything goes through a **handle** and a **stack** of values.
+
+1. `Open` returns a handle. Each handle has its own stack and its own attached client.
+2. To do something, push the command, the name and any values onto the stack, then call `Execute`.
+3. `Execute` returns `0` when it worked, or a negative error code. It removes what you pushed, so the stack
+   then holds only the results, from position 1 up.
+4. Read the results with the `Get…` functions, then empty the stack with `SetTop(handle, 0)`.
+5. `Close` releases the handle.
+
+There are three commands to read, change and run members:
+
+| Command | Pushed | Results |
+|---|---|---|
+| [`Get`](/dll/get/) | `"Get"`, the property name | Its value. |
+| [`Set`](/dll/set/) | `"Set"`, the property name, the new value | Nothing. |
+| [`Call`](/dll/call/) | `"Call"`, the method name, its parameters | What the method returns. |
+
+The first thing a program does is attach a client: `Set CliNr 1` attaches the first running client, and
+[`CliCnt`](/dll/clicnt/) says how many there are.
+
+### Values
+
+The stack holds numbers, strings, booleans, pointers and nil. Unlike EasyUO scripts, `uo.dll` uses real types:
+
+- **IDs and types are plain numbers**, not the letter codes scripts see (`#CharID` reads `ABCDEF`; `CharID`
+  returns the number behind it).
+- **Strings keep their spaces**; nothing is turned into `_`, and `$` is just a character.
+- Where a script variable would read `N/A`, `uo.dll` returns `0`, an empty string or false.
+
+### Error codes
+
+| Code | Name | Meaning |
+|---|---|---|
+| `0` | `RES_OK` | It worked. |
+| `-1` | `ERR_NOTFOUND` | No property, method or command with that name. |
+| `-2` | `ERR_WRONGPAR` | The name exists, but not with these parameters. |
+| `-3` | `ERR_GENERIC` | Something else went wrong. |
+
+[`Type`](/dll/type/) tells which parameters a member accepts; [`GetError`](/dll/geterror/) turns a code into its name.
+
+## Exported functions
+
+Every function uses the `stdcall` convention (the normal 64-bit Windows convention) and takes the handle
+first. The names are exported with the original decorations, for example `_UOOpen@0`.
+
+| Function | Export name | What it does |
+|---|---|---|
+| `Version()` | `_UOVersion@0` | API version: 3. |
+| `Open()` | `_UOOpen@0` | New handle (pointer-sized). |
+| `Close(h)` | `_UOClose@4` | Frees the handle. |
+| `Execute(h)` | `_UOExecute@4` | Runs `Get`, `Set`, `Call`, `Type` or `Help`; returns an error code. |
+| `Query(h)` | `_UOQuery@4` | Runs a query such as `GetKeywords`; returns an error code. |
+| `GetTop(h)` | `_UOGetTop@4` | Number of values on the stack. |
+| `SetTop(h, n)` | `_UOSetTop@8` | Cuts the stack down to `n` values; `0` empties it. |
+| `GetType(h, i)` | `_UOGetType@8` | Type of value `i`: 0 nil, 1 boolean, 2 pointer, 3 number, 4 string. |
+| `PushNil(h)`, `PushBoolean(h, b)`, `PushInteger(h, n)`, `PushDouble(h, d)`, `PushPointer(h, p)` | `_UOPushNil@4`, … | Push a value. |
+| `PushStrVal(h, s)`, `PushLStrVal(h, s, len)` | `_UOPushStrVal@8`, `_UOPushLStrVal@12` | Push a copy of a string (the `L` form may contain zero bytes). |
+| `PushStrRef(h, s)`, `PushLStrRef(h, s, len)` | `_UOPushStrRef@8`, `_UOPushLStrRef@12` | Push a string without copying it; it must stay valid. |
+| `GetBoolean(h, i)`, `GetInteger(h, i)`, `GetDouble(h, i)`, `GetPointer(h, i)` | `_UOGetInteger@8`, … | Read value `i`. |
+| `GetString(h, i)`, `GetLString(h, i, var len)` | `_UOGetString@8`, `_UOGetLString@12` | Read a string; it stays valid until the stack changes. |
+| `Insert(h, i)`, `Remove(h, i)`, `PushValue(h, i)` | `_UOInsert@8`, … | Move, remove or copy stack values. |
+| `Mark(h)`, `Clean(h)` | `_UOMark@4`, `_UOClean@4` | Remember the stack size / remove that many values from the bottom. |
+
+## Example
+
+A sketch in Python with `ctypes` (64-bit Python):
+
+```python
+import ctypes as C
+
+uo = C.WinDLL(r"C:\Games\EasyUOReforged\uo.dll")
+
+def fn(name, restype, *argtypes):
+    f = uo[name]
+    f.restype, f.argtypes = restype, argtypes
+    return f
+
+H = C.c_ssize_t                                   # the handle is pointer-sized
+Open    = fn('_UOOpen@0', H)
+Close   = fn('_UOClose@4', None, H)
+Execute = fn('_UOExecute@4', C.c_int, H)
+SetTop  = fn('_UOSetTop@8', None, H, C.c_int)
+PushStr = fn('_UOPushStrVal@8', None, H, C.c_char_p)
+PushInt = fn('_UOPushInteger@8', None, H, C.c_int)
+GetInt  = fn('_UOGetInteger@8', C.c_int, H, C.c_int)
+GetStr  = fn('_UOGetString@8', C.c_char_p, H, C.c_int)
+
+h = Open()
+
+def run(command, name, *values):
+    SetTop(h, 0)
+    PushStr(h, command.encode())
+    PushStr(h, name.encode())
+    for v in values:
+        PushInt(h, v) if isinstance(v, int) else PushStr(h, v.encode())
+    return Execute(h)                             # 0 = it worked
+
+run('Set', 'CliNr', 1)                            # attach the first client
+run('Get', 'CharName');           print(GetStr(h, 1).decode())
+run('Call', 'GetSkill', 'mage');  print('Magery', GetInt(h, 1) / 10)
+Close(h)
+```
+
+## Reference
+
+<RefIndex kinds={['dll-property', 'dll-method', 'dll-call']} />

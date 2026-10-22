@@ -8,6 +8,7 @@ type: string
 needsClient: true
 related: ["#CliLang", "#EUOVer"]
 aliases: ["client version"]
+dll: CliVer
 source: wiki
 ---
 

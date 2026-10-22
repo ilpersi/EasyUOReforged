@@ -746,7 +746,9 @@ begin
              VarTreeLoad(Identifiers);
            end;
          end;
-   100 : ShellExecute(0,'open','http://wiki.easyuo.com','','',SW_SHOW);
+    // Port change: was http://wiki.easyuo.com, which is gone. The documentation site is built from
+    // this repo's website\ folder.
+   100 : ShellExecute(0,'open','https://ilpersi.github.io/EasyUOReforged/','','',SW_SHOW);
    101 : ShellExecute(0,'open','http://www.easyuo.com','','',SW_SHOW);
    102 : ShowMessage('EasyUO Reforged '+REFORGED_VERSION+#13#10#13#10+
            'A community port of EasyUO (originally by Cheffe) to Lazarus/'+

@@ -8,6 +8,7 @@ type: string
 needsClient: true
 related: ["SetUOTitle", "GetUOTitle", "#CliNr"]
 aliases: ["client title", "window title"]
+dll: CliTitle
 ---
 
 `#CliTitle` is the title of the attached client's window. Setting it changes the title, which helps tell

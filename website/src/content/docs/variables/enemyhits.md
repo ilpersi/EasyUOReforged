@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#EnemyID", "#ContHP"]
 aliases: ["enemy health"]
+dll: EnemyHits
 source: wiki
 ---
 

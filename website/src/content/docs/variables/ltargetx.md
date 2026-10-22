@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#LTargetKind", "#LTargetY", "#LTargetTile"]
 aliases: ["target position"]
+dll: LTargetX
 source: wiki
 ---
 

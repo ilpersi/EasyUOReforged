@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#Shard"]
 aliases: ["last shard"]
+dll: LShard
 source: wiki
 ---
 

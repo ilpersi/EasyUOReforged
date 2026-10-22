@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#Followers"]
 aliases: ["max followers"]
+dll: MaxFol
 source: wiki
 ---
 

@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#CharStatus", "#CharType"]
 aliases: ["gender"]
+dll: Sex
 source: wiki
 ---
 

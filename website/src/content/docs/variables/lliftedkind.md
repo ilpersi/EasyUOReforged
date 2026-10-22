@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#LLiftedID", "event Drag"]
 aliases: ["holding", "on cursor"]
+dll: LLiftedKind
 source: wiki
 ---
 

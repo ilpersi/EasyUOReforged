@@ -9,6 +9,9 @@ memory, and patch small runtime hooks into it, to automate gameplay actions. Thi
 **not** the original project. The original Delphi 7 codebase, written by Cheffe, is what this port
 is derived from.
 
+**Documentation:** <https://ilpersi.github.io/EasyUOReforged/> — every command, `#variable` and
+`uo.dll` member, the language rules, and a getting-started guide.
+
 ## Goal
 
 The original EasyUO only builds under Delphi 7, which is long out of support and increasingly
@@ -72,7 +75,8 @@ below as unverified.
   work across bitness.)
 - **The `uo.dll` external stack-API surface has not been verified against any real external
   consumer.** It's built and exports the expected decorated names, but nothing outside this
-  project's own test harness has exercised it end-to-end yet.
+  project's own test harness has exercised it end-to-end yet. Its API is documented on the
+  [uo.dll API](https://ilpersi.github.io/EasyUOReforged/dll/) page.
 - **`EUOUpdater`** (the tool used to derive new client-version memory offsets) has had only light
   testing relative to the main application.
 - **`Client Support`** As this port is based on a deprecated EUO version, client support for new clients
@@ -92,59 +96,26 @@ below as unverified.
   especially in less-common script commands or GUI menu features, should be expected.
 
 ### Additions beyond the original
-- **`Script Editor`** — The script editor now has: line number, basic Ctrl+Space auto complete suppport,
-  normal break points, conditional break points (the syntax is basic <var_name> <operator> <value> so don't
-  expect to run full scripts in that), run to cursor and call stack for nested sub calls.
-- **`TILE script command`** — Now has built-in support for UOP file format without the need to manually exctract
-  files in the old MUL format. 
-- **`MENU MEMO <name> <x> <y> <w> <h> <text>`** — a multi-line counterpart to `MENU EDIT`
-  (scrollable `TMemo`; `$` in `<text>` becomes a line break, as in `MENU TEXT`). `MENU GET`
-  returns its contents with line breaks folded back to `$`. Used by
+
+All of these are new names or editor features, so existing scripts are unaffected. The details are on the
+documentation site, under [What's new in Reforged](https://ilpersi.github.io/EasyUOReforged/reforged/whats-new/).
+
+- **Script editor** — line numbers, Ctrl+Space autocomplete, breakpoints and conditional breakpoints,
+  run to cursor, and a call stack for nested sub calls
+  ([Editing and debugging](https://ilpersi.github.io/EasyUOReforged/guide/debugging/)).
+- **`TILE`** — reads the UOP map files of newer clients directly, with no need to extract them to the
+  old MUL format first ([`tile`](https://ilpersi.github.io/EasyUOReforged/commands/tile/)).
+- **`MENU MEMO`** — a multi-line, scrollable counterpart to `MENU EDIT`
+  ([`menu memo`](https://ilpersi.github.io/EasyUOReforged/commands/menu/memo/)). Used by
   [`docs/report-diagnostics.euo`](docs/report-diagnostics.euo).
-- **`ScanBuffs [iconID]`** — reads the client's buff bar. It takes a snapshot (like `FindItem` /
-  `ScanJournal`), selects the first buff and sets `#BuffCnt`; the read/write `#BuffIndex` (1-based)
-  walks the snapshot the way `#FindIndex` walks `FindItem`'s. For the selected buff:
-  `#BuffID` (icon id, a plain number: Bless is 30018 = `$7542`), `#BuffCliloc` (title cliloc number),
-  `#BuffName`, `#BuffDesc` (the two lines of the tooltip) and `#BuffTime` (seconds left, `-1` = no
-  timer). `ScanBuffs 30018` keeps only the buffs with that icon id. Example:
-  `ScanBuffs` / `for %i 1 #BuffCnt` / `set #BuffIndex %i` / `msg #BuffName`. `#BuffBarOpen` is `1`
-  when the buff bar window is open and `0` when it is closed (like `#CliLogged`; `N/A` on a client whose
-  buff bar cannot be read), so an open bar with no buffs (`#BuffBarOpen` 1, `#BuffCnt` 0) is told apart
-  from a closed one. The `uo.dll` variable is `BuffBarOpen`. `uo.dll` has the same
-  data as the generic-API methods `ScanBuffs` and `GetBuff`. How it differs from a plain
-  implementation (and from the other commands):
-  - It only **reads** the client's memory (no code caving, nothing written), so it cannot disturb the client.
-  - The buff bar window has to be **open**: the data lives in the `BuffIcons Gump`. With the window
-    closed `#BuffCnt` is `0` and the other variables read `N/A` (the same for a buff without text:
-    `#BuffName` / `#BuffDesc` = `N/A`).
-  - It works on the clients whose buff bar layout was checked: the 7.0.117.1 beta (`client_beta.exe`)
-    and the fixed-base clients (checked on 7.0.117.1 and on a 2013 client; the two addresses it needs are
-    found by the signature scan, see `tools\EUOUpdater`). On any other client the command does nothing
-    and the variables read `N/A`, so it can never read garbage from a layout nobody verified.
-  - The texts are the client's own **cliloc** table, so they come in the client's language. The
-    `~1_STR~`-style arguments are filled in, `<br>` becomes a space and any other markup is dropped;
-    spaces become `_` like in every string variable, so `str pos #BuffName Bless` works.
-  - `#BuffTime` shows exactly what the tooltip shows: whole seconds, which the client refreshes in
-    coarse steps (about every 5 s), `-1` for buffs without a countdown (Hiding, for one);
-    a buff whose timer the client no longer knows shows `0`.
-  - The `#Buff...` variables follow the client while you read them (a variable tree shows `#BuffTime`
-    counting down): the selected buff is found again by its icon id when other buffs come and go, and
-    once it leaves the bar (its timer ran out) `#BuffID`, `#BuffCliloc`, `#BuffName`, `#BuffDesc`,
-    `#BuffTime` and `#BuffIndex` read `N/A` until the next `ScanBuffs` or `set #BuffIndex`. `#BuffCnt`
-    is the live number of buffs. Inside a loop over `#BuffIndex` the positions can shift if a buff
-    ends meanwhile -- `ScanBuffs` again if you need a fixed list.
-  - All names are new; no existing command, variable or script changes meaning. Selftest stage 9
-    (`tools\EUOSelfTest`) exercises all of it.
-- **`SQL`** — keeps data in an SQLite database file. `sql open <file>`, then `sql exec` / `sql query`
-  with ordinary SQL, where script variables are written as usual and passed to SQLite as values (never
-  pasted into the text, so quotes and commas in them are harmless):
-  `sql query SELECT name, hp FROM pets WHERE hp < %limit`. The columns of a row land in `%name`, `%hp`,
-  and `sql row <n>` moves through the rows (`#SqlCnt` of them). `sql save %a !b` / `sql load %a !b`
-  keep variables between sessions, like `*` variables but in your own file. `#SqlRes` is `OK` or the
-  error text; an `sql` line never stops a script. Uses the SQLite built into Windows 10/11
-  (`winsqlite3.dll`); nothing to install, and it is loaded only when a script uses it. Full reference:
-  [`docs/sql.md`](docs/sql.md). `SQL` is the only new command word (a line starting with it did
-  nothing before) and the four `#Sql...` variables are new, so existing scripts are unaffected.
+- **`ScanBuffs`** — reads the client's buff bar (names, descriptions, timers) into `#BuffCnt`,
+  `#BuffIndex`, `#BuffID`, `#BuffCliloc`, `#BuffName`, `#BuffDesc`, `#BuffTime` and `#BuffBarOpen`
+  ([`scanbuffs`](https://ilpersi.github.io/EasyUOReforged/commands/scanbuffs/)). It only reads the client's memory, and works on the clients
+  whose buff bar layout was checked. Selftest stage 9 (`tools\EUOSelfTest`) exercises all of it.
+- **`SQL`** — keeps data in an SQLite database file, with ordinary SQL or a quick save / load of
+  variables, using the SQLite built into Windows 10/11 ([Using SQL](https://ilpersi.github.io/EasyUOReforged/guides/sql/),
+  [`sql`](https://ilpersi.github.io/EasyUOReforged/commands/sql/)).
+- **`#ReforgedVer`** — this port's build version. `#EUOVer` still returns `1_50_00`.
 
 ## Download & run
 
@@ -159,9 +130,9 @@ Start your Ultima Online client and log in first; EasyUO Reforged detects runnin
 clients on its own. Then paste a script into a tab and press Play. (EasyUO
 Reforged is `x86_64-win64` only — see *Known limitations* on client bitness.)
 
-New to it? See [**`docs/getting-started.md`**](docs/getting-started.md) for a
-first-run walkthrough (window layout, running and debugging a script, multiple
-clients).
+New to it? See [**Get started**](https://ilpersi.github.io/EasyUOReforged/guide/install/)
+on the documentation site for a first-run walkthrough (window layout, running and
+debugging a script, multiple clients).
 
 Each release is built entirely in public by GitHub Actions
 ([`release.yml`](.github/workflows/release.yml)) from the tagged commit, and ships
@@ -200,21 +171,23 @@ See also [`SECURITY.md`](SECURITY.md).
 
 ## Writing scripts
 
-The scripting language itself — every command, every `#variable`, the expression
-syntax — is **not** re-documented in this repository. It is the same language as
-the original EasyUO, documented on the **EasyUO wiki**:
+The scripting language is the same as the original EasyUO's. Every command, every
+`#variable`, the expression syntax and the `uo.dll` API are documented on the
+**documentation site**:
 
-- **Command / variable reference:** <http://wiki.easyuo.com>
+- **Reference and guides:** <https://ilpersi.github.io/EasyUOReforged/>
 - **Script help, examples, community:** <http://www.easyuo.com>
+
+The site is built from [`website/`](website/) in this repository, and the tests
+fail when a command or variable has no page, so it follows the code. It started
+from the old EasyUO wiki, checked against this port's source; that text stays
+under the GFDL 1.2 (see [`NOTICE`](NOTICE)).
 
 This port aims to run existing `.euo` scripts unchanged. `#EUOVer` still returns
 the original value (`1_50_00`) so version checks keep working; `#ReforgedVer`
 is this port's own build version. Anywhere behaviour intentionally differs, or a
 command is incomplete, is listed under *Known limitations* and *Additions beyond
 the original* above.
-
-[`docs/getting-started.md`](docs/getting-started.md) covers running and debugging
-scripts in the app.
 
 ## Building
 

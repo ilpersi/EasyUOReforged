@@ -8,6 +8,7 @@ type: string
 needsClient: true
 related: ["#Journal", "ScanJournal"]
 aliases: ["system message"]
+dll: SysMsg
 source: wiki
 ---
 

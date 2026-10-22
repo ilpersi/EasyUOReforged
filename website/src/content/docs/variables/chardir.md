@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#CharPosX", "Move"]
 aliases: ["direction", "facing"]
+dll: CharDir
 source: wiki
 ---
 

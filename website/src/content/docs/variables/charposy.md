@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#CharPosX", "#CharPosZ", "event PathFind", "Move"]
 aliases: ["position", "coordinates", "location"]
+dll: CharPosY
 source: wiki
 ---
 

@@ -8,6 +8,7 @@ type: id
 needsClient: true
 related: ["#LLiftedKind", "#LLiftedType", "event Drag"]
 aliases: ["dragged item"]
+dll: LLiftedID
 source: wiki
 ---
 

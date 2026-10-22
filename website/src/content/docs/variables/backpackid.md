@@ -8,6 +8,7 @@ type: id
 needsClient: true
 related: ["#CharID", "FindItem", "exevent DropC"]
 aliases: ["backpack", "inventory"]
+dll: BackpackID
 source: wiki
 ---
 

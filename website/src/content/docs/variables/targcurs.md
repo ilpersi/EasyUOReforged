@@ -8,6 +8,7 @@ type: boolean
 needsClient: true
 related: ["Target", "#LTargetID", "#LTargetKind"]
 aliases: ["target cursor", "pick target"]
+dll: TargCurs
 source: wiki
 ---
 

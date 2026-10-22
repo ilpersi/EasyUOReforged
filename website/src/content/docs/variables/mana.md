@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#MaxMana", "#Hits"]
 aliases: ["mana points"]
+dll: Mana
 source: wiki
 ---
 

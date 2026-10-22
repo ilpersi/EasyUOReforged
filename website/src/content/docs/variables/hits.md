@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#MaxHits", "#Stamina", "#Mana"]
 aliases: ["health", "hp", "hit points"]
+dll: Hits
 source: wiki
 ---
 

@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#Dex", "#Int", "#MaxStats"]
 aliases: ["strength"]
+dll: Str
 source: wiki
 ---
 

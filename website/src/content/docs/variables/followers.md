@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#MaxFol"]
 aliases: ["pets", "control slots"]
+dll: Followers
 source: wiki
 ---
 

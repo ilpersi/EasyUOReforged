@@ -8,6 +8,7 @@ type: id
 needsClient: true
 related: ["#RHandID", "event Macro", "exevent Equip"]
 aliases: ["left hand", "arm", "weapon"]
+dll: LHandID
 source: wiki
 ---
 

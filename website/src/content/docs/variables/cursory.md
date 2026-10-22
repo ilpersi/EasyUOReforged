@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#CursorX", "Click"]
 aliases: ["mouse position"]
+dll: CursorY
 source: wiki
 ---
 

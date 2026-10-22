@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#MaxWeight", "#Gold"]
 aliases: ["stones", "load"]
+dll: Weight
 source: wiki
 ---
 

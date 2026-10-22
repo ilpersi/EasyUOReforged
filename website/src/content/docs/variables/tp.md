@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["#Mana"]
 aliases: ["tithing points"]
+dll: TP
 source: wiki
 ---
 

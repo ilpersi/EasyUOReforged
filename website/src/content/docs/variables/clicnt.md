@@ -7,6 +7,7 @@ access: ro
 type: number
 related: ["#CliNr", "UOXL"]
 aliases: ["client count"]
+dll: CliCnt
 source: wiki
 ---
 

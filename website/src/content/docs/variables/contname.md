@@ -8,6 +8,7 @@ type: string
 needsClient: true
 related: ["#ContKind", "#ContID", "IgnoreCont"]
 aliases: ["gump name", "container name"]
+dll: ContName
 source: wiki
 ---
 

@@ -8,6 +8,7 @@ type: number
 needsClient: true
 related: ["Tile", "#CharPosX"]
 aliases: ["facet", "map"]
+dll: CursKind
 source: wiki
 ---
 

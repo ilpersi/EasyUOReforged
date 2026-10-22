@@ -8,6 +8,7 @@ type: string
 needsClient: true
 related: ["#LShard", "#CharName"]
 aliases: ["server", "shard name"]
+dll: Shard
 source: wiki
 ---
 
