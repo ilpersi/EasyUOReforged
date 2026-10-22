@@ -1,20 +1,17 @@
 ---
 title: "InitEvents"
-description: "Initializes all event commands."
+description: "Obsolete: event commands set themselves up; the line is ignored."
 kind: command
 category: obsolete
-syntax: "initEvents"
+syntax: "initevents"
 obsolete: true
+related: ["Event"]
 source: wiki
 ---
 
-The *initEvents* command initializes all event commands. If it is not run once per script, none of the event commands will function. You should only call *initEvents* once per script.
+Old EasyUO versions needed `initevents` once per script before any [`event`](/commands/event/) command would
+work. Later versions set the event commands up the first time one is used, so the command was no longer
+needed.
 
-:::note
-It should be noted that *InitEvents* is no longer required on current releases of EasyUO. The first time you use an [event Macro](/commands/event/macro/) it will automatically initialize. If it is used now it hurts nothing. But serves no purpose either
-:::
-
-## Reforged notes
-
-EasyUO Reforged does not know the word at all: like any unknown command, a line starting with `initEvents`
-is skipped. Event commands set themselves up the first time they run.
+EasyUO Reforged does not know the word at all: like any unknown command, a line starting with `initevents` is
+skipped. Remove it from your scripts.

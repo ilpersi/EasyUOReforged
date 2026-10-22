@@ -1,47 +1,41 @@
 ---
 title: "namespace copy"
-description: "Copy variables from one namespace to another."
+description: "Copies variables matching a pattern between the current namespace and another."
 kind: subcommand
 category: namespace
-syntax: "nameSpace copy {filter} {from  |  to} {local  |  global} {namespace name}"
+syntax: "namespace copy {pattern} {from|to} {local|global} {name}"
+related: ["namespace local", "namespace global"]
 source: wiki
 ---
 
-*(Added in 1.40)* The **[Namespace](/commands/?category=namespace)** copy command allows to copy all or part of variables within a [Namespace](/commands/?category=namespace) into another. The {filter} parameter is use to specify which variables should be copied and accepts two special characters "?" and "\*".
+`namespace copy` copies variables between the current namespace and another one.
 
-The "?" character matches any single character and can be use multiple times within one {filter} expression. I.e. "return?" will match any variable whose name start with "return" and has one additional character.
+## Parameters
 
-The "\*" character matches zero or more unspecified character. It can only appear but once within a {filter} expression. I.e. "return\*" will match any variable whose name start with "return".
+| Parameter | Meaning |
+|---|---|
+| `pattern` | Which variables, by name, without the `!`. `*` matches any number of characters and can appear once; `?` matches one character and can appear several times. `*` alone copies everything. |
+| `from` / `to` | `from` copies from the other namespace into the current one; `to` copies from the current one into the other. |
+| `local` / `global` | Whether the other namespace is local or global. |
+| `name` | The other namespace. It does not need to exist yet. |
 
-The {from \| to} parameter defines the direction for the copy, while the {local \| global} {namespace name} parameters define the [name](/variables/nsname/) and scope of the [Namespace](/commands/?category=namespace) to be used.
-
-From: copies variables from the specified [Namespace](/commands/?category=namespace) into the current [Namespace](/commands/?category=namespace).
-
-To: copies variables from the current [Namespace](/commands/?category=namespace) into the specified [Namespace](/commands/?category=namespace). If the specified [Namespace](/commands/?category=namespace) doesn't exist at this time, it will be created.
-
-The default [Namespace](/commands/?category=namespace) is [local](/commands/namespace/local/) and named STD. This setting is restored when the script is stopped.
-
-:::note
-Global namespaces are only available in EasyUO 1.5.
-:::
+A pattern without `*` matches the names that **end** with it: `ret` matches `!ret` and `!secret`. Write
+`ret*` for names starting with `ret`.
 
 ## Example
 
+Return a value from a sub that works in its own namespace:
+
 ```euo
-set !return ; make sure !return is empty
 gosub test
-display ok !return
+display ok !result
 halt
 
 sub test
-    nameSpace Push ; saves current namespace
-    nameSpace Local Test ; create a new temporary namespace to work with
-    set !return this_is_a_test
-    nameSpace Pop ; restore previous namespace
-    nameSpace Copy ret* From Local Test ; copy variables to the original namespace
-    nameSpace Push ; saves current namespace
-    nameSpace Local Test
-    nameSpace Clear ; free memory used by temporary namespace
-    nameSpace Pop ; restore previous namespace
+  namespace push
+  namespace local test
+  set !result done
+  namespace pop
+  namespace copy result from local test
 return
 ```

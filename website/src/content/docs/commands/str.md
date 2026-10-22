@@ -1,62 +1,62 @@
 ---
 title: "Str"
-description: "Performs a operation on a string."
+description: "Works on a piece of text (length, position, part, case, insert, delete, count); the result goes to #StrRes."
 kind: command
 category: misc
-syntax: "str {\"Len\"} {string}\nstr {\"Pos\"} {string} {sub string} [index]\nstr {\"Left\"} {string} {length}\nstr {\"Right\"} {string} {length}\nstr {\"Mid\"} {string} {start} {length}\nstr {\"Lower\"} {string}\nstr {\"Upper\"} {string}\nstr {\"Ins\"} {string} {sub string} {start}\nstr {\"Del\"} {string} {start} {length}\nstr {\"Count\"} {string} {substring}"
+syntax: "str {operation} {text} [parameters...]"
+sets: ["#StrRes"]
+related: ["#StrRes"]
+aliases: ["string", "text", "substring", "length"]
 source: wiki
 ---
 
-The [str](/commands/str/) command performs a string operation on the string given and stores the result in #strRes.
+`str` works on a piece of text and puts the result in [`#StrRes`](/variables/strres/).
 
-| Value | Description |
-|----|----|
-| Len | Stores the length of the string in the #strRes system variable. |
-| Pos | Stores the position of the sub string in the #strRes system variable. *index* tells which occurrence to return (if there's more than one). |
-| Left | Stores a part of the string taken from the left, in the #strRes system variable. |
-| Right | Stores a part of the string taken from the right, in the #strRes system variable. |
-| Mid | Stores a part of the string taken from the middle, in the #strRes system variable. |
-| Lower | Stores a lower case version of the string in the #strRes system variable. |
-| Upper | Stores an upper case version of the string in the #strRes system variable. |
-| Ins | Inserts a string into the string and stores it in the #strRes system variable. |
-| Del | Deletes a part of the string and stores it in the #strRes system variable. |
-| Count | Returns the number of occurrences of substring in string. |
+| Operation | Result in `#StrRes` |
+|---|---|
+| `str len {text}` | The number of characters. |
+| `str pos {text} {part} [n]` | Where `part` starts in `text`, counting from 1; with `n`, where its `n`-th occurrence starts. `0` when it is not there. |
+| `str count {text} {part}` | How many times `part` occurs in `text`. |
+| `str left {text} {n}` | The first `n` characters. |
+| `str right {text} {n}` | The last `n` characters. |
+| `str mid {text} {start} {n}` | `n` characters starting at character `start`. |
+| `str lower {text}` | The text in lower case. |
+| `str upper {text}` | The text in upper case. |
+| `str ins {text} {part} {start}` | The text with `part` inserted at character `start`. |
+| `str del {text} {start} {n}` | The text with `n` characters removed, starting at character `start`. |
 
-:::note
-- Index parameter in Str Pos is only avalable from EUO 1.5 Test version 27.
-- Str Count command is only avalable from EUO 1.5 Test version 27.
-:::
+`pos` and `count` ignore case. When parameters are missing, `#StrRes` is `N/A`.
 
-## Example
+## Examples
 
 ```euo
-set %string HELLO
-str Len %string     ; #strRes = 5
-str Pos %string LL  ; #strRes = 3
-str Left %string 4  ; #strRes = HELL
-str Right %string 2 ; #strRes = LO
-str Mid %string 2 3 ; #strRes = ELL
-str Lower %string   ; #strRes = hello
-str Upper hello     ; #strRes = HELLO
-str Ins %string I 3 ; #strRes = HELILO
-str Del %string 3 2 ; #strRes = HEO
-str Count %string L ; #strRes = 2
+set %s HELLO
+str len %s          ; 5
+str pos %s LL       ; 3
+str left %s 4       ; HELL
+str right %s 2      ; LO
+str mid %s 2 3      ; ELL
+str lower %s        ; hello
+str upper hello     ; HELLO
+str ins %s I 3      ; HEILLO
+str del %s 3 2      ; HEO
+str count %s L      ; 2
+```
 
-; This is a sample on how to use Str Count
-; command and index parameter of Str Pos
-; Made by Cheffe.
+Split a text at `_`, using `count` and the occurrence parameter of `pos`:
 
-set %test _this_is_a_test_and_tests_are_cool_
-
+```euo
+set %test _this_is_a_test_
 str count %test _
-for %cnt #strres 2
+set %parts #StrRes - 1
+for %n 1 %parts
 {
-  set %tmp %cnt - 1
-  str pos %test _ %tmp
-  set %tmp #strres + 1
-  str pos %test _ %cnt
-  set %len #strres - %tmp
-  str mid %test %tmp %len
-  display ok #strres
+  str pos %test _ %n
+  set %from #StrRes + 1
+  set %next %n + 1
+  str pos %test _ %next
+  set %len #StrRes - %from
+  str mid %test %from %len
+  display ok #StrRes
 }
 ```

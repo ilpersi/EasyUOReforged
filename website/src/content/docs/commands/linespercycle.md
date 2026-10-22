@@ -1,26 +1,28 @@
 ---
 title: "LinesPerCycle"
-description: "Sets the execution speed."
+description: "Sets how many lines the script runs before each 50 ms pause; the same as set #LPC."
 kind: command
 category: misc
-syntax: "linesPerCycle {linespercycle}"
+syntax: "linespercycle {lines}"
+related: ["#LPC", "Wait"]
+aliases: ["speed", "lpc"]
 source: wiki
 ---
 
-The [LinesPerCycle](/commands/linespercycle/) command sets the number of lines that the EasyUO parser runs through for every cycle. The default value is 10 and is reset when you stop the script.
+A script runs in cycles: it runs a number of lines, then pauses 50 ms, which leaves the computer to the UO
+client. `linespercycle` sets that number. It does the same as `set #LPC`: see [`#LPC`](/variables/lpc/).
 
-Cheffe's description of lines per cycle, and cycles per second:
+The default is 10, and a script starts with 10 again each time it is run. `0` and negative numbers are
+ignored.
 
-"EUO has 20 cycles per second and in each cycle it executes 10 lines (default). Some commands have built in waits so that the script speed slows down considerably.
-
-You can't say that one command is faster than the other. EUO gives away most of the available processing time so that the UO client can have it.
-
-EUO doesn't know the difference between a processing intensive task such as "finditem \*" at WBB or a simple "set %x 3". While 10 lines per cycle is already too fast if you have 10 finditems in a row you could execute hundreds of set instructions in the same time without stressing the CPU."
-
-Read here: http://www.easyuo.com/forum/viewtopic.php?p=21269
+Raise it to make plain calculations run faster, for example while building a big
+[`menu`](/commands/menu/) window. Commands that wait for the client, such as `finditem` or the `event`
+commands, take the time they need regardless.
 
 ## Example
 
 ```euo
+linespercycle 1000       ; build the menu quickly
+gosub buildmenu
 linespercycle 10
 ```

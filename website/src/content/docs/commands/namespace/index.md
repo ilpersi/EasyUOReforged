@@ -1,19 +1,44 @@
 ---
 title: "Namespace"
-description: "Commands to interact with namespaces and their related variables."
+description: "Switches the set of ! variables a script uses: private to the script, or shared with other scripts."
 kind: command
 category: namespace
 syntax: "namespace {local|global|clear|push|pop|copy} [parameters...]"
+related: ["#NSName", "#NSType"]
+aliases: ["! variables", "shared variables", "scope"]
 source: wiki
 ---
 
-Commands to interact with namespaces and their related variables.
+A namespace is a named set of `!` variables. At any moment one namespace is current, and every `!x` in the
+script means the variable `x` of that namespace. Switching namespaces gives a sub its own variables, or lets
+several scripts share some.
 
-| Command | Summary |
+- **Local** namespaces belong to one script tab: no other script sees them.
+- **Global** namespaces are shared by every script running in EasyUO Reforged, in any tab.
+
+A script starts in the local namespace `std`. [`#NSName`](/variables/nsname/) and
+[`#NSType`](/variables/nstype/) tell which namespace is current.
+
+| Command | What it does |
 |---|---|
-| [nameSpace local](/commands/namespace/local/) | Defines the current namespace and its scope |
-| [nameSpace global](/commands/namespace/global/) | Defines the current namespace and its scope |
-| [nameSpace clear](/commands/namespace/clear/) | Clears every variables within the current namespace |
-| [nameSpace push](/commands/namespace/push/) | Stores the current namespace name and scope |
-| [nameSpace pop](/commands/namespace/pop/) | Restores the current namespace name and scope |
-| [nameSpace copy](/commands/namespace/copy/) | Copy variables from one namespace to another |
+| [namespace local](/commands/namespace/local/) | Makes a local namespace current. |
+| [namespace global](/commands/namespace/global/) | Makes a global namespace current. |
+| [namespace push](/commands/namespace/push/) | Remembers the current namespace. |
+| [namespace pop](/commands/namespace/pop/) | Goes back to the namespace last remembered. |
+| [namespace copy](/commands/namespace/copy/) | Copies variables between the current namespace and another. |
+| [namespace clear](/commands/namespace/clear/) | Deletes every variable of the current namespace. |
+
+`%` variables are not affected by namespaces: they always belong to the script.
+
+## Example
+
+A sub that works in its own namespace, so it cannot overwrite the caller's `!` variables:
+
+```euo
+sub work
+  namespace push
+  namespace local work
+  set !count !count + 1
+  namespace pop
+return
+```

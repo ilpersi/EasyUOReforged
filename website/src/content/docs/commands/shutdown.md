@@ -1,19 +1,24 @@
 ---
 title: "ShutDown"
-description: "Shuts your computer down."
+description: "Shuts down and powers off the computer."
 kind: command
 category: misc
-syntax: "shutDown [\"force\"]"
+syntax: "shutdown [force]"
+related: ["Terminate", "Execute"]
+aliases: ["power off", "turn off computer"]
 source: wiki
 ---
 
-The [shutDown](/commands/shutdown/) command shuts your computer down. The option force forces non-responsive application to shut down, as well.
+`shutdown` shuts down Windows and powers off the computer. With `force`, programs that do not close by
+themselves are closed anyway, and unsaved work in them is lost.
+
+:::caution[Only run scripts you trust]
+There is no setting to turn this command off: any script you run can use it.
+:::
 
 ## Example
 
 ```euo
-if #charGhost = YES
-{
-shutDown
-}
+if #CharGhost = yes
+  shutdown
 ```

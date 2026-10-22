@@ -1,32 +1,25 @@
 ---
 title: "Sound"
-description: "Plays a wave file or the SystemDefault beep."
+description: "Plays a .wav file, or the Windows default beep."
 kind: command
 category: misc
-syntax: "sound [filename]"
+syntax: "sound [file]"
+related: ["Display"]
+aliases: ["beep", "play sound", "wav"]
 source: wiki
 ---
 
-The [sound](/commands/sound/) command plays a wave file or the SystemDefault beep.
+`sound` plays a sound. Without a file it plays the Windows default beep. With a `.wav` file it plays that, in
+the background: the script does not wait for the sound to end. A file that cannot be found plays nothing.
+
+Give the full path of the file.
 
 ## Example
 
 ```euo
-if #charghost = YES
+if #CharGhost = yes
 {
-sound
-halt
+  sound C:\Windows\Media\chimes.wav
+  halt
 }
 ```
-
-:::note
-For File Use:
-
-If the sound file is in a directory which exists in your dos PATH environment variable, you do not need to include a full path. Try this:
-
-sound chimes.wav
-
-You should hear the windows chimes sound. Sound will also accept absolute paths.
-
-sound c:\windows\media\chimes.wav
-:::

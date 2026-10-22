@@ -1,40 +1,29 @@
 ---
 title: "namespace local"
-description: "Defines the current namespace and its scope."
+description: "Makes a local namespace, private to this script, the current one."
 kind: subcommand
 category: namespace
-syntax: "nameSpace local {namespace name}"
+syntax: "namespace local {name}"
+related: ["namespace global", "namespace push", "#NSName"]
 source: wiki
 ---
 
-The namespace local command defines the current namespace name and scope. The {namespace name} cannot start with a number, but can start with an underscore and can include any aphanumeric character. A local namespace can only be accessed by the script that defined it.
+`namespace local` makes the local namespace `name` current. From then on, `!x` means variable `x` of that
+namespace. Only this script can see a local namespace; switching away and back finds its variables as they
+were.
 
-The default namespace is named STD and has local scope. This namespace is restored when the script is stopped, or there are no previous namespaces defined at the point that a [nameSpace pop](/commands/namespace/pop/) occurs.
+`name`: A name made of letters, digits and `_`, not starting with a digit. Case does not matter.
+
+A script starts in the local namespace `std`, and starts there again each time it is run.
 
 ## Example
 
 ```euo
 namespace local ns1
-set !test test1
-
+set !test one
 namespace local ns2
-set !test test2
-
-namespace local ns3
-set !test test3
-
+set !test two
 namespace local ns1
-display ok !test
-
-namespace local ns2
-display ok !test
-
-namespace clear ns2
-namespace local ns2
-display ok !test
-
-namespace local ns3
-display ok !test
-
+display ok !test         ; one
 halt
 ```

@@ -1,31 +1,24 @@
 ---
 title: "DeleteVar"
-description: "Sets a variable to an empty string."
+description: "Obsolete: empties a % variable; set %x with no value does the same."
 kind: command
 category: obsolete
-syntax: "deleteVar {variable name}"
+syntax: "deletevar {name}"
 obsolete: true
+related: ["Set", "namespace clear"]
 source: wiki
 ---
 
-The [deleteVar](/commands/deletevar/) command deletes the content of a variable.
+`deletevar` deletes the `%` variable with the given name, written **without** the `%`. Only `%` variables can
+be deleted this way.
 
-:::note
-- The content can only be deleted if the variable has already been assigned to.
-
-- The deleteVar command is deprecated since the set command can now assign an empty string value to a variable.
-:::
+It is kept for older scripts: `set %name` with no value empties a variable just as well.
 
 ## Example
 
 ```euo
-...
-; set %test to something
 set %test TEST
-
-; note there is no % char in front.
-deleteVar test
-
-; %test now holds nothing
-...
+deletevar test           ; no % in front
+; the same, the usual way:
+set %test
 ```

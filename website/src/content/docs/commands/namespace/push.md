@@ -1,37 +1,26 @@
 ---
 title: "namespace push"
-description: "Stores the current namespace name and scope."
+description: "Remembers the current namespace, to come back to it with namespace pop."
 kind: subcommand
 category: namespace
-syntax: "nameSpace push"
+syntax: "namespace push"
+related: ["namespace pop", "namespace local"]
 source: wiki
 ---
 
-*(Added in 1.40)* The **[Namespace](/commands/?category=namespace)** push command stores the current [Namespace](/commands/?category=namespace) name and scope in an internal stack.
+`namespace push` remembers the current namespace (its name and whether it is local or global) on a stack.
+[`namespace pop`](/commands/namespace/pop/) goes back to it. Pushes can be nested: each `pop` returns to the
+namespace of the matching `push`.
 
-The default [Namespace](/commands/?category=namespace) is [local](/commands/namespace/local/) and named STD. This setting is restored when the script is stopped.
-
-:::note
-Currently only Local scope is available. Global scope is to be introduced in a future version of EasyUO.
-:::
+Use the pair around code that switches namespaces, so it leaves the caller where it was.
 
 ## Example
 
 ```euo
-set !return ; make sure !return is empty
-gosub test
-display ok !return
-halt
-
-sub test
-    nameSpace Push ; saves current namespace
-    nameSpace Local Test ; create a new temporary namespace to work with
-    set !return this_is_a_test
-    nameSpace Pop ; restore previous namespace
-    nameSpace Copy ret* From Local Test ; copy variables to the original namespace
-    nameSpace Push ; saves current namespace
-    nameSpace Local Test
-    nameSpace Clear ; free memory used by temporary namespace
-    nameSpace Pop ; restore previous namespace
+sub work
+  namespace push
+  namespace local work
+  ; ... uses its own !variables
+  namespace pop
 return
 ```

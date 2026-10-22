@@ -1,29 +1,47 @@
 ---
 title: "Tile"
-description: "Retrieves information about tiles."
+description: "Reads the map: how many tiles are at a spot, and the type, height, name and flags of each."
 kind: command
 category: misc
-syntax: "tile {Init} [noOverrides]\ntile {Cnt} {x} {y} [facet]\ntile {Get} {x} {y} {index} [facet]"
+syntax: "tile init [nooverrides]\ntile cnt {x} {y} [facet]\ntile get {x} {y} {n} [facet]"
 changed: true
 needsClient: true
-sets: ["#tiletype", "#tilez", "#tilecnt", "#tilename", "#tileflags"]
+sets: ["#TileCnt", "#TileType", "#TileZ", "#TileName", "#TileFlags"]
+related: ["#TileFlags", "#CursKind"]
+aliases: ["map", "terrain", "statics"]
 source: wiki
 ---
 
-The tile command retrieves information about map tiles.
+`tile` reads the client's map files: what lies at a world position, layer by layer (ground, then statics).
 
-| Option | Description |
-|----|----|
-| Init | Initializes the tile information for retrieval in EasyUO. Using the "noOverrides" option forces EasyUO to not read the statics override file (VerData.mul), which could be useful for freeshards that do not use the overrides. If you don't know what VerData.mul is, you probably don't need to use the noOverrides option. |
-| Cnt | Retrieves the number of tiles for a specific position. The value in [#tileCnt](/variables/tilecnt/) is updated. The default value for facet is the current facet. Otherwise follows the values for [#cursKind](/variables/curskind/). |
-| Get | Retrives the tile type and z value. The values in [#tileType](/variables/tiletype/) and [#tileZ](/variables/tilez/) are updated. The index goes from 1 to [#tileCnt](/variables/tilecnt/). The default value for facet is the current facet. Otherwise follows the values for [#cursKind](/variables/curskind/) |
+| Form | What it does |
+|---|---|
+| `tile init [nooverrides]` | Loads the map files. Needed once before `cnt` and `get`. |
+| `tile cnt {x} {y} [facet]` | Puts the number of tiles at `x`, `y` in [`#TileCnt`](/variables/tilecnt/). |
+| `tile get {x} {y} {n} [facet]` | Reads tile `n` (from 1 to `#TileCnt`) at `x`, `y` into [`#TileType`](/variables/tiletype/), [`#TileZ`](/variables/tilez/), [`#TileName`](/variables/tilename/) and [`#TileFlags`](/variables/tileflags/). |
 
-:::note
-See the [#tileFlags](/variables/tileflags/) page for a list of all of the possible #tileFlag values.
-:::
+## Details
+
+- **`tile init`** reads the files from the attached client's own folder. `nooverrides` skips the client's
+  statics override file (`verdata.mul`), for shards that do not use it. Without `tile init`, `cnt` gives 0
+  and `get` reads nothing.
+- **`facet`** is the facet number, as in [`#CursKind`](/variables/curskind/). Default: the facet you are on.
+- See [`#TileFlags`](/variables/tileflags/) for what the flags mean.
+
+## Example
+
+```euo
+tile init
+tile cnt #CharPosX #CharPosY
+for %n 1 #TileCnt
+{
+  tile get #CharPosX #CharPosY %n
+  event sysmessage #TileName at height #TileZ
+}
+```
 
 ## Reforged notes
 
-Newer client installs ship the maps packed in `.uop` files (`map0LegacyMUL.uop`, …) instead of the
-classic `map0.mul`. EasyUO Reforged reads those directly, so `tile` works on these installs without
-extracting the files to the old MUL format first. When both exist, the classic `.mul` file is used.
+Newer client installs ship the maps packed in `.uop` files (`map0LegacyMUL.uop`, …) instead of the classic
+`map0.mul`. EasyUO Reforged reads those directly, so `tile` works on these installs without extracting the
+files to the old MUL format first. When both exist, the classic `.mul` file is used.

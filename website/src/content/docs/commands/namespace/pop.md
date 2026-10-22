@@ -1,33 +1,21 @@
 ---
 title: "namespace pop"
-description: "Restores the current namespace name and scope."
+description: "Goes back to the namespace last remembered with namespace push."
 kind: subcommand
 category: namespace
-syntax: "nameSpace pop"
+syntax: "namespace pop"
+related: ["namespace push"]
 source: wiki
 ---
 
-The namespace pop command restores the current namespace name and scope from an internal stack.
-
-The default namespace is named STD and has local scope. This namespace is restored when the script is stopped, or there are no previous namespaces defined at the point that a nameSpace pop occurs.
+`namespace pop` makes the namespace last remembered by [`namespace push`](/commands/namespace/push/) current
+again, and removes it from the stack. When nothing is remembered, it does nothing.
 
 ## Example
 
 ```euo
-set !return ; make sure !return is empty
-gosub test
-display ok !return
-halt
-
-sub test
-    nameSpace Push ; saves current namespace
-    nameSpace Local Test ; create a new temporary namespace to work with
-    set !return this_is_a_test
-    nameSpace Pop ; restore previous namespace
-    nameSpace Copy ret* From Local Test ; copy variables to the original namespace
-    nameSpace Push ; saves current namespace
-    nameSpace Local Test
-    nameSpace Clear ; free memory used by temporary namespace
-    nameSpace Pop ; restore previous namespace
-return
+namespace push
+namespace local temp
+set !x 1
+namespace pop            ; back to where we were
 ```

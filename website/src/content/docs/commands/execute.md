@@ -1,89 +1,38 @@
 ---
 title: "Execute"
-description: "Executes an external program."
+description: "Opens a program, file or web address, as if you had double-clicked it."
 kind: command
 category: misc
-syntax: "execute {filename} [argument...]"
-related: ["terminate", "uoxl"]
+syntax: "execute {file} [arguments...]"
+related: ["Call", "Send", "Shutdown"]
+aliases: ["run program", "open file", "start"]
 source: wiki
 ---
 
-The *execute* command executes an external command with the argunments given.
+`execute` opens a program, a file or a web address, as Windows does when you double-click it: a program
+runs, a document opens in its program, an address opens in the browser. The script then waits two seconds
+and goes on; it does not wait for the program to finish.
 
-:::note
-This command does NOT work unless you have enabled the "Allow Execute" configuration option.
+## Parameters
+
+| Parameter | Meaning |
+|---|---|
+| `file` | What to open. A path with spaces has to be glued together, as with [`call`](/commands/call/). |
+| `arguments` | Optional. Passed to the program. |
+
+:::caution[Only run scripts you trust]
+There is no setting to turn this command off: any script you run can use it.
 :::
 
-### Examples
-
-## Example 1 : Script in Script
-
-Running a script, from a script.
+## Examples
 
 ```euo
-execute EasyUO.exe healthWatch.euo
+execute notepad.exe C:\EasyUO\notes.txt
+execute https://github.com/ilpersi/EasyUOReforged
 ```
 
-## Example 2 : File Writing
-
-For example purposes, assume the following:
+Append a line to a text file with the command prompt:
 
 ```euo
-%task is move
-%guardzone is #false
-#charPosX is 4321
-#charPosY is 1234
-#charPosZ is 3
-%tileid is 7
-```
-
-### Write line at a time to a file
-
-```euo
-execute cmd.exe /c echo gosub railtask move %task %guardzone #charPosX #charPosY #charPosZ %tileid >>rail.txt
-```
-
-Makes a file named rail.txt that consists of:
-
-```euo
-gosub railtask move 0 4321 1234 3 7
-```
-
-### Write a many lines to a file at once
-
-The magic of cmd.exe! This only opens console window once, improves long write times dramatically. Windows 2000+ only: Maximum command in Win2000 is 4096, WinXP and Vista 8192
-
-**Do not press Enter anywhere on the execute line until the final ", it must be one solid line without line breaks.** (The Wiki is limited in its ability to wrap code text.)
-
-```euo
-   for %counter 1 %endspot
-   {
-      execute cmd.exe /c "echo set % , RailStep %counter >> rail.txt && echo set % , Task , %counter %Task >> rail.txt && echo set % , Guardzone
-, %counter %GuardZone >> rail.txt && echo set % , SpotX , %counter #charPosX >> rail.txt && echo set % , SpotY , %counter #charPosY >> rail.txt && echo
-set % , SpotZ , %counter #charPosZ >> rail.txt && echo set % , TileID , %counter %TileID >> rail.txt"
-   }
-```
-
-EDIT on 23 jan 2008: You can break lines, though you must use the concatenation operator '+' as the first character on the "breaked lines":
-
-```euo
-   for %counter 1 %endspot
-   {
-      execute cmd.exe /c "echo set % , RailStep %counter >> rail.txt && echo set % , Task , %counter %Task
-       + >> rail.txt && echo set % , Guardzone , %counter %GuardZone >> rail.txt && echo set % , SpotX , %counter
-       + #charPosX >> rail.txt && echo set % , SpotY , %counter #charPosY >> rail.txt && echo
-       + set % , SpotZ , %counter #charPosZ >> rail.txt && echo set % , TileID , %counter %TileID >> rail.txt"
-   }
-```
-
-Makes a file named rail.txt that consists of:
-
-```euo
-set %RailStep 1
-set %Task1 move
-set %Guardzone1 0
-set %SpotX1 4321
-set %SpotY1 1234
-set %SpotZ1 3
-set %TileID1 7
+execute cmd.exe /c echo %task #CharPosX #CharPosY >> C:\EasyUO\log.txt
 ```
