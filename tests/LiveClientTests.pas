@@ -45,7 +45,11 @@ interface
 
 uses
   Classes, SysUtils, Windows, fpcunit, testregistry,
-  uoselector, uovariables, uocommands, uoevents, uotypes, uoclidata, EuoExecutor;
+  uoselector, uovariables, uocommands, uoevents, uotypes, uoclidata, EuoExecutor,
+  // Listed although nothing here names it: the tests read TEuoInterpreter fields through
+  // TExecutor.Parser, and only a direct use makes FPC recompile this unit when that class's
+  // layout changes (otherwise a stale .ppu reads the fields at their old offsets).
+  EuoInterpreter;
 
 type
   TLiveClientTests = class(TTestCase)
