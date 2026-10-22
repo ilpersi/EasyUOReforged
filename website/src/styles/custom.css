@@ -1,0 +1,163 @@
+/* Accent: a warm amber. Starlight's dark theme is the :root default. */
+:root {
+	--sl-color-accent-low: #3b2a0c;
+	--sl-color-accent: #d99a2b;
+	--sl-color-accent-high: #f6dcae;
+}
+:root[data-theme='light'] {
+	--sl-color-accent-low: #f7e6c4;
+	--sl-color-accent: #9a5f00;
+	--sl-color-accent-high: #4a2e02;
+}
+
+/* ---- Reference page header (RefHeader.astro) ---- */
+.ref-header {
+	margin-top: 0.75rem;
+}
+.ref-badges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+	align-items: center;
+}
+.ref-badge-link {
+	text-decoration: none;
+}
+.ref-badge-quiet.sl-badge {
+	background: transparent;
+	border-color: var(--sl-color-gray-4);
+	color: var(--sl-color-gray-2);
+}
+.ref-syntax {
+	margin-top: 1rem;
+}
+.ref-facts {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	gap: 0.35rem 1rem;
+	margin: 1rem 0 0;
+	font-size: var(--sl-text-sm);
+}
+.ref-facts dt {
+	color: var(--sl-color-gray-3);
+	font-weight: 600;
+}
+.ref-facts dd {
+	margin: 0;
+}
+.ref-facts a,
+.ref-see-also a {
+	text-decoration: none;
+}
+
+/* ---- Page end (MarkdownContent.astro) ---- */
+.ref-see-also ul {
+	columns: 2 14rem;
+	padding-inline-start: 1.25rem;
+}
+.ref-licence {
+	margin-top: 3rem;
+	padding-top: 0.75rem;
+	border-top: 1px solid var(--sl-color-hairline);
+	font-size: var(--sl-text-xs);
+	color: var(--sl-color-gray-3);
+}
+
+/* ---- A–Z index (RefIndex.astro) ---- */
+.ref-index-controls {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+.ref-index-filter,
+.ref-index-category {
+	font: inherit;
+	color: var(--sl-color-white);
+	background: var(--sl-color-black);
+	border: 1px solid var(--sl-color-gray-5);
+	border-radius: 0.4rem;
+	padding: 0.45rem 0.7rem;
+}
+.ref-index-filter {
+	flex: 1 1 16rem;
+	min-width: 0;
+}
+.ref-index-filter:focus,
+.ref-index-category:focus {
+	outline: 2px solid var(--sl-color-accent);
+	outline-offset: 1px;
+}
+.ref-index-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+	margin-top: 0.6rem;
+}
+/* Starlight spaces consecutive prose elements apart; the controls lay themselves out with gap. */
+.ref-index-controls > *,
+.ref-index-chips > * {
+	margin-top: 0;
+}
+.ref-index-chips button {
+	font: inherit;
+	font-size: var(--sl-text-xs);
+	cursor: pointer;
+	color: var(--sl-color-gray-2);
+	background: transparent;
+	border: 1px solid var(--sl-color-gray-5);
+	border-radius: 999px;
+	padding: 0.2rem 0.75rem;
+}
+.ref-index-chips button[aria-pressed='true'] {
+	color: var(--sl-color-black);
+	background: var(--sl-color-accent);
+	border-color: var(--sl-color-accent);
+}
+.ref-index-table {
+	display: table;
+	width: 100%;
+}
+.ref-index-table td:first-child {
+	white-space: nowrap;
+}
+.ref-index-table a {
+	text-decoration: none;
+}
+.ref-index-cat {
+	color: var(--sl-color-gray-3);
+	white-space: nowrap;
+}
+.ref-index-tag {
+	margin-inline-start: 0.4rem;
+	font-size: var(--sl-text-2xs);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	padding: 0.05rem 0.35rem;
+	border-radius: 0.25rem;
+	vertical-align: middle;
+}
+.ref-index-tag.new {
+	background: var(--sl-color-green-low);
+	color: var(--sl-color-green-high);
+}
+.ref-index-tag.obsolete {
+	background: var(--sl-color-red-low);
+	color: var(--sl-color-red-high);
+}
+.ref-index-count {
+	font-size: var(--sl-text-sm);
+	color: var(--sl-color-gray-3);
+}
+@media (max-width: 40rem) {
+	.ref-index-cat {
+		display: none;
+	}
+	.ref-index-table td:first-child {
+		white-space: normal;
+	}
+}
+
+/* The syntax line is a pattern with placeholders, not code to paste: no copy button. */
+.ref-syntax .copy {
+	display: none;
+}

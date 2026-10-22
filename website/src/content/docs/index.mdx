@@ -1,0 +1,57 @@
+---
+title: EasyUO Reforged documentation
+description: "Reference and guides for EasyUO Reforged, the 64-bit Lazarus port of EasyUO. Every script command, every #variable and the uo.dll API, searchable."
+template: splash
+hero:
+  title: EasyUO Reforged
+  tagline: Every script command, every <code>#variable</code> and the <code>uo.dll</code> API, in one place you can search.
+  actions:
+    - text: Browse commands
+      link: /EasyUOReforged/commands/
+      icon: right-arrow
+    - text: Browse variables
+      link: /EasyUOReforged/variables/
+      icon: right-arrow
+      variant: secondary
+    - text: Download
+      link: https://github.com/ilpersi/EasyUOReforged/releases
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<CardGrid>
+	<Card title="Find anything fast" icon="magnifier">
+		Press <kbd>Ctrl</kbd> <kbd>K</kbd> and type a command or a variable, with or without the `#`.
+		The [command](/commands/) and [variable](/variables/) lists filter as you type.
+	</Card>
+	<Card title="Same language, still runs your scripts" icon="approve-check">
+		EasyUO Reforged runs existing `.euo` scripts unchanged. Pages flag anything **new** or
+		**changed** in Reforged, so you can see the differences at a glance.
+	</Card>
+</CardGrid>
+
+## Start here
+
+<CardGrid>
+	<LinkCard title="Install" description="What you need, where to download it, and SmartScreen." href="/EasyUOReforged/guide/install/" />
+	<LinkCard title="Your first script" description="Run, pause and stop a script; several clients." href="/EasyUOReforged/guide/first-script/" />
+	<LinkCard title="The language" description="Variables, expressions, operators and control structures." href="/EasyUOReforged/language/variables/" />
+	<LinkCard title="What's new in Reforged" description="SQL, ScanBuffs, menu Memo, the debugger and what changed." href="/EasyUOReforged/reforged/whats-new/" />
+</CardGrid>
+
+## What a script looks like
+
+```euo
+; drink a heal potion when hits drop below half
+loop:
+if #Hits < #MaxHits / 2
+{
+  finditem UUF C_ , #BackpackID     ; yellow potion
+  if #FindCnt > 0
+    event macro 17 0                 ; use last object...
+}
+wait 10
+goto loop
+```

@@ -1,0 +1,132 @@
+---
+// Filterable A–Z table of reference entries, built from frontmatter, so the list never needs
+// maintaining by hand. Used by commands/index.mdx, variables/index.mdx and dll/index.mdx.
+//
+// Filtering runs in the browser: a text box (name, description, aliases), a category select and
+// flag chips. `?category=<key>` in the URL preselects a category (the category badge on every
+// reference page links here that way). The table is excluded from Pagefind so search results
+// lead to the entry pages, not to this list.
+import { categoriesFor, categoryLabel, slugHref } from '../reference.mjs';
+import { referenceEntries } from './refdata';
+
+interface Props {
+	kinds: string[];
+}
+const { kinds } = Astro.props;
+const isVariables = kinds.includes('variable');
+const categories = categoriesFor(kinds[0]);
+
+const rows = (await referenceEntries())
+	.filter((e) => kinds.includes(e.data.kind!))
+	.sort((a, b) => a.data.title.replace(/^#/, '').localeCompare(b.data.title.replace(/^#/, ''), 'en'));
+const usedCategories = categories.filter(([key]: [string, string]) => rows.some((r) => r.data.category === key));
+---
+
+<div class="ref-index" data-ref-index>
+	<div class="ref-index-controls">
+		<input
+			type="search"
+			class="ref-index-filter"
+			placeholder={isVariables ? 'Filter variables… (e.g. find, buff, hits)' : 'Filter commands… (e.g. item, menu, journal)'}
+			aria-label="Filter by name or description"
+		/>
+		<select class="ref-index-category" aria-label="Category">
+			<option value="">All categories</option>
+			{usedCategories.map(([key, label]: [string, string]) => <option value={key}>{label}</option>)}
+		</select>
+	</div>
+	<div class="ref-index-chips" role="group" aria-label="Show only">
+		<button type="button" data-flag="reforged" aria-pressed="false">New in Reforged</button>
+		<button type="button" data-flag="changed" aria-pressed="false">Changed in Reforged</button>
+		{
+			isVariables && (
+				<>
+					<button type="button" data-flag="ro" aria-pressed="false">Read-only</button>
+					<button type="button" data-flag="rw" aria-pressed="false">Read / write</button>
+				</>
+			)
+		}
+		<button type="button" data-flag="client" aria-pressed="false">Needs client</button>
+		<button type="button" data-flag="obsolete" aria-pressed="false">Obsolete</button>
+	</div>
+
+	<table class="ref-index-table" data-pagefind-ignore>
+		<thead>
+			<tr>
+				<th scope="col">Name</th>
+				<th scope="col">Description</th>
+				<th scope="col" class="ref-index-cat">Category</th>
+			</tr>
+		</thead>
+		<tbody>
+			{
+				rows.map((e) => {
+					const d = e.data;
+					const flags = [
+						d.origin === 'reforged' && 'reforged',
+						d.changed && 'changed',
+						d.access,
+						d.needsClient && 'client',
+						d.obsolete && 'obsolete',
+					].filter(Boolean);
+					return (
+						<tr
+							data-search={[d.title, d.title.replace(/^#/, ''), d.description, ...d.aliases].join(' ').toLowerCase()}
+							data-category={d.category}
+							data-flags={flags.join(' ')}
+						>
+							<td>
+								<a href={slugHref(e.id)}><code>{d.title}</code></a>
+								{d.origin === 'reforged' && <span class="ref-index-tag new">new</span>}
+								{d.obsolete && <span class="ref-index-tag obsolete">obsolete</span>}
+							</td>
+							<td>{d.description}</td>
+							<td class="ref-index-cat">{categoryLabel(d.kind, d.category)}</td>
+						</tr>
+					);
+				})
+			}
+		</tbody>
+	</table>
+	<p class="ref-index-count" aria-live="polite"></p>
+</div>
+
+<script>
+	for (const root of document.querySelectorAll<HTMLElement>('[data-ref-index]')) {
+		const input = root.querySelector<HTMLInputElement>('.ref-index-filter')!;
+		const select = root.querySelector<HTMLSelectElement>('.ref-index-category')!;
+		const chips = [...root.querySelectorAll<HTMLButtonElement>('[data-flag]')];
+		const rows = [...root.querySelectorAll<HTMLTableRowElement>('tbody tr')];
+		const count = root.querySelector<HTMLElement>('.ref-index-count')!;
+
+		const preset = new URLSearchParams(location.search).get('category');
+		if (preset && [...select.options].some((o) => o.value === preset)) select.value = preset;
+
+		const apply = () => {
+			const words = input.value.toLowerCase().replace(/#/g, '').split(/\s+/).filter(Boolean);
+			const cat = select.value;
+			const flags = chips.filter((c) => c.getAttribute('aria-pressed') === 'true').map((c) => c.dataset.flag!);
+			let shown = 0;
+			for (const row of rows) {
+				const search = row.dataset.search!.replace(/#/g, '');
+				const rowFlags = row.dataset.flags!.split(' ');
+				const visible =
+					words.every((w) => search.includes(w)) &&
+					(!cat || row.dataset.category === cat) &&
+					flags.every((f) => rowFlags.includes(f));
+				row.hidden = !visible;
+				if (visible) shown++;
+			}
+			count.textContent = shown === rows.length ? `${rows.length} entries` : `${shown} of ${rows.length} entries`;
+		};
+
+		input.addEventListener('input', apply);
+		select.addEventListener('change', apply);
+		for (const chip of chips)
+			chip.addEventListener('click', () => {
+				chip.setAttribute('aria-pressed', String(chip.getAttribute('aria-pressed') !== 'true'));
+				apply();
+			});
+		apply();
+	}
+</script>

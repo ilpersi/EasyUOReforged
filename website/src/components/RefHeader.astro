@@ -1,0 +1,88 @@
+---
+// Header block under the title of every reference page. Everything here comes from frontmatter,
+// so all reference pages look the same and nobody formats badges or "Set by" lists by hand.
+import { Badge, Code } from '@astrojs/starlight/components';
+import { categoryLabel, slugHref } from '../reference.mjs';
+import { referenceEntries, resolveRef, setBy, type RefLink } from './refdata';
+
+const { entry } = Astro.locals.starlightRoute;
+const d = entry.data;
+const entries = await referenceEntries();
+
+const kindLabel: Record<string, string> = {
+	command: 'Command',
+	subcommand: 'Sub-command',
+	variable: 'Variable',
+	'dll-property': 'uo.dll property',
+	'dll-method': 'uo.dll method',
+	'dll-call': 'uo.dll call',
+};
+const typeLabel: Record<string, string> = { number: 'Number', string: 'String', boolean: 'Boolean', id: 'ID' };
+
+const sets: RefLink[] = d.sets.map((s) => resolveRef(s, entries));
+const setters: RefLink[] = d.kind === 'variable' ? setBy(entry, entries) : [];
+const dll: RefLink | undefined = d.dll ? resolveRef(`dll:${d.dll}`, entries) : undefined;
+const categoryHref = slugHref(d.kind === 'variable' ? 'variables' : d.kind?.startsWith('dll-') ? 'dll' : 'commands');
+
+// The sigil-less and spaced spellings, so "findid", "#FindID" and "find id" all find the page.
+const searchTerms = [d.title, d.title.replace(/^#/, ''), ...d.aliases].join(' · ');
+---
+
+<div class="ref-header">
+	<div class="ref-badges">
+		<Badge text={kindLabel[d.kind!]} variant="default" />
+		<a href={`${categoryHref}?category=${d.category}`} class="ref-badge-link">
+			<Badge text={categoryLabel(d.kind, d.category)} variant="note" />
+		</a>
+		{d.access === 'ro' && <Badge text="Read-only" variant="tip" />}
+		{d.access === 'rw' && <Badge text="Read / write" variant="caution" />}
+		{d.type && <Badge text={typeLabel[d.type]} variant="default" class="ref-badge-quiet" />}
+		{d.needsClient && <Badge text="Needs client" variant="default" class="ref-badge-quiet" />}
+		{d.origin === 'reforged' && <Badge text="New in Reforged" variant="success" />}
+		{d.changed && <Badge text="Changed in Reforged" variant="caution" />}
+		{d.obsolete && <Badge text="Obsolete" variant="danger" />}
+	</div>
+
+	{d.syntax && <Code code={d.syntax} lang="euo" frame="none" wrap class="ref-syntax" />}
+
+	{
+		(sets.length > 0 || setters.length > 0 || dll) && (
+			<dl class="ref-facts">
+				{sets.length > 0 && (
+					<>
+						<dt>Sets</dt>
+						<dd>
+							{sets.map((l, i) => (
+								<>
+									{i > 0 && ', '}
+									{l.href ? <a href={l.href}><code>{l.label}</code></a> : <code>{l.label}</code>}
+								</>
+							))}
+						</dd>
+					</>
+				)}
+				{setters.length > 0 && (
+					<>
+						<dt>Set by</dt>
+						<dd>
+							{setters.map((l, i) => (
+								<>
+									{i > 0 && ', '}
+									<a href={l.href}><code>{l.label}</code></a>
+								</>
+							))}
+						</dd>
+					</>
+				)}
+				{dll && (
+					<>
+						<dt>uo.dll</dt>
+						<dd>{dll.href ? <a href={dll.href}><code>{dll.label}</code></a> : <code>{dll.label}</code>}</dd>
+					</>
+				)}
+			</dl>
+		)
+	}
+
+	<p class="sr-only">Also searchable as: {searchTerms}</p>
+</div>

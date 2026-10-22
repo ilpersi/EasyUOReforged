@@ -1,0 +1,71 @@
+name: Docs
+
+# Builds the documentation site (website/, Astro Starlight) and publishes it to GitHub Pages.
+# Pull requests only build it: the build fails on a broken internal link or a reference page that
+# breaks the frontmatter rules, so mistakes show up before merge. Pushes to main also deploy.
+#
+# One-time repo setup: Settings -> Pages -> Source: GitHub Actions.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - 'easyuo/eusyntax.pas'        # the euo code highlighting reads its keyword list
+      - '.github/workflows/docs.yml'
+  pull_request:
+    paths:
+      - 'website/**'
+      - 'easyuo/eusyntax.pas'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0               # "Last updated" dates come from git history
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build site
+        run: npm run build
+
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: website/dist
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

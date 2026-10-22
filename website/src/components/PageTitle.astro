@@ -1,0 +1,13 @@
+---
+// Starlight PageTitle override: the normal <h1>, plus the reference header (badges, syntax,
+// Sets / Set by / uo.dll rows) on command, variable and uo.dll pages.
+import Default from '@astrojs/starlight/components/PageTitle.astro';
+import RefHeader from './RefHeader.astro';
+import { validateRef } from './refdata';
+
+const { entry } = Astro.locals.starlightRoute;
+validateRef(entry);
+---
+
+<Default />
+{entry.data.kind && <RefHeader />}

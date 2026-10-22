@@ -29,3 +29,14 @@ with, endorsed by, or an official continuation of the original EasyUO project.
 The port is based on the last publicly released EasyUO source
 (http://www.easyuo.com/cheffe/EasyUO_Source.zip), which its author has stated
 is deprecated.
+
+Documentation
+-------------
+
+The documentation site in website/ includes reference text derived from the
+EasyUO community wiki (http://wiki.easyuo.com/, archived at
+https://github.com/ilpersi/easyuo-wiki-archive). That text is licensed, like
+the wiki, under the GNU Free Documentation License, Version 1.2; the full
+license text is in website/LICENSE-GFDL-1.2.txt. Pages derived from the wiki
+say so at the bottom. Original authorship and page history are on the source
+wiki.
