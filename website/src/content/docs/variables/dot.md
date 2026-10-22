@@ -1,21 +1,20 @@
 ---
 title: "#DOT"
-description: "A constant that represents the dot character."
+description: "A full stop, which could not be typed alone because . joins words."
 kind: variable
 category: constant
 access: ro
 type: string
+related: ["#SPC", "#SMC"]
+aliases: ["period", "full stop"]
 source: wiki
 ---
 
-A constant that represents a dot character.
-
-The constant `#dot` is used to assign or compare a variable or an expression with the dot character.
-
-This is required because the dot character is used as an operator.
+`#DOT` is a full stop (`.`). A lone `.` in a line glues the words on either side together, so use `#DOT` when
+the text needs a separate full stop.
 
 ## Example
 
 ```euo
-display ok This is the proper way to use dot:$ 125 , #dot , 25
+set %file mylog , #DOT , txt         ; mylog.txt
 ```

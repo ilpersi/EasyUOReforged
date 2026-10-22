@@ -1,21 +1,14 @@
 ---
 title: "#TileZ"
-description: "Returns the z-coordinate of the last read tile."
+description: "Height of the tile read by tile get."
 kind: variable
 category: tile
 access: ro
 type: number
+needsClient: true
+related: ["Tile", "#TileType"]
+aliases: ["tile height"]
 source: wiki
 ---
 
-The #tileZ system variable determines the z-coordinate for the last tile read using the [tile](/commands/tile/) command.
-
-## Example
-
-```euo
-tile init
-
-Tile cnt #charPosX #charPosY #cursKind
-display ok The Z value of the tile at X: , #charPosX , #spc , / Y: , #charPosY , #spc , is: , #tileZ
-halt
-```
+`#TileZ` is the height (Z) of the tile. It is filled by [`tile get`](/commands/tile/) for the tile asked for.

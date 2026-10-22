@@ -1,23 +1,23 @@
 ---
 title: "#TileName"
-description: "Returns the name of the last read tile."
+description: "Name of the tile read by tile get, such as tree or water."
 kind: variable
 category: tile
 access: ro
 type: string
+needsClient: true
+related: ["Tile", "#TileType", "#TileFlags"]
+aliases: ["tile name"]
 source: wiki
 ---
 
-The #tileName system variable determines the name for the last tile read using the [tile](/commands/tile/) command.
-
-There are over 3000 values for tile names. Some of the more usefull names include Water, Rock, Cave_Floor, Cave_Wall, and variations that include the word Tree (for example "Ohii_Tree").
+`#TileName` is the name the client's data gives the tile, such as `tree` or `water`. Spaces read as `_`. It is filled by [`tile get`](/commands/tile/) for the tile asked for.
 
 ## Example
 
 ```euo
 tile init
-
-Tile get #charPosX #charPosY 1
-display ok The tile at X: , #charPosX , #spc , / Y: , #charPosY , #spc , has the following Name:$ , #tileName
-halt
+tile cnt #CharPosX #CharPosY
+tile get #CharPosX #CharPosY 1
+event SysMessage You stand on #TileName
 ```

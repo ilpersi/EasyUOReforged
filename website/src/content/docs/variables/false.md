@@ -1,25 +1,21 @@
 ---
 title: "#False"
-description: "A constant that represents boolean false."
+description: "The value false: 0."
 kind: variable
 category: constant
 access: ro
 type: boolean
-related: ["#true"]
+related: ["#True", "If"]
+aliases: ["no", "boolean"]
 source: wiki
 ---
 
-A constant that represents boolean false.
-
-The constant `#false` is used to assign or compare a variable or an expression with the boolean *false* value.
-
-Internally, `#false` is represented by the integer value 0.
+`#False` is `0`, the value comparisons give when they are false. See [`#True` and `#False`](/guides/true-and-false/).
 
 ## Example
 
 ```euo
-if #false
-  display ok This will never be displayed
-if #true
-  display ok This will always be displayed
+set %done #False
+while %done = #False
+  gosub work
 ```

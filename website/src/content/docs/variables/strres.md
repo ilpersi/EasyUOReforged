@@ -1,24 +1,21 @@
 ---
 title: "#StrRes"
-description: "Returns the result of the last str command."
+description: "Result of the last str command; also set by getuotitle."
 kind: variable
 category: result
 access: rw
 type: string
+related: ["Str", "GetUOTitle"]
+aliases: ["string result"]
 source: wiki
 ---
 
-Holds the value from the last [Str (command)](/commands/str/) statement executed.
+`#StrRes` is the result of the last [`str`](/commands/str/) command, or `N/A` when that command was missing
+parameters. [`getuotitle`](/commands/getuotitle/) also puts the client window's title here.
 
 ## Example
 
 ```euo
-finditem *
-if #FINDCNT > 0
-{
-  event Property #findID
-  str len #property
-  display ok the length if the string in the property variable is , #spc , #strRes
-}
-halt
+str len #CharName
+event SysMessage My name has #StrRes letters
 ```

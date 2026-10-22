@@ -1,25 +1,22 @@
 ---
 title: "#True"
-description: "A constant that represents boolean true."
+description: "The value true: -1."
 kind: variable
 category: constant
 access: ro
 type: boolean
-related: ["#false"]
+related: ["#False", "If"]
+aliases: ["yes", "boolean"]
 source: wiki
 ---
 
-A constant that represents boolean true.
-
-The constant `#true` is used to assign or compare a variable or an expression with the boolean *true* value.
-
-Internally, `#true` is represented by the integer value -1.
+`#True` is `-1`, the value comparisons give when they are true, and the only value [`if`](/commands/if/) and
+[`while`](/commands/while/) treat as true. Use it for on/off flags. See [`#True` and `#False`](/guides/true-and-false/).
 
 ## Example
 
 ```euo
-if #false
-  display ok This will never be displayed
-if #true
-  display ok This will always be displayed
+set %usemagery #True
+if %usemagery
+  gosub castheal
 ```

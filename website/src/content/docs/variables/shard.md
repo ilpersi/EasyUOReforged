@@ -1,20 +1,21 @@
 ---
 title: "#Shard"
-description: "Returns which shard you are logged into."
+description: "Name of the shard the client is logged in to."
 kind: variable
 category: misc
 access: ro
 type: string
+needsClient: true
+related: ["#LShard", "#CharName"]
+aliases: ["server", "shard name"]
 source: wiki
 ---
 
-Holds the name of the shard that the client is logged in to.
+`#Shard` is the name of the shard the client is logged in to. Spaces in the name stay spaces.
 
 ## Example
 
 ```euo
-if Alexandria in #shard
-{
-  msg this shard is great!$
-}
+if Atlantic in #Shard
+  event SysMessage Welcome to Atlantic.
 ```

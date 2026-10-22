@@ -1,35 +1,25 @@
 ---
 title: "#TileFlags"
-description: "Returns the flags of the last read tile."
+description: "Properties of the tile read by tile get, as names joined by _."
 kind: variable
 category: tile
 access: ro
 type: string
+needsClient: true
+related: ["Tile", "#TileName"]
+aliases: ["tile flags", "impassable", "wet"]
 source: wiki
 ---
 
-The #tileFlags system variable determines the flags for the last tile read using the [tile](/commands/tile/) command.
+`#TileFlags` lists the properties of the tile as names joined by `_`, for example `Impassable_Surface`. It is filled by [`tile get`](/commands/tile/) for the tile asked for.
+Test a property with `in`.
 
-Possible values include those listed in the table below.
-
-| Background | Weapon     | Transparent | Translucent      |
-|------------|------------|-------------|------------------|
-| Wall       | Damaging   | Impassable  | Wet              |
-| Unknown    | Surface    | Bridge      | GenericStackable |
-| Window     | NoShoot    | PrefixA     | PrefixAn         |
-| Internal   | Foliage    | PartialHue  | Unknown1         |
-| Map        | Container  | Wearable    | LightSource      |
-| Animated   | NoDiagonal | Unknown2    | Armor            |
-| Roof       | Door       | StairBack   | StairRight       |
-
-Tile Flag Values
+The possible names are: `Background`, `Weapon`, `Transparent`, `Translucent`, `Wall`, `Damaging`, `Impassable`, `Wet`, `Unknown`, `Surface`, `Bridge`, `GenericStackable`, `Window`, `NoShoot`, `PrefixA`, `PrefixAn`, `Internal`, `Foliage`, `PartialHue`, `Unknown1`, `Map`, `Container`, `Wearable`, `LightSource`, `Animated`, `NoDiagonal`, `Unknown2`, `Armor`, `Roof`, `Door`, `StairBack`, `StairRight`.
 
 ## Example
 
 ```euo
-tile init
-
-Tile get #charPosX #charPosY 1
-display ok The tile at X: , #charPosX , #spc , / Y: , #charPosY , #spc , has the following Flags:$ , #tileFlags
-halt
+tile get %x %y 1
+if Impassable in #TileFlags
+  event SysMessage Cannot walk there.
 ```

@@ -1,24 +1,23 @@
 ---
 title: "#SysTime"
-description: "Counts the number of milliseconds since 01/Jan/1980 UTC."
+description: "Milliseconds since 1 January 1980 UTC; for timing."
 kind: variable
 category: misc
 access: ro
 type: number
+related: ["#SCnt", "#SCnt2", "#Time"]
+aliases: ["milliseconds", "timer", "timestamp"]
 source: wiki
 ---
 
-Represents the time passed since 01/Jan/1980 UTC (it is timezone independant) in millisecond increments. It can be useful for timing and time calculations. it is also not affected by overflow issues or speedhack tools.
+`#SysTime` is the number of milliseconds since 1 January 1980, in UTC. It does not depend on the time zone, so
+it is the most precise way to time something: read it before and after, and subtract.
 
 ## Example
 
 ```euo
-set %startTime #sysTime
-for %testLoop 1 1000
-{
-  set %testCnt %testCnt + 1
-}
-set %endTime #sysTime - %startTime
-Display ok time elapsed in milliseconds: , #spc , %endTime
-halt
+set %start #SysTime
+gosub work
+set %took #SysTime - %start
+event SysMessage That took %took ms
 ```

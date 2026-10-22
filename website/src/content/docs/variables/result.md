@@ -1,25 +1,25 @@
 ---
 title: "#Result"
-description: "Returns the result of the last return command."
+description: "Value given to the last return; N/A when it had none."
 kind: variable
 category: result
 access: rw
 type: string
-related: ["return"]
+related: ["Return", "Gosub"]
+aliases: ["return value"]
 source: wiki
 ---
 
-holds the value from the last [return](/commands/return/) statement executed.
+`#Result` is the value the last [`return`](/commands/return/) gave back from a sub, or `N/A` when that `return`
+had no value. A `return` outside a sub leaves it as it was.
 
 ## Example
 
 ```euo
-gosub xor 1875 618
-display #result
+gosub double 21
+display ok #Result            ; 42
 halt
 
-sub xor
-{
-  return %1 && ! %2 || ! %1 && %2
-}
+sub double
+return %1 * 2
 ```

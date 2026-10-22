@@ -1,23 +1,22 @@
 ---
 title: "#NSName"
-description: "Returns the name of the currently active namespace."
+description: "Name of the current namespace; std when the script starts."
 kind: variable
 category: namespace
 access: ro
 type: string
+related: ["#NSType", "Namespace"]
+aliases: ["namespace name"]
 source: wiki
 ---
 
-Holds the name of the currently active [local](/commands/namespace/local/) or [global](/commands/namespace/global/) namespace.
-
-:::note
-Global namespaces are only available in EasyUO 1.5.
-:::
+`#NSName` is the name of the current [namespace](/commands/namespace/), the one `!` variables belong to. A
+script starts in `std`. [`#NSType`](/variables/nstype/) says whether it is local or global.
 
 ## Example
 
 ```euo
-if #nsName <> test && #nsType = local
+if #NSName <> test
 {
   namespace push
   namespace local test

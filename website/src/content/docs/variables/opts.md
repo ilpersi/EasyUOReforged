@@ -1,32 +1,30 @@
 ---
 title: "#Opts"
-description: "Determines which EasyUO configuration options are active."
+description: "Active options: always SYS, EXEC and SEND, plus DMC when Don’t Move Cursor is on."
 kind: variable
 category: result
 access: ro
 type: string
+related: ["Click", "Execute", "Send"]
+aliases: ["options", "settings"]
 source: wiki
 ---
 
-The #opts system variable displays which EasyUO configuration options are active.
+`#Opts` lists the active EasyUO options, separated by `_`:
 
-| Value | Option            |
-|-------|-------------------|
-| SOT   | Stay On Top       |
-| SYS   | event SysMessage  |
-| DMC   | Don't Move Cursor |
-| EXEC  | Allow Execute     |
-| SEND  | Allow Send        |
+| Option | Meaning |
+|---|---|
+| `SYS` | [`event SysMessage`](/commands/event/sysmessage/) is allowed. |
+| `DMC` | *Tools → Don't Move Cursor* is on: [`click`](/commands/click/) does not move the real cursor. |
+| `EXEC` | [`execute`](/commands/execute/) is allowed. |
+| `SEND` | [`send`](/commands/send/) is allowed. |
 
-Table of #opt values
+In EasyUO Reforged `SYS`, `EXEC` and `SEND` are always on, so `#Opts` is `SYS_DMC_EXEC_SEND` with *Don't Move
+Cursor* on (the default) and `SYS_EXEC_SEND` with it off.
 
 ## Example
 
 ```euo
-if DMC notin #opts
-{
-    display ok This script requires "Don't move cursor" enabled!$
-+Enable this option in the EasyUO Tools menu and restart the script.$
-    halt
-}
+if DMC notin #Opts
+  display ok This script works best with Don't Move Cursor turned on.
 ```

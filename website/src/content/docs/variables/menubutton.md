@@ -1,37 +1,28 @@
 ---
 title: "#MenuButton"
-description: "Returns the name of the last clicked menu Button."
+description: "Name of the last menu button clicked, in capitals; CLOSED when the menu window was closed."
 kind: variable
 category: result
 access: rw
 type: string
+related: ["menu Button", "menu Hide", "#MenuRes"]
+aliases: ["button clicked"]
 source: wiki
 ---
 
-Holds the name of the last menu button pressed.
+`#MenuButton` is the name of the last [`menu`](/commands/menu/) button clicked, in capital letters. When the menu
+window is closed, with its × or with [`menu Hide`](/commands/menu/hide/), it becomes `CLOSED`.
 
-If you close the menu window, the #menuButton value is set to "Close". The minimize and maximize buttons do not set the #menuButton variable, however.
-
-:::note
-You should set #menuButton to a meaningless value when you have read which button was clicked in order to distinguish between two seperate clicks
-:::
+It keeps the last value until the next click, so set it to something else before waiting for a click.
+Comparisons ignore case.
 
 ## Example
 
 ```euo
-menu Window Size 200 200
-menu Window Title Test
-menu Button button_1 10 20 50 25 Click me!
-menu Button button_2 10 50 50 25 Click me!
-menu Button button_3 10 80 50 25 Click me!
 menu Show
-
-set #menuButton Nothing
-lookButton:
-if #menuButton <> Nothing
-{
-  display ok #menuButton , #spc , was pressed
-  set #menuButton Nothing
-}
-goto lookButton
+set #MenuButton N/A
+while #MenuButton = N/A
+  wait 1
+if #MenuButton = closed
+  halt
 ```

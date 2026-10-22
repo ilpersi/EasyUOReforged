@@ -1,17 +1,15 @@
 ---
 title: "#CursorY"
-description: "Returns the y-coordinate of the cursor."
+description: "Mouse cursor Y position relative to the game area."
 kind: variable
 category: misc
 access: ro
 type: number
+needsClient: true
+related: ["#CursorX", "Click"]
+aliases: ["mouse position"]
 source: wiki
 ---
 
-Holds the current y-coordinate screen position of the mouse cursor.
-
-:::note
-The cursor coordinates (#cursorX and #cursorY) are given relative to the upper left corner of the clients game play window. above and to the left of the game play window, these coordinates will be negative.
-:::
-
-## Example
+`#CursorY` is the vertical position of the mouse cursor, in pixels from the top edge of the game area; above it
+the value is negative. [`#CursorX`](/variables/cursorx/) is the horizontal position.

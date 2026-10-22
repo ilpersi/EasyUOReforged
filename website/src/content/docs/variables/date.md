@@ -1,21 +1,21 @@
 ---
 title: "#Date"
-description: "Returns the local date on your computer."
+description: "Local date of the computer as yymmdd."
 kind: variable
 category: misc
 access: ro
 type: string
+related: ["#Time", "#SysTime"]
+aliases: ["today", "calendar"]
 source: wiki
 ---
 
-Represents the local date of the computer that EasyUO is running on. The format is YYMMDD, where YY is the year, MM is the month and DD is the day.
+`#Date` is the computer's local date, written `yymmdd`: `261225` is 25 December 2026.
 
 ## Example
 
 ```euo
-if #date = 031225
-{
-  event SysMessage Merry christmas!
-  pause
-}
+str right #Date 4
+if #StrRes = 1225
+  event SysMessage Merry Christmas!
 ```

@@ -1,36 +1,24 @@
 ---
 title: "#EUOVer"
-description: "Returns the current EasyUO version."
+description: "Always 1_50_00, the EasyUO version Reforged is ported from; see #ReforgedVer."
 kind: variable
 category: misc
 access: ro
 type: string
 related: ["#ReforgedVer"]
+aliases: ["version", "easyuo version"]
 source: wiki
 ---
 
-The #euoVer system variable displays the version information of the currently executing EasyUO program. The format is as follows: (MAJOR)\_(MINOR)\_(BUILD).
+`#EUOVer` is the version of EasyUO, written `major_minor_build`. EasyUO Reforged always returns `1_50_00`, the
+version it is ported from, so scripts that check for EasyUO 1.5 keep working.
+
+To tell EasyUO Reforged apart, or one build from another, use [`#ReforgedVer`](/variables/reforgedver/).
 
 ## Example
 
 ```euo
-;Checks to make sure the correct version of EUO is used for your script requirements.
-;#euo = 1_40_88 ,which is version 1.40 (build 0058)  58 hex = 88 dec
-set %euoBuildRequired  $ , 58
-set %euoVersionRequired 1_40
-str Left #euoVer 4
-set %euover #strRes
-str Right #euover 2
-set %euoBuild #strRes
-if  %euoVer <> %euoVersionRequired || %euoBuild < %euoBuildRequired
-{
-   display ok This program requires EUO version 1.4 (build 0058) or higher in order$
-+ to work. Download the latest version from www.easyuo.com.$
-   halt
-}
+str left #EUOVer 4
+if #StrRes <> 1_50
+  display ok This script needs EasyUO 1.5.
 ```
-
-## Reforged notes
-
-EasyUO Reforged returns `1_50_00` here, the value of the EasyUO version it is ported from, so existing
-version checks keep working. Its own build version is in [`#ReforgedVer`](/variables/reforgedver/).

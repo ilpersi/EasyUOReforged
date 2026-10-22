@@ -1,24 +1,22 @@
 ---
 title: "#SCnt"
-description: "Timer in seconds since Windows boot."
+description: "A seconds counter; set it to start counting from that value."
 kind: variable
 category: misc
 access: rw
 type: number
+related: ["#SCnt2", "#SysTime"]
+aliases: ["seconds", "stopwatch"]
 source: wiki
 ---
 
-Represents the time passed in seconds since the last time that windows started.
+`#SCnt` counts seconds. Read alone it is the time since Windows started, but setting it makes it count on from
+the value you set, which turns it into a stopwatch. [`#SCnt2`](/variables/scnt2/) counts tenths of seconds.
 
 ## Example
 
 ```euo
-set %startTime #sCnt
-for %testLoop 1 1000
-{
-  set %testCnt %testCnt + 1
-}
-set %endTime %startTime - #sCnt
-Display ok time elapsed in seconds: , #spc , %endTime
-halt
+set #SCnt 0
+gosub work
+event SysMessage That took #SCnt seconds
 ```

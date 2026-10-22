@@ -1,24 +1,19 @@
 ---
 title: "#SMC"
-description: "A constant that represents the semicolon character."
+description: "A semicolon, which could not be typed directly because ; starts a comment."
 kind: variable
 category: constant
 access: ro
 type: string
+related: ["#SPC", "#DOT"]
+aliases: ["semicolon"]
 source: wiki
 ---
 
-A constant that represents *semi-colon* character.
-
-The constant `#smc` is used to assign or compare a variable or an expression with the *semi-colon* character.
-
-This is required because the semi-colon character ';' is used for inline comments.
+`#SMC` is a semicolon (`;`). A `;` typed in a line starts a comment, so use `#SMC` when the text needs one.
 
 ## Example
 
 ```euo
-set %charInfo #charName , #smc , #charGhost
-menu window size 100 100
-menu window title %charInfo
-menu show
+set %text one , #SMC , two      ; one;two
 ```

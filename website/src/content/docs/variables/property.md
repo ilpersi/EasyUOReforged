@@ -1,29 +1,25 @@
 ---
 title: "#Property"
-description: "Returns the result of the last event Property command."
+description: "Property tooltip read by the last event Property; lines end with $."
 kind: variable
 category: result
 access: ro
 type: string
+needsClient: true
+related: ["event Property"]
+aliases: ["tooltip", "item properties"]
 source: wiki
 ---
 
-Holds the value from the last [event Property](/commands/event/property/) statement executed. Each line from a context menu in the client is delimited with a $ character, with denotes "new line". For example, a runebook will show up in game as:`
-
-Runebook
-
-Blessed
-
-`in the #property variable, this would look like: RUNEBOOK$BLESSED
+`#Property` is the property tooltip read by the last [`event Property`](/commands/event/property/): the item's
+name first, then its properties, each line ending with `$`. For a blessed runebook, for example, it reads
+`Runebook$Blessed$`.
 
 ## Example
 
 ```euo
-finditem *
-if #FINDCNT > 0
-{
-  event Property #findID
-  display ok #property
-}
-halt
+finditem %item
+event Property #FindID
+if Blessed in #Property
+  event SysMessage It is blessed.
 ```
