@@ -6,58 +6,77 @@ sidebar:
 source: wiki
 ---
 
-## Goto's
+A script runs from its first line down. These commands change that order. Each has its own page with the
+details.
 
-Goto's are an archaic and powerful command to automatically move to a different point in a program. They never [return](/commands/return/) unless another goto is used. They should **never** be used to return from a subroutine.
+## Choosing: `if` and `else`
 
-### label
-
-A [label](/commands/label/) is a marker for the point a goto command will jump to. These are created by using any word that isn't a command, and suffixing it with a colon, like this...
+[`if`](/commands/if/) runs a line or block only when a condition is true; [`else`](/commands/else/) runs another
+when it is false. Only `#true` (`-1`) counts as true.
 
 ```euo
-mylabel:
+if #Hits < 50
+  gosub heal
+else
+  gosub fight
 ```
 
-### goto
+## Repeating
 
-A [goto](/commands/goto/) is used to jump directly to a label as defined above. This is accomplished by using [goto](/commands/goto/) {label}
+| Loop | Use it to |
+|---|---|
+| [`for`](/commands/for/) | Count through numbers. |
+| [`while`](/commands/while/) | Repeat while a condition holds; test first. |
+| [`repeat … until`](/commands/repeat/) | Repeat until a condition holds; test after each round. |
+
+[`break`](/commands/break/) leaves a loop; [`continue`](/commands/continue/) skips to its next round.
 
 ```euo
-goto mylabel
+for %i 1 10
+  event SysMessage %i
+while #Weight > #MaxWeight
+  gosub dropsomething
 ```
 
-:::note
-You must never use goto to jump out of a sub! Use return to properly terminate a sub routine. To prevent a stack overflow, EUO only supports 1000 consecutive GoSubs without returning. Remember this when using recursion! When the GoSub stack is about to get 1001 levels, the very first level in the bottom of the stack is deleted to make room.
-:::
+## Jumping: labels and `goto`
 
-## Subs
-
-The term *sub* is short for subroutine. Subs are an important feature of the EasyUO script that will make your scripts more logically structured, easier to read, and will make you have to write less code.
-
-A basic sub definition starts with a sub statement followed by the subs name (sub names are case insensitive), a number of script lines and ends with a return statement.
+A [label](/commands/label/) is a name followed by a colon, on a line of its own. [`goto`](/commands/goto/) jumps
+to it. It is the simplest way to build the main loop of a script:
 
 ```euo
-sub testSub
-  ...
-  return
+mainloop:
+  gosub work
+  wait 5
+goto mainloop
 ```
 
-If parameters were added to the calling gosub command they will be present in the variables %1, %2, and so on. The variable %0 holds the number of parameters passed. As all variables are in the global scope, the %0, %1, %2.. will be overwritten if you call another sub from inside a sub.
+Use `goto` within a part of the script, but never to leave a sub: that leaves the sub open.
 
-### gosub
+## Subs: `sub`, `gosub` and `return`
 
-The gosub command transfers the execution to a sub with the name given by the parameter.
-
-```euo
-gosub sub_name
-```
-
-Parameters can be added after the sub name. They will be transfered in the variables %1, %2, and so on. The variable %0 holds the number of parameters passed.
-
-### return
-
-The **return** command transfers the execution back to where the sub was called using **gosub**.
+A [sub](/commands/sub/) is a named group of lines ending with [`return`](/commands/return/). [`gosub`](/commands/gosub/)
+runs it and comes back to the line after the `gosub`. Subs keep scripts short and readable: write something once,
+use it from many places.
 
 ```euo
+gosub greet Jim
+halt
+
+sub greet
+  display ok Hello %1
 return
 ```
+
+- Parameters after the sub name arrive in `%1`, `%2`, …, and `%0` holds how many there are. These are ordinary
+  variables shared by the whole script, so a sub that calls another sub loses its own `%1`, `%2`; copy them
+  into variables of their own first.
+- `return %value` hands a value back in [`#Result`](/variables/result/).
+- Put subs after the main part of the script, where the normal flow never reaches them; see
+  [`sub`](/commands/sub/) for why.
+- To give a sub variables of its own, switch [namespace](/commands/namespace/) inside it.
+
+## Other scripts: `call` and `exit`
+
+[`call`](/commands/call/) runs another script file and comes back when it ends or reaches
+[`exit`](/commands/exit/). In the main script, `exit` and reaching the last line both start the script over;
+[`halt`](/commands/halt/) stops it.

@@ -1,63 +1,52 @@
 ---
 title: "#True and #False"
-description: "How to use #True and #False as on/off flags in your scripts."
+description: "How to use #True and #False as on/off flags, and why if %flag only works with #True."
 sidebar:
   order: 3
 source: wiki
 ---
 
-## Quick Guide: #True & #False
+[`#True`](/variables/true/) and [`#False`](/variables/false/) are on/off values: `#True` for yes, on, done,
+`#False` for no, off, not yet. They make conditions short and easy to read.
 
-**Author: Una**
-
-**Purpose**
-
-To teach you the idea of #true and #false and how to use em in scripts
-
-## #True and #False
-
-### How to use em and why
-
-Boolean #true and #false are like ON / OFF variables. If something is ON, Positive, running or it has happened, its #True. If something is OFF, negative or has not yet happened its #False.
+Without them, a setting is usually written as text:
 
 ```euo
-set %UseMagery yes
+set %usemagery yes
 
-if %UseMagery = yes
-   Use Spell Mini heal
-
-if %UseMagery = no
-   Heal with bandages
+if %usemagery = yes
+  gosub healwithmagery
+if %usemagery = no
+  gosub healwithbandages
 ```
 
-Most of beginners do it this way. Theres nothing really wrong, its just harder way. If you do it this way, you dont have to type so much and it looks better.
+With them, the condition reads like a sentence:
 
 ```euo
-set %UseMagery #true
+set %usemagery #True
 
-if %UseMagery
-   Use Spell Mini Heal
-
-if ! %UseMagery
-   Heal with bandages
+if %usemagery
+  gosub healwithmagery
+if ! %usemagery
+  gosub healwithbandages
 ```
 
-This may look confusing at start, but further look, will make it all clear. Lets take a closer look at those lines:
+`if %usemagery` runs the next line when `%usemagery` is true; `if ! %usemagery` turns the test around and runs it
+when it is false.
 
-```euo
-if %UseMagery
-```
+## Why it has to be `#True`
 
-This will check, if %UseMagery is #true. If it is, then "if" sentence gets executed.
+`#True` is the number `-1` and `#False` is `0`, the same values comparisons such as `%a = 1` give. [`if`](/commands/if/),
+[`while`](/commands/while/) and [`until`](/commands/repeat/) treat **only `-1`** as true. So:
 
-```euo
-if ! %UseMagery
-```
+| `%flag` holds | `if %flag` | `if ! %flag` |
+|---|---|---|
+| `#True` (`-1`) | runs | skips |
+| `#False` (`0`) | skips | runs |
+| Text, such as `yes` | skips | runs: text counts as `0`, so `yes` behaves like `#False` |
+| `1` or any other number | skips | **also skips** |
 
-This is same, but it will turn things upside down. It will check if its UNtrue. So if this is #false, it gets executed Using #true and #false makes your script look better and easyer to understand. If you can, use these.
+Set flags with `#True` and `#False`, never with `yes` or `1`, and `if %flag` / `if ! %flag` always do what they
+say.
 
-This was all for Booleans today. Hope you got something from this Quickye!
-
-<hr>
-
-Back to Tutorials
+*Based on a quick guide by Una from the EasyUO wiki.*

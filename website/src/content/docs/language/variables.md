@@ -1,59 +1,72 @@
 ---
 title: "Variables"
-description: "Variables in Easy UO come in four types; Standard, Namespace, Persistent and System."
+description: "The four kinds of variables (%, !, * and #), how names and values work, and who can see which."
 sidebar:
   order: 1
 source: wiki
 ---
 
-## Basics
+A variable is a name that holds a value. Its first character says what kind it is:
 
-Variables in Easy UO come in four types; Standard, Namespace, Persistent and System. The type of a variable is defined by its first character. Standard variables start with a percent sign (%), Namespace variables with an exclamation mark ( ! ), Persistent variables with an asterisk sign (\*) and System variables with an hash sign (#).
+| Kind | Example | Belongs to | Kept until |
+|---|---|---|---|
+| **Standard** | `%count` | The script, and scripts it starts with [`call`](/commands/call/). | The script starts again. |
+| **Namespace** | `!count` | The current [namespace](/commands/namespace/): this script only, or shared with other scripts. | The script starts again (local) or EasyUO Reforged closes (global). |
+| **Persistent** | `*count` | Every script, in this and the original EasyUO. | You change or delete it: it is saved in the registry. |
+| **System** | `#CharName` | EasyUO and the client. | Built in; see the [variable reference](/variables/). |
 
-Variable names follow the same rules as other labels in EasyUO. A valid variable name starts with a letter or underscore, followed by any number of letters, numbers, or underscores.
+## Names
+
+- A name is made of letters, digits and `_`: `%loot_bag`, `%x2`. Nothing else, not even a `-`.
+- Case does not matter: `%Count` and `%COUNT` are the same variable.
+- `%0`, `%1`, `%2`, … hold the parameters of the last [`gosub`](/commands/gosub/) or [`call`](/commands/call/), so
+  avoid names made of digits only.
 
 ```euo
 set %var Bob
 set %Var Joe
-msg %var %Var ; outputs "Joe Joe"
-
-set %4bank not_yet     ; invalid; starts with a number
-set %_4bank not_yet    ; valid; starts with an underscore
+event SysMessage %var        ; Joe: %var and %Var are the same variable
 ```
 
-## Standard Variables
+## Values
 
-Standard variables in EasyUO are represented by a percent sign (%) followed by the name of the variable. The variable name is case insensitive.
+- **A value is one word.** `set %a hello world` stores only `hello`. To store several words, write `_`
+  between them, or glue them with commas and [`#SPC`](/variables/spc/): `set %a hello , #spc , world`.
+- **Numbers and text are both just values.** A value that looks like a whole number (`42`, `-7`, `$1A`) can be
+  used in calculations; anything else counts as `0` there. See [Expressions](/language/expressions/).
+- **A variable that was never set reads `N/A`.**
+- Use a variable anywhere in a line and its value is put in its place before the command runs. The one
+  exception is the variable [`set`](/commands/set/) and [`for`](/commands/for/) assign to.
 
-## Namespace Variables and Scope
+## Standard variables: `%`
 
-Namespace variables in EasyUO are represented by an exclamation mark ( ! ) followed by the name of the variable. Namespace variable name is case insensitive.
+Standard variables are the everyday kind. They belong to the running script and are shared with scripts it
+starts with `call`. They are all cleared when the script starts again.
 
-Namespace variables visibility is affected by the [nameSpace](/commands/namespace/local/) command.
+## Namespace variables: `!`
 
-Namespace variables within a local namespace can only be accessed by the current script.
+`!x` is the variable `x` of the current [namespace](/commands/namespace/). A script starts in the local
+namespace `std`, so until you switch, `!` variables behave like `%` variables. Switch namespaces to give a sub
+its own variables ([`namespace local`](/commands/namespace/local/)) or to share variables with other scripts
+running in EasyUO Reforged ([`namespace global`](/commands/namespace/global/)).
 
-Namespace variables within a global namespace can be accessed by all scripts running in the same instance of EasyUO (not yet available).
+## Persistent variables: `*`
 
-## Persistent Variables
+Persistent variables survive restarts: they are saved in the Windows registry, under
+`HKEY_CURRENT_USER\Software\EasyUO`, and every script on the computer can read them. EasyUO Reforged uses the
+same place as the original EasyUO, so the two share them.
 
-Persistent variables in EasyUO are represented by an asterisk sign (\*) followed by a variable name. In earlier versions of EasyUO, the variable names were limited to numbers between 1 to 1000 inclusive. Variable names can now be any valid variable name however, just as other types of variables.
+```euo
+if *runs = N/A
+  set *runs 0
+set *runs *runs + 1
+display ok This script has run *runs times.
+```
 
-Persistent variables are stored in the registry under the key **HKEY_CURRENT_USER\Software\EasyUO** and are therefore shared between any instance of EasyUO.
+For more data, or data you want to keep in a file of your own, see [`SQL`](/commands/sql/).
 
-## System Variables
+## System variables: `#`
 
-System variables in EasyUO are represented by an hash sign (#) followed by a descriptive text. As is true with everything else in EasyUO, system variable names are not case sensitive, meaning that #CHARID is the same as #charid, or even #ChArId.
-
-System variables are all described in detail in the [System Variable Reference](/variables/).
-
-## Variable Scope
-
-The term *scope* used in reference to variables describes when a variable is known and visible to other parts of a program. The following table describes, in general, the scope of variables within EasyUO.
-
-| type | Scope |
-|----|----|
-| Standard | Standard variables are visible to all code within the script that crates the variable. Standard variables are cleared when EasyUO begins executing a script. |
-| Namespace | Namespace variable scope can be modified by using the Local and Global qualifiers. A Local namespace is visible only to the current script running, just as standard variables are. A Global namespace is accessible to all scripts running in the same EasyUO instance (available only in EasyUO 1.5) that have the namespace defined as global. This initializes that script's usage of the global namespace. Namespace Variables are cleared when EasyUO begins executing a script. |
-| Persistent | Persistent variables are visible to all scripts running on the same computer. Persistent variables are stored in the registry and are never cleared unless you clear them in a script or edit the registry manually. |
-| System | System variables are visible to each instance of EasyUO that is utilizing the same instance of Ultima Online. System Variables are not saved by EasyUO. |
+System variables are built in. Most describe the client and your character (`#CharPosX`, `#Hits`,
+`#FindID`); a few describe EasyUO itself (`#Time`, `#LPC`). Most are read-only; the writable ones are marked
+**Read / write**. They are listed in the [variable reference](/variables/).

@@ -1,70 +1,65 @@
 ---
 title: "Beginner's tutorial"
-description: "A first walk through writing and running an EasyUO script."
+description: "A first walk through writing and running EasyUO scripts: speaking, walking and opening your backpack."
 sidebar:
   order: 2
 source: wiki
 ---
 
-## What do I need?
+This tutorial writes three small scripts. Before you start:
 
-In this tutorial we assume you are running the latest Ultima Online client, and you have installed the latest EasyUO update.
+1. [Install EasyUO Reforged](/guide/install/) and check that it supports your client version.
+2. Start the Ultima Online client (the classic 2D client) and log in with a character.
+3. Start EasyUO Reforged.
 
-To get started, follow these simple guidelines:
+## Your first script
 
-1.  Make sure you have the correct EasyUO version for the current client version.
-2.  Start your Ultima Online client (Remember it only works with the 2D client).
-3.  Start the EasyUO program.
-4.  Log in with a character.
-
-## Your first EasyUO script
-
-Copy and Paste, or type in the following program:
+Type or paste this into the editor:
 
 ```euo
-msg #smc Hello there!$
+msg #SMC Hello there!$
 halt
 ```
 
-Now press the Run icon or press F9 inside the EasyUO script. Your character will now whisper: "Hello there!".
+Press **F9**, or the Play button. Your character whispers "Hello there!":
+[`msg`](/commands/msg/) types the text into the client, [`#SMC`](/variables/smc/) is a `;` (a message starting
+with `;` is whispered) and `$` presses Enter. [`halt`](/commands/halt/) stops the script; without it, the
+script would start over from the top.
 
-## Something useful
+## Walking
 
-Now we are going to try to do something more useful. We will move the character using the [move](/commands/move/) command:
+This script walks two steps south-east, using your position from [`#CharPosX`](/variables/charposx/) and
+[`#CharPosY`](/variables/charposy/):
 
 ```euo
-; Calculate a new x co-ordinate based on your current position
-set %newX #charPosX + 2
-; Calculate a new y co-ordinate based on your current position
-set %newY #charPosY + 2
-; Move the character to the new position
-move %newX %newY 0 10s
+; work out a spot 2 tiles away
+set %x #CharPosX + 2
+set %y #CharPosY + 2
+; walk there, giving up after 10 seconds
+move %x %y 0 10s
 halt
 ```
 
-Now we are going to open a pack using some of the event commands. First, we need to identify the ID of your backpack (inventory):
+[`move`](/commands/move/) walks in a straight line. For longer walks around obstacles, use
+[`event PathFind`](/commands/event/pathfind/).
 
-1.  Make sure you have the variable view open. Press Ctrl-R or choose View\|Variables\|Show.
-2.  Open the backpack by double clicking it in your paperdoll.
-3.  Find the #LOBJECTID variable in the list.
-4.  Write down the value that's next to #LOBJECTID. It consists of 6-8 letters. That is your backpack's ID.
+## Opening your backpack
 
-:::note
-Most clients have the [BackpackId](/variables/backpackid/) system variable available, which automatically shows the item Id of the currently logged in character's backpack.
-:::
-
-Then copy and paste this script into EasyUO, be sure to edit it where noted:
+The client remembers the last object you used in [`#LObjectID`](/variables/lobjectid/), and its *Last Object*
+macro uses it again. Put your backpack there and run the macro:
 
 ```euo
-; The id of your pack. Change it to the value you wrote down
-set %pack XYZ
-; Assign your pack's ID to the last object id system variable
-set #lObjectID %pack
-; Run UO's client macro for "Use Last Object"
-event Macro 17
+set #LObjectID #BackpackID       ; your backpack
+event Macro 17 0                 ; use the last object: opens it
 halt
 ```
 
-## What's next?
+While a script runs, the variable inspector on the right shows the current values of the variables, which helps
+you see what your script sees.
 
-With what you know now you should be able to understand most of the manual and also the various example scripts available in the example archives. You can also find other examples on the [EasyUO website](http://www.easyuo.com).
+## What next
+
+- Read about [variables](/language/variables/), [expressions](/language/expressions/) and
+  [control structures](/language/control-structures/).
+- Learn to find things around you with [`finditem`](/commands/finditem/).
+- Browse the [commands](/commands/) and [variables](/variables/).

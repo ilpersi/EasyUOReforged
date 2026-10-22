@@ -1,30 +1,39 @@
 ---
 title: "Introduction"
-description: "EasyUO is a FREE piece of software that enables you to write scripts that make your characters in Ultima Online do pretty much anything possible."
+description: "What EasyUO is, what scripts can do with it, and where to start."
 sidebar:
   order: 1
 source: wiki
 ---
 
-## What is EasyUO?
+EasyUO is a free tool for writing scripts that play Ultima Online for you: small programs that read what the
+client knows (your hit points, the items around you, the journal) and act on it, by clicking, typing, using
+items and running the client's own macros. EasyUO Reforged is EasyUO rebuilt for modern 64-bit Windows; it runs
+the same scripts.
 
-EasyUO is a FREE piece of software that enables you to write scripts that make your characters in Ultima Online do pretty much anything possible.
-
-Simple answer, but what does that mean? An example:
+The simplest script:
 
 ```euo
-msg #smc Hello Sosaria$
+msg #SMC Hello Sosaria$
 halt
 ```
 
-This is a very simple example. The possibilities are endless and are really only limited by your imagination.
+It types `;Hello Sosaria` and presses Enter, which makes your character whisper "Hello Sosaria", then stops.
 
-## What can EasyUO do?
+## What scripts can do
 
-The possibilities in EasyUO are, pretty much, only limited by your own imagination. Here are a couple of ideas:
+- Train skills while you are away from the keyboard.
+- Craft, sort and move items.
+- Buy from vendors, bank, restock.
+- Keep your character alive: heal, cure, flee.
+- Anything else you can describe as "when this happens, do that".
 
-- Skill training
-- Crafting
-- Purchasing
-- Survival
-- and anything else you might come up with
+Check your shard's rules first: many shards limit or forbid unattended scripting.
+
+## Where to go next
+
+1. [Install EasyUO Reforged](/guide/install/) and [run your first script](/guide/first-script/).
+2. Follow the [beginner's tutorial](/guides/beginners-tutorial/).
+3. Learn the language: [variables](/language/variables/), [expressions](/language/expressions/),
+   [operators](/language/operators/) and [control structures](/language/control-structures/).
+4. Look up anything in the [command](/commands/) and [variable](/variables/) lists.

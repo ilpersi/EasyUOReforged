@@ -2,7 +2,7 @@
 title: Using SQL
 description: How sql statements are written, how variables go in and come back out, saving variables, several scripts at once, and what SQLite build is used.
 sidebar:
-  order: 3
+  order: 4
 ---
 
 The [`SQL`](/commands/sql/) command keeps data in an SQLite database file. This page explains the rules
