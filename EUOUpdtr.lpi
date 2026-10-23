@@ -24,7 +24,7 @@
           </Target>
           <SearchPaths>
             <OtherUnitFiles Value="common;tools\EUOUpdater"/>
-            <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)-release"/>
+            <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)-euoupdtr-release"/>
           </SearchPaths>
           <CodeGeneration>
             <SmartLinkUnit Value="True"/>
@@ -71,7 +71,7 @@
     </Target>
     <SearchPaths>
       <OtherUnitFiles Value="common;tools\EUOUpdater"/>
-      <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
+      <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)-euoupdtr"/>
     </SearchPaths>
     <CodeGeneration>
       <TargetCPU Value="x86_64"/>
