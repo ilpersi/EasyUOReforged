@@ -15,6 +15,11 @@ the same as last round, the free candidate lists of each matched function within
 neighbours() -- and neighbours() does not walk the long candidate lists of hub functions (operator
 new, ...) where they cannot change its decision. Every shortcut gives exactly the decisions of the
 full computation, in the same order.
+
+The result is the same in every process: tokens are strings, and a set of strings iterates in an
+order that changes with PYTHONHASHSEED, so token sets are only used for lookups and every loop runs
+in function order. That order matters: ties go to the first candidate, and global_votes() adds its
+float weights in the order of self.m.
 """
 import collections
 import difflib
@@ -434,8 +439,8 @@ class Matcher:
                 if t in both:
                     whereT[t] = i
         score = collections.defaultdict(float)
-        for t in both:
-            score[(whereR[t], whereT[t])] += tw(t)
+        for t, r in whereR.items():         # in function order: a set of strings is not (see top)
+            score[(r, whereT[t])] += tw(t)
         bestR, bestT = {}, {}
         for (r, t), s in score.items():
             if s > bestR.get(r, (None, 0))[1]:
