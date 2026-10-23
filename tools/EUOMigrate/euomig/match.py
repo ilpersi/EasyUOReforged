@@ -8,10 +8,20 @@ Order of evidence, strongest first:
   4. propagation  aligned call sequences / pointer references of already matched pairs
 Nothing is matched on a single weak hint: every acceptance needs a mutual best and a margin, so an
 unmatched function is preferred to a wrong one.
+
+Speed (a large build has ~35,000 functions, run() up to 36 rounds over all of them): the rounds
+reuse what has not changed -- the alignments of call and global-access sequences whose labels are
+the same as last round, the free candidate lists of each matched function within a pass of
+neighbours() -- and neighbours() does not walk the long candidate lists of hub functions (operator
+new, ...) where they cannot change its decision. Every shortcut gives exactly the decisions of the
+full computation, in the same order.
 """
 import collections
 import difflib
+import heapq
 import math
+import operator
+import time
 
 KIND_W = {'S': 1.0, 'V': 1.0, 'I': 0.6, 'K': 0.35}
 
@@ -39,6 +49,9 @@ class Matcher:
         self.dfR = R.token_freq()
         self.dfT = T.token_freq()
         self.nR, self.nT = len(R.start), len(T.start)
+        self._rare = ({}, {})  # R / T idx -> its tokens with df <= 8
+        self._calign = {}      # (r, t, calls|prefs) -> (labels R, labels T, votes): propagate()
+        self._galign = {}      # (r, t) -> aligned global pairs: global_votes()
 
     # ---- bookkeeping ------------------------------------------------------------------------
     def accept(self, r, t, conf, how):
@@ -51,13 +64,23 @@ class Matcher:
         return True
 
     def run(self, rounds=12):
+        """one progress line per phase and per round: 'round 3: 21450 matched (+812), 41s'"""
+        t0 = time.time()
+        last = [0]
+
+        def progress(what):
+            n = len(self.m)
+            self.log('%s: %d matched (%+d), %.0fs' % (what, n, n - last[0], time.time() - t0))
+            last[0] = n
+
         self.anchors()
-        self.log('anchors', len(self.m))
+        progress('anchors')
         self.vtables()
-        self.log('vtables', len(self.m))
+        progress('vtables')
         self.similarity()
-        self.log('similarity', len(self.m))
+        progress('similarity')
         self._adjacency()
+        k = 0
         for p in range(3):
             for i in range(rounds):
                 before = len(self.m)
@@ -67,11 +90,12 @@ class Matcher:
                     self.order()
                 self.coreference()
                 self.similarity(restrict=True)
-                self.log('round', i, len(self.m))
+                k += 1
+                progress('round %d' % k)
                 if len(self.m) == before:
                     break
             dropped = self.prune() if self.opts['prune'] else 0
-            self.log('pruned', dropped)
+            progress('pruned')
             if not dropped:
                 break
         return self
@@ -91,13 +115,15 @@ class Matcher:
             return out, inn
         self.outR, self.inR = adj(self.R)
         self.outT, self.inT = adj(self.T)
+        self.nbR = [a | b for a, b in zip(self.inR, self.outR)]
+        self.nbT = [a | b for a, b in zip(self.inT, self.outT)]
 
     # ---- structural agreement of a (candidate) pair ----------------------------------------------
     def agreement(self, x, y):
         """(agree, disagree): matched neighbours of x whose image is / is not a neighbour of y, plus
         matched neighbours of y that are not images of x's neighbours"""
-        nx = self.inR[x] | self.outR[x]
-        ny = self.inT[y] | self.outT[y]
+        nx = self.nbR[x]
+        ny = self.nbT[y]
         agree = dis = 0
         for n in nx:
             if n in self.m:
@@ -110,27 +136,53 @@ class Matcher:
                 dis += 1
         return agree, dis
 
+    def rare(self, side, i):
+        """the tokens of function i of R (side 0) / T (side 1) that occur in at most 8 functions"""
+        c = self._rare[side]
+        r = c.get(i)
+        if r is None:
+            db, df = (self.R, self.dfR) if side == 0 else (self.T, self.dfT)
+            r = c[i] = {t for t in db.tok[i] if df[t] <= 8}
+        return r
+
     def tokens_clash(self, x, y):
-        rt = {t for t in self.R.tok[x] if self.dfR[t] <= 8}
-        tt = {t for t in self.T.tok[y] if self.dfT[t] <= 8}
+        rt = self.rare(0, x)
+        tt = self.rare(1, y)
         return bool(rt and tt and not (rt & tt))
 
-    def neighbour_candidates(self, x, top=6, free_only=True):
+    def _sources(self, x, free_only=True, memo=None):
+        """where neighbour_candidates' votes for x come from, in its order: per matched caller n of x
+        the callees of m[n], per matched callee n the callers of m[n] (only the unmatched ones if
+        free_only), as [ys, weight, set(ys) or None, {y: position} or None]. memo keeps these per
+        (T function, direction) while rev does not change."""
+        out = []
+        for d, nb, adj in ((0, self.inR[x], self.outT), (1, self.outR[x], self.inT)):
+            for n in nb:
+                if n in self.m:
+                    t = self.m[n]
+                    e = memo.get((t, d)) if memo is not None else None
+                    if e is None:
+                        ys = [y for y in adj[t] if not (free_only and y in self.rev)]
+                        e = [ys, 1.0 / math.log2(1 + len(ys)) if ys else 0.0, None, None]
+                        if memo is not None:
+                            memo[(t, d)] = e
+                    if e[0]:
+                        out.append(e)
+        return out
+
+    def neighbour_candidates(self, x, top=6, free_only=True, src=None):
         """[(score*agreement, score, agree, agreement, y)] best first, for ref function x"""
+        sc = {}
+        for ys, w, _, _ in (src if src is not None else self._sources(x, free_only)):
+            for y in ys:
+                sc[y] = sc.get(y, 0) + w
+        # = Counter.most_common(top): ties stay in the order the candidates were first seen
+        return self._scored(x, heapq.nlargest(top, sc.items(), key=operator.itemgetter(1)))
+
+    def _scored(self, x, top):
         R, T = self.R, self.T
-        sc = collections.Counter()
-        for n in self.inR[x]:              # x is called by n  ->  y is called by m[n]
-            if n in self.m:
-                ys = [y for y in self.outT[self.m[n]] if not (free_only and y in self.rev)]
-                for y in ys:
-                    sc[y] += 1.0 / math.log2(1 + len(ys))
-        for n in self.outR[x]:             # x calls n  ->  y calls m[n]
-            if n in self.m:
-                ys = [y for y in self.inT[self.m[n]] if not (free_only and y in self.rev)]
-                for y in ys:
-                    sc[y] += 1.0 / math.log2(1 + len(ys))
         scored = []
-        for y, s in sc.most_common(top):
+        for y, s in top:
             if not size_ok(R.ninsn[x], T.ninsn[y], 0.33, 3.0) or self.tokens_clash(x, y):
                 continue
             ag, dis = self.agreement(x, y)
@@ -138,6 +190,65 @@ class Matcher:
             scored.append((s * jac, s, ag, jac, y))
         scored.sort(reverse=True)
         return scored
+
+    HUB = 24        # a candidate list longer than this is a hub's (operator new, ...) in neighbours()
+
+    def _neighbour_scored(self, x, src, top=6):
+        """neighbour_candidates(x) as far as neighbours() needs it, without walking hub lists.
+
+        neighbours() keeps x only if the winner has comb = score * agreement >= 0.8 and
+        comb >= 1.5 * the runner-up's comb. The hubs' lists get weights 1/log2(1 + len) that add up
+        to H <= 0.5; a candidate found only through hubs, or with a score <= H anyway, cannot
+        reach 0.8 nor, at <= 1.5 * H < 0.8, make the winner miss its margin. So only the candidates
+        of the other lists (with their hub weights added, in the same order) that score above H
+        are ranked; they are exactly the top of the full ranking. Floats only ever add positive
+        weights in the original order, so no sum here exceeds the one it bounds."""
+        tot = 0.0
+        for e in src:
+            tot += e[1]
+        if tot < 0.8:                       # no candidate can score 0.8
+            return []
+        big = sorted((i for i, e in enumerate(src) if len(e[0]) > self.HUB), key=lambda i: -len(src[i][0]))
+        hub, acc = set(), 0.0
+        for i in big:                       # longest lists = smallest weights first
+            if acc + src[i][1] > 0.5:
+                break
+            hub.add(i)
+            acc += src[i][1]
+        H = 0.0
+        for i in sorted(hub):
+            H += src[i][1]
+        if not hub or H > 0.52:
+            return self.neighbour_candidates(x, top, src=src)
+        sc = {}
+        for i, e in enumerate(src):
+            if i not in hub:
+                for y in e[0]:
+                    sc[y] = 0
+        for i, e in enumerate(src):         # each score adds its weights in the original order
+            ys, w = e[0], e[1]
+            if i in hub:
+                if e[2] is None:
+                    e[2] = set(ys)
+                st = e[2]
+                for y in sc:
+                    if y in st:
+                        sc[y] += w
+            else:
+                for y in ys:
+                    sc[y] += w
+        above = [y for y, s in sc.items() if s > H]
+        if len(above) > top:
+            def first_seen(y):
+                for i, e in enumerate(src):
+                    if e[3] is None:
+                        e[3] = {v: k for k, v in enumerate(e[0])}
+                    k = e[3].get(y)
+                    if k is not None:
+                        return i, k
+            above.sort(key=lambda y: (-sc[y], first_seen(y)))
+            del above[top:]
+        return self._scored(x, [(y, sc[y]) for y in above])
 
     def twins(self, y, x=None, min_jac=0.6):
         """target functions that look like copies of y (same rare tokens, mostly the same callees):
@@ -170,21 +281,14 @@ class Matcher:
         """Candidates come from matched callers (their unmatched callees) and matched callees (their
         unmatched callers); a pointer from a neighbour with few unmatched alternatives weighs more.
         The winner must also agree structurally: most of its matched neighbours are images of x's."""
-        R, T = self.R, self.T
         cand = {}
+        memo = {}                          # rev does not change before the accepts below
         for x in range(self.nR):
             if x in self.m:
                 continue
-            scored = self.neighbour_candidates(x)
-            if not scored:
-                continue
-            comb, s, ag, jac, y = scored[0]
-            comb2 = scored[1][0] if len(scored) > 1 else 0.0
-            if jac < 0.4 or comb < 0.8 or comb < 1.5 * comb2:
-                continue
-            if ag < 2 and not (s >= 1.0 and size_ok(R.ninsn[x], T.ninsn[y], 0.5, 2.0)):
-                continue
-            cand[x] = (y, comb, jac)
+            c = self._neighbour_pick(x, self._neighbour_scored(x, self._sources(x, memo=memo)))
+            if c is not None:
+                cand[x] = c
         bestT = {}
         for x, (y, s, jac) in cand.items():
             if s > bestT.get(y, (None, 0))[1]:
@@ -192,6 +296,18 @@ class Matcher:
         for x, (y, s, jac) in cand.items():
             if bestT[y][0] == x:
                 self.accept(x, y, min(0.85, 0.3 + 0.1 * s) * (0.5 + 0.5 * jac), 'neighbours')
+
+    def _neighbour_pick(self, x, scored):
+        """neighbours()' candidate for x from its scored list: (y, comb, jac), or None"""
+        if not scored:
+            return None
+        comb, s, ag, jac, y = scored[0]
+        comb2 = scored[1][0] if len(scored) > 1 else 0.0
+        if jac < 0.4 or comb < 0.8 or comb < 1.5 * comb2:
+            return None
+        if ag < 2 and not (s >= 1.0 and size_ok(self.R.ninsn[x], self.T.ninsn[y], 0.5, 2.0)):
+            return None
+        return y, comb, jac
 
     # ---- 5b. address order: functions of one object file stay in order ----------------------------
     def order(self, maxgap=8):
@@ -421,24 +537,32 @@ class Matcher:
     # ---- 4. propagation through call sequences ----------------------------------------------------
     def propagate(self):
         R, T = self.R, self.T
-        votes = collections.Counter()
+        votes = {}
         for r, t in list(self.m.items()):
-            for seqR, seqT in ((R.calls[r], T.calls[t]), (R.prefs[r], T.prefs[t])):
+            for which, seqR, seqT in ((0, R.calls[r], T.calls[t]), (1, R.prefs[r], T.prefs[t])):
                 if not seqR or not seqT:
                     continue
-                la = [('M%d' % self.m[x]) if x in self.m else ('U%d' % min(4, int(math.log2(R.ninsn[x] + 1)) // 2)) for x in seqR]
-                lb = [('M%d' % y) if y in self.rev else ('U%d' % min(4, int(math.log2(T.ninsn[y] + 1)) // 2)) for y in seqT]
-                sm = difflib.SequenceMatcher(None, la, lb, autojunk=False)
-                for tag, i1, i2, j1, j2 in sm.get_opcodes():
-                    if tag == 'equal':
-                        for d in range(i2 - i1):
-                            x, y = seqR[i1 + d], seqT[j1 + d]
-                            if x not in self.m and y not in self.rev:
-                                votes[(x, y)] += 1
-                    elif tag == 'replace' and (i2 - i1) == (j2 - j1) == 1:
-                        x, y = seqR[i1], seqT[j1]
-                        if x not in self.m and y not in self.rev and size_ok(R.ninsn[x], T.ninsn[y], 0.33, 3.0):
-                            votes[(x, y)] += 0.5
+                # a matched function is labelled with its image (>= 0), an unmatched one with its
+                # size class (-1 .. -5); a pair whose labels did not change votes as last round
+                la = [self.m[x] if x in self.m else -1 - min(4, int(math.log2(R.ninsn[x] + 1)) // 2) for x in seqR]
+                lb = [y if y in self.rev else -1 - min(4, int(math.log2(T.ninsn[y] + 1)) // 2) for y in seqT]
+                c = self._calign.get((r, t, which))
+                if c is None or c[0] != la or c[1] != lb:
+                    vs = []
+                    sm = difflib.SequenceMatcher(None, la, lb, autojunk=False)
+                    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+                        if tag == 'equal':
+                            for d in range(i2 - i1):
+                                x, y = seqR[i1 + d], seqT[j1 + d]
+                                if x not in self.m and y not in self.rev:
+                                    vs.append(((x, y), 1))
+                        elif tag == 'replace' and (i2 - i1) == (j2 - j1) == 1:
+                            x, y = seqR[i1], seqT[j1]
+                            if x not in self.m and y not in self.rev and size_ok(R.ninsn[x], T.ninsn[y], 0.33, 3.0):
+                                vs.append(((x, y), 0.5))
+                    c = self._calign[(r, t, which)] = (la, lb, vs)
+                for k, n in c[2]:
+                    votes[k] = votes.get(k, 0) + n
         byR = collections.defaultdict(list)
         byT = collections.defaultdict(list)
         for (x, y), n in votes.items():
@@ -455,9 +579,7 @@ class Matcher:
             if not size_ok(R.ninsn[x], T.ninsn[y], 0.25, 4.0):
                 continue
             # token sanity: if both have rare tokens they should share some
-            rt = {t for t in R.tok[x] if self.dfR[t] <= 8}
-            tt = {t for t in T.tok[y] if self.dfT[t] <= 8}
-            if rt and tt and not (rt & tt):
+            if self.tokens_clash(x, y):
                 continue
             self.accept(x, y, min(0.9, 0.4 + 0.15 * n), 'calls')
 
@@ -474,20 +596,24 @@ class Matcher:
                 support.setdefault((a, b), set()).add(r)
 
         for r, t in self.m.items():
-            ga, gb = R.gacc[r], T.gacc[t]
-            if not ga or not gb:
-                continue
-            la = [(k, s, mn) for (_a, k, s, mn) in ga]
-            lb = [(k, s, mn) for (_a, k, s, mn) in gb]
-            sm = difflib.SequenceMatcher(None, la, lb, autojunk=False)
+            al = self._galign.get((r, t))
+            if al is None:              # the access lists never change: align each pair once
+                al = self._galign[(r, t)] = []
+                ga, gb = R.gacc[r], T.gacc[t]
+                if ga and gb:
+                    la = [(k, s, mn) for (_a, k, s, mn) in ga]
+                    lb = [(k, s, mn) for (_a, k, s, mn) in gb]
+                    sm = difflib.SequenceMatcher(None, la, lb, autojunk=False)
+                    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+                        if tag == 'equal' or (tag == 'replace' and (i2 - i1) == (j2 - j1)):
+                            for d in range(i2 - i1):
+                                al.append((ga[i1 + d][0], gb[j1 + d][0], tag == 'equal'))
             w = self.conf.get(r, 0.5)
-            for tag, i1, i2, j1, j2 in sm.get_opcodes():
-                if tag == 'equal':
-                    for d in range(i2 - i1):
-                        vote(ga[i1 + d][0], gb[j1 + d][0], w, r)
-                elif replace and tag == 'replace' and (i2 - i1) == (j2 - j1):
-                    for d in range(i2 - i1):
-                        vote(ga[i1 + d][0], gb[j1 + d][0], 0.3 * w, r)
+            for a, b, equal in al:
+                if equal:
+                    vote(a, b, w, r)
+                elif replace:
+                    vote(a, b, 0.3 * w, r)
         return votes
 
     def map_function(self, r_start):

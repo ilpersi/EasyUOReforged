@@ -1,8 +1,10 @@
 """Linear-sweep disassembly of the code sections, function boundaries and operand helpers.
 
-The sweep is cached per exe (keyed by its SHA-256) because it is the slow part (~1M instructions).
+The sweep and the function starts found in it are cached per exe (keyed by its SHA-256) because they
+are the slow part (~1M instructions).
 """
 import bisect
+import hashlib
 import os
 import pickle
 import re
@@ -42,7 +44,8 @@ class Code:
 
     def __init__(self, pe, use_cache=True, extra_starts=()):
         self.pe = pe
-        path = os.path.join(cache_dir(), '%s.v%s.pkl' % (pe.sha256()[:24], TOOL_VERSION))
+        key = pe.sha256()[:24]
+        path = os.path.join(cache_dir(), '%s.v%s.pkl' % (key, TOOL_VERSION))
         if use_cache and os.path.exists(path):
             with open(path, 'rb') as f:
                 self.addr, self.size, self.mn, self.op = pickle.load(f)
@@ -51,7 +54,19 @@ class Code:
             if use_cache:
                 with open(path, 'wb') as f:
                     pickle.dump((self.addr, self.size, self.mn, self.op), f, protocol=4)
-        self._find_functions(extra_starts)
+        # the function starts depend on extra_starts too, so they get a file per extra_starts set
+        extra = sorted(set(extra_starts))
+        fkey = hashlib.sha256(','.join('%x' % a for a in extra).encode()).hexdigest()[:12]
+        path = os.path.join(cache_dir(), '%s.funcs-%s.v%s.pkl' % (key, fkey, TOOL_VERSION))
+        if use_cache and os.path.exists(path):
+            with open(path, 'rb') as f:
+                self.funcs = pickle.load(f)
+        else:
+            self.funcs = self._find_functions(extra)
+            if use_cache:
+                with open(path, 'wb') as f:
+                    pickle.dump(self.funcs, f, protocol=4)
+        self._fidx = {a: i for i, a in enumerate(self.funcs)}
 
     # ---- sweep ---------------------------------------------------------------------------
     def _sweep(self):
@@ -91,6 +106,7 @@ class Code:
 
     # ---- functions -----------------------------------------------------------------------
     def _find_functions(self, extra_starts):
+        """sorted function start addresses"""
         pe = self.pe
         starts = set(a for a in extra_starts if pe.is_code(a))
         starts.add(pe.entry)
@@ -150,8 +166,7 @@ class Code:
                         continue
                 starts.add(v)
         # keep only starts that are instruction boundaries
-        self.funcs = sorted(a for a in starts if self.index(a) >= 0)
-        self._fidx = {a: i for i, a in enumerate(self.funcs)}
+        return sorted(a for a in starts if self.index(a) >= 0)
 
     def func_of(self, va):
         i = bisect.bisect_right(self.funcs, va) - 1

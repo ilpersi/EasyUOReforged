@@ -22,6 +22,26 @@ pip install -r tools/EUOMigrate/requirements.txt
 python tools/EUOMigrate/euomigrate.py migrate "D:\...\Ultima Online Classic\client.exe"
 ```
 
+It matches the build against each knowledge-base build in turn. For each one it prints a line per
+matching phase and per round: the functions matched so far, the change, and the time since that
+reference started.
+
+```
+matching against 7.0.117.1 (relocatable, stamp 6AC94360, uoclidata.pas)
+  anchors: 899 matched (+899), 0s
+  vtables: 2751 matched (+1852), 0s
+  similarity: 2999 matched (+248), 0s
+  round 1: 9270 matched (+6271), 1s
+  ...
+  round 5: 11043 matched (+0), 3s
+  pruned: 11023 matched (-20), 3s
+  ...
+  11051 of 34138 reference functions matched (closeness 0.88), 43 of its signatures hit, 5s
+```
+
+Rounds stop when one adds nothing; then contradicted matches are pruned and the rounds resume, at
+most three times.
+
 The results go to `tools\EUOMigrate\out\<version>-<PE stamp>\` (git-ignored):
 
 | file | what |
@@ -154,8 +174,11 @@ groups** go to 0 together when one member is not usable:
    displacements, with a joker byte per pattern. A window is kept only if it is the smallest one that
    matches exactly once and resolves to the value.
 
-Disassembly and fingerprints are cached per exe (by SHA-256) in `%LOCALAPPDATA%\EUOMigrate\cache`;
-set `EUOMIGRATE_CACHE` to put the cache elsewhere.
+Disassembly, function starts and fingerprints are cached per exe (by SHA-256) in
+`%LOCALAPPDATA%\EUOMigrate\cache`; set `EUOMIGRATE_CACHE` to put the cache elsewhere. A cached exe
+loads in a fraction of a second. The cache keys carry `TOOL_VERSION` (`euomig/__init__.py`): after
+changing how the sweep, the function starts or the fingerprints are computed, bump it or empty the
+cache.
 
 ## How well it works (measured on the builds at hand)
 

@@ -1,9 +1,11 @@
 """End-to-end on two synthetic builds of the same program (tests/synth.py): fingerprint build A,
 locate its fields in build B, generate signatures on A and scan B, read calling conventions."""
 import os
+import re
 import shutil
 import sys
 import tempfile
+import types
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -84,6 +86,37 @@ class Synthetic(unittest.TestCase):
         self.assertGreaterEqual(len(hit), 4, found)
         for name, v in found.items():                 # nothing resolves to a wrong value
             self.assertEqual(v, want['C_' + name] if 'C_' + name in want else want['E_' + name])
+
+    def test_progress(self):
+        """one line per phase and round; the counts and the deltas add up to the final match"""
+        lines = []
+        M = Matcher(self.da.hashed_view(), self.db.hashed_view(), log=lines.append).run()
+        line = re.compile(r'^(anchors|vtables|similarity|round \d+|pruned): (\d+) matched \(([+-]\d+)\), \d+s$')
+        phases, n = [], 0
+        for s in lines:
+            m = line.match(s)
+            self.assertTrue(m, s)
+            n += int(m.group(3))
+            self.assertEqual(int(m.group(2)), n, s)
+            phases.append(m.group(1))
+        self.assertEqual(phases[:4], ['anchors', 'vtables', 'similarity', 'round 1'])
+        self.assertEqual(phases[-1], 'pruned')
+        self.assertEqual(n, len(M.m))
+
+    def test_migrate_reports_progress(self):
+        """migrate() prints the matcher's progress under each reference, then its summary"""
+        from euomig import kb as KB
+        from euomig.consensus import migrate
+        descs = FD.build(self.ca, self.da, table_of(self.A), FIELDS)
+        ref = KB.KBEntry(KB.make(self.ca, self.da, table_of(self.A), descs, 'test'))
+        target = types.SimpleNamespace(db=self.db, pe=self.pb, code=self.cb, relocatable=False)
+        lines = []
+        migrate(target, [ref], FIELDS, log=lines.append)
+        self.assertTrue(lines[0].startswith('matching against '), lines)
+        self.assertTrue(lines[1].startswith('  anchors: '), lines)
+        self.assertTrue(any(s.startswith('  round 1: ') for s in lines), lines)
+        self.assertRegex(lines[-1], r'^  \d+ of \d+ reference functions matched \(closeness [\d.]+\), '
+                                    r'\d+ of its signatures hit, \d+s$')
 
     def test_conventions(self):
         c2 = CV.convention(self.ca, self.A['f2'])

@@ -11,6 +11,8 @@ B_* layouts and F_* flags are not addresses and cannot be matched: they are inhe
 state uoclidata.pas already gives the target (the floor milestone of a fixed-base build, the modern
 layout of a relocatable one) until conv / probe / verify say otherwise.
 """
+import time
+
 from .match import Matcher
 from .resolve import Result, resolve, MIN_CONF
 from .sigs import scan
@@ -156,11 +158,12 @@ def migrate(target, refs, fields, base_state=None, base_label='', newer_state=No
             log('skipping %s: it is the target itself' % ref.id)
             continue
         log('matching against %s' % ref.label())
-        M = Matcher(ref.funcdb, th, opts=opts).run()
+        t0 = time.time()
+        M = Matcher(ref.funcdb, th, log=lambda s: log('  ' + s), opts=opts).run()
         res = resolve(ref.fields, M, target.code)
         run = Run(ref, M, res, sig_hits(target.pe, ref.sigs))
-        log('  %d of %d reference functions matched (closeness %.2f), %d of its signatures hit' % (
-            len(M.m), len(ref.funcdb.start), run.closeness, len(run.sighits)))
+        log('  %d of %d reference functions matched (closeness %.2f), %d of its signatures hit, %.0fs' % (
+            len(M.m), len(ref.funcdb.start), run.closeness, len(run.sighits), time.time() - t0))
         runs.append(run)
     if not runs:
         raise SystemExit('no usable reference in the knowledge base')
