@@ -226,9 +226,11 @@ def pascal(c, u):
         diff = [(f, e) for f, e in F.items() if f[:2] in ('B_', 'F_') and e['status'] in USABLE
                 and e['value'] != layout.get(f, 0)]
         if diff:
-            out += ['', '// WARNING: this build does not fit %s -- ApplyModernBuild applies one layout to' % (
+            out += ['', '// WARNING: this build does not fit %s. ApplyModernBuild applies the Addrs list of' % (
                 u.modern[0][1] if u.modern else 'the modern layout'),
-                '// every modern build, so it needs a layout list of its own (and the code to pick it):']
+                '// each build after the layout, so move these rows into %s before' % name,
+                '// LISTEND (and raise its upper bound by %d): they then override the layout for this build only.' % (
+                    len(diff))]
             out += ['//' + _entry(f, e['value'], e['how'])[1:] for f, e in diff]
         return '\n'.join(out) + '\n'
     # fixed base, a version uoclidata.pas already has: check against its milestone instead
