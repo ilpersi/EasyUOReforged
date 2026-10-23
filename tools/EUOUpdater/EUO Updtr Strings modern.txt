@@ -19,7 +19,8 @@
 // These patterns assume the same code generation. Another beta of the same compiler normally
 // moves the addresses (wildcarded here) and leaves the code alone; a different compiler version
 // needs them re-derived -- see docs/adding-client-support.md.
-// B_*/F_* layout constants are not scannable; see SysVarModernLayout in uoclidata.pas.
+// B_*/F_* layout constants are not scannable (B_SKILLDIST excepted, see {SKILLNORM}); see
+// SysVarModernLayout in uoclidata.pas.
 
 
 // The `call __alldiv` inside the per-frame tick function: InitEvents rewrites it to call the code cave.
@@ -149,13 +150,18 @@ A111111111899E00080000C7861008000000000000C7861808000000000000 ; 11; +01; C ; +0
 66C786E400000000010FB680111111118B3C851111111189BE60010000 ; 11; +12; C ; +00; {SKILLLOCK}
 C7442411000000008B86680100000FB680111111118B3C85111111118D442411 ; 11; +17; C ; +00; {SKILLLOCK}
 
-// Skill caps (words; the arrays are $80 apart on this build, B_SKILLDIST).
+// Skill caps (words).
 0FB7044511111111EB110FB7044511111111EB1180BEE80100000074110FB7844660020000 ; 11; +04; C ; +00; {SKILLCAPS}
 0FB7045D11111111EB110FB7045D11111111EB1180BFE80100000074110FB7845F60020000 ; 11; +04; C ; +00; {SKILLCAPS}
 
-// Skill values (words).
-0FB7044511111111EB1180BEE80100000074110FB7844660020000 ; 11; +04; C ; +00; {SKILLSPOS}
-0FB7045D11111111EB1180BFE80100000074110FB7845F60020000 ; 11; +04; C ; +00; {SKILLSPOS}
+// Skill values (words). The skills gump picks one of three arrays: "Show Real" -> base values
+// ({SKILLSPOS}), "Show Caps" -> {SKILLCAPS}, default view -> values with bonuses ({SKILLNORM}).
+// uoclidata.pas has no SKILLNORM: B_SKILLDIST = {SKILLNORM} - {SKILLSPOS}, which its scan works out by
+// itself (+$C0 on the beta stamped 6AD6CEB3, -$80 on 6AC94360). These were derived on 6AD6CEB3.
+80BEE80100000074110FB7044511111111EB1133D28D4A0A3896E901000074110FB7044511111111EB110FB7044511111111 ; 11; +13; C ; +00; {SKILLSPOS}
+80BFE80100000074110FB7044D11111111EB1180BFE90100000074110FB7044D11111111EB110FB7044D11111111 ; 11; +13; C ; +00; {SKILLSPOS}
+80BEE80100000074110FB7044511111111EB1133D28D4A0A3896E901000074110FB7044511111111EB110FB7044511111111 ; 11; +46; C ; +00; {SKILLNORM}
+80BFE80100000074110FB7044D11111111EB1180BFE90100000074110FB7044D11111111EB110FB7044D11111111 ; 11; +42; C ; +00; {SKILLNORM}
 
 // Current enemy serial.
 3BB89001000074118B871801000039051111111174113981A8040000 ; 11; +16; C ; +00; {ENEMYID}

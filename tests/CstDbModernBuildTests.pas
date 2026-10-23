@@ -93,6 +93,10 @@ type
     procedure TestFixedBaseBuffBarLayoutAndScan;
     procedure TestFixedBaseBuffBarIsReadWithItsOwnContainerLayout;
     procedure TestFixedBaseBuildWithoutTheScannedAddressesHasNoBuffBar;
+    // skill arrays
+    procedure TestUnknownModernBuildFindsTheSkillArraysByScanning;
+    procedure TestSkillArraysFallbackPattern;
+    procedure TestSkillValuesComeFromTheirOwnArrays;
   end;
 
 implementation
@@ -259,6 +263,9 @@ begin
   AssertEquals('client language string', Cardinal($200), Cst.BLANG);
   AssertEquals('left hand item for macro 24', Cardinal($18), Cst.BLHAND);
   AssertEquals('right hand item for macro 24', Cardinal($1C), Cst.BRHAND);
+  AssertEquals('skills: base values ("Show Real")', Cardinal($007EEB60), Cst.SKILLSPOS);
+  AssertEquals('skills: values with bonuses sit BEFORE them', Cardinal($FFFFFF80), Cst.BSKILLDIST);
+  AssertEquals('skills: caps', Cardinal($007EEA60), Cst.SKILLCAPS);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -278,6 +285,7 @@ begin
   AssertEquals('E_SENDPACKET', Cardinal(0), Cst.ESENDPACKET);
   AssertEquals('layout still applies', Cardinal($118), Cst.BITEMID);
   AssertEquals('tithing points offset (#tp)', Cardinal($7C), Cst.BTITHE);
+  AssertEquals('no skill array distance until the scan finds it', Cardinal(0), Cst.BSKILLDIST);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -837,6 +845,77 @@ begin
   Eq('C_BUFFTIMERS', $0A5BF71C, Cst.BUFFTIMERS);
   Eq('layout still applies', $15C, Cst.BBUFFVEC);
   Eq('nothing else is guessed', 0, Cst.CHARPTR);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+/// Skill arrays ///////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// The skills gump's three-way switch, byte for byte as in the beta stamped $6AD6CEB3 (at $F18EC2):
+// Show Real -> base values ($11262A0), Show Caps -> caps ($1126210), default -> values with bonuses
+// ($1126360), then the start of the gump-local branch, which the C_SKILLCAPS pattern also covers.
+// There the two value arrays are $C0 apart, not $80 as in the first beta.
+procedure TCstDbModernBuildTests.TestUnknownModernBuildFindsTheSkillArraysByScanning;
+const
+  At = $401100;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader(KnownStamp + 1, $8140, $2000);          // code = $401000..$403000
+  PutBytes(At, [$80,$BE,$E8,$01,$00,$00,$00, $74,$0A, $0F,$B7,$04,$45,$A0,$62,$12,$01, $EB,$4F,
+                $33,$D2, $8D,$4A,$0A, $38,$96,$E9,$01,$00,$00, $74,$0A, $0F,$B7,$04,$45,$10,$62,$12,$01,
+                $EB,$3F, $0F,$B7,$04,$45,$60,$63,$12,$01, $EB,$35,
+                $80,$BE,$E8,$01,$00,$00,$00, $74,$0A, $0F,$B7,$84,$46,$60,$02,$00,$00]);
+
+  Cst.Update('7.0.117.1', PHnd);
+
+  Eq('C_SKILLSPOS: base values', $011262A0, Cst.SKILLSPOS);
+  Eq('B_SKILLDIST: on to the values with bonuses', $C0, Cst.BSKILLDIST);
+  Eq('C_SKILLCAPS', $01126210, Cst.SKILLCAPS);
+  Eq('nothing else is guessed', 0, Cst.SKILLLOCK);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The same switch in a second function of that beta ($F1951F: this pointer in edi, index in ecx).
+// The distance comes out of the bytes, so a "negative" one (the first beta's) works the same way.
+procedure TCstDbModernBuildTests.TestSkillArraysFallbackPattern;
+const
+  At = $401100;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader(KnownStamp + 1, $8140, $2000);
+  PutBytes(At, [$80,$BF,$E8,$01,$00,$00,$00, $74,$0A, $0F,$B7,$04,$4D,$60,$EB,$7E,$00, $EB,$4B,
+                $80,$BF,$E9,$01,$00,$00,$00, $74,$0A, $0F,$B7,$04,$4D,$60,$EA,$7E,$00, $EB,$38,
+                $0F,$B7,$04,$4D,$E0,$EA,$7E,$00, $EB,$2E]);
+
+  Cst.Update('7.0.117.1', PHnd);
+
+  Eq('C_SKILLSPOS: base values', $007EEB60, Cst.SKILLSPOS);
+  Eq('B_SKILLDIST: the values with bonuses sit before them', $FFFFFF80, Cst.BSKILLDIST);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// What chooseskill / #Skill and uo.dll's GetSkill read: the base value from C_SKILLSPOS, the
+// value with bonuses B_SKILLDIST away from it. Magery (code 25) at 100.0 base, 105.0 with an item.
+procedure TCstDbModernBuildTests.TestSkillValuesComeFromTheirOwnArrays;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader(KnownStamp, $8140, $2000);
+  PutBytes($57C6F9, [$E8]);
+  Sel := TUOSel.Create;
+  Sel.CstDB.Update('7.0.117.1', PHnd);
+  Vr := TUOVar.Create(Sel);
+  Cmd := TFakeClientCmd.Create(Sel, Vr, nil);
+  Cmd.FakeHandle := PHnd;
+  PutBytes($7EEB60 + 25 * 2, [$E8, $03]);              // base: 1000
+  PutBytes($7EEAE0 + 25 * 2, [$1A, $04]);              // with bonuses: 1050
+  PutBytes($7EEA60 + 25 * 2, [$E8, $03]);              // cap: 1000
+  PutBytes($7EEA20 + 25, [2]);                          // locked
+
+  Cmd.GetSkill('mage');
+
+  Eq('base value (chooseskill ... real)', 1000, Cmd.SkillReal);
+  Eq('value with bonuses (#Skill)', 1050, Cmd.SkillNorm);
+  Eq('cap', 1000, Cmd.SkillCap);
+  Eq('lock', 2, Cmd.SkillLock);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

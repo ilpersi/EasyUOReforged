@@ -241,8 +241,11 @@ type
     Unused     : array[1..3] of Byte;
     AddOffset1 : Integer;          // applied to the raw match address BEFORE the Mode step
     Mode       : Integer;          // 1=direct address, 2=call/jmp relative-displacement
-                                    //   resolve (target + [target] + 4), 3=pointer dereference
-    AddOffset2 : Integer;          // applied AFTER the Mode step
+                                    //   resolve (target + [target] + 4), 3=pointer dereference,
+                                    //   4=distance between two addresses in the same match
+                                    //   ([match+AddOffset1] - [match+AddOffset2]); port addition,
+                                    //   for a B_* offset between two globals (B_SKILLDIST)
+    AddOffset2 : Integer;          // applied AFTER the Mode step (Mode 4: second operand's offset)
     Expr       : TConstantNames;   // LISTEND terminates the table
     Pattern    : PAnsiChar;        // hex-encoded signature bytes
   end;
@@ -5527,15 +5530,21 @@ const
 // What moved: the object prefix before the id grew. Kind/X/Y/Z, type and id all shifted
 // (+$24, +$38, +$70); everything addressed RELATIVE to the id (container pointer, next
 // pointer, slot byte, status pointer, B_CHARSTATUS ...) and the gump / stat-gump / message
-// object layouts are unchanged -- except the stat gump's name field, and the skill arrays,
-// whose stride grew from $78 to $80.
+// object layouts are unchanged -- except the stat gump's name field.
+//
+// B_SKILLDIST is NOT a layout constant on these builds, although it sits here: it is the distance
+// between two globals (the base-value and the with-bonuses skill arrays), and the linker placed
+// them differently in each beta ($7EEB60 -> $7EEAE0 = -$80 in the first, $11262A0 -> $1126360 =
+// +$C0 in the one stamped $6AD6CEB3). The scan derives it from the skills gump's code (see
+// ScannerTable_Modern); 0 until it does, so the with-bonuses value then repeats the base value
+// instead of reading some other array.
 SysVarModernLayout : array[0..38] of TSysVarList = (
   (Expr: B_POS;       Val: $00000048),   // kind=$44, X=$48, Y=$4A, Z=$4C
   (Expr: B_ITEMTYPE;  Val: $00000070),
   (Expr: B_ITEMSTACK; Val: $00000076),   // type+6 as on every older build; hue (stack+2) = $78 seen live
   (Expr: B_ITEMID;    Val: $00000118),   // player serial 1; next item at +$C, container at +4, stat gump at +$10
   (Expr: B_STATNAME;  Val: $00000154),   // name inside the status gump ("Boydon" found at +$154)
-  (Expr: B_SKILLDIST; Val: $00000080),
+  (Expr: B_SKILLDIST; Val: $00000000),   // per build: see above
   (Expr: B_JNEXTPTR;  Val: $0000081C),   // toward OLDER entries; JCOL/JKIND ($800/$804) unchanged
   (Expr: F_SENDTHISCALL; Val: $00000001),
   (Expr: F_DRAGFASTCALL; Val: $00000001),
@@ -5597,9 +5606,13 @@ SysVarModernLayout : array[0..38] of TSysVarList = (
 //                 held "The world is saving, please wait." at +$800
 //   C_JOURNALPTR  newest journal entry; same add-entry code shape ([node+$80C] test)
 //   C_SKILLLOCK/CAPS/SPOS  58-entry arrays, found by their init loop ($7EEA20 bytes, then
-//                 words at $7EEA60/$7EEAE0, stride $80); all GM here so CAPS vs SPOS follows
-//                 the older builds' declaration order
-SysVarModernAddrs : array[0..46] of TSysVarList = (
+//                 words at $7EEA60/$7EEAE0/$7EEB60). C_SKILLSPOS is the BASE value (what
+//                 the skills gump shows with "Show Real", as client.exe's C_SKILLSPOS is) and
+//                 B_SKILLDIST leads to the value with bonuses (the gump's default view). This
+//                 entry first had SPOS = $7EEAE0 (+$80): every skill was GM, so the two arrays
+//                 read alike. Corrected from the gump's code, the same three-way switch that
+//                 the next beta ($6AD6CEB3) has, where a skill bonus showed which is which.
+SysVarModernAddrs : array[0..47] of TSysVarList = (
   (Expr: C_CHARPTR;     Val: $00B33F44),
   //   C_CLILOGGED   byte, written by the same login/logout functions as the old build's flag
   //                 (two string-matched function pairs agree); set to 1 while in game
@@ -5640,7 +5653,8 @@ SysVarModernAddrs : array[0..46] of TSysVarList = (
   (Expr: C_JOURNALPTR;  Val: $00C8B8BC),
   (Expr: C_SKILLLOCK;   Val: $007EEA20),
   (Expr: C_SKILLCAPS;   Val: $007EEA60),
-  (Expr: C_SKILLSPOS;   Val: $007EEAE0),
+  (Expr: C_SKILLSPOS;   Val: $007EEB60),
+  (Expr: B_SKILLDIST;   Val: $FFFFFF80),   // -> $7EEAE0, the with-bonuses array
   (Expr: C_CURSORKIND;  Val: $00B0287F),   // provisional: two independent code comparisons agree
   // Event hook. E_REDIR is the `call __alldiv` in the per-frame tick function (the same
   // function, found by its shared constants, in which the old build hooks `call __allmul`);
@@ -5697,13 +5711,14 @@ ModernBuilds : array[0..0] of TModernBuild = (
 
 // Runtime signature scan for the relocatable ("modern") builds. Mirrors
 // tools\EUOUpdater\"EUO Updtr Strings modern.txt" line for line (see that file's header for how the
-// patterns were built and verified): 75 patterns for 46 fields, each unique in the 7.0.117.1 beta's
-// code section and resolving to the hand-verified address, statically and live. Address operands,
+// patterns were built and verified): 77 patterns for 47 fields, each unique in the 7.0.117.1 beta's
+// code section and resolving to the hand-verified address, statically and live (the C_SKILLSPOS and
+// B_SKILLDIST ones in the beta stamped $6AD6CEB3, which replaced it). Address operands,
 // rel32 targets and ebp/esp displacements are wildcards; the joker is picked per pattern so it never
 // collides with a fixed byte. They apply to the same compiler's code across rebuilds, so an unknown
 // beta of it fills in its own addresses here; nothing else is ever guessed for an unknown build.
 // A second pattern for a field is a fallback anchored in another function.
-ScannerTable_Modern : array[0..75] of TScannerEntry = (
+ScannerTable_Modern : array[0..77] of TScannerEntry = (
     // E_REDIR
     (Joker: $11; Unused: (0,0,0); AddOffset1: 12; Mode: 1; AddOffset2: 0; Expr: E_REDIR;
      Pattern: '6A0068E8030000FF75C86A00E8111111118BF0B85917B7D1F765C4'),
@@ -5854,11 +5869,19 @@ ScannerTable_Modern : array[0..75] of TScannerEntry = (
      Pattern: '0FB7044511111111EB110FB7044511111111EB1180BEE80100000074110FB7844660020000'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 4; Mode: 3; AddOffset2: 0; Expr: C_SKILLCAPS;
      Pattern: '0FB7045D11111111EB110FB7045D11111111EB1180BFE80100000074110FB7845F60020000'),
-    // C_SKILLSPOS
-    (Joker: $11; Unused: (0,0,0); AddOffset1: 4; Mode: 3; AddOffset2: 0; Expr: C_SKILLSPOS;
-     Pattern: '0FB7044511111111EB1180BEE80100000074110FB7844660020000'),
-    (Joker: $11; Unused: (0,0,0); AddOffset1: 4; Mode: 3; AddOffset2: 0; Expr: C_SKILLSPOS;
-     Pattern: '0FB7045D11111111EB1180BFE80100000074110FB7845F60020000'),
+    // C_SKILLSPOS: the BASE values. The skills gump picks one of three arrays: "Show Real"
+    // ([gump+$1E8] set) -> base, "Show Caps" ([gump+$1E9]) -> C_SKILLCAPS, default -> with bonuses.
+    // These anchor on the Show Real branch. The first patterns here took the default branch,
+    // which is the with-bonuses array; derived again on the beta stamped $6AD6CEB3.
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 13; Mode: 3; AddOffset2: 0; Expr: C_SKILLSPOS;
+     Pattern: '80BEE80100000074110FB7044511111111EB1133D28D4A0A3896E901000074110FB7044511111111EB110FB7044511111111'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 13; Mode: 3; AddOffset2: 0; Expr: C_SKILLSPOS;
+     Pattern: '80BFE80100000074110FB7044D11111111EB1180BFE90100000074110FB7044D11111111EB110FB7044D11111111'),
+    // B_SKILLDIST: same matches, the default branch's array minus the Show Real one (Mode 4).
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 46; Mode: 4; AddOffset2: 13; Expr: B_SKILLDIST;
+     Pattern: '80BEE80100000074110FB7044511111111EB1133D28D4A0A3896E901000074110FB7044511111111EB110FB7044511111111'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 42; Mode: 4; AddOffset2: 13; Expr: B_SKILLDIST;
+     Pattern: '80BFE80100000074110FB7044D11111111EB1180BFE90100000074110FB7044D11111111EB110FB7044D11111111'),
     // C_ENEMYID
     (Joker: $11; Unused: (0,0,0); AddOffset1: 16; Mode: 3; AddOffset2: 0; Expr: C_ENEMYID;
      Pattern: '3BB89001000074118B871801000039051111111174113981A8040000'),
@@ -6088,6 +6111,17 @@ begin
     if FoundPos > 0 then
     begin
       TargetVal := FoundPos + Cardinal(Table^.AddOffset1);
+      if Table^.Mode = 4 then
+      begin
+        // A distance, not an address: both operands moved by the same ImageDelta.
+        TargetVal := 0;
+        TempDWord := 0;
+        ReadMem(PHnd, FoundPos + Cardinal(Table^.AddOffset1), @TargetVal, 4);
+        ReadMem(PHnd, FoundPos + Cardinal(Table^.AddOffset2), @TempDWord, 4);
+        Values[Table^.Expr] := Cardinal(Int64(TargetVal) - Int64(TempDWord));   // may be "negative"
+        Inc(Table);
+        Continue;
+      end;
       case Table^.Mode of
         2: begin
              TempDWord := 0;

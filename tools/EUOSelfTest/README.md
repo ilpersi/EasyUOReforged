@@ -41,6 +41,9 @@ Never run by the tool: `event macro 20` (quit game), `terminate uo`, `uoXL new`,
 
 `%ST_ITEM_ID` / `%ST_PET_ID` are EasyUO ids (the base-26 letters you see in `#findID`, e.g. `IPJRJMD`), not the
 numbers the server uses. Pick any item from your backpack; for the equip test use a wearable one (e.g. a dagger).
+`%ST_SKILL` (default `anat`) is the skill stage 1 reads, both with bonuses (`#skill`) and as the base
+(`chooseSkill ... real`). The two only differ when an item adds to the skill, so to check both pick a skill below its
+cap and wear such an item (at the cap a shard may clip the bonus).
 `%ST_UNATTENDED 1` never shows the panel and answers every HUMAN question `SKIP` (dry runs).
 
 ## The report

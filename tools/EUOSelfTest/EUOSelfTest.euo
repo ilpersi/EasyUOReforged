@@ -59,6 +59,9 @@ set %ST_PET_ID LWCC
 ; id of one of your pets; stage 4 renames it to EUOTest (leave empty to skip)
 set %ST_ITEM_ID FPJRJMD
 ; id of ONE item in your backpack (any item, for drag / drop / equip tests); empty = skip
+set %ST_SKILL anat
+; skill code for case 1.60 (anat, mage, eval ...); to tell the base from the value with bonuses
+; pick a skill below its cap and wear an item that adds to it (at the cap the shard may clip the bonus)
 
 set %ST_DO_VARS 1
 set %ST_DO_WRITES 1
@@ -967,12 +970,20 @@ sub st_vg_skill
     return
   }
   st_rp_5:
-  chooseSkill anat
+  ; "chooseSkill x real" reads the base, plain "chooseSkill x" the value with bonuses: two arrays
+  ; B_SKILLDIST apart, which differs per client build (a wrong distance read 0 on the 7.0.117.31 beta)
+  chooseSkill %ST_SKILL real
+  set %st_sb #skill
+  chooseSkill %ST_SKILL
   gosub st_vc skill num
   gosub st_vc skillCap pos
   gosub st_vc skillLock any
-  set %st_prompt Skill_Anatomy:_value_ , #skill , _cap_ , #skillCap , _lock_ , #skillLock , $(values_are_in_tenths:_1000_=_100.0)$Open_the_Skills_gump_and_compare_Anatomy.$The_lock_arrow_is_up/down/locked.
-  set %st_obs #skill , _/_ , #skillCap
+  set %st_id %st_cid , .skill_real
+  gosub st_info skill_base_(chooseSkill_real) %st_sb
+  set %st_ck ( %st_sb = 0 ) || ( #skill > 0 )
+  gosub st_ok skill_with_bonuses_is_not_0_when_the_base_is_not #skill %st_ck
+  set %st_prompt Skill_ , %ST_SKILL , :_value_with_bonuses_ , #skill , _base_ , %st_sb , _cap_ , #skillCap , _lock_ , #skillLock , $(values_are_in_tenths:_1000_=_100.0)$Open_the_Skills_gump:_the_normal_view_shows_the_value_with_bonuses,_Show_Real_the_base.$The_lock_arrow_is_up/down/locked.$(Both_values_are_the_same_unless_an_item_adds_to_this_skill:_see_ST_SKILL.)
+  set %st_obs with_ , #skill , _base_ , %st_sb , _cap_ , #skillCap
   event macro 8 4
   wait 10
   gosub st_human skill_value_cap_and_lock_match_the_Skills_gump
