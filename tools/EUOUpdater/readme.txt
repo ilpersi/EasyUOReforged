@@ -56,7 +56,8 @@ version you're adding rather than assuming.
 
 The buff bar lines: {CLILOC}, {BUFFTIMERS} and {BUFFVEC_CHECK}
 ----------------------------------------------------------------
-The port's ScanBuffs command (README, "Additions beyond the original") needs two
+The port's ScanBuffs command
+(https://ilpersi.github.io/EasyUOReforged/commands/scanbuffs/) needs two
 addresses the scan strings find:
   {CLILOC}      global holding the pointer to the client's cliloc manager
                 (the table of tooltip texts). client.exe 7.0.117.1: $00A01B9C.

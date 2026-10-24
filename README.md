@@ -1,264 +1,74 @@
 # EasyUO Reforged
 
-An in-progress port of **EasyUO** — a scripting tool for automating the *Ultima Online* game
-client — from Delphi 7 to [Lazarus](https://www.lazarus-ide.org/)/Free Pascal, targeting modern
-64-bit Windows.
+A port of **EasyUO**, the scripting tool that automates the *Ultima Online* client, from Delphi 7 to
+[Lazarus](https://www.lazarus-ide.org/) / Free Pascal, as a native 64-bit Windows application. It is
+derived from the original Delphi 7 source by Cheffe; it is not the original project.
 
-EasyUO lets you write small scripts ("macros") that read and write a running UO client's process
-memory, and patch small runtime hooks into it, to automate gameplay actions. This repository is
-**not** the original project. The original Delphi 7 codebase, written by Cheffe, is what this port
-is derived from.
+The scripting language is unchanged: existing `.euo` scripts are meant to run as they are, quirks
+included. `#EUOVer` still returns `1_50_00`.
 
-**Documentation:** <https://ilpersi.github.io/EasyUOReforged/> — every command, `#variable` and
-`uo.dll` member, the language rules, and a getting-started guide.
+**Documentation: <https://ilpersi.github.io/EasyUOReforged/>**
 
-## Goal
-
-The original EasyUO only builds under Delphi 7, which is long out of support and increasingly
-awkward to keep running on current Windows. The goal of this port is to get the same tool — same
-scripting language, same commands, same behavior scripts already depend on — building and running
-under the free, actively-maintained Lazarus/FPC toolchain instead, as a native 64-bit Windows
-application.
-
-This is deliberately **not** a 1:1 mechanical translation. Where FPC/Lazarus offers a cleaner or
-safer way to do something (thread handling, memory access, dispatch tables, GUI plumbing) the
-implementation has been modernized. But the outward contract — every script command, the full
-`UO.xxx` API surface, the `uo.dll` external ABI, and the exact quirky behaviors real-world scripts
-rely on (tick timing, boolean encoding, `GOTO`/`GOSUB` semantics, and more) — is meant to be
-preserved exactly. Existing `.euo` scripts should keep working unmodified.
+| | |
+|---|---|
+| [Get started](https://ilpersi.github.io/EasyUOReforged/guide/install/) | Install, a first script, the editor and its debugger. |
+| [Commands](https://ilpersi.github.io/EasyUOReforged/commands/) and [variables](https://ilpersi.github.io/EasyUOReforged/variables/) | Every command and `#variable`, searchable. |
+| [uo.dll API](https://ilpersi.github.io/EasyUOReforged/dll/) | The client engine as a DLL, for other programs. |
+| [What's new in Reforged](https://ilpersi.github.io/EasyUOReforged/reforged/whats-new/) | What this port adds: `SQL`, `ScanBuffs`, UOP map files, breakpoints and a call stack in the editor. |
+| [Known limitations](https://ilpersi.github.io/EasyUOReforged/reforged/known-limitations/) | What is verified, what is not, and which clients are supported. |
+| [Developer guide](https://ilpersi.github.io/EasyUOReforged/developers/) | Building from source, adding a new client, EUOMigrate. |
 
 ## Status
 
-This is a working, actively-tested port, **not a finished, polished release**. This port is based on
-last publicly available source of EasyUO that is available [here](http://www.easyuo.com/cheffe/EasyUO_Source.zip).
-As per Cheffe own admission this version is deprecated so it is possible that this port is missing features.
-All seven planned migration phases (foundational data/dispatch layer, scripting interpreter, UO client engine reads,
-UO client engine code-caving, GUI shell, `uo.dll` + EUOUpdater, live-client verification) have
-landed, and the project builds and runs. It is currently in an ongoing round of real-world testing
-against a live UO client, fixing issues as they surface. Recent fixes include a script-execution
-hang in `FindItem`, a crash in the variable inspector, the in-app `MENU` command (which drives real
-GUI dialogs from script) not rendering at all, several `MENU` control-rendering glitches, missing
-editor key bindings, and a stray console window behind the GUI.
+A working, actively tested port, **not a finished release**. It is based on the last public EasyUO
+source, which its author described as deprecated. The interpreter and the client tables have automated
+tests; anything that needs a running client is checked by hand, as far as testing has reached. Read the
+[known limitations](https://ilpersi.github.io/EasyUOReforged/reforged/known-limitations/) before relying
+on it.
 
-Automated coverage exists (FPCUnit unit tests plus a golden-master script corpus under `tests\`)
-for the interpreter core, the client-data tables, and other logic that doesn't require a live
-game client. There is **no** automated coverage for anything that requires an actual running UO
-client — that layer is only verified by hand, and only as far as testing has reached so far.
+## Download and run
 
-**In short: large parts of this port work and have been confirmed against a real client. Large
-parts have not yet been exercised at all.** Treat anything not explicitly called out as tested
-below as unverified.
+1. Download `EasyUOReforged-<version>-win64.zip` from
+   [Releases](https://github.com/ilpersi/EasyUOReforged/releases).
+2. Unzip it anywhere and run `EasyUOReforged.exe`; there is no installer. Keep `uo.dll` next to it.
+3. Start the UO client and log in first: EasyUO Reforged finds running clients by itself.
 
-### Confirmed working (tested against a live client)
-
-- Client version detection / attaching to a running client.
-- Core script execution (the interpreter, variables, flow control).
-- `FindItem` and related item-scanning commands.
-- The variable-inspector ("var dump") tool.
-- The `MENU` script command's GUI rendering, including text, buttons (click handling), checkboxes,
-  edit fields, and images.
-- The script editor (including previously-broken key bindings like Backspace/Delete).
-
-### Known limitations
-
-- **Symbol/Wingdings-style icon fonts (`MENU TEXT`/`BUTTON`/`CHECK` using fonts like Wingdings) only
-  render correctly if that exact font is installed.** If a script requests a font (e.g. "Wingdings
-  2") that isn't actually present on the machine, Windows silently substitutes a different
-  installed font at the same character code — this port reproduces that behavior (matching what the
-  original Delphi build also does), but the substituted glyph can look wrong or unrelated to what
-  the script author intended.
-- **`MENU IMAGE` format coverage is uncertain beyond common raster formats** (BMP/PNG/JPEG/GIF).
-  The original used a VCL/ActiveX image loader with broader legacy format support (e.g. WMF/EMF/ICO)
-  that has no direct LCL equivalent; scripts relying on those formats may not work correctly yet.
-- **64-bit only.** This port targets `x86_64-win64` exclusively — it does not build for 32-bit
-  Windows. (It still works against 32-bit UO client processes; the automation techniques used here
-  work across bitness.)
-- **The `uo.dll` external stack-API surface has not been verified against any real external
-  consumer.** It's built and exports the expected decorated names, but nothing outside this
-  project's own test harness has exercised it end-to-end yet. Its API is documented on the
-  [uo.dll API](https://ilpersi.github.io/EasyUOReforged/dll/) page.
-- **`EUOUpdater`** (the tool used to derive new client-version memory offsets) has had only light
-  testing relative to the main application.
-- **`Client Support`** As this port is based on a deprecated EUO version, client support for new clients
-  is limited. I was able to add support for current last released client 7.0.117.0 and for a few other
-  clients that I had available (7.0.108.0 and 7.0.99.1) and these are probably not the last ones needed.
-  `tools\EUOUpdater` (see its `readme.txt`) covers most of what a new version needs -- including a 
-  `{SYSMSGSTR_CHECK}` diagnostic added specifically because of what 7.0.108.0 needed (and the buff bar
-  lines `{CLILOC}`, `{BUFFTIMERS}` and `{BUFFVEC_CHECK}` for `ScanBuffs`) -- but some fields
-  are only ever hand-copied forward from the closest known version, so live disassembly may still be
-  required for newer clients occasionally. [`tools\EUOMigrate`](https://ilpersi.github.io/EasyUOReforged/developers/euomigrate/) (Python)
-  automates most of that for a build it has never seen, newer or older: it locates the addresses
-  from fingerprints of the already-supported builds, reads calling conventions and layout offsets
-  from the code and the running client, and writes the `uoclidata.pas` entry plus new signatures.
-  See [Add a new client](https://ilpersi.github.io/EasyUOReforged/developers/adding-a-client/) on the documentation site for the full process.
-- General maturity: this is a young port of a codebase with a very large surface area (roughly 140
-  scripting API entries plus dozens of GUI/editor features). Bugs turning up during ordinary use,
-  especially in less-common script commands or GUI menu features, should be expected.
-
-### Additions beyond the original
-
-All of these are new names or editor features, so existing scripts are unaffected. The details are on the
-documentation site, under [What's new in Reforged](https://ilpersi.github.io/EasyUOReforged/reforged/whats-new/).
-
-- **Script editor** — line numbers, Ctrl+Space autocomplete, breakpoints and conditional breakpoints,
-  run to cursor, and a call stack for nested sub calls
-  ([Editing and debugging](https://ilpersi.github.io/EasyUOReforged/guide/debugging/)).
-- **`TILE`** — reads the UOP map files of newer clients directly, with no need to extract them to the
-  old MUL format first ([`tile`](https://ilpersi.github.io/EasyUOReforged/commands/tile/)).
-- **`MENU MEMO`** — a multi-line, scrollable counterpart to `MENU EDIT`
-  ([`menu memo`](https://ilpersi.github.io/EasyUOReforged/commands/menu/memo/)). Used by
-  [`docs/report-diagnostics.euo`](docs/report-diagnostics.euo).
-- **`ScanBuffs`** — reads the client's buff bar (names, descriptions, timers) into `#BuffCnt`,
-  `#BuffIndex`, `#BuffID`, `#BuffCliloc`, `#BuffName`, `#BuffDesc`, `#BuffTime` and `#BuffBarOpen`
-  ([`scanbuffs`](https://ilpersi.github.io/EasyUOReforged/commands/scanbuffs/)). It only reads the client's memory, and works on the clients
-  whose buff bar layout was checked. Selftest stage 9 (`tools\EUOSelfTest`) exercises all of it.
-- **`SQL`** — keeps data in an SQLite database file, with ordinary SQL or a quick save / load of
-  variables, using the SQLite built into Windows 10/11 ([Using SQL](https://ilpersi.github.io/EasyUOReforged/guides/sql/),
-  [`sql`](https://ilpersi.github.io/EasyUOReforged/commands/sql/)).
-- **`#ReforgedVer`** — this port's build version. `#EUOVer` still returns `1_50_00`.
-
-## Download & run
-
-Prebuilt Windows x64 binaries are on the
-[**Releases**](https://github.com/ilpersi/EasyUOReforged/releases) page. Download
-`EasyUOReforged-<version>-win64.zip`, unzip it anywhere, and run
-`EasyUOReforged.exe` — no installer. Keep `uo.dll` next to it. `EUOUpdtr.exe` is
-only needed if you're adding support for a new client version
-([guide](https://ilpersi.github.io/EasyUOReforged/developers/adding-a-client/)).
-
-Start your Ultima Online client and log in first; EasyUO Reforged detects running
-clients on its own. Then paste a script into a tab and press Play. (EasyUO
-Reforged is `x86_64-win64` only — see *Known limitations* on client bitness.)
-
-New to it? See [**Get started**](https://ilpersi.github.io/EasyUOReforged/guide/install/)
-on the documentation site for a first-run walkthrough (window layout, running and
-debugging a script, multiple clients).
-
-Each release is built entirely in public by GitHub Actions
-([`release.yml`](.github/workflows/release.yml)) from the tagged commit, and ships
-with SHA-256 checksums (`…zip.sha256` for the archive, `SHA256SUMS.txt` for the
-files inside).
-
-### Antivirus & SmartScreen
-
-EasyUO Reforged automates the game by **reading and writing the UO client's
-process memory and patching small code hooks into it** — the same techniques a
-debugger or a game trainer uses. Because of that:
-
-- **Windows SmartScreen** will warn that the app is unrecognized (the binaries
-  are not code-signed). Choose *More info → Run anyway* if you trust the
-  download.
-- **Windows Defender or third-party AV** may flag the executable heuristically.
-  This is expected for this class of tool and is not, by itself, evidence the
-  binary is malicious.
-
-What you can do:
-
-1. **Verify the checksum.** Compare your download against the `.sha256` file
-   published with the release:
-   ```
-   Get-FileHash EasyUOReforged-<version>-win64.zip -Algorithm SHA256
-   ```
-2. **Check the build is reproducible-in-public.** Every release is compiled by
-   the workflow above on GitHub's runners from a specific tagged commit — nothing
-   is uploaded by hand.
-3. **Scan it yourself** (e.g. VirusTotal) and, if you believe a detection is a
-   false positive, report it to your AV vendor.
-4. **Build from source** (below) if you'd rather not trust a prebuilt binary at
-   all.
-
-See also [`SECURITY.md`](SECURITY.md).
-
-## Writing scripts
-
-The scripting language is the same as the original EasyUO's. Every command, every
-`#variable`, the expression syntax and the `uo.dll` API are documented on the
-**documentation site**:
-
-- **Reference and guides:** <https://ilpersi.github.io/EasyUOReforged/>
-- **Script help, examples, community:** <http://www.easyuo.com>
-
-The site is built from [`website/`](website/) in this repository, and the tests
-fail when a command or variable has no page, so it follows the code. It started
-from the old EasyUO wiki, checked against this port's source; that text stays
-under the GFDL 1.2 (see [`NOTICE`](NOTICE)).
-
-This port aims to run existing `.euo` scripts unchanged. `#EUOVer` still returns
-the original value (`1_50_00`) so version checks keep working; `#ReforgedVer`
-is this port's own build version. Anywhere behaviour intentionally differs, or a
-command is incomplete, is listed under *Known limitations* and *Additions beyond
-the original* above.
+The binaries are not code-signed, and the program reads and writes the client's memory, so SmartScreen
+and antivirus software may warn about it. Every release is built in public by GitHub Actions and ships
+with SHA-256 checksums. See
+[SmartScreen and antivirus](https://ilpersi.github.io/EasyUOReforged/guide/install/#smartscreen-and-antivirus)
+and [`SECURITY.md`](SECURITY.md).
 
 ## Building
 
-Requires Lazarus/FPC targeting `x86_64-win64` (Win32 widgetset); developed against **Lazarus 3.6
-/ FPC 3.2.2**. Three independent projects share code through Lazarus packages (`uocommon` in
-`common\`, `uoengine` in `uo\`, `euoparser` in `parser\`):
-
-| Project | Output | Purpose |
-|---|---|---|
-| `EasyUOReforged.lpi` | `EasyUOReforged.exe` | Main GUI script editor/runner. |
-| `uo.lpi` | `uo.dll` | The client engine exposed as a generic external stack-based API. |
-| `EUOUpdtr.lpi` | `EUOUpdtr.exe` | Dev tool for deriving new client-version memory offsets. |
-
-Build headlessly with `lazbuild`. Register the project's packages once, then build (use
-`--build-mode=Release` for a stripped, optimized binary; omit it for the debug `Default` mode):
+With Lazarus 3.6 or newer:
 
 ```
 lazbuild --add-package-link common/uocommon.lpk uo/uoengine.lpk parser/euoparser.lpk
 lazbuild --build-mode=Release uo.lpi
 lazbuild --build-mode=Release EasyUOReforged.lpi
 lazbuild --build-mode=Release EUOUpdtr.lpi
+pwsh ./tests/run_tests.ps1
 ```
 
 Step by step, with the Lazarus IDE and the usual build errors:
 [Build from source](https://ilpersi.github.io/EasyUOReforged/developers/building/).
 
-To check a client end to end - every `#variable`, `event`/`exevent`, `event macro` and client
-command - run [`tools\EUOSelfTest\EUOSelfTest.euo`](tools/EUOSelfTest/README.md) in the editor
-while a character is logged in: a small always-on-top panel guides you through the checks that
-only eyes can confirm and a Markdown report is written for comparing clients.
+## Bugs and contributions
 
-Automated tests live under `tests\` and run via `tests\run_tests.ps1` (which builds
-`tests\RunTests.lpi` with lazbuild). Most of the suite needs no live client at all; a separate
-opt-in suite (`LiveClientTests.pas`) automatically exercises a real running client if one is
-detected, and otherwise reports those specific tests as skipped rather than failed. CI
-(`.github/workflows/ci.yml`) runs the full build and test suite on every push and PR.
+- **Bugs:** open an issue with the **Bug report** template. Include a minimal script that reproduces the
+  problem and the output of [`docs/report-diagnostics.euo`](docs/report-diagnostics.euo); see
+  [Reporting a bug](https://ilpersi.github.io/EasyUOReforged/guide/troubleshooting/#reporting-a-bug).
+- **Code:** see [`CONTRIBUTING.md`](CONTRIBUTING.md) and the
+  [developer guide](https://ilpersi.github.io/EasyUOReforged/developers/).
+- **Script help and community:** <http://www.easyuo.com>.
 
-## Versioning
+## License and disclaimer
 
-Builds are versioned `YY.MM.DD.<short git commit>` (e.g. `26.09.02.e25a4d9`) — the
-build date plus the exact commit it was built from. This one value is generated by
-`tools/gen-version.ps1` (automatically, before every build) and shown in the window
-title bar, under **Help → About**, and as the `#ReforgedVer` script variable.
-`#EUOVer` is unchanged — it still returns the original EasyUO value (`1_50_00`) for
-script compatibility.
+BSD 2-Clause, the same license as the original (see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE)). The
+documentation text that comes from the old EasyUO wiki stays under the GFDL 1.2.
 
-## Reporting bugs
-
-Open a GitHub issue using the **Bug report** template. Two things make a report
-actionable:
-
-- **It has to be reproducible.** If the bug can't be made to happen on our side,
-  it can't be fixed. Include a script that triggers it on a fresh run.
-- **Keep the script minimal.** Cut it down to the fewest lines that still show
-  the problem (ideally under ~20). Full scripts with your whole setup in them
-  will be sent back for minimization first.
-
-Run [`docs/report-diagnostics.euo`](docs/report-diagnostics.euo) with your client
-attached and paste its output into the report - it collects the client version,
-shard, and other environment details we need.
-
-## Disclaimer
-
-**EasyUO Reforged is not an official or endorsed replacement for the original EasyUO.** It is an
-independent, community-driven port, not affiliated with the original author. It is offered as-is,
-under the BSD 2-Clause License, the same license as the original (see `LICENSE` and `NOTICE`
-in this repository), with no warranty of any kind.
-
-This is an **evolving, work-in-progress project**. Most of it has not been exhaustively tested,
-some features are known to be incomplete or behave differently from the original (see "Known
-limitations" above), and issues not yet discovered should be expected. If you rely on EasyUO for
-anything important, keep using the original Delphi 7 build alongside this one until you've
-independently verified the scripts and features you need actually work correctly here. Use at your
-own risk, and please report issues you find.
+EasyUO Reforged is an independent community port, not affiliated with the original author and not an
+official replacement for EasyUO. It comes with no warranty of any kind. If you rely on EasyUO for anything
+important, keep the original next to it until you have checked that the scripts and features you need
+work here.

@@ -26,9 +26,9 @@ EasyUO for anything important, until you have checked that the scripts and featu
 
 ## Known gaps
 
-- **Client versions.** Only a few client builds are supported so far (including 7.0.117.0, 7.0.108.0 and
-  7.0.99.1). Newer ones need their memory offsets derived first; see
-  [Add a new client](/developers/adding-a-client/).
+- **Client versions.** EasyUO Reforged knows the classic client (`client.exe`) from 2.0.0 up to 7.0.117.1,
+  and two builds of `client_beta.exe` (7.0.117.1 and 7.0.117.31). A newer client needs its memory offsets
+  added first; see [Add a new client](/developers/adding-a-client/).
 - **Symbol fonts in menus.** A [`menu`](/commands/menu/) text, button or checkbox using a symbol font such
   as Wingdings only shows the intended glyphs if that exact font is installed. Otherwise Windows substitutes
   another font, as the original did.

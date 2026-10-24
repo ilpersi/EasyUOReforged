@@ -1,8 +1,9 @@
 # Architecture
 
 How the codebase is laid out and the design decisions that aren't obvious from
-reading it. For build instructions see the README; for the scripting language see
-the EasyUO wiki.
+reading it. For build instructions see
+[Build from source](https://ilpersi.github.io/EasyUOReforged/developers/building/); for the
+scripting language see the [documentation site](https://ilpersi.github.io/EasyUOReforged/).
 
 ## Layers
 

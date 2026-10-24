@@ -143,7 +143,7 @@ SQLite, or a 64-bit `sqlite3.dll` placed next to `EasyUOReforged.exe` (see the [
 
 A build of your own is not code-signed either, so SmartScreen or an antivirus can warn about it for the
 same reason it warns about a release: it reads and writes another program's memory. See
-[Antivirus & SmartScreen](https://github.com/ilpersi/EasyUOReforged#antivirus--smartscreen) in the README.
+[SmartScreen and antivirus](/guide/install/#smartscreen-and-antivirus).
 
 ## Build the documentation site
 

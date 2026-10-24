@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: Known limitations & project status
-    url: https://github.com/ilpersi/EasyUOReforged/blob/main/README.md#known-limitations
+    url: https://ilpersi.github.io/EasyUOReforged/reforged/known-limitations/
     about: >-
-      EasyUO Reforged is a work-in-progress port. Please check the README's
-      "Known limitations" and "Status" sections first - your issue may already
-      be documented there.
+      EasyUO Reforged is a work-in-progress port. Please check the
+      "Known limitations" page first - your issue may already be documented
+      there.
   - name: Adding support for a newer UO client
     url: https://ilpersi.github.io/EasyUOReforged/developers/adding-a-client/
     about: >-

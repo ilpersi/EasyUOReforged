@@ -35,14 +35,16 @@ techniques a debugger or a game trainer uses. Because of that:
 - **Antivirus software** may flag the executable. This is expected for this kind of tool and is not, by
   itself, evidence that the file is malicious.
 
-To check the download, compare it with the `.sha256` file published with each release:
+To check the download, compare it with the `.sha256` file published with each release (`SHA256SUMS.txt`
+does the same for the files inside the zip):
 
 ```powershell
 Get-FileHash EasyUOReforged-<version>-win64.zip -Algorithm SHA256
 ```
 
-Every release is built by GitHub Actions from a tagged commit, in public; nothing is uploaded by hand. See
-[Antivirus & SmartScreen](https://github.com/ilpersi/EasyUOReforged#antivirus--smartscreen) in the README
-for more, or build it from source yourself.
+Every release is built by GitHub Actions from a tagged commit, in public; nothing is uploaded by hand. You
+can also scan the file yourself (for example on VirusTotal) and report a false positive to your antivirus
+vendor, or [build it from source](/developers/building/). See also
+[SECURITY.md](https://github.com/ilpersi/EasyUOReforged/blob/main/SECURITY.md).
 
 Next: [run your first script](/guide/first-script/).
