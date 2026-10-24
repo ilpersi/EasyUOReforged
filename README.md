@@ -211,6 +211,9 @@ lazbuild --build-mode=Release EasyUOReforged.lpi
 lazbuild --build-mode=Release EUOUpdtr.lpi
 ```
 
+Step by step, with the Lazarus IDE and the usual build errors:
+[Build from source](https://ilpersi.github.io/EasyUOReforged/developers/building/).
+
 To check a client end to end - every `#variable`, `event`/`exevent`, `event macro` and client
 command - run [`tools\EUOSelfTest\EUOSelfTest.euo`](tools/EUOSelfTest/README.md) in the editor
 while a character is logged in: a small always-on-top panel guides you through the checks that

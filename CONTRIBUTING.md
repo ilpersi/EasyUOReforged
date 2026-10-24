@@ -18,7 +18,10 @@ please keep changes focused and well-described.
 
 ## Building
 
-Requires Lazarus/FPC (developed against **Lazarus 3.6 / FPC 3.2.2**).
+Requires Lazarus/FPC (developed against **Lazarus 3.6 / FPC 3.2.2**). The step-by-step
+guide, with the IDE and the usual build errors, is
+[Build from source](https://ilpersi.github.io/EasyUOReforged/developers/building/) on the
+documentation site.
 
 ```
 # one-time: make the project's packages known to lazbuild

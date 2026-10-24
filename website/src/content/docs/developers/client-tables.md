@@ -2,7 +2,7 @@
 title: How client support works
 description: "What EasyUO Reforged needs to know about a client build, where it is kept in uoclidata.pas, and how a build gets its values when it attaches."
 sidebar:
-  order: 2
+  order: 3
 ---
 
 EasyUO Reforged drives the UO client by reading and writing its memory and by calling, or hooking, its

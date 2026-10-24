@@ -2,7 +2,7 @@
 title: EUOMigrate reference
 description: "Every EUOMigrate command and option, the output files, the field statuses, the knowledge base, how the matching works and its limits."
 sidebar:
-  order: 5
+  order: 6
 ---
 
 The command-by-command reference for `tools/EUOMigrate`. For a guided first run, see

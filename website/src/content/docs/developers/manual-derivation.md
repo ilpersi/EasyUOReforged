@@ -2,7 +2,7 @@
 title: Deriving values by hand
 description: "The manual route for what EUOMigrate cannot decide: scanning with EUOUpdater, the scan-string format, values the scan cannot see, relocatable builds, writing signatures and the buff bar."
 sidebar:
-  order: 6
+  order: 7
 ---
 
 [EUOMigrate](/developers/euomigrate/) does most of a new build mechanically. This page covers what is left
@@ -18,7 +18,7 @@ over, and how the existing tables were made in the first place. You need it when
 EUOUpdater (`EUOUpdtr.exe`, in every release zip) searches a running client for byte patterns and prints
 the address each one leads to. It is the original EasyUO tool for this job.
 
-1. Build it, or take it from a release:
+1. Build it (see [Build from source](/developers/building/)), or take it from a release:
 
    ```powershell
    lazbuild --build-mode=Release EUOUpdtr.lpi

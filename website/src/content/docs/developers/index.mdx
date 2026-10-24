@@ -13,8 +13,9 @@ back with every client patch: **teaching EasyUO Reforged a new client build**, b
 EUOMigrate tool.
 
 If you only want to write scripts, you don't need any of this: start with [Get started](/guide/install/).
-For building from source, the package layout and pull requests, see
-[CONTRIBUTING.md](https://github.com/ilpersi/EasyUOReforged/blob/main/CONTRIBUTING.md) on GitHub.
+To build the programs yourself, see [Build from source](/developers/building/). For the ground rules and
+pull requests, see [CONTRIBUTING.md](https://github.com/ilpersi/EasyUOReforged/blob/main/CONTRIBUTING.md)
+on GitHub.
 
 ## When a new client needs work
 
@@ -32,8 +33,8 @@ fixes it.
 
 ## What you need
 
-- **A clone of the repository**, and Lazarus 3.6 / FPC 3.2.2 for `x86_64-win64` to build it (see the
-  [README](https://github.com/ilpersi/EasyUOReforged#building)).
+- **A clone of the repository**, and Lazarus 3.6 or newer to build it (see
+  [Build from source](/developers/building/)).
 - **The client executable** you want to support.
 - **Python 3.10 or newer** with Capstone, for EUOMigrate.
 - **A character logged in on that client**, for the live checks. They only read the client's memory.
@@ -61,6 +62,7 @@ Every step is explained, with examples, in [Add a new client](/developers/adding
 ## In this section
 
 <CardGrid>
+	<LinkCard title="Build from source" description="Lazarus, the three programs, the tests, the IDE, this site, and the usual build errors." href="/EasyUOReforged/developers/building/" />
 	<LinkCard title="How client support works" description="The four kinds of values, fixed-base and relocatable builds, and how a build gets its values." href="/EasyUOReforged/developers/client-tables/" />
 	<LinkCard title="Add a new client" description="The workflow from an unknown build to a tested entry, step by step." href="/EasyUOReforged/developers/adding-a-client/" />
 	<LinkCard title="Using EUOMigrate" description="A first run of the tool on a real client, and how to read what it writes." href="/EasyUOReforged/developers/euomigrate/" />
