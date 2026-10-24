@@ -70,9 +70,12 @@ type
   published
     procedure TestImageInfoReadsHeader;
     procedure TestKnownModernBuildGetsItsOwnAddresses;
+    procedure TestNextBetaOverridesOnlyItsMovedDistances;
     procedure TestUnknownModernBuildNeverInheritsFixedBaseAddresses;
     procedure TestFixedBaseBuildIsUntouched;
     procedure TestUnknownModernBuildFindsItsHookByScanning;
+    procedure TestHookIsInTheTickFunctionNotItsTwin;
+    procedure TestNextBetaFindsItsChangedFunctionsByScanning;
     procedure TestHookAddressThatIsNotACallIsRefused;
     procedure TestDragCaveReturnsToItsOwnFinalRet;
     procedure TestMacroCaveReturnsToItsRestoreCode;
@@ -269,6 +272,34 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// The beta stamped $6AD6CEB3 lists only the distances between two globals that moved in it: it
+// gets those, the rest of the layout, and no address at all (the scan finds them).
+procedure TCstDbModernBuildTests.TestNextBetaOverridesOnlyItsMovedDistances;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader($6AD6CEB3, $8140);
+
+  Cst.Update('7.0.117.31', PHnd);
+
+  AssertTrue('modern', Cst.ISMODERN);
+  AssertEquals('client language string', Cardinal($1E8), Cst.BLANG);
+  AssertEquals('last spell now sits AFTER the cluster base', Cardinal($1B0), Cst.BLSPELL);
+  AssertEquals('last skill now sits AFTER the cluster base', Cardinal($1A8), Cst.BLSKILL);
+  AssertEquals('last target X/Y/Z', Cardinal($01588F20), Cst.BLTARGX);
+  AssertEquals('next-container X is declared before its Y', Cardinal($FFFFFFFC), Cst.BNEXTCX);
+  AssertEquals('target callback pointer', Cardinal($678), Cst.BTARGPROC);
+  AssertEquals('last target id: layout', Cardinal($24), Cst.BLTARGID);
+  AssertEquals('last target tile: layout', Cardinal($20), Cst.BLTARGTILE);
+  AssertEquals('last target kind: layout', Cardinal($30), Cst.BLTARGKIND);
+  AssertEquals('tithing points: layout', Cardinal($7C), Cst.BTITHE);
+  AssertEquals('B_ITEMID: layout', Cardinal($118), Cst.BITEMID);
+  AssertEquals('no skill array distance until the scan finds it', Cardinal(0), Cst.BSKILLDIST);
+  AssertEquals('C_LHANDID is left to the scan', Cardinal(0), Cst.LHANDID);
+  AssertEquals('C_CHARPTR is left to the scan', Cardinal(0), Cst.CHARPTR);
+  AssertEquals('E_REDIR is left to the scan', Cardinal(0), Cst.EREDIR);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 // A different build of the same version number must not be handed this beta's code
 // addresses (nor the older build's): E_* are patched into the client's machine code.
 procedure TCstDbModernBuildTests.TestUnknownModernBuildNeverInheritsFixedBaseAddresses;
@@ -338,6 +369,66 @@ begin
   AssertEquals('E_REDIR', Cardinal(CallAt), Cst.EREDIR);
   AssertEquals('E_OLDDIR', Cardinal(Target), Cst.EOLDDIR);
   AssertEquals('nothing else is guessed', Cardinal(0), Cst.CHARPTR);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// In the beta stamped $6AD6CEB3 the tick function's single-caller twin has the same bytes around
+// its `call __alldiv` ($592779, before the tick function's at $592B8D) and differs only after it.
+// Both are laid in that order, byte for byte (the call's rel32 set per site): the hook must land
+// in the tick function, and E_OLDDIR must be that call's target.
+procedure TCstDbModernBuildTests.TestHookIsInTheTickFunctionNotItsTwin;
+const
+  TwinCall = $40110C;
+  TickCall = $40130C;
+  TwinTarget = $004F2000;
+  TickTarget = $004F1160;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader(KnownStamp + 1, $8140, $2000);          // code = $401000..$403000
+  PutBytes(TwinCall - 12, [$6A,$00,$68,$E8,$03,$00,$00,$FF,$75,$C8,$6A,$00,$E8,$06,$4B,$12,
+                $00,$8B,$F0,$B8,$59,$17,$B7,$D1,$F7,$65,$C4,$6A,$00,$C1,$EA,$0D,
+                $03,$F2,$89,$35,$08,$C0,$80,$00,$E8,$B1,$54,$10,$00,$A3,$04,$C0,
+                $80,$00,$83,$C4,$04]);
+  PutDWord(TwinCall + 1, TwinTarget - (TwinCall + 5));
+  PutBytes(TickCall - 12, [$6A,$00,$68,$E8,$03,$00,$00,$FF,$75,$C8,$6A,$00,$E8,$F2,$46,$12,
+                $00,$8B,$F0,$B8,$59,$17,$B7,$D1,$F7,$65,$C4,$6A,$00,$C1,$EA,$0D,
+                $03,$F2,$89,$35,$08,$C0,$80,$00,$E8,$9D,$50,$10,$00,$8B,$0D,$A0,
+                $82,$03,$06,$8B,$FE]);
+  PutDWord(TickCall + 1, TickTarget - (TickCall + 5));
+
+  Cst.Update('7.0.117.31', PHnd);
+
+  AssertEquals('E_REDIR: the tick function''s call', Cardinal(TickCall), Cst.EREDIR);
+  AssertEquals('E_OLDDIR: that call''s target', Cardinal(TickTarget), Cst.EOLDDIR);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Three functions whose start changed in the beta stamped $6AD6CEB3, byte for byte from it:
+// CNetwork::Send ($434C80), the property request ($424EE0) and the message constructor ($46C2E0).
+// That build has no addresses of its own in uoclidata.pas, so they must come from the scan.
+procedure TCstDbModernBuildTests.TestNextBetaFindsItsChangedFunctionsByScanning;
+const
+  SendAt = $401100;
+  ReqAt  = $401200;
+  MsgAt  = $401300;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader($6AD6CEB3, $8140, $2000);               // code = $401000..$403000
+  PutBytes(SendAt, [$55,$8B,$EC,$53,$56,$57,$8B,$F9,$83,$7F,$04,$FF,$74,$73,$8B,$75,
+                $08,$8A,$16,$80,$FA,$FE,$73,$1B,$0F,$B6,$C2,$8D,$04,$40,$0F,$B7,
+                $04,$85,$B8,$E8,$7E,$00]);
+  PutBytes(ReqAt, [$55,$8B,$EC,$83,$EC,$10,$80,$3D,$40,$DC,$7E,$00,$00,$89,$4D,$FC,
+                $74,$05,$E8,$C9,$F8,$FF,$FF,$56,$8D,$45,$FC,$B9,$C0,$17,$F0,$05,
+                $50,$8D,$45,$F8,$50,$E8,$C6,$2B,$00,$00]);
+  PutBytes(MsgAt, [$55,$8B,$EC,$6A,$FF,$68,$5B,$54,$6C,$00,$64,$A1,$00,$00,$00,$00,
+                $50,$81,$EC,$44,$08,$00,$00,$A1,$2C,$BE,$7E,$00,$33,$C5]);
+
+  Cst.Update('7.0.117.31', PHnd);
+
+  AssertEquals('E_SENDPACKET', Cardinal(SendAt), Cst.ESENDPACKET);
+  AssertEquals('E_ITEMREQADDR', Cardinal(ReqAt), Cst.EITEMREQADDR);
+  AssertEquals('E_SYSMSGADDR', Cardinal(MsgAt), Cst.ESYSMSGADDR);
+  AssertEquals('E_EXMSGADDR', Cardinal(MsgAt), Cst.EEXMSGADDR);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

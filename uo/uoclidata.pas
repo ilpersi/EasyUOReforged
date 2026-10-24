@@ -5512,7 +5512,9 @@ const
 //             attached exe's PE TimeDateStamp equals Stamp. For any other modern build all
 //             C_*/E_* start at zero (never at a stale address from another build -- the
 //             E_* ones are code addresses uoevents.pas patches machine code at) and only
-//             what ScannerTable_Modern finds at runtime is filled in.
+//             what ScannerTable_Modern finds at runtime is filled in. A B_* row here
+//             overrides the layout for this build only: a distance between two globals
+//             (B_SKILLDIST, B_LANG, ...) changes when the linker places them differently.
 const
   IMAGE_DYNAMIC_BASE = $0040;
 
@@ -5705,27 +5707,72 @@ SysVarModernAddrs : array[0..47] of TSysVarList = (
   (Expr: LISTEND;       Val: 0)
 );
 
-ModernBuilds : array[0..0] of TModernBuild = (
-  (Stamp: $6AC94360; Layout: @SysVarModernLayout; Addrs: @SysVarModernAddrs)
+// The 7.0.117.31 beta, PE stamp $6AD6CEB3, which replaced the one above on 2026-10-20. Every
+// C_*/E_* address comes from ScannerTable_Modern at runtime, so none is listed here. Six of
+// SysVarModernLayout's distances between two globals no longer hold for it. Each value below is
+// measured from the address the scan finds for its base (C_LHANDID $B29028, C_NEXTCPOS $909E2C,
+// C_TARGETCURS $B2D568) and was checked in the running client on 2026-10-24:
+//   B_LANG      'ENU' at $B28E40; the layout's offset reads zeros (#CliLang was empty)
+//   B_LSPELL    5 at $B291D8 after casting Magic Arrow (#LSpell read 1)
+//   B_LSKILL    21 at $B291D0 after using Hiding (#LSkill read 0)
+//   B_LTARGX    X, Y, Z of the tile a ground or a static target was given (#LTargetX/Y/Z never
+//               changed); the static's graphic at those X/Y in statics0.mul equals #LTargetTile
+//   B_NEXTCX    a bag opened at X 48 / Y 200 after only #NextCPosY was set to 200; the container
+//               gump code wraps $909E28 at the screen width and passes it as the gump's X
+//   B_TARGPROC  $B2DBE0 holds the client's own target callback after a target (the code calls
+//               through it, and that callback writes the last-target cluster); the layout's
+//               offset stayed 0
+// Checked the same way and unchanged: B_LTARGID $24 (#LTargetID = #LObjectID after targeting the
+// shovel with itself), B_LTARGTILE $20 and B_LTARGKIND $30 (1 object, 2 ground, 3 static).
+// With this list, all six read the right values in the running client, a write to #NextCPosX
+// placed the next bag there, and `set #targCurs 1` plus a click on a bag set #LTargetID to the
+// bag's id (#LTargetKind 1, #TargCurs back to 0).
+SysVarModernAddrs_6AD6CEB3 : array[0..6] of TSysVarList = (
+  (Expr: B_LANG;      Val: $000001E8),   // $B28E40 = C_LHANDID - $1E8
+  (Expr: B_LSPELL;    Val: $000001B0),   // $B291D8: after the cluster now, not before it
+  (Expr: B_LSKILL;    Val: $000001A8),   // $B291D0
+  (Expr: B_LTARGX;    Val: $01588F20),   // $20B1F48
+  (Expr: B_NEXTCX;    Val: $FFFFFFFC),   // $909E28: X is declared right BEFORE Y
+  (Expr: B_TARGPROC;  Val: $00000678),   // $B2DBE0
+  (Expr: LISTEND;     Val: 0)
+);
+
+ModernBuilds : array[0..1] of TModernBuild = (
+  (Stamp: $6AC94360; Layout: @SysVarModernLayout; Addrs: @SysVarModernAddrs),
+  (Stamp: $6AD6CEB3; Layout: @SysVarModernLayout; Addrs: @SysVarModernAddrs_6AD6CEB3)
 );
 
 // Runtime signature scan for the relocatable ("modern") builds. Mirrors
 // tools\EUOUpdater\"EUO Updtr Strings modern.txt" line for line (see that file's header for how the
-// patterns were built and verified): 77 patterns for 47 fields, each unique in the 7.0.117.1 beta's
+// patterns were built and verified): 83 patterns for 47 fields, each unique in the 7.0.117.1 beta's
 // code section and resolving to the hand-verified address, statically and live (the C_SKILLSPOS and
-// B_SKILLDIST ones in the beta stamped $6AD6CEB3, which replaced it). Address operands,
-// rel32 targets and ebp/esp displacements are wildcards; the joker is picked per pattern so it never
-// collides with a fixed byte. They apply to the same compiler's code across rebuilds, so an unknown
+// B_SKILLDIST ones, and the six marked $6AD6CEB3 below, in the beta stamped $6AD6CEB3, which
+// replaced it). Address operands, rel32 targets and ebp/esp displacements are wildcards; the joker
+// is picked per pattern so it never collides with a fixed byte. They apply to the same compiler's code across rebuilds, so an unknown
 // beta of it fills in its own addresses here; nothing else is ever guessed for an unknown build.
-// A second pattern for a field is a fallback anchored in another function.
-ScannerTable_Modern : array[0..77] of TScannerEntry = (
+// A second pattern for a field is a fallback anchored in another function. Where several patterns
+// of a field match, the LAST one's result is kept (ScanMemory overwrites, EUO Updtr replaces its
+// line): a $6AD6CEB3 pattern for a function that changed sits before the older beta's, so that one
+// still decides on that beta.
+ScannerTable_Modern : array[0..83] of TScannerEntry = (
     // E_REDIR
     (Joker: $11; Unused: (0,0,0); AddOffset1: 12; Mode: 1; AddOffset2: 0; Expr: E_REDIR;
      Pattern: '6A0068E8030000FF75C86A00E8111111118BF0B85917B7D1F765C4'),
+    // $6AD6CEB3: the single-caller twin of the tick function matches the pattern above as well, and
+    // comes first. The tick function then reloads a timer global (`mov ecx,[g]; mov edi,esi`) where
+    // the twin stores the call's result (`mov [g],eax`): this one matches only the tick function.
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 12; Mode: 1; AddOffset2: 0; Expr: E_REDIR;
+     Pattern: '6A0068E8030000FF75C86A00E8111111118BF0B85917B7D1F765C46A00C1EA0D03F2893511111111E8111111118B0D111111118BFE'),
     // E_OLDDIR
     (Joker: $11; Unused: (0,0,0); AddOffset1: 13; Mode: 2; AddOffset2: 0; Expr: E_OLDDIR;
      Pattern: '6A0068E8030000FF75C86A00E8111111118BF0B85917B7D1F765C4'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 13; Mode: 2; AddOffset2: 0; Expr: E_OLDDIR;
+     Pattern: '6A0068E8030000FF75C86A00E8111111118BF0B85917B7D1F765C46A00C1EA0D03F2893511111111E8111111118B0D111111118BFE'),
     // E_SENDPACKET
+    // $6AD6CEB3: Send first returns when the socket is closed (`cmp [this+4],-1; je`); the body after
+    // that check is the same.
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_SENDPACKET;
+     Pattern: '558BEC5356578BF9837F04FF74118B75118A1680FAFE73110FB6C28D04400FB7048511111111'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_SENDPACKET;
      Pattern: '558BEC53568B7511578BF98A1680FAFE73110FB6C28D04400FB7048511111111'),
     // E_SENDECX
@@ -5765,6 +5812,10 @@ ScannerTable_Modern : array[0..77] of TScannerEntry = (
     (Joker: $11; Unused: (0,0,0); AddOffset1: 11; Mode: 2; AddOffset2: 0; Expr: E_ITEMCHECKADDR;
      Pattern: 'C7835C01000001000000E81111111185F6751185C075118B75118BCE'),
     // E_ITEMREQADDR
+    // $6AD6CEB3: the same request (the id goes into the queue the 0xD6 sender reads) without an SEH
+    // frame: `mov [ebp-4],ecx`, then the queue lookup `mov ecx,QUEUE; push; push; call find`.
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_ITEMREQADDR;
+     Pattern: '558BEC83EC10803D1111111100894D117411E811111111568D4511B911111111508D451150E811111111'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_ITEMREQADDR;
      Pattern: '558BEC6AFF681111111164A1000000005083EC1056A11111111133C5508D451164A300000000894D11'),
     // E_ITEMNAMEADDR
@@ -5774,9 +5825,15 @@ ScannerTable_Modern : array[0..77] of TScannerEntry = (
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_ITEMPROPADDR;
      Pattern: '558BEC6AFF681111111164A1000000005083EC14535657A11111111133C5508D451164A3000000008BD9C74511000000008D4D11'),
     // E_SYSMSGADDR
+    // $6AD6CEB3: the message constructor's frame grew from $834 to $844 bytes; its arguments, its
+    // `ret 18h` and the $1800-byte object its callers allocate are unchanged.
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_SYSMSGADDR;
+     Pattern: '558BEC6AFF681111111164A1000000005081EC44080000A11111111133C5'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_SYSMSGADDR;
      Pattern: '558BEC6AFF681111111164A1000000005081EC34080000A11111111133C5'),
     // E_EXMSGADDR
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_EXMSGADDR;
+     Pattern: '558BEC6AFF681111111164A1000000005081EC44080000A11111111133C5'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_EXMSGADDR;
      Pattern: '558BEC6AFF681111111164A1000000005081EC34080000A11111111133C5'),
     // E_ITEMPROPID

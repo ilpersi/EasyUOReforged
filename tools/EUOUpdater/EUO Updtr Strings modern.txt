@@ -11,7 +11,10 @@
 // byte) and then checked two ways: exactly ONE match in the whole code section of the beta, and
 // resolving to the address that was derived by hand and verified in the running client -- both
 // statically against the file and live against the process. A second line for the same name is a
-// fallback anchored in a different function (EUO Updtr shows only the first that matches).
+// fallback anchored in a different function. When several lines of a name match, EUO Updtr shows
+// the LAST one (and uoclidata.pas keeps its result): a line marked 6AD6CEB3, for a function that
+// changed in the beta stamped 6AD6CEB3, sits before the older beta's line, which then still decides
+// on that beta.
 //
 // Format: pattern ; joker byte ; offset ; X = address itself / C = read the dword there /
 //         CB = follow the rel32 there ; adjust ; {name}
@@ -26,12 +29,18 @@
 // The `call __alldiv` inside the per-frame tick function: InitEvents rewrites it to call the code cave.
 // Anchored on the constants around it (push 3E8h ... mul by D1B71759h, ebp offsets kept) so it
 // matches the real tick function and not its single-caller twin.
+// 6AD6CEB3: the twin matches that pattern too, and comes first. The tick function then reloads a timer
+// global (mov ecx,[g]; mov edi,esi) where the twin stores the call's result: the second line matches only it.
 6A0068E8030000FF75C86A00E8111111118BF0B85917B7D1F765C4 ; 11; +12; X ; +00; {REDIR}
+6A0068E8030000FF75C86A00E8111111118BF0B85917B7D1F765C46A00C1EA0D03F2893511111111E8111111118B0D111111118BFE ; 11; +12; X ; +00; {REDIR}
 
-// Same pattern as {REDIR}: the target of that call (CB = follow the rel32), i.e. what the cave jumps on to.
+// Same patterns as {REDIR}: the target of that call (CB = follow the rel32), i.e. what the cave jumps on to.
 6A0068E8030000FF75C86A00E8111111118BF0B85917B7D1F765C4 ; 11; +13; CB; +00; {OLDDIR}
+6A0068E8030000FF75C86A00E8111111118BF0B85917B7D1F765C46A00C1EA0D03F2893511111111E8111111118B0D111111118BFE ; 11; +13; CB; +00; {OLDDIR}
 
 // CNetwork::Send (thiscall, ret 4) -- matched by its body: packet-id check against FEh, the 12-byte packet table lookup.
+// 6AD6CEB3: Send first returns when the socket is closed (cmp [this+4],-1; je); the body after it is the same.
+558BEC5356578BF9837F04FF74118B75118A1680FAFE73110FB6C28D04400FB7048511111111 ; 11; +00; X ; +00; {SENDPACKET}
 558BEC53568B7511578BF98A1680FAFE73110FB6C28D04400FB7048511111111 ; 11; +00; X ; +00; {SENDPACKET}
 
 // Global holding the network object (Send's `this`), read in front of the Send call sites.
@@ -68,6 +77,8 @@ C78174010000010000008B921801000074118D8D11111111E8111111118B0D11111111 ; 11; +31
 C7835C01000001000000E81111111185F6751185C075118B75118BCE ; 11; +11; CB; +00; {ITEMCHECKADDR}
 
 // Request item properties from the server (fastcall(id)).
+// 6AD6CEB3: the same request (the id goes into the queue the 0xD6 sender reads) without an SEH frame.
+558BEC83EC10803D1111111100894D117411E811111111568D4511B911111111508D451150E811111111 ; 11; +00; X ; +00; {ITEMREQADDR}
 558BEC6AFF681111111164A1000000005083EC1056A11111111133C5508D451164A300000000894D11 ; 11; +00; X ; +00; {ITEMREQADDR}
 
 // Fill a string object with the item name (stdcall(out, 1)).
@@ -77,9 +88,12 @@ C7835C01000001000000E81111111185F6751185C075118B75118BCE ; 11; +11; CB; +00; {IT
 558BEC6AFF681111111164A1000000005083EC14535657A11111111133C5508D451164A3000000008BD9C74511000000008D4D11 ; 11; +00; X ; +00; {ITEMPROPADDR}
 
 // Message-object constructor (thiscall, ret 18h) -- shared by system and overhead messages.
+// 6AD6CEB3: its frame grew from 834h to 844h bytes; arguments, ret 18h and the 1800h-byte object are unchanged.
+558BEC6AFF681111111164A1000000005081EC44080000A11111111133C5 ; 11; +00; X ; +00; {SYSMSGADDR}
 558BEC6AFF681111111164A1000000005081EC34080000A11111111133C5 ; 11; +00; X ; +00; {SYSMSGADDR}
 
 // Same constructor again, for overhead messages.
+558BEC6AFF681111111164A1000000005081EC44080000A11111111133C5 ; 11; +00; X ; +00; {EXMSGADDR}
 558BEC6AFF681111111164A1000000005081EC34080000A11111111133C5 ; 11; +00; X ; +00; {EXMSGADDR}
 
 // Global holding the item whose properties are being built.
