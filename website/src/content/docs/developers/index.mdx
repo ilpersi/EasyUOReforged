@@ -1,0 +1,72 @@
+---
+title: Developer guide
+description: "For contributors: how EasyUO Reforged supports a UO client build, how to add a new one, and how to use the EUOMigrate tool that derives most of it."
+sidebar:
+  order: 1
+  label: Overview
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+This section is for people who work on EasyUO Reforged itself. Its main subject is the job that comes
+back with every client patch: **teaching EasyUO Reforged a new client build**, by hand or with the
+EUOMigrate tool.
+
+If you only want to write scripts, you don't need any of this: start with [Get started](/guide/install/).
+For building from source, the package layout and pull requests, see
+[CONTRIBUTING.md](https://github.com/ilpersi/EasyUOReforged/blob/main/CONTRIBUTING.md) on GitHub.
+
+## When a new client needs work
+
+EasyUO Reforged keeps the memory addresses and object layouts of every client build it supports. A build
+it does not know usually still attaches, but some things go wrong:
+
+- variables read `0`, `N/A` or nonsense, for example [`#CharPosX`](/variables/charposx/) never changes;
+- events do nothing, for example [`event Macro`](/commands/event/macro/) or
+  [`event SysMessage`](/commands/event/sysmessage/);
+- the client is not offered at all ("No supported UO client found!"), when it is older than every known
+  build.
+
+[How client support works](/developers/client-tables/) explains why; [Add a new client](/developers/adding-a-client/)
+fixes it.
+
+## What you need
+
+- **A clone of the repository**, and Lazarus 3.6 / FPC 3.2.2 for `x86_64-win64` to build it (see the
+  [README](https://github.com/ilpersi/EasyUOReforged#building)).
+- **The client executable** you want to support.
+- **Python 3.10 or newer** with Capstone, for EUOMigrate.
+- **A character logged in on that client**, for the live checks. They only read the client's memory.
+
+## The short version
+
+```powershell
+# 1. Derive the values (the client does not need to run)
+pip install -r tools/EUOMigrate/requirements.txt
+python tools/EUOMigrate/euomigrate.py migrate "C:\Games\Ultima Online\client.exe"
+
+# 2. Start the client, log in, and check them in the running client
+python tools/EUOMigrate/euomigrate.py verify tools/EUOMigrate/out/<id>/candidates.json
+python tools/EUOMigrate/euomigrate.py probe  tools/EUOMigrate/out/<id>/candidates.json
+
+# 3. Paste out/<id>/uoclidata-snippet.pas into uo/uoclidata.pas, rebuild, test
+pwsh ./tests/run_tests.ps1
+
+# 4. Add the build to the knowledge base for next time
+python tools/EUOMigrate/euomigrate.py fingerprint "C:\Games\Ultima Online\client.exe"
+```
+
+Every step is explained, with examples, in [Add a new client](/developers/adding-a-client/).
+
+## In this section
+
+<CardGrid>
+	<LinkCard title="How client support works" description="The four kinds of values, fixed-base and relocatable builds, and how a build gets its values." href="/EasyUOReforged/developers/client-tables/" />
+	<LinkCard title="Add a new client" description="The workflow from an unknown build to a tested entry, step by step." href="/EasyUOReforged/developers/adding-a-client/" />
+	<LinkCard title="Using EUOMigrate" description="A first run of the tool on a real client, and how to read what it writes." href="/EasyUOReforged/developers/euomigrate/" />
+	<LinkCard title="EUOMigrate reference" description="Every command and option, the statuses, the knowledge base and the limits." href="/EasyUOReforged/developers/euomigrate-reference/" />
+	<LinkCard title="Deriving values by hand" description="EUOUpdater, the scan-string format, relocatable builds, signatures, the buff bar." href="/EasyUOReforged/developers/manual-derivation/" />
+</CardGrid>
+
+The architecture of the code as a whole is described in
+[docs/architecture.md](https://github.com/ilpersi/EasyUOReforged/blob/main/docs/architecture.md).

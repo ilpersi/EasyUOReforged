@@ -1,0 +1,375 @@
+---
+title: Add a new client
+description: "Step by step from an unknown UO client build to a tested entry in uoclidata.pas: identify it, derive and verify its values with EUOMigrate, paste, test, and add it to the knowledge base."
+sidebar:
+  order: 3
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+This page takes a client build EasyUO Reforged does not know and ends with a tested entry for it in
+`uo/uoclidata.pas`. [EUOMigrate](/developers/euomigrate/) does the searching; your part is to check its
+work, paste it in and test it.
+
+If the terms below are new, read [How client support works](/developers/client-tables/) first. It takes a
+few minutes and makes every step here easier to follow.
+
+**Overview**
+
+1. [Identify the build](#1-identify-the-build)
+2. [Check whether it is already supported](#2-check-whether-it-is-already-supported)
+3. [Derive the values with EUOMigrate](#3-derive-the-values-with-euomigrate)
+4. [Check them in the running client](#4-check-them-in-the-running-client)
+5. [Review the report](#5-review-the-report)
+6. [Paste the snippet into uoclidata.pas](#6-paste-the-snippet-into-uoclidatapas)
+7. [Add a unit test](#7-add-a-unit-test)
+8. [Build and test](#8-build-and-test)
+9. [Add the build to the knowledge base](#9-add-the-build-to-the-knowledge-base)
+
+## 1. Identify the build
+
+Three facts decide everything that follows: the **version number**, whether the build is **fixed-base or
+relocatable**, and its **PE time stamp**. This PowerShell reads all three from the file:
+
+```powershell
+$exe = 'C:\Games\Ultima Online\client.exe'
+$v   = (Get-Item $exe).VersionInfo
+$b   = [IO.File]::ReadAllBytes($exe)
+$pe  = [BitConverter]::ToInt32($b, 0x3C)
+'version     {0}.{1}.{2}.{3}' -f $v.FileMajorPart, $v.FileMinorPart, $v.FileBuildPart, $v.FilePrivatePart
+'PE stamp    {0:X8}' -f [BitConverter]::ToUInt32($b, $pe + 8)
+'relocatable {0}' -f (([BitConverter]::ToUInt16($b, $pe + 0x5E) -band 0x40) -ne 0)
+```
+
+For the two clients of one installation it prints:
+
+```text
+version     7.0.117.1          version     7.0.117.31
+PE stamp    6A8E6F9D           PE stamp    6AD6CEB3
+relocatable False              relocatable True
+```
+
+The first is a fixed-base build, found by its version number. The second is a relocatable build, found
+by its PE stamp. EUOMigrate also prints all three at the top of its report.
+
+:::caution[Don't trust the file name]
+Check the version inside the file, as above. A renamed or mislabelled file gets an entry under the wrong
+version, which a real client then never matches.
+:::
+
+## 2. Check whether it is already supported
+
+Search `uoclidata.pas` for the version (fixed-base) or the stamp (relocatable):
+
+```powershell
+Select-String -Path uo\uoclidata.pas -Pattern "(Cli: '7.0.117.1';" -SimpleMatch   # fixed-base
+Select-String -Path uo\uoclidata.pas -Pattern 'Stamp: $6AD6CEB3' -SimpleMatch      # relocatable
+```
+
+A match means the build has its own values already. If it still misbehaves, one of them is wrong: go to
+[When something is wrong](#when-something-is-wrong).
+
+No match means the build runs on borrowed values: the nearest older milestone's, or nothing at all for a
+relocatable build, plus whatever the runtime scan finds. Carry on.
+
+## 3. Derive the values with EUOMigrate
+
+Install the tool once, then run `migrate` on the exe. The client does not need to run.
+
+```powershell
+pip install -r tools/EUOMigrate/requirements.txt
+python tools/EUOMigrate/euomigrate.py migrate "C:\Games\Ultima Online\client_beta.exe"
+```
+
+It takes well under a minute: 28 seconds on the 7.0.117.31 beta the first time, 10 seconds after that,
+because the disassembly is cached. It ends with a summary and the folder it wrote,
+`tools/EUOMigrate/out/<version>-<PE stamp>/`:
+
+```text
+88 signatures for 46 fields
+done in 9s: accepted 46, unused 4
+-> D:\EasyUOReforged\tools\EUOMigrate\out\7.0.117.31-6AD6CEB3
+```
+
+[Using EUOMigrate](/developers/euomigrate/) walks through a full run and every file it writes.
+
+## 4. Check them in the running client
+
+Start the client and log a character in. Then:
+
+```powershell
+python tools/EUOMigrate/euomigrate.py verify tools/EUOMigrate/out/<id>/candidates.json
+python tools/EUOMigrate/euomigrate.py probe  tools/EUOMigrate/out/<id>/candidates.json
+```
+
+Both commands only **read** the client's memory; they never write to it or send it input. They can only
+check what the client currently holds, so prepare it first:
+
+- open the **backpack** and the **status gump**;
+- say something, so the **journal** has a few lines, and get a **system message** (for example by using a
+  skill);
+- open the **buff bar** with at least one timed buff on (Bless is ideal).
+
+`verify` marks each address `verified`, swaps in a runner-up for one that fails, or marks it `rejected`.
+`probe` finds the object, gump, journal, message and buff-bar layouts. Both update the files in the
+output folder.
+
+## 5. Review the report
+
+Open `report.md` in the output folder. The table at the top counts the fields by
+[status](/developers/euomigrate-reference/#statuses). For client 7.0.108.0, after `verify` and `probe`:
+
+```text
+| status    | fields |
+|-----------|--------|
+| verified  | 14     |
+| accepted  | 30     |
+| unused    | 12     |
+| inherited | 40     |
+```
+
+Look for:
+
+- **`candidate` and `rejected` fields.** They go into the snippet as `0`, so their feature stays off. Find
+  them [by hand](/developers/manual-derivation/), or accept that the feature is unsupported for now.
+- **The "Not used by the closest reference" line.** These fields belong to another form of a feature. That
+  is normal for a fixed-base build (it does not use the relocatable builds' extra fields, and the reverse).
+- **"incomplete feature groups"** in the snippet: a whole feature written as `0` because one of its values
+  is missing.
+- **The `E_` fields.** EasyUO calls or patches code at these addresses, but `verify` can rarely do more
+  for them than confirm that the code bytes match the exe, so most stay `accepted`. Check that each has a
+  high confidence and evidence from more than one source (a matched function or site **and** a signature
+  hit). The self-test in step 8 then runs every event once.
+- **The inherited `B_` / `F_` list** at the end: values nobody checked for this build. The self-test in
+  step 8 exercises them.
+
+To change a value or a status by hand, edit `candidates.json` and run `emit` to rewrite the report and the
+snippet (see [Editing the result by hand](/developers/euomigrate/#editing-the-result-by-hand)).
+
+## 6. Paste the snippet into uoclidata.pas
+
+`uoclidata-snippet.pas` holds the Pascal to add, with comments saying where each part goes. What it looks
+like depends on the kind of build.
+
+<Tabs syncKey="buildkind">
+<TabItem label="Fixed-base build">
+
+A fixed-base build gets a **milestone**: a list of the values that differ from the nearest older
+milestone. This example is the real snippet for client 7.0.29.97, shortened:
+
+```pascal
+// delta against milestone 21 (007.000.029.002), the state an unknown 7.0.29.97 gets today
+SysVarMS_7_0_29_97 : array[0..30] of TSysVarList = (
+  (Expr: C_BLOCKINFO; Val: $00590E80),   // accepted 0.96
+  (Expr: C_SYSMSG; Val: $00955D6C),   // accepted 0.99
+  (Expr: C_CONTPOS; Val: $00955D8C),   // accepted 1.00
+  ...
+  (Expr: E_STATBAR; Val: $00547490),   // accepted 0.81
+  (Expr: LISTEND; Val: 0)
+);
+
+// Milestones (newest first): insert before entry 21, then add 1 to every VersionIndex
+// Milestone number >= 21:
+//  (NormVer: '007.000.029.097'; List: @SysVarMS_7_0_29_97),
+// VersionIndex:
+//  (Cli: '7.0.29.97'; Milestone: 21),
+```
+
+Make four edits:
+
+1. **Add the list** next to the other `SysVarMS…` lists, as it is. Keep its generated name; it does not
+   need to be renumbered.
+2. **Insert the `Milestones` row** before entry 21 (the 22nd row: the list starts at 0) and raise the
+   array's upper bound by one:
+
+   ```diff
+   -Milestones : array[0..140] of TMilestoneEntry = (
+   +Milestones : array[0..141] of TMilestoneEntry = (
+      ...
+   +  (NormVer: '007.000.029.097'; List: @SysVarMS_7_0_29_97),
+      (NormVer: '007.000.029.002'; List: @SysVarMS21),
+   ```
+
+3. **Renumber `VersionIndex`.** Every row pointing at milestone 21 or higher now has to point one further.
+   Do it before you add the new row, with this PowerShell (set `$at` to the number in the snippet):
+
+   ```powershell
+   $f  = 'uo\uoclidata.pas'
+   $at = 21
+   (Get-Content $f -Raw) -replace "\(Cli: '([^']+)'; Milestone: (\d+)\)", {
+     $n = [int]$_.Groups[2].Value
+     if ($n -ge $at) { $n++ }
+     "(Cli: '$($_.Groups[1].Value)'; Milestone: $n)"
+   } | Set-Content $f -NoNewline
+   ```
+
+4. **Add the `VersionIndex` row** in version order, and raise that array's upper bound by one too:
+
+   ```diff
+   -VersionIndex : array[0..222] of TVersionIndexEntry = (
+   +VersionIndex : array[0..223] of TVersionIndexEntry = (
+      ...
+   +  (Cli: '7.0.29.97'; Milestone: 21),
+      (Cli: '7.0.29.3'; Milestone: 22),
+   ```
+
+A build newer than every known one goes in at entry 0, so step 3 then renumbers every row.
+
+If the snippet ends with **"and append to SysVarMS… so that it keeps its own values"**, add those rows to
+the next newer milestone as well. Milestones apply on top of each other, oldest first, so without them the
+newer milestone would inherit what you just changed.
+
+FPC checks the array bounds: a miscounted one fails the build with "Expected another N array elements".
+
+</TabItem>
+<TabItem label="Relocatable build">
+
+A relocatable build gets its own **address list** and a `ModernBuilds` row that links it to the build's PE
+stamp. The layout values (`B_`, `F_`) come from the shared `SysVarModernLayout`. This is the snippet for
+the beta 7.0.117.31, shortened:
+
+```pascal
+SysVarModernAddrs_6AD6CEB3 : array[0..46] of TSysVarList = (
+  (Expr: C_BLOCKINFO; Val: $0058BF30),   // accepted 0.96
+  (Expr: C_CLILOGGED; Val: $007EFD2C),   // accepted 0.91
+  ...
+  (Expr: E_PATHFINDMID; Val: $005854BB),   // accepted 1.00
+  (Expr: LISTEND; Val: 0)
+);
+
+// add to ModernBuilds (and raise its upper bound by one):
+//  (Stamp: $6AD6CEB3; Layout: @SysVarModernLayout; Addrs: @SysVarModernAddrs_6AD6CEB3)
+
+// WARNING: this build does not fit SysVarModernLayout. ApplyModernBuild applies the Addrs list of
+// each build after the layout, so move these rows into SysVarModernAddrs_6AD6CEB3 before
+// LISTEND (and raise its upper bound by 7): they then override the layout for this build only.
+// (Expr: B_TARGPROC; Val: $00000678),   // B_TARGPROC = C_TARGETCURS + $678: ... (inherited value was $1110)
+// (Expr: B_SKILLDIST; Val: $000000C0),   // B_SKILLDIST = C_SKILLSPOS + $C0: ... (inherited value was $0)
+// ...
+```
+
+Make two edits, plus a third if there is a `WARNING` block:
+
+1. **Add the list** after `SysVarModernAddrs`, as it is.
+2. **Add the row to `ModernBuilds`** and raise its upper bound:
+
+   ```diff
+   -ModernBuilds : array[0..0] of TModernBuild = (
+   -  (Stamp: $6AC94360; Layout: @SysVarModernLayout; Addrs: @SysVarModernAddrs)
+   +ModernBuilds : array[0..1] of TModernBuild = (
+   +  (Stamp: $6AC94360; Layout: @SysVarModernLayout; Addrs: @SysVarModernAddrs),
+   +  (Stamp: $6AD6CEB3; Layout: @SysVarModernLayout; Addrs: @SysVarModernAddrs_6AD6CEB3)
+    );
+   ```
+
+3. **Move the `WARNING` rows into the new list,** as the comment says. They are `B_` / `F_` values read
+   from this build that differ from the shared layout. Most are distances between two globals
+   (`B_TARGPROC = C_TARGETCURS + $678`), which change whenever the linker moves a global, even when no
+   object layout changed. `ApplyModernBuild` applies the build's own list after the shared layout, so a
+   row there overrides the layout for this build only, as `B_SKILLDIST` does in `SysVarModernAddrs`.
+   Uncomment the rows, put them before `LISTEND` and raise the list's upper bound by the number the
+   comment gives. They come from the code alone, so the self-test in step 8 is their only check.
+
+**Signatures.** The runtime scan (`ScannerTable_Modern`) is what keeps the *next* beta working without
+an entry. If `verify` found addresses the scan does not (compare with a plain attach), add the signatures
+the migration wrote (`scanner-table.pas`, `EUO Updtr Strings <id>.txt`) to `ScannerTable_Modern` and
+`tools/EUOUpdater/EUO Updtr Strings modern.txt`, the same pattern in both.
+
+:::note[What 7.0.117.31 ended up with]
+Its entry in `uoclidata.pas` is much shorter than this snippet. Six signatures were added so that the
+runtime scan finds every address of this build, so its list has no `C_` or `E_` rows. It holds only six
+`B_` rows: the layout values that a check in the running client showed to be wrong for it.
+:::
+
+</TabItem>
+</Tabs>
+
+**Write down where the values came from**, in a comment above the new list, like every other entry in the
+file does: which came from EUOMigrate and were verified, which are inherited, which are known gaps. The
+next person to touch the file needs to tell them apart.
+
+## 7. Add a unit test
+
+The tests in `tests/` check `TCstDB` without a client. Add one that resolves the new build and checks a
+few values, including one inherited from an older milestone, and that the neighbouring build is
+unchanged. For a fixed-base build, in `tests/CstDbTests.pas`:
+
+```pascal
+procedure TCstDbTests.TestClient7_0_29_97Resolves;
+var Cst : TCstDB;
+begin
+  Cst := TCstDB.Create;
+  try
+    Cst.Update('7.0.29.97');
+    AssertEquals('7.0.29.97 BLOCKINFO', $00590E80, Integer(Cst.BLOCKINFO));
+    AssertEquals('7.0.29.97 CONTPOS', $00955D8C, Integer(Cst.CONTPOS));
+    AssertEquals('7.0.29.97 STATBAR', $00547490, Integer(Cst.ESTATBAR));
+
+    Cst.Update('7.0.29.2');            // the older neighbour keeps its own values
+    AssertEquals('7.0.29.2 BLOCKINFO unchanged', $005907E0, Integer(Cst.BLOCKINFO));
+  finally Cst.Free; end;
+end;
+```
+
+Declare it in the class's `published` section. For a relocatable build, the tests in
+`tests/CstDbModernBuildTests.pas` show how to fake a client with a given PE stamp, for example
+`TestKnownModernBuildGetsItsOwnAddresses`.
+
+## 8. Build and test
+
+```powershell
+lazbuild --build-mode=Release uo.lpi
+lazbuild --build-mode=Release EasyUOReforged.lpi
+pwsh ./tests/run_tests.ps1
+```
+
+`run_tests.ps1` builds and runs the whole suite. With the client running, `tests/LiveClientTests.pas` also
+runs against it.
+
+Then test in the game:
+
+1. Start the new `EasyUOReforged.exe` with the client running and logged in.
+2. Run [`tools/EUOSelfTest/EUOSelfTest.euo`](https://github.com/ilpersi/EasyUOReforged/blob/main/tools/EUOSelfTest/README.md).
+   It walks through every variable, event and command, checks what it can by itself, asks you about the
+   rest, and writes a report.
+3. Run it on a client that already works too, and compare the two reports.
+
+The self-test is the only check of the inherited layout values (shop, status flags, stat gump), so do not
+skip it.
+
+## 9. Add the build to the knowledge base
+
+Once the build is in `uoclidata.pas`, store its fingerprint so the next migration can start from it:
+
+```powershell
+python tools/EUOMigrate/euomigrate.py fingerprint "C:\Games\Ultima Online\client_beta.exe"
+```
+
+This writes `tools/EUOMigrate/kb/<version>-<PE stamp>.json.gz`. Commit that file with your change. It holds
+derived data only, never any part of the executable.
+
+## Before you open a pull request
+
+- [ ] The new list, the `Milestones` / `VersionIndex` rows or the `ModernBuilds` row, with the bounds raised.
+- [ ] For a relocatable build: the snippet's `WARNING` rows, if any, in the new list.
+- [ ] A comment saying where the values came from and what is unverified.
+- [ ] A unit test for the new build.
+- [ ] `tests/run_tests.ps1` passes.
+- [ ] The self-test ran on the new client; mention the result in the pull request.
+- [ ] The knowledge-base file is committed. No client executable is.
+- [ ] For a relocatable build: new signatures in both `ScannerTable_Modern` and `EUO Updtr Strings modern.txt`, if any.
+
+## When something is wrong
+
+| Symptom | Look at |
+|---|---|
+| Every variable reads `0` or `N/A` | `C_CHARPTR`, and for a relocatable build whether its `ModernBuilds` stamp is right. |
+| Position, type or id of items wrong | `B_ITEMID`, `B_ITEMTYPE`, `B_POS` (run `probe`). |
+| Journal empty or garbled | `C_JOURNALPTR`, `F_JOURNALDIRECT`, `B_JNEXTPTR`, `B_JCOL`, `B_JKIND`. |
+| [`#SysMsg`](/variables/sysmsg/) empty or garbled | `C_SYSMSG`, `B_SYSMSGSTR`, `F_SYSMSGDIRECT`. |
+| No event works, or the client freezes | The event hook: `E_REDIR`, `E_OLDDIR`. See [Troubleshooting](/guide/troubleshooting/#the-client-freezes). |
+| One event does nothing | Its `E_` address is `0`, or its calling convention (`F_` flag) is wrong. |
+| [`#Skill`](/variables/skill/) reads `0` | `C_SKILLSPOS`, `B_SKILLDIST`. |
+| [`ScanBuffs`](/commands/scanbuffs/) finds nothing | `C_CLILOC`, `C_BUFFTIMERS`, `B_BUFFVEC` and the other buff-bar values. |
+
+[Deriving values by hand](/developers/manual-derivation/) explains how to find each of these yourself.

@@ -8,6 +8,10 @@ verified. You don't need the old executables any more, only their fingerprints, 
 It never edits the repository's sources. It writes a report, a Pascal snippet to review and paste,
 and fresh signatures.
 
+A guided walkthrough with real output, and the full process of adding a client around it, are on the
+documentation site: [Using EUOMigrate](https://ilpersi.github.io/EasyUOReforged/developers/euomigrate/)
+and [Add a new client](https://ilpersi.github.io/EasyUOReforged/developers/adding-a-client/).
+
 ## Setup
 
 Python 3.10 or newer (developed on 3.14), and Capstone:

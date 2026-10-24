@@ -124,7 +124,7 @@ needs. The re-encoding was done mechanically (`tests/tools/DeriveCstDbMilestones
 and is verified end-to-end against a golden fixture (see *Testing*).
 
 Adding a new client version is the most common maintenance task — see
-[`adding-client-support.md`](adding-client-support.md).
+[Add a new client](https://ilpersi.github.io/EasyUOReforged/developers/adding-a-client/) on the documentation site.
 
 ### `uo.dll` export names
 

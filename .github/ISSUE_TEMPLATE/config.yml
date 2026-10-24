@@ -7,7 +7,7 @@ contact_links:
       "Known limitations" and "Status" sections first - your issue may already
       be documented there.
   - name: Adding support for a newer UO client
-    url: https://github.com/ilpersi/EasyUOReforged/blob/main/docs/adding-client-support.md
+    url: https://ilpersi.github.io/EasyUOReforged/developers/adding-a-client/
     about: >-
       "Client not supported" / wrong memory offsets for a recent client is
       expected. See this guide for how new client versions get added.

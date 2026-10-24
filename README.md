@@ -86,11 +86,11 @@ below as unverified.
   `{SYSMSGSTR_CHECK}` diagnostic added specifically because of what 7.0.108.0 needed (and the buff bar
   lines `{CLILOC}`, `{BUFFTIMERS}` and `{BUFFVEC_CHECK}` for `ScanBuffs`) -- but some fields
   are only ever hand-copied forward from the closest known version, so live disassembly may still be
-  required for newer clients occasionally. [`tools\EUOMigrate`](tools/EUOMigrate/README.md) (Python)
+  required for newer clients occasionally. [`tools\EUOMigrate`](https://ilpersi.github.io/EasyUOReforged/developers/euomigrate/) (Python)
   automates most of that for a build it has never seen, newer or older: it locates the addresses
   from fingerprints of the already-supported builds, reads calling conventions and layout offsets
   from the code and the running client, and writes the `uoclidata.pas` entry plus new signatures.
-  See [`docs/adding-client-support.md`](docs/adding-client-support.md) for the full process.
+  See [Add a new client](https://ilpersi.github.io/EasyUOReforged/developers/adding-a-client/) on the documentation site for the full process.
 - General maturity: this is a young port of a codebase with a very large surface area (roughly 140
   scripting API entries plus dozens of GUI/editor features). Bugs turning up during ordinary use,
   especially in less-common script commands or GUI menu features, should be expected.
@@ -124,7 +124,7 @@ Prebuilt Windows x64 binaries are on the
 `EasyUOReforged-<version>-win64.zip`, unzip it anywhere, and run
 `EasyUOReforged.exe` — no installer. Keep `uo.dll` next to it. `EUOUpdtr.exe` is
 only needed if you're adding support for a new client version
-([guide](docs/adding-client-support.md)).
+([guide](https://ilpersi.github.io/EasyUOReforged/developers/adding-a-client/)).
 
 Start your Ultima Online client and log in first; EasyUO Reforged detects running
 clients on its own. Then paste a script into a tab and press Play. (EasyUO

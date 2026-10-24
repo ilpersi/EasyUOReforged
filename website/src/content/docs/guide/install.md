@@ -14,8 +14,7 @@ EasyUO Reforged is a work-in-progress port of EasyUO to modern 64-bit Windows. R
 - **A running Ultima Online client** (the classic `client.exe`). Start it and **log your character in
   before** launching EasyUO Reforged: the app looks for clients that are already running.
 - **A supported client version.** Support is limited to a handful of builds so far. If yours isn't
-  recognized, see
-  [Adding client support](https://github.com/ilpersi/EasyUOReforged/blob/main/docs/adding-client-support.md).
+  recognized, see [Add a new client](/developers/adding-a-client/).
 
 ## Download
 

@@ -9,7 +9,7 @@ sidebar:
 
 The client isn't running, your character isn't logged in, or the client version isn't supported yet. Start
 the client and log in first, then start EasyUO Reforged. If the version is the problem, see
-[Adding client support](https://github.com/ilpersi/EasyUOReforged/blob/main/docs/adding-client-support.md).
+[Add a new client](/developers/adding-a-client/).
 
 ## The client freezes
 

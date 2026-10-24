@@ -54,6 +54,7 @@ export default defineConfig({
 				...referenceSidebar(),
 				...folderGroup('Guides', 'guides', true),
 				...folderGroup('Reforged', 'reforged'),
+				...folderGroup('Developers', 'developers'),
 			],
 		}),
 	],

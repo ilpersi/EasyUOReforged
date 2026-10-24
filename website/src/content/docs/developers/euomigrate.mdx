@@ -1,0 +1,300 @@
+---
+title: Using EUOMigrate
+description: "A first run of EUOMigrate on a real client build: install it, migrate, read the report, verify and probe in the running client, edit the result, and add the build to the knowledge base."
+sidebar:
+  order: 4
+---
+
+EUOMigrate (`tools/EUOMigrate`) works out the `uoclidata.pas` values for a client build EasyUO Reforged
+does not know yet. It compares the new exe with the builds it already knows, which are stored as
+fingerprints in a **knowledge base**, so you do not need the old executables.
+
+Two promises keep it safe to use:
+
+- **It never edits the repository's sources.** It writes a report and a Pascal snippet; you review the
+  snippet and paste it yourself.
+- **It never changes the client.** The commands that look at a running client only read its memory.
+
+This page is a guided first run. Every command and option is listed in the
+[EUOMigrate reference](/developers/euomigrate-reference/).
+
+## Install
+
+You need Python 3.10 or newer. From the repository root:
+
+```powershell
+pip install -r tools/EUOMigrate/requirements.txt
+```
+
+That installs [Capstone](https://www.capstone-engine.org/), the disassembler, at the exact version the
+knowledge base was made with.
+
+## 1. Migrate the new build
+
+`migrate` reads the exe; the client does not need to run. The example is the 7.0.117.31 beta, a
+relocatable build, migrated before it had an entry in `uoclidata.pas`:
+
+```powershell
+python tools/EUOMigrate/euomigrate.py migrate "C:\Games\Ultima Online\client_beta.exe"
+```
+
+```text
+disassembling client_beta.exe
+fingerprinting 38546 functions
+matching against 7.0.117.1 (fixed base, stamp 6A8E6F9D, uoclidata.pas + C_CLILOC from the live client + C_BUFFTIMERS from the live client)
+  anchors: 486 matched (+486), 0s
+  vtables: 1600 matched (+1114), 0s
+  similarity: 1766 matched (+166), 0s
+  round 1: 3134 matched (+1368), 1s
+  ...
+  pruned: 4323 matched (-149), 4s
+  4323 of 22379 reference functions matched (closeness 0.33), 1 of its signatures hit, 5s
+matching against 7.0.117.1 (relocatable, stamp 6AC94360, uoclidata.pas)
+  anchors: 899 matched (+899), 0s
+  vtables: 2751 matched (+1852), 0s
+  similarity: 2999 matched (+248), 0s
+  round 1: 9270 matched (+6271), 1s
+  round 2: 10758 matched (+1488), 1s
+  round 3: 11014 matched (+256), 1s
+  round 4: 11043 matched (+29), 1s
+  round 5: 11043 matched (+0), 1s
+  pruned: 11023 matched (-20), 1s
+  round 6: 11052 matched (+29), 2s
+  round 7: 11053 matched (+1), 2s
+  round 8: 11053 matched (+0), 2s
+  pruned: 11051 matched (-2), 2s
+  round 9: 11053 matched (+2), 2s
+  round 10: 11053 matched (+0), 2s
+  pruned: 11051 matched (-2), 2s
+  11051 of 34138 reference functions matched (closeness 0.88), 43 of its signatures hit, 2s
+88 signatures for 46 fields
+done in 9s: accepted 46, unused 4
+-> D:\EasyUOReforged\tools\EUOMigrate\out\7.0.117.31-6AD6CEB3
+```
+
+The whole run took 28 seconds. What the lines mean:
+
+- **disassembling, fingerprinting**: it reads the exe and describes each of its functions. This takes
+  most of the time on a first run, about 20 seconds here. The result is cached, so the next run on the
+  same exe skips the fingerprinting and takes about 10 seconds.
+- **matching against …**: one block per build in the knowledge base, which pairs that build's functions
+  with the new exe's. Each line shows how many functions are paired so far, the change, and the seconds
+  since the block started:
+  - **anchors, vtables, similarity**: pairs found directly, strongest evidence first: a string, import
+    or class name that only one function uses on each side; the same class's virtual-function table;
+    many rare details in common.
+  - **round**: pairs found through the ones already made (a matched function's callers, callees and
+    globals). Rounds repeat until one adds nothing.
+  - **pruned**: pairs most of their neighbours contradict are dropped, and the rounds resume. This
+    happens at most three times.
+  - The last line of a block: how many of that build's functions were paired, and how many of its
+    stored signatures match the new exe. *Closeness* says how much of that build it recognised; the
+    closest build counts most. Here the older beta (same compiler) is far closer than the fixed-base
+    client.
+- **signatures**: new scan patterns it made for the values it is sure of.
+- **done**: the time the matching took, and how many `C_` / `E_` fields ended up in each
+  [status](/developers/euomigrate-reference/#statuses).
+- **->**: the output folder.
+
+The result does not depend on chance: the same exe and knowledge base give the same values on every run.
+
+## 2. What it wrote
+
+The folder `tools/EUOMigrate/out/7.0.117.31-6AD6CEB3/` now holds:
+
+| File | What it is |
+|---|---|
+| `report.md` | Every field with its value, confidence, status and evidence. |
+| `uoclidata-snippet.pas` | The Pascal to paste into `uoclidata.pas`. |
+| `EUO Updtr Strings 7.0.117.31-6AD6CEB3.txt` | Signatures for the values it is sure of, in the EUOUpdater format. |
+| `scanner-table.pas` | The same signatures as `ScannerTable` rows. |
+| `candidates.json` | The full result, read by the next commands. |
+
+The `out` folder is git-ignored: nothing in it gets committed by accident.
+
+## 3. Read the report
+
+`report.md` starts with what was migrated, from which references, and a count per status:
+
+```text title="report.md"
+# EUOMigrate report: 7.0.117.31-6AD6CEB3
+
+- target: `client_beta.exe` (version 7.0.117.31, PE stamp 6AD6CEB3, relocatable)
+- created 2026-10-23T12:46:55 by EUOMigrate 1
+- B_/F_ values inherited from: the modern layout (SysVarModernLayout)
+- references (closest first): 7.0.117.1-6AC94360 (closeness 0.88, 11051 functions), 7.0.117.1-6A8E6F9D (closeness 0.33, 4323 functions)
+
+| status | fields |
+|---|---|
+| accepted | 46 |
+| unused | 4 |
+| inherited | 48 |
+```
+
+Then one row per address. Four of them:
+
+```text
+| field | value | conf | status | evidence | runners-up |
+|---|---|---|---|---|---|
+| C_CHARPTR | 00B5B770 | 1.00 | accepted | 7.0.117.1-6AC94360: votes 488.1 from 371 functions (00B5B6FC is another global's) 1.00; 7.0.117.1-6AC94360: signature; 7.0.117.1-6A8E6F9D: votes 167.7 from 134 functions (00B2DBD8 is another global's) 1.00 | 05886204 (0.00) 05886200 (0.00) 05886208 (0.00) |
+| C_LHANDID | 00B29028 | 0.96 | accepted | 7.0.117.1-6AC94360: the global at +$C: votes 1.9 from 2 functions 0.73; 7.0.117.1-6AC94360: signature; 7.0.117.1-6A8E6F9D: the global at +$C: votes 1.0 from 1 function (00B2DBE4 is another global's) 0.33 | 00B291C8 (0.00) 00B29018 (0.00) 00B29024 (0.00) |
+| E_REDIR | 00592B99 | 0.93 | accepted | 7.0.117.1-6AC94360: site in 00592B10 (1.00, calls) 0.85; 7.0.117.1-6AC94360: signature | 00592773 (0.00) 00592B87 (0.00) |
+| E_MACROADDR | 00570B80 | 1.00 | accepted | 7.0.117.1-6AC94360: anchor 1.00; 7.0.117.1-6AC94360: signature; 7.0.117.1-6A8E6F9D: anchor 1.00 |  |
+
+Not used by the closest reference (left 0): C_TARGETCNT, E_SLEEPADDR, E_SKILLLOCKADDR, E_SENDLEN
+```
+
+`C_CHARPTR` is as sure as it gets: 371 matched functions of the closest build use that global in the same
+place, its signature still matches, and the other build agrees. `C_LHANDID` is only a base: EasyUO reads
+the last used object at `C_LHANDID + $C`, so it is located through the global at `+$C` (the globals around
+the base itself moved in this beta). Two functions and the signature of the closest build put it there,
+and one function of the other build agrees. `verify` has no specific check for it, so the self-test is
+where it really gets tested. `E_REDIR` is a hook site, found at the same spot inside the matched function.
+`E_MACROADDR` is a function the anchors paired directly.
+
+| Column | Meaning |
+|---|---|
+| value | The link-time address it chose. |
+| conf | Confidence from the static evidence, 0 to 1. `0.50` or more is `accepted`; less is a `candidate`, which the snippet writes as `0`. |
+| status | `accepted`, `candidate` … and, after the live checks, `verified`, `probed` or `rejected`. |
+| evidence | Why, per reference build: *votes* from matched functions that use the global, a *signature* hit, a matched *site* for a hook. |
+| runners-up | The next best values. `verify` tries them when the first choice fails. |
+
+After the addresses come the `B_` / `F_` values read from the code (status `derived`), for example:
+
+```text
+- B_TARGPROC = $00000678 (derived): B_TARGPROC = C_TARGETCURS + $678: the global at 00B2DBE0 (...) is located like C_TARGETCURS 00B2D568 (inherited value was $1110)
+- F_SENDTHISCALL = $00000001 (derived): E_SENDPACKET 00434C80: inputs ['ecx'], ret 4
+```
+
+The first is a distance between two globals that changed since the older beta; the second a calling
+convention read from the function's entry code. Last come the values **inherited** from the older
+milestone or the shared modern layout. Nobody has checked the inherited ones for this build: `probe`
+checks some, the [self-test](https://github.com/ilpersi/EasyUOReforged/blob/main/tools/EUOSelfTest/README.md)
+the rest.
+
+## 4. Verify in the running client
+
+Start the client with the **same exe**, log in, then:
+
+```powershell
+python tools/EUOMigrate/euomigrate.py verify tools/EUOMigrate/out/7.0.117.31-6AD6CEB3/candidates.json
+```
+
+It runs a plausibility check on every address and prints one line each. An excerpt from a run on
+`client.exe`:
+
+```text
+attached to pid 72460, loaded at 00400000 (delta 00000000)
+verified  C_SHARDPOS       pass: 008DC7F8 'TestReforged', title says 'TestReforged'
+verified  C_CONTPOS        pass: 008DD458 head gump 6FC3C3F8 is a .?AVCGumpMenuBar@@
+verified  C_CHARPTR        pass: 00A590C4 object 6FD27408 class .?AVCPlayer@@, serial at +$A8 = 1
+verified  C_CLILOC         pass: 00A01B9C cliloc 1075847 = 'Bless'
+accepted  C_CLILOGGED      weak: 0071D3C8 value 1
+accepted  C_TARGETCURS     weak: 00A08404 null
+candidate C_BUFFTIMERS     weak: 01ECB63C an empty tree (no timed buff yet)
+rejected  C_CLIXRES        fail: 006BCD94 1698963555 x 1936614758
+```
+
+Each line shows the status after the check, the field, and what the check saw:
+
+- **pass**: the value behaves like the real thing (the shard name matches the window title, the object is
+  a player). The field becomes `verified`.
+- **weak**: nothing to confirm or deny yet: the global is empty (`null`), or only the code bytes could be
+  compared. The status stays as it was. Do something that fills it (target something, put on a timed buff)
+  and run `verify` again.
+- **fail**: the value cannot be right (a screen resolution of 1698963555 × 1936614758). `verify` tries the
+  runners-up; if none passes, the field becomes `rejected` and the snippet writes `0`.
+
+`verify` saves the new statuses into `candidates.json` and rewrites the report and the snippet.
+
+## 5. Probe the layouts
+
+`probe` finds the `B_` and `F_` layout values by trying offsets until a whole list in the client's memory
+makes sense. Open the backpack, the status gump and the buff bar (with a buff on), and have a few journal
+lines first. The output of a real run on `client.exe`:
+
+```powershell
+python tools/EUOMigrate/euomigrate.py probe tools/EUOMigrate/out/7.0.117.31-6AD6CEB3/candidates.json
+```
+
+```text
+window: 'Ultima Online - Boydon (TestReforged)'
+verified  B_ITEMID     $A8  53 objects chained by [obj+$A8+$C], all with serial and RTTI vtable, containers inside the list
+verified  B_ITEMTYPE   $38  player body 190h and backpack E75h at +$38
+verified  B_ITEMSLOT   $25  backpack layer 21 at id+$25
+verified  B_POS        $24  player at 1034,520,-68; 11 of 11 ground objects within 40 tiles
+verified  B_STATNAME   $C4  character name 'Boydon' at status gump +$C4
+verified  B_CONTNEXT   $58  17 gumps chained by +$58: CGumpMenuBar, CContainerGump, CPaperdollGump, CSkillGump, GenericGump, CNewItemPropGump
+verified  B_BUFFVEC    $D0  1 buff entries of $1B0 bytes from the pointer pair at gump+$D0
+verified  B_BUFFSIZE   $1B0  entry size: the vector spans 1 x $1B0
+verified  B_STLHEAD    $4  cliloc manager keeps its tree head at +$4
+verified  B_CLILOCKEY  $C  all 1 title cliloc numbers resolve with the key at node+$C
+verified  F_JOURNALDIRECT $1  37 entries with the text inline
+verified  B_JNEXTPTR   $818  37 entries chained toward older ones by +$818
+verified  B_JKIND      $804  kind dword at +$804: $12 on exactly the UTF-16 entries (21 of 37)
+verified  B_JCOL       $800  colour dword at +$800: hues [0, 53, 55, 946]
+note: sysmsg: no system message yet
+```
+
+- **verified**: the probe found the value the table already had.
+- **CHANGED**: the probe found a different value. It replaces the old one (status `probed`), and the line
+  shows both.
+- **note**: a probe that had nothing to work on. Here no system message had arrived yet: use a skill, or
+  anything else that prints one, and run `probe` again.
+
+## 6. Use the result
+
+Paste `uoclidata-snippet.pas` into `uo/uoclidata.pas`, as described in
+[Add a new client](/developers/adding-a-client/#6-paste-the-snippet-into-uoclidatapas), then build and test.
+
+Once the build is in `uoclidata.pas`, add it to the knowledge base:
+
+```powershell
+python tools/EUOMigrate/euomigrate.py fingerprint "C:\Games\Ultima Online\client_beta.exe"
+```
+
+Commit the new `tools/EUOMigrate/kb/<version>-<PE stamp>.json.gz`. The next migration then starts from this
+build, which is the closest relative of whatever comes next.
+
+## Editing the result by hand
+
+Sometimes you know better than the tool: you found a value [by hand](/developers/manual-derivation/), or
+checked a `candidate` yourself. Edit the field in `candidates.json`, then rewrite the outputs with `emit`.
+
+Values in `candidates.json` are **decimal**. To store `$008DD434`, convert it first, for example by typing
+`0x008DD434` in PowerShell, which prints `9294900`:
+
+```json
+"C_SYSMSG": {
+  "value": 9294900,
+  "status": "verified",
+  "how": "checked by hand in the running client",
+  ...
+}
+```
+
+```powershell
+python tools/EUOMigrate/euomigrate.py emit tools/EUOMigrate/out/7.0.117.31-6AD6CEB3/candidates.json
+```
+
+Use the statuses honestly. Only `accepted`, `verified`, `derived` and `probed` values reach the snippet,
+and an `E_` address is where EasyUO writes machine code into the client.
+
+## Useful options
+
+- **`--ref <id>`** on `migrate` limits the references to the builds you name (repeat it for several). The
+  ids are what `euomigrate.py kb` lists. Use it to see what one reference alone gives.
+- **`--pid <process id>`** on `verify` and `probe` picks the client when several are running.
+- **`--out <folder>`** on `migrate` writes the result folder somewhere else.
+
+## When it stops with an error
+
+| Message | What to do |
+|---|---|
+| `… is not the exe this migration was made for` | The client on disk changed (a patch) since `migrate`. Migrate it again. |
+| `the knowledge base in … is empty` | `kb/` has no files: fingerprint a known build first, or check `--kb`. |
+| `uoclidata.pas has no verified table for this exact build` | `fingerprint` needs the build in `uoclidata.pas`, or `--candidates out/<id>/candidates.json`. |
+| `selftest needs at least two builds with verified tables` | Give `selftest` at least two executables that `uoclidata.pas` knows exactly. |
+
+Next: the [EUOMigrate reference](/developers/euomigrate-reference/).

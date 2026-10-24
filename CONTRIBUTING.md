@@ -81,7 +81,7 @@ with its page in the same PR. Mark it `origin: reforged` in the frontmatter.
 - Describe **what** changed and **why**, and how you verified it (tests added,
   or manual steps against a live client).
 - If the change touches `uo/uoclidata.pas` or client-version support, follow
-  [`docs/adding-client-support.md`](docs/adding-client-support.md) and say which
+  [Add a new client](https://ilpersi.github.io/EasyUOReforged/developers/adding-a-client/) and say which
   client build(s) you tested against.
 
 ## Reporting bugs
