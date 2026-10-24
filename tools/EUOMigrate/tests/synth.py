@@ -111,8 +111,9 @@ def _align(n, a):
     return (n + a - 1) // a * a
 
 
-def build(variant='A', stamp=None, relocatable=False, directory=None):
-    code, rdata, addrs = _program(variant)
+def build(variant='A', stamp=None, relocatable=False, directory=None, program=None):
+    """program: another variant -> (code, rdata, addrs) than the one above (globals within .data's 32 bytes)"""
+    code, rdata, addrs = (program or _program)(variant)
     data = bytes(32)
     secs = [(b'.text', TEXT, code, 0x60000020), (b'.rdata', RDATA, rdata, 0x40000040),
             (b'.data', DATA, data, 0xC0000040)]

@@ -9,7 +9,8 @@ exactly once in the code sections and resolves to the expected value.
 
 Strategies per field kind (each yields at most one line per function, two lines per field):
   data / import   C  : a unique window around an instruction whose absolute operand is the
-                       global (or global+d: then adjust = -d)
+                       global (or global+d: then adjust = -d); for a base-only field
+                       (fields.ANCHOR) only its member at the fixed distance
   func            X  : a unique window starting at the function's first instruction
                   CB : a unique window around a direct call to the function
   site            X  : a unique window containing the instruction
@@ -19,6 +20,7 @@ import re
 from capstone import Cs, CS_ARCH_X86, CS_MODE_32, CS_GRP_JUMP, CS_GRP_CALL
 from capstone.x86 import X86_OP_MEM, X86_OP_IMM, X86_REG_EBP, X86_REG_ESP
 
+from .fields import ANCHOR
 from .sigs import Sig
 
 JOKERS = (0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x01, 0x02)
@@ -152,7 +154,9 @@ class SigGen:
         return out
 
     # ---- per field --------------------------------------------------------------------------
-    def for_field(self, field, value, kind, nmax=2, budget=60):
+    def for_field(self, field, value, kind, nmax=2, budget=60, anchor=0):
+        """anchor: the field is only a base (fields.ANCHOR), found through its member at value+anchor
+        and nothing else -- the globals around the base may be reordered in the next build"""
         name = field[2:]
         c = self.code
         out = []
@@ -166,13 +170,14 @@ class SigGen:
 
         tries = 0
         if kind in ('data', 'import'):
-            for k, d in self.refs_near(value, 0 if kind == 'import' else 0x20):
+            span = 0 if kind == 'import' or anchor else 0x20
+            for k, d in self.refs_near(value + anchor, span):
                 if len(out) >= nmax or tries >= budget:
                     break
                 if c.func_of(c.addr[k]) in used_funcs:
                     continue
                 _r, _w, info = self.mask(k)
-                field_off = info['abs'].get((value + d) & 0xFFFFFFFF)
+                field_off = info['abs'].get((value + anchor + d) & 0xFFFFFFFF)
                 if field_off is None:
                     continue
                 tries += 1
@@ -181,7 +186,7 @@ class SigGen:
                     continue
                 k0, k1, kf = w
                 off = sum(c.size[j] for j in range(k0, k)) + field_off
-                add(self.make(name, k0, k1, kf, off, 'C', -d), k)
+                add(self.make(name, k0, k1, kf, off, 'C', -(anchor + d)), k)
         elif kind == 'func':
             k = c.index(value)
             if k >= 0:
@@ -239,7 +244,7 @@ def generate(code, values, kinds, derived=None, log=None):
         for s in by_field.get(derived.get(f), ()):
             if s.mode == 'X':
                 sigs.append(Sig(s.pattern, s.joker, s.offset + 1, 'CB', 0, f[2:]))
-        sigs += g.for_field(f, v, kind)
+        sigs += g.for_field(f, v, kind, anchor=ANCHOR.get(f, 0) if kind == 'data' else 0)
         good = [s for s in sigs if scan(code.pe, s) == [v]][:2]
         by_field[f] = good
         if log:

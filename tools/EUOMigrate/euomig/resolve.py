@@ -11,6 +11,7 @@ import difflib
 import math
 
 from .disasm import shape
+from .fields import ANCHOR
 
 MIN_CONF = 0.5          # below this a value is a candidate for verification, not an answer
 
@@ -151,6 +152,15 @@ def resolve_data(f, a, ctx):
     return r
 
 
+def shifted(r, d, note):
+    """the same ranking with every value moved by d (a field located through a member, fields.ANCHOR);
+    note goes in front of each piece of evidence"""
+    def mv(v):
+        return (v + d) & 0xFFFFFFFF if v is not None else None
+    return Result(r.field, mv(r.value), r.conf, note + r.how if r.value is not None else r.how,
+                  [(mv(v), c, note + h) for v, c, h in r.alts])
+
+
 # ---- functions -----------------------------------------------------------------------------------
 def func_plausibility(matcher, r, y):
     """matched function sanity: the same order of callers, structural agreement"""
@@ -210,7 +220,10 @@ def resolve(descs, matcher, code_t, global_votes=None):
                     cands.append((addr, s * sim, 'site in %08X (%.2f, %s)' % (T.start[y], sim, h)))
             res[f] = ranked(f, cands, '' if cands else 'site: function not matched')
         elif k == 'data':
-            res[f] = resolve_data(f, d['addr'], ctx)
+            off = ANCHOR.get(f, 0)
+            res[f] = resolve_data(f, d['addr'] + off, ctx)
+            if off:
+                res[f] = shifted(res[f], -off, 'the global at +$%X: ' % off)
     # derived: the call target of each candidate of the source site. The field MEANS "what the
     # hooked call called", so this wins over a direct match of the reference's callee (a new
     # compiler may call a different helper there); the direct match only adds confidence.

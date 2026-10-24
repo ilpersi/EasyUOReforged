@@ -33,6 +33,15 @@ RELATIVE = {
 }
 
 
+# Fields that are only a BASE: the runtime reads the members at fixed distances from it and never
+# the global at the base itself, so the field is located through its member at that distance (the
+# member minus the distance), whatever global a build happens to keep at the base. Descriptors keep
+# the field's own value; resolve and siggen apply the distance.
+# C_LHANDID: uovariables.pas reads the last used object at C_LHANDID+$0C on every build. The modern
+# build keeps a macro wait counter at the base on 6AC94360 and that counter's limit there on 6AD6CEB3.
+ANCHOR = {'C_LHANDID': 0x0C}
+
+
 def relative_value(table, f):
     """the effective offset (the getter's default when the table holds 0)"""
     base, sign, default = RELATIVE[f]

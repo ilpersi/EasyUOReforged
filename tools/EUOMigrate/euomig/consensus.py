@@ -144,8 +144,7 @@ class Migration:
                 continue
             v = (sign * (r.value - rb.value)) & 0xFFFFFFFF
             out[f] = (v, '%s = %s %s $%X: the global at %08X (%s) is located like %s %08X' % (
-                f, base, '+' if sign > 0 else '-', v if sign > 0 else (-v) & 0xFFFFFFFF, r.value,
-                r.how[:60], base, rb.value))
+                f, base, '+' if sign > 0 else '-', v, r.value, r.how[:60], base, rb.value))
         return out
 
 

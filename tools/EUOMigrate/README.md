@@ -159,8 +159,10 @@ groups** go to 0 together when one member is not usable:
    contradict are pruned.
 3. **Resolution** (`resolve.py`). Globals come from voting over the aligned access sequences of
    matched functions. A target global already claimed by another field is excluded, and evidence
-   from a single function is capped. Hook sites come from window alignment inside the matched
-   function and its twins. Every field gets a ranked candidate list, not just one value.
+   from a single function is capped. A field EasyUO only uses as a base (`C_LHANDID`) is located
+   through the member it reads at a fixed distance (`fields.ANCHOR`), and so are its signatures.
+   Hook sites come from window alignment inside the matched function and its twins. Every field
+   gets a ranked candidate list, not just one value.
 4. **Consensus** (`consensus.py`). Every knowledge-base build is matched on its own:
    - Hits of each build's signatures are pooled with the matcher's candidates.
    - The closest build (by matched-function coverage) decides each field's form.
