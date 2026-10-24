@@ -1,6 +1,6 @@
 ---
 title: Editing and debugging
-description: Breakpoints, conditional breakpoints, stepping, run to cursor, the call stack, VarDump and the editor's autocomplete.
+description: "Breakpoints, conditional breakpoints, stepping, run to cursor, the call stack, VarDump and the editor's autocomplete, code folding and Format Script."
 sidebar:
   order: 3
 ---
@@ -41,5 +41,14 @@ variable to a text window you can copy, which is handy for bug reports.
 - **Ctrl+F** finds and replaces text.
 - **Ctrl+Shift+R** / **Ctrl+Shift+P** record and play back a keystroke macro in the editor. It repeats
   typing, not game actions.
+- **Code folding**: click the **−** in the gutter to collapse a block, **+** to open it again. A `sub`
+  folds from its `sub` line through its `return`, a `repeat` through its `until`, and a `{ }` block from
+  its `{` line (the `if`, `else`, `for` or `while` line above it stays visible). *Edit → Fold All*
+  (**Alt+Shift+1**) collapses everything, *Edit → Unfold All* (**Alt+Shift+0**) opens everything.
+- **Format Script** (*Edit* menu, toolbar or **Ctrl+Shift+F**) re-indents the whole script: two spaces
+  per level, braces lined up with the line that owns them, `sub` and `return` at the left with the body
+  indented, and the one line under a brace-less `if` indented. It only changes the spaces at the start
+  and end of lines, so the script runs exactly as before, and one **Ctrl+Z** undoes it. It is not
+  available while a script runs.
 
 Next: [troubleshooting](/guide/troubleshooting/).

@@ -56,9 +56,9 @@ interface
 uses Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Types,
      LCLType, Dialogs, Menus, ComCtrls, ExtCtrls, ToolWin, ImgList, StdCtrls,
      SynEdit, SynEditMiscClasses, SynEditSearch, SynEditTypes, SynCompletion,
-     SynMacroRecorder, SynEditHighlighter, SynUniHighlighter, ShellApi,
-     Registry, vartree, access, ReforgedVersion, insthandler, mainicons, eusyntax,
-     eucomplete, EuoScriptStack, EuoCallStackFormat;
+     SynMacroRecorder, SynEditHighlighter, SynEditKeyCmds, ShellApi,
+     Registry, vartree, access, ReforgedVersion, insthandler, mainicons, eufoldsyn,
+     eucomplete, EuoScriptStack, EuoCallStackFormat, EuoBlocks;
 
 type
   TMainForm = class(TForm)
@@ -79,6 +79,7 @@ type
                 var SourceStart, SourceEnd: TPoint; KeyChar: TUTF8Char;
                 Shift: TShiftState);
     procedure CallStackListBoxDblClick(Sender: TObject);
+    procedure FormatScript;
     procedure BuildComponents;
     function  AddMenu(Parent : TMenuItem; ATag : Integer; ACaption : String;
                 AShortCut : TShortCut = 0) : TMenuItem;
@@ -90,16 +91,18 @@ type
     File1,Edit1,Control1,ools1,Help1  : TMenuItem;
     Exit1,New1,Open1,Reopen1,Save1,SaveAs1,SaveAll1,Close1,CloseAll1 : TMenuItem;
     Cut1,Copy1,Paste1,Delete1,SelectAll1,Find1,Replace1,Undo1,Redo1 : TMenuItem;
+    FormatScript1,FoldAll1,UnfoldAll1 : TMenuItem;
     Start1,Pause1,Stop1,StopAll1,StepOver1,StepInto1,StepOut1 : TMenuItem;
     ToggleBreakpoint1,RunToCursor1,BreakpointCondition1,ClearBreakpoints1 : TMenuItem;
     CallStackPanel1 : TMenuItem;
     NewClient1,SwapToNextClient1,VarDump1,UserVars1,DontMoveCursor1 : TMenuItem;
     Help2,GoToWebsite1,About1 : TMenuItem;
     Undo2,Redo2,Cut2,Copy2,Paste2,Delete2,SelectAll2,Close2,CloseAll2 : TMenuItem;
+    FormatScript2,FoldAll2,UnfoldAll2 : TMenuItem;
     ToolBar           : TToolBar;
     ImageList         : TImageList;
     StatusBar         : TStatusBar;
-    SynHilite         : TSynUniSyn;
+    SynHilite         : TSynEUOSyn;
     SynRec            : TSynMacroRecorder;
     Completion        : TSynCompletion;
     TabCtrl           : TTabControl;
@@ -117,6 +120,7 @@ type
     CallStackListBox  : TListBox;
     ToolButton14, ToolButton15, ToolButton16, ToolButton24 : TToolButton;
     ToolButton4, ToolButton7, ToolButton8, ToolButton9      : TToolButton;
+    FormatButton      : TToolButton;
     constructor Create(AOwner : TComponent); override;
     procedure   FormCreate;
     procedure   FormDestroy(Sender: TObject);
@@ -271,6 +275,20 @@ begin
   AddSep(Edit1);
   Find1      := AddMenu(Edit1, 27, '&Find...', 16454);
   Replace1   := AddMenu(Edit1, 28, '&Replace...');
+  AddSep(Edit1);
+  // New additions (not present in the original app): Format Script and code
+  // folding (see EuoBlocks.pas / eufoldsyn.pas). Tags continue the "new
+  // features far outside every original range" convention (200-203, 210).
+  // Alt+Shift+1 / Alt+Shift+0 are SynEdit's own default keys for "fold all
+  // folds from level 1" / "unfold all" (syneditkeycmds.pp), so the menu shows
+  // keys that also work in the editor directly; Ctrl+Shift+F is unbound there.
+  // Built with ShortCut() rather than copied as literals like the original's
+  // above: there is no DFM value to copy for these, and a hand-computed
+  // literal is exactly how Fold All once ended up bound to
+  // "Shift+Alt+Mouse_left".
+  FormatScript1 := AddMenu(Edit1, 220, 'F&ormat Script', ShortCut(VK_F, [ssCtrl,ssShift]));
+  FoldAll1      := AddMenu(Edit1, 221, 'Fo&ld All', ShortCut(VK_1, [ssAlt,ssShift]));
+  UnfoldAll1    := AddMenu(Edit1, 222, 'U&nfold All', ShortCut(VK_0, [ssAlt,ssShift]));
 
   Control1 := TMenuItem.Create(Self);
   Control1.Caption := '&Control';
@@ -348,6 +366,7 @@ begin
   AddToolSep;
   AddTool('Find', '&Find...', 27);
   AddTool('Replace', '&Replace...', 28);
+  FormatButton := AddTool('Format Script', 'F&ormat Script', 220); // new addition
   AddToolSep;
   ToolButton14 := AddTool('Start', '&Start', 60);
   ToolButton15 := AddTool('Pause', '&Pause', 61);
@@ -450,9 +469,17 @@ begin
   Paste2 := TMenuItem.Create(Self); Paste2.Caption:='&Paste'; Paste2.Tag:=24; Paste2.ShortCut:=16470; Paste2.OnClick:=MenuHandlerProc; SynPopupMenu.Items.Add(Paste2);
   Delete2 := TMenuItem.Create(Self); Delete2.Caption:='&Delete'; Delete2.Tag:=25; Delete2.OnClick:=MenuHandlerProc; SynPopupMenu.Items.Add(Delete2);
   SelectAll2 := TMenuItem.Create(Self); SelectAll2.Caption:='Select &All'; SelectAll2.Tag:=26; SelectAll2.ShortCut:=16449; SelectAll2.OnClick:=MenuHandlerProc; SynPopupMenu.Items.Add(SelectAll2);
+  // New additions -- see the Edit menu's FormatScript1/FoldAll1/UnfoldAll1 above
+  MI := TMenuItem.Create(Self); MI.Caption:='-'; SynPopupMenu.Items.Add(MI);
+  FormatScript2 := AddMenu(SynPopupMenu.Items, 220, 'F&ormat Script', FormatScript1.ShortCut);
+  FoldAll2      := AddMenu(SynPopupMenu.Items, 221, 'Fo&ld All', FoldAll1.ShortCut);
+  UnfoldAll2    := AddMenu(SynPopupMenu.Items, 222, 'U&nfold All', UnfoldAll1.ShortCut);
 
   ////////////////////////////////////////////////////////////////////////////
-  SynHilite := TSynUniSyn.Create(Self);
+  // TSynEUOSyn (eufoldsyn.pas) wraps the TSynUniSyn coloring that used to be
+  // created here and adds code folding on top -- it builds that TSynUniSyn
+  // with BuildEUOHighlighter itself, see FormCreate's comment below.
+  SynHilite := TSynEUOSyn.Create(Self);
   SynRec := TSynMacroRecorder.Create(Self);
   SynRec.RecordShortCut := 24658;
   SynRec.PlaybackShortCut := 24656;
@@ -522,8 +549,9 @@ begin
   // model the file loader itself uses internally, built directly in code
   // from EUOSyn.hlr's actual keyword/color/range data -- see that unit's own
   // header for the full story, including the two narrow, deliberate,
-  // cosmetic-only gaps versus the original.
-  BuildEUOHighlighter(SynHilite);
+  // cosmetic-only gaps versus the original. That BuildEUOHighlighter call now
+  // happens inside TSynEUOSyn's constructor (BuildComponents above), on the
+  // TSynUniSyn it wraps for code folding.
 
   IH:=TInstHandler.Create;                                 // Create instance handler
   VarTreeFormCreate;                                       // Initialize VarTree
@@ -790,6 +818,12 @@ begin
            CallStackSplitter.Visible := CallStackPanel1.Checked;
            Reg.WriteBool('CallStackVisible',CallStackPanel1.Checked);
          end;
+
+    // New additions (not present in the original app): Format Script and
+    // code folding -- see BuildComponents' Edit menu.
+   220 : FormatScript;
+   221 : CSyn.CommandProcessor(EcFoldLevel1,'',nil); // fold all folds
+   222 : CSyn.CommandProcessor(EcFoldLevel0,'',nil); // unfold all
   end;
 end;
 
@@ -829,6 +863,56 @@ begin
   GotoLineAndCenter(CSyn,Line);
   CSyn.InvalidateLine(Line);
   CSyn.SetFocus;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// New addition (not present in the original app): Edit > Format Script.
+// EuoFormatLines (EuoBlocks.pas) computes the re-indented script; only the
+// whitespace spans that actually differ are replaced, line by line, so the
+// whole format is one undo step, the caret stays on the same text, and the
+// line count -- and with it every breakpoint -- is untouched. TabWidth (2) is
+// the editor's own indent unit, matching the house style of the bundled
+// scripts.
+procedure TMainForm.FormatScript;
+var
+  Res          : TStringList;
+  Cnt, Y       : Integer;
+  sOld, sNew   : String;
+  Lead, NewLen : Integer;
+begin
+  if CSyn.ReadOnly then Exit; // a script is running
+
+  Res:=TStringList.Create;
+  try
+    EuoFormatLines(CSyn.Lines,CSyn.TabWidth,Res);
+    CSyn.BeginUpdate; // also opens the undo block
+    try
+      for Cnt:=0 to Res.Count-1 do
+      begin
+        sOld:=CSyn.Lines[Cnt];
+        sNew:=Res[Cnt];
+        if sOld=sNew then Continue;
+        Y:=Cnt+1;
+
+        // trailing whitespace first, so the leading span's positions stay put
+        if Length(TrimRight(sOld))<Length(sOld) then
+        begin
+          CSyn.TextBetweenPointsEx[Point(Length(TrimRight(sOld))+1,Y),
+            Point(Length(sOld)+1,Y),scamAdjust]:='';
+          sOld:=CSyn.Lines[Cnt];
+        end;
+
+        Lead:=Length(sOld)-Length(TrimLeft(sOld));
+        NewLen:=Length(sNew)-Length(TrimLeft(sNew));
+        if Copy(sOld,1,Lead)<>Copy(sNew,1,NewLen) then
+          CSyn.TextBetweenPointsEx[Point(1,Y),Point(Lead+1,Y),scamAdjust]:=Copy(sNew,1,NewLen);
+      end;
+    finally
+      CSyn.EndUpdate;
+    end;
+  finally
+    Res.Free;
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -964,6 +1048,11 @@ begin
   Paste2.Enabled:=Paste1.Enabled;
   Delete2.Enabled:=Delete1.Enabled;
   SelectAll2.Enabled:=SelectAll1.Enabled;
+  // New addition: Format Script edits the text, so it is off while a script
+  // runs (the editor is read-only then -- see "Update Editor Window" below).
+  FormatScript1.Enabled:=(CExec.State=STOP) and SEL;
+  FormatScript2.Enabled:=FormatScript1.Enabled;
+  FormatButton.Enabled:=FormatScript1.Enabled;
 
   (***Update File Toolbar/Menubar***)
   Save1.Enabled:=CSyn.Modified;

@@ -114,6 +114,15 @@ loader would have built, directly in code, transcribed from `EUOSyn.hlr`'s
 keyword/colour/range data. Two narrow, cosmetic gaps versus the original are
 documented in that unit's header.
 
+Code folding (a port addition) needs a `TSynCustomFoldHighlighter`, which
+`TSynUniSyn` is not. `easyuo/eufoldsyn.pas`'s `TSynEUOSyn` is a fold highlighter
+that wraps a private `TSynUniSyn` built by the same `BuildEUOHighlighter` and
+forwards every token call to it, so colouring is unchanged. Where blocks start and
+end comes from `parser/EuoBlocks.pas`, a pure unit that encodes the interpreter's
+own block rules (`GetCmd`, `ScanForBlock`, `SubProc`, `UNTIL`, `+` continuation
+lines); *Edit → Format Script* indents by the same rules, so folds and indentation
+always agree.
+
 ### `uoclidata.pas` — milestone/delta model
 
 The original was a flat table: one ~80-field record per client version, ~220

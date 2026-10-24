@@ -22,8 +22,8 @@ unit insthandler;
 
 interface
 uses Windows, SysUtils, Classes, Graphics, Controls, Dialogs, Menus, SynEdit,
-     SynEditTypes, SynEditMarks, SynGutterBase, LazUTF8, LConvEncoding,
-     EuoExecutor;
+     SynEditTypes, SynEditMarks, SynGutterBase, SynGutterCodeFolding, LazUTF8,
+     LConvEncoding, EuoExecutor;
 
 type
   TInstHandler  = class(TObject)
@@ -236,6 +236,14 @@ begin
   // so this is a deliberate, visible UI change, not an accidental one.
   Result.Gutter.Visible:=True;
   Result.OnGutterClick:=SynGutterClick;
+
+  // New addition (code folding, see eufoldsyn.pas): the fold gutter draws the
+  // fold around the caret with MarkupInfoCurrentFold, a TSynSelectedColor
+  // whose Foreground defaults to clHighLightText -- white, on the light gutter
+  // -- because only the Lazarus IDE ever sets it from its editor options. Left
+  // alone, the [-] boxes of the block being edited vanish. Black keeps that
+  // block's fold lines a step darker than the others (clDkGray).
+  Result.Gutter.CodeFoldPart.MarkupInfoCurrentFold.Foreground:=clBlack;
 
   Result.Options:=[eoAltSetsColumnMode,eoAutoIndent,eoGroupUndo,
     eoScrollByOneLess,eoScrollPastEol,eoShowScrollHint,eoSmartTabDelete,

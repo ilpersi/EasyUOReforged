@@ -4,7 +4,7 @@
     <PathDelim Value="\"/>
     <Name Value="euoparser"/>
     <Type Value="RunTime"/>
-    <Description Value="EasyUO's own scripting language: the tokenizer/expression evaluator (EuoTokens, EuoExpression), value conversion (EuoConversion), thread-safe script variables (EuoVariables), the loaded-script/call-return model (EuoScriptStack), the command registry and no-live-client commands (EuoCommandRegistry, EuoStdCommands), Send (EuoComm), the MENU command driving real LCL controls (EuoMenu), the interpreter itself (EuoInterpreter) and the background execution engine with breakpoints/stepping (EuoExecutor, EuoBreakCondition, EuoCallStackFormat), plus the SQL command's SQLite engine (EuoSql, a port addition). Ported from the original Delphi 7 parser\ folder."/>
+    <Description Value="EasyUO's own scripting language: the tokenizer/expression evaluator (EuoTokens, EuoExpression), value conversion (EuoConversion), thread-safe script variables (EuoVariables), the loaded-script/call-return model (EuoScriptStack), the command registry and no-live-client commands (EuoCommandRegistry, EuoStdCommands), Send (EuoComm), the MENU command driving real LCL controls (EuoMenu), the interpreter itself (EuoInterpreter) and the background execution engine with breakpoints/stepping (EuoExecutor, EuoBreakCondition, EuoCallStackFormat), the script block structure behind the editor's code folding and Format Script (EuoBlocks, a port addition), plus the SQL command's SQLite engine (EuoSql, a port addition). Ported from the original Delphi 7 parser\ folder."/>
     <CompilerOptions>
       <Version Value="11"/>
       <PathDelim Value="\"/>
@@ -15,7 +15,7 @@
         <CompilerPath Value="$(CompPath)"/>
       </Other>
     </CompilerOptions>
-    <Files Count="14">
+    <Files Count="15">
       <Item1>
         <Filename Value="EuoConversion.pas"/>
         <UnitName Value="EuoConversion"/>
@@ -72,6 +72,10 @@
         <Filename Value="EuoSql.pas"/>
         <UnitName Value="EuoSql"/>
       </Item14>
+      <Item15>
+        <Filename Value="EuoBlocks.pas"/>
+        <UnitName Value="EuoBlocks"/>
+      </Item15>
     </Files>
     <i18n>
       <EnableI18N LFM="False"/>

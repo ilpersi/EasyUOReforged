@@ -14,7 +14,7 @@ uses
   EuoExpressionTests, EuoCommandRegistryTests, EuoInterpreterTests,
   EuoExecutorTests, UoScanVerTests, UoSelectorTests, UoVariablesTests,
   UoCommandsTests, UoEventsTests, LiveClientTests, EuoLockTests, PerfBenchTests,
-  MenuBenchTests, EuoMenuImageTests, EuoSqlTests;
+  MenuBenchTests, EuoMenuImageTests, EuoSqlTests, EuoBlocksTests, EuoFoldSynTests;
 
 type
   TEasyUOTestRunner = class(TTestRunner)

@@ -23,7 +23,7 @@
             <Filename Value="RunBench"/>
           </Target>
           <SearchPaths>
-            <OtherUnitFiles Value="."/>
+            <OtherUnitFiles Value=".;..\easyuo"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)-bench"/>
           </SearchPaths>
           <CodeGeneration>
@@ -48,7 +48,7 @@
     <RunParams>
       <FormatVersion Value="2"/>
     </RunParams>
-    <RequiredPackages Count="3">
+    <RequiredPackages Count="5">
       <Item1>
         <PackageName Value="euoparser"/>
       </Item1>
@@ -58,6 +58,12 @@
       <Item3>
         <PackageName Value="FCL"/>
       </Item3>
+      <Item4>
+        <PackageName Value="SynEdit"/>
+      </Item4>
+      <Item5>
+        <PackageName Value="SynUni"/>
+      </Item5>
     </RequiredPackages>
     <Units Count="1">
       <Unit0>
@@ -73,7 +79,7 @@
       <Filename Value="RunTests"/>
     </Target>
     <SearchPaths>
-      <OtherUnitFiles Value="."/>
+      <OtherUnitFiles Value=".;..\easyuo"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <CodeGeneration>

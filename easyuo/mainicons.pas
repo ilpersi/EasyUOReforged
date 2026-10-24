@@ -44,8 +44,9 @@ uses
 // anywhere else in main.pas.
 function TagToImageIndex(ATag : Integer) : Integer;
 
-// Populates AList with the 19 icons above, in ImageIndex order (0..18). Safe to
-// call on a freshly-created, empty TImageList only.
+// Populates AList with the 19 original icons above, in ImageIndex order
+// (0..18), plus this port's Format Script icon (19). Safe to call on a
+// freshly-created, empty TImageList only.
 procedure LoadToolbarIcons(AList : TImageList);
 
 // Decodes the original 32x32 window icon.
@@ -166,6 +167,14 @@ const
     'dNJSWWELKD1iiBWBIRYATkXGDhxM6jzg3Kiuwa5mGMK+mEH1Yo8ZvAcBanm896rYc9O2GjsiixNF' +
     'PLe9kTmp3OmsZaqREHtRoHN9jP8/0wUxFSz61gyFuwAAAABJRU5ErkJggg==';
 
+  // New addition (not in the original DFM): Edit > Format Script's icon, a
+  // plain "increase indent" glyph drawn once with System.Drawing (black lines,
+  // blue arrow) to sit with the original 16x16 set above.
+  IconFormat : String =
+    'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACx' +
+    'jwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAA8SURBVDhPY2AYLOA/mXiQA3TnYsMwcIBS/4AM' +
+    'oMgQmAEohqA7FxtGN4BsQJFmnADdudjwIALoTiMWUw4AUmJGgQ6RMbAAAAAASUVORK5CYII=';
+
   AppIconData : String =
     'AAABAAEAICAQAAAAAADoAgAAFgAAACgAAAAgAAAAQAAAAAEABAAAAAAAgAIAAAAAAAAAAAAAAAAA' +
     'AAAAAAAAAAAAAACAAACAAAAAgIAAgAAAAIAAgACAgAAAgICAAMDAwAAAAP8AAP8AAAD//wD/AAAA' +
@@ -205,6 +214,7 @@ begin
     82  : Result := 18; // Swap To Next Client
     100 : Result := 12; // Help
     101 : Result := 13; // Go To Website
+    220 : Result := 19; // Format Script (new addition, see IconFormat)
     else  Result := -1; // no icon for this Tag in the original DFM either
   end;
 end;
@@ -263,9 +273,11 @@ begin
   Bmp := LoadPNGBitmap(IconClose); AList.Add(Bmp, nil); Bmp.Free;
   Bmp := LoadPNGBitmap(IconNewClient); AList.Add(Bmp, nil); Bmp.Free;
   Bmp := LoadPNGBitmap(IconSwapClient); AList.Add(Bmp, nil); Bmp.Free;
+  Bmp := LoadPNGBitmap(IconFormat); AList.Add(Bmp, nil); Bmp.Free;
   // 0=New 1=Open 2=Save 3=Cut 4=Copy 5=Paste 6=Find 7=Replace 8=Start 9=Pause
   // 10=Stop 11=StopAll 12=Help 13=Website 14=Reopen 15=SaveAll 16=Close
-  // 17=NewClient 18=SwapClient -- matches TagToImageIndex above exactly.
+  // 17=NewClient 18=SwapClient 19=Format (new) -- matches TagToImageIndex
+  // above exactly.
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
