@@ -54,7 +54,7 @@ unit main;
 
 interface
 uses Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Types,
-     LCLType, Dialogs, Menus, ComCtrls, ExtCtrls, ToolWin, ImgList, StdCtrls,
+     LCLType, LMessages, Dialogs, Menus, ComCtrls, ExtCtrls, ToolWin, ImgList, StdCtrls,
      SynEdit, SynEditMiscClasses, SynEditSearch, SynEditTypes, SynCompletion,
      SynMacroRecorder, SynEditHighlighter, SynEditKeyCmds, ShellApi,
      Registry, vartree, access, ReforgedVersion, insthandler, mainicons, eufoldsyn,
@@ -86,6 +86,8 @@ type
     function  AddSep(Parent : TMenuItem) : TMenuItem;
     function  AddTool(AHint, ACaption : String; ATag : Integer) : TToolButton;
     procedure AddToolSep;
+  protected
+    function  IsShortcut(var Message: TLMKey): Boolean; override;
   public
     MainMenu          : TMainMenu;
     File1,Edit1,Control1,ools1,Help1  : TMenuItem;
@@ -589,6 +591,25 @@ end;
 procedure TMainForm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
 begin
   CanClose:=IH.CloseAll;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port fix: the menu shortcuts belong to this window. LCL's Find/Replace
+// dialogs are non-modal forms of their own, and TApplication.IsShortcut still
+// offers their keys to the main form's menu, so Ctrl+V in the Find box ran
+// Edit > Paste into the script instead of pasting into the box (same for
+// Ctrl+C/X/Z/A). The original's native Windows find dialog never passed its
+// keys to the menu. The completion popup also takes focus, but it belongs to
+// the editor, so the menu shortcuts keep working while it is open.
+function TMainForm.IsShortcut(var Message: TLMKey): Boolean;
+var
+  F : TCustomForm;
+begin
+  F:=Screen.ActiveCustomForm;
+  if Assigned(F) and (F<>Self) and (F<>Completion.TheForm) then
+    Result:=False
+  else
+    Result:=inherited IsShortcut(Message);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
