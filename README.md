@@ -2,6 +2,11 @@
 
 [![Documentation](https://img.shields.io/badge/Documentation-read%20online-1f6feb?style=for-the-badge)](https://ilpersi.github.io/EasyUOReforged/)
 
+[![CI](https://github.com/ilpersi/EasyUOReforged/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ilpersi/EasyUOReforged/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/ilpersi/EasyUOReforged)](https://github.com/ilpersi/EasyUOReforged/releases/latest)
+[![License: BSD-2-Clause](https://img.shields.io/github/license/ilpersi/EasyUOReforged)](LICENSE)
+[![Platform: Windows x64](https://img.shields.io/badge/platform-Windows%20x64-0078d4)](https://ilpersi.github.io/EasyUOReforged/guide/install/)
+
 A port of **EasyUO**, the scripting tool that automates the *Ultima Online* client, from Delphi 7 to
 [Lazarus](https://www.lazarus-ide.org/) / Free Pascal, as a native 64-bit Windows application. It is
 derived from the original Delphi 7 source by Cheffe; it is not the original project.
