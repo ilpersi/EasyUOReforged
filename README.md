@@ -1,5 +1,7 @@
 # EasyUO Reforged
 
+[![Documentation](https://img.shields.io/badge/Documentation-read%20online-1f6feb?style=for-the-badge)](https://ilpersi.github.io/EasyUOReforged/)
+
 A port of **EasyUO**, the scripting tool that automates the *Ultima Online* client, from Delphi 7 to
 [Lazarus](https://www.lazarus-ide.org/) / Free Pascal, as a native 64-bit Windows application. It is
 derived from the original Delphi 7 source by Cheffe; it is not the original project.
@@ -7,7 +9,9 @@ derived from the original Delphi 7 source by Cheffe; it is not the original proj
 The scripting language is unchanged: existing `.euo` scripts are meant to run as they are, quirks
 included. `#EUOVer` still returns `1_50_00`.
 
-**Documentation: <https://ilpersi.github.io/EasyUOReforged/>**
+## Documentation
+
+Everything is on the documentation site: **<https://ilpersi.github.io/EasyUOReforged/>**
 
 | | |
 |---|---|
