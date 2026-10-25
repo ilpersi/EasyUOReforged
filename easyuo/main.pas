@@ -58,7 +58,7 @@ uses Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Types,
      SynEdit, SynEditMiscClasses, SynEditSearch, SynEditTypes, SynCompletion,
      SynMacroRecorder, SynEditHighlighter, SynEditKeyCmds, ShellApi,
      Registry, vartree, access, ReforgedVersion, insthandler, mainicons, eufoldsyn,
-     eucomplete, EuoScriptStack, EuoCallStackFormat, EuoBlocks;
+     eucomplete, eufinddlg, EuoScriptStack, EuoCallStackFormat, EuoBlocks;
 
 type
   TMainForm = class(TForm)
@@ -70,8 +70,7 @@ type
     procedure MenuHandlerProc(Sender: TObject);
     procedure UpdateTimerTimer(Sender: TObject);
     procedure ToolButtonReopen(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
-    procedure FindDiagFind(Sender: TObject);
-    procedure ReplaceDiagReplace(Sender: TObject);
+    function  FindDialog : TEuoFindDialog;
     procedure CompletionBeforeExecute(ASender: TSynBaseCompletion; var ACurrentString: String;
                 var APosition: Integer; var AnX, AnY: Integer;
                 var AnResult: TOnBeforeExeucteFlags);
@@ -93,6 +92,7 @@ type
     File1,Edit1,Control1,ools1,Help1  : TMenuItem;
     Exit1,New1,Open1,Reopen1,Save1,SaveAs1,SaveAll1,Close1,CloseAll1 : TMenuItem;
     Cut1,Copy1,Paste1,Delete1,SelectAll1,Find1,Replace1,Undo1,Redo1 : TMenuItem;
+    FindNext1,FindPrev1 : TMenuItem;
     FormatScript1,FoldAll1,UnfoldAll1 : TMenuItem;
     Start1,Pause1,Stop1,StopAll1,StepOver1,StepInto1,StepOut1 : TMenuItem;
     ToggleBreakpoint1,RunToCursor1,BreakpointCondition1,ClearBreakpoints1 : TMenuItem;
@@ -115,8 +115,7 @@ type
     ClientPathDialog  : TOpenDialog;
     SynPopupMenu      : TPopupMenu;
     TabPopupMenu      : TPopupMenu;
-    FindDiag          : TFindDialog;
-    ReplaceDiag       : TReplaceDialog;
+    FindDlg           : TEuoFindDialog;  // created on first use, see FindDialog
     ScrPanel          : TPanel;
     CallStackSplitter : TSplitter;
     CallStackListBox  : TListBox;
@@ -127,6 +126,7 @@ type
     procedure   FormCreate;
     procedure   FormDestroy(Sender: TObject);
     procedure   MenuHandler(Tag : Integer);
+    procedure   ShowTab(Ind : Integer);
   end;
 
 var
@@ -276,7 +276,14 @@ begin
   SelectAll1 := AddMenu(Edit1, 26, 'Select &All', 16449);
   AddSep(Edit1);
   Find1      := AddMenu(Edit1, 27, '&Find...', 16454);
-  Replace1   := AddMenu(Edit1, 28, '&Replace...');
+  // New additions (not present in the original app): Find Next/Previous and
+  // Replace's Ctrl+H, for the Find/Replace window (eufinddlg.pas). Tags 223/
+  // 224 continue the Format Script/folding run below; built with ShortCut()
+  // for the reason given there. SynEdit binds none of these keys itself
+  // (checked in syneditkeycmds.pp).
+  FindNext1  := AddMenu(Edit1, 223, 'Find &Next', ShortCut(VK_F3, []));
+  FindPrev1  := AddMenu(Edit1, 224, 'Find Pre&vious', ShortCut(VK_F3, [ssShift]));
+  Replace1   := AddMenu(Edit1, 28, '&Replace...', ShortCut(VK_H, [ssCtrl]));
   AddSep(Edit1);
   // New additions (not present in the original app): Format Script and code
   // folding (see EuoBlocks.pas / eufoldsyn.pas). Tags continue the "new
@@ -513,12 +520,9 @@ begin
   ClientPathDialog.Options := [ofFileMustExist,ofEnableSizing];
   ClientPathDialog.Title := 'Please select client.exe in your UO folder';
 
-  FindDiag := TFindDialog.Create(Self);
-  FindDiag.OnFind := FindDiagFind;
-
-  ReplaceDiag := TReplaceDialog.Create(Self);
-  ReplaceDiag.OnFind := FindDiagFind;
-  ReplaceDiag.OnReplace := ReplaceDiagReplace;
+  // The original's TFindDialog/TReplaceDialog pair is now one Find/Replace
+  // window of this port's own (eufinddlg.pas), created on first use: it
+  // loads its history from Reg, which FormCreate only opens after this.
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -582,6 +586,7 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
+  if Assigned(FindDlg) then FindDlg.SaveSettings(Reg);       // new: Find history
   VarTreeFormClose;                                        // Finalize VarTree
   IH.Free;                                                  // Free instance handler
   Reg.Free;
@@ -594,13 +599,15 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-// Port fix: the menu shortcuts belong to this window. LCL's Find/Replace
-// dialogs are non-modal forms of their own, and TApplication.IsShortcut still
-// offers their keys to the main form's menu, so Ctrl+V in the Find box ran
-// Edit > Paste into the script instead of pasting into the box (same for
-// Ctrl+C/X/Z/A). The original's native Windows find dialog never passed its
-// keys to the menu. The completion popup also takes focus, but it belongs to
-// the editor, so the menu shortcuts keep working while it is open.
+// Port fix: the menu shortcuts belong to this window. The Find/Replace window
+// (eufinddlg.pas, LCL's Find/Replace dialogs before it) is a non-modal form of
+// its own, and TApplication.IsShortcut still offers its keys to the main
+// form's menu, so Ctrl+V in the Find box ran Edit > Paste into the script
+// instead of pasting into the box (same for Ctrl+C/X/Z/A). The original's
+// native Windows find dialog never passed its keys to the menu; the window
+// handles its own F3/Ctrl+F/Ctrl+H. The completion popup also takes focus,
+// but it belongs to the editor, so the menu shortcuts keep working while it
+// is open.
 function TMainForm.IsShortcut(var Message: TLMKey): Boolean;
 var
   F : TCustomForm;
@@ -631,44 +638,26 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-procedure TMainForm.FindDiagFind(Sender: TObject);
-var
-  Diag : TFindDialog;
-  Opt  : TSynSearchOptions;
+// New addition: the Find/Replace window (eufinddlg.pas), replacing the
+// original's FindDiag/ReplaceDiag and their OnFind/OnReplace handlers.
+// Created on first use, once Reg is open, so it can load its history.
+function TMainForm.FindDialog : TEuoFindDialog;
 begin
-  Diag:=TFindDialog(Sender);
-
-  Opt:=[];
-  if not(frDown in Diag.Options) then
-    Include(Opt,ssoBackwards);
-  if frMatchCase in Diag.Options then
-    Include(Opt,ssoMatchCase);
-  if frWholeWord in Diag.Options then
-    Include(Opt,ssoWholeWord);
-
-  if CSyn.SearchReplace(Diag.FindText,'',Opt)=0 then
-    ShowMessage('No matches found!');
+  if not Assigned(FindDlg) then
+  begin
+    FindDlg:=TEuoFindDialog.Create(Self);
+    FindDlg.LoadSettings(Reg);
+  end;
+  Result:=FindDlg;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-procedure TMainForm.ReplaceDiagReplace(Sender: TObject);
-var
-  Opt : TSynSearchOptions;
+// New addition: what a tab click does (TabCtrlChange), for code -- Find Next
+// moving on to a match in another script.
+procedure TMainForm.ShowTab(Ind : Integer);
 begin
-  Opt:=[ssoReplace,ssoSelectedOnly];
-  if frMatchCase in ReplaceDiag.Options then
-    Include(Opt,ssoMatchCase);
-  if frWholeWord in ReplaceDiag.Options then
-    Include(Opt,ssoWholeWord);
-
-  if frReplaceAll in ReplaceDiag.Options then
-  begin
-    Include(Opt,ssoReplaceAll);
-    Include(Opt,ssoPrompt);
-  end;
-
-  if CSyn.SearchReplace(ReplaceDiag.FindText,ReplaceDiag.ReplaceText,Opt)=0 then
-    ShowMessage('No matches found!');
+  IH.SwitchTo(Ind);
+  UpdateTimerTimer(nil);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -741,8 +730,8 @@ begin
     24 : CSyn.PasteFromClipboard;
     25 : CSyn.ClearSelection;
     26 : CSyn.SelectAll;
-    27 : FindDiag.Execute;
-    28 : ReplaceDiag.Execute;
+    27 : FindDialog.ShowFind;
+    28 : FindDialog.ShowReplace;
     60 : begin
            if CExec.Parser.UOSel.Cnt<1 then
            begin
@@ -845,6 +834,10 @@ begin
    220 : FormatScript;
    221 : CSyn.CommandProcessor(EcFoldLevel1,'',nil); // fold all folds
    222 : CSyn.CommandProcessor(EcFoldLevel0,'',nil); // unfold all
+
+    // New additions: Find Next / Find Previous (F3 / Shift+F3)
+   223 : FindDialog.FindAgain(False);
+   224 : FindDialog.FindAgain(True);
   end;
 end;
 
@@ -1140,6 +1133,12 @@ begin
     else if CallStackListBox.Items.Count>0 then
       CallStackListBox.Items.Clear;
   end;
+
+  (***Update Find window***)
+  // New addition: keeps its match count and highlight in step with tab
+  // switches and edits (eufinddlg.pas's Poll only recounts on a change).
+  if Assigned(FindDlg) and FindDlg.Visible then
+    FindDlg.Poll;
 
   (***Update Statusbar***)
   StatusBar.Panels[0].Text:=IntToStr(CSyn.CaretY)+': '+IntToStr(CSyn.CaretX);

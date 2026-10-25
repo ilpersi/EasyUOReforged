@@ -173,12 +173,14 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Yes to All (new): replace the rest without asking again.
 procedure TInstHandler.SynReplaceText(Sender: TObject; const ASearch, AReplace: String; Line, Column: Integer; var Action: TSynReplaceAction);
 begin
-  case MessageDlg('Replace this match?', mtConfirmation, [mbYes,mbNo,mbCancel], 0) of
-    mrYes : Action:=raReplace;
-    mrNo  : Action:=raSkip;
-    else    Action:=raCancel;
+  case MessageDlg('Replace this match?', mtConfirmation, [mbYes,mbNo,mbYesToAll,mbCancel], 0) of
+    mrYes      : Action:=raReplace;
+    mrNo       : Action:=raSkip;
+    mrYesToAll : Action:=raReplaceAll;
+    else         Action:=raCancel;
   end;
 end;
 

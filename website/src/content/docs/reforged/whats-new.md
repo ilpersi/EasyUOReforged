@@ -42,8 +42,10 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 
 ## The editor
 
-- Line numbers, **Ctrl+Space** autocomplete (it knows the sub-commands of `menu`, `sql`, `event` and the
-  others), find and replace.
+- Line numbers and **Ctrl+Space** autocomplete (it knows the sub-commands of `menu`, `sql`, `event` and the
+  others).
+- A Find and Replace window with regular expressions, wrap-around, a match count, every match highlighted,
+  search in a selection or in all open scripts, search history, and **F3** / **Shift+F3**.
 - Code folding for subs, `{ }` blocks and `repeat`, with Fold All / Unfold All.
 - Format Script (**Ctrl+Shift+F**) re-indents a script in one step.
 - Breakpoints, conditional breakpoints, step into / over / out, run to cursor and a live call stack.
