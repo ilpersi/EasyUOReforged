@@ -40,6 +40,18 @@ unit eucomplete;
   the replacement span left by one character when the character immediately
   before it is a sigil that the chosen value also starts with. See
   AdjustCompletionSpan below.
+
+  Sub-commands: where the caret sits on the word after a command that takes
+  a sub-command (MENU, SQL, EVENT, STR, ...) -- or deeper, after MENU FONT,
+  NAMESPACE COPY <pattern> FROM, ... -- the list holds only the words allowed
+  there (SubCommands below), not the whole vocabulary. Only the words before
+  the caret on the caret's own line are looked at, split the way the
+  interpreter's Parameterize splits them (spaces/tabs; a ';' word starts a
+  comment). When nothing in that short list starts with what is already
+  typed (a %variable holding the sub-command, say), the usual full list is
+  shown instead. TSynCompletion's AutoUseSingleIdent (on by default) inserts
+  a one-word list without opening the popup -- TILE INIT's NOOVERRIDES,
+  IGNOREITEM's RESET -- which is what Ctrl+Space should do there.
 }
 
 {$mode delphi}{$H+}
@@ -54,6 +66,12 @@ uses
 // defined %/*!variable name found in AEditor's text. Rebuilt from scratch on
 // every call; see header comment for why that's the right tradeoff here.
 procedure BuildCompletionList(AList : TStrings; AEditor : TSynEdit);
+
+// Adds to AList the sub-commands allowed at the end of LineBeforeCaret (the
+// caret line's text up to the caret) and returns True -- or adds nothing and
+// returns False when that spot takes no sub-command, or when none of them
+// starts with the word already typed there. See the header comment.
+function SubCommandWords(const LineBeforeCaret : String; AList : TStrings) : Boolean;
 
 // Widens [SourceStart,SourceEnd) left by one character when the character
 // immediately before SourceStart is one of EasyUO's variable sigils (#, %,
@@ -72,6 +90,126 @@ uses
 const
   VarSigils = ['#', '%', '*', '!'];
   VarNameChars = ['A'..'Z', 'a'..'z', '0'..'9', '_'];
+
+  // 'KEY=WORDS': the words that may follow KEY, the words before them on the
+  // line ('MENU FONT=...' is what may follow "menu font"). A '*' in KEY
+  // stands for any one word (a skill name, a namespace pattern). Transcribed
+  // from the ParList[n].StrU tests in EuoInterpreter.pas (MenuProcSync,
+  // EventProc, ...; STATLOCK's stats from uoevents.pas's ExEv_StatLock).
+  // Left out on purpose: menu Test (an empty debug hook) and event Sleep (not
+  // implemented). tests\tools\CheckDocsCoverage.ps1 warns when the first-level
+  // words here and the interpreter's drift apart.
+  SubCommands : array[0..24] of String = (
+    'DISPLAY=OK OKCANCEL YESNO YESNOCANCEL',
+    'EVENT=CONTTOP DRAG EXMSG MACRO PATHFIND PROPERTY SKILLLOCK STATBAR SYSMESSAGE',
+    'EVENT SKILLLOCK *=DOWN LOCKED UP',
+    'EXEVENT=DRAG DROPC DROPG DROPPD EQUIP POPUP RENAMEPET SKILLLOCK STATLOCK',
+    'EXEVENT SKILLLOCK *=DOWN LOCKED UP',
+    'EXEVENT STATLOCK=DEX INT STR',
+    'EXEVENT STATLOCK *=DOWN LOCKED UP',
+    'IGNORECONT=RESET',
+    'IGNOREITEM=RESET',
+    'MENU=ACTIVATE BUTTON CHECK CLEAR COMBO DELETE EDIT FONT GET GETNUM HIDE ' +
+      'HIDEEUO IMAGE LIST MEMO SET SHAPE SHOW TEXT WINDOW',
+    'MENU COMBO=ADD CLEAR CREATE SELECT',
+    'MENU FONT=ALIGN BGCOLOR COLOR NAME SIZE STYLE TRANSPARENT',
+    'MENU FONT ALIGN=CENTER LEFT RIGHT',
+    'MENU IMAGE=CREATE ELLIPSE FILE FLOODFILL LINE PIX PIXLINE POS RECTANGLE',
+    'MENU LIST=ADD CLEAR CREATE SELECT',
+    'MENU WINDOW=COLOR SIZE TITLE TRANSPARENT',
+    'NAMESPACE=CLEAR COPY GLOBAL LOCAL POP PUSH',
+    'NAMESPACE COPY *=FROM TO',
+    'NAMESPACE COPY * FROM=GLOBAL LOCAL',
+    'NAMESPACE COPY * TO=GLOBAL LOCAL',
+    'SQL=CLOSE DELETE EXEC LOAD OPEN QUERY ROW SAVE',
+    'STR=COUNT DEL INS LEFT LEN LOWER MID POS RIGHT UPPER',
+    'TILE=CNT GET INIT',
+    'TILE INIT=NOOVERRIDES',
+    'UOXL=NEW SWAP'
+  );
+
+////////////////////////////////////////////////////////////////////////////////
+// Splits S into AWords at spaces and tabs, as Parameterize does, stopping at
+// a word that starts with ';' (the rest is a comment). Returns False if it
+// stopped there.
+function SplitWords(const S : String; AWords : TStrings) : Boolean;
+var
+  i, Start : Integer;
+begin
+  Result := True;
+  AWords.Clear;
+  i := 1;
+  while i <= Length(S) do
+  begin
+    while (i <= Length(S)) and (S[i] in [#9, #32]) do
+      Inc(i);
+    Start := i;
+    while (i <= Length(S)) and not (S[i] in [#9, #32]) do
+      Inc(i);
+    if i > Start then
+    begin
+      if S[Start] = ';' then
+      begin
+        Result := False;
+        Exit;
+      end;
+      AWords.Add(Copy(S, Start, i - Start));
+    end;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function SubCommandWords(const LineBeforeCaret : String; AList : TStrings) : Boolean;
+var
+  Words, Parts : TStringList;
+  Partial      : String;
+  i, j, Eq     : Integer;
+  Match        : Boolean;
+begin
+  Result := False;
+  Words := TStringList.Create;
+  Parts := TStringList.Create;
+  try
+    if not SplitWords(UpperCase(LineBeforeCaret), Words) then Exit;
+
+    // The word being typed is the last one, unless the caret is past a space.
+    Partial := '';
+    if (Words.Count > 0) and not (LineBeforeCaret[Length(LineBeforeCaret)] in [#9, #32]) then
+    begin
+      Partial := Words[Words.Count - 1];
+      Words.Delete(Words.Count - 1);
+    end;
+    if Words.Count = 0 then Exit; // still on the command itself
+
+    for i := Low(SubCommands) to High(SubCommands) do
+    begin
+      Eq := Pos('=', SubCommands[i]);
+      SplitWords(Copy(SubCommands[i], 1, Eq - 1), Parts);
+      if Parts.Count <> Words.Count then Continue;
+      Match := True;
+      for j := 0 to Parts.Count - 1 do
+        if (Parts[j] <> '*') and (Parts[j] <> Words[j]) then
+        begin
+          Match := False;
+          Break;
+        end;
+      if not Match then Continue;
+
+      SplitWords(Copy(SubCommands[i], Eq + 1, MaxInt), Parts);
+      for j := 0 to Parts.Count - 1 do
+        if Copy(Parts[j], 1, Length(Partial)) = Partial then
+        begin
+          AList.AddStrings(Parts);
+          Result := True;
+          Break;
+        end;
+      Exit;
+    end;
+  finally
+    Words.Free;
+    Parts.Free;
+  end;
+end;
 
 ////////////////////////////////////////////////////////////////////////////////
 procedure ScanUserVariables(AList : TStrings; AEditor : TSynEdit);
@@ -108,19 +246,33 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 procedure BuildCompletionList(AList : TStrings; AEditor : TSynEdit);
 var
-  i    : Integer;
-  Temp : TStringList;
+  i      : Integer;
+  Temp   : TStringList;
+  Before : String;
 begin
   Temp := TStringList.Create;
   try
     Temp.Sorted := True;
     Temp.Duplicates := dupIgnore;
-    for i := Low(CommandKeywords) to High(CommandKeywords) do
-      Temp.Add(CommandKeywords[i]);
-    for i := Low(SystemKeywords) to High(SystemKeywords) do
-      Temp.Add(SystemKeywords[i]);
+
+    Before := '';
     if AEditor <> nil then
-      ScanUserVariables(Temp, AEditor);
+    begin
+      i := AEditor.LogicalCaretXY.X - 1;
+      Before := Copy(AEditor.LineText, 1, i);
+      if i > Length(Before) then
+        Before := Before + ' '; // caret past the end of the line
+    end;
+
+    if not SubCommandWords(Before, Temp) then
+    begin
+      for i := Low(CommandKeywords) to High(CommandKeywords) do
+        Temp.Add(CommandKeywords[i]);
+      for i := Low(SystemKeywords) to High(SystemKeywords) do
+        Temp.Add(SystemKeywords[i]);
+      if AEditor <> nil then
+        ScanUserVariables(Temp, AEditor);
+    end;
 
     AList.BeginUpdate;
     try

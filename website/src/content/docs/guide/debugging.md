@@ -37,7 +37,12 @@ variable to a text window you can copy, which is handy for bug reports.
 ## Editor features
 
 - **Ctrl+Space** opens autocomplete with the script commands, the built-in `#variables` and the variables
-  your script already uses.
+  your script already uses. After a command that takes a sub-command, it lists only those: after `menu`
+  it offers `BUTTON`, `WINDOW`, `FONT`…, after `menu font` it offers `NAME`, `SIZE`, `ALIGN`…, and the same
+  for `sql`, `event`, `exevent`, `namespace`, `str`, `tile`, `display`, `uoxl`, `ignoreitem` and
+  `ignorecont`. Where only one word can go (`tile init` → `NOOVERRIDES`, `ignoreitem` → `RESET`), it is
+  filled in straight away. To get a variable there instead, type its first character (`%`, `#`, …) before
+  pressing **Ctrl+Space**.
 - **Ctrl+F** finds and replaces text.
 - **Ctrl+Shift+R** / **Ctrl+Shift+P** record and play back a keystroke macro in the editor. It repeats
   typing, not game actions.

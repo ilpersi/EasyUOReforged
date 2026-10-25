@@ -17,6 +17,8 @@
 #   DllMembers  uo.dll names (properties, methods), from UOTbl in uo\uowrap.pas
 #   DllCalls    uo.dll generic calls (Call, Get, Set, ...), from Commands in uo\uowrap.pas
 #   Highlighted the #variables and commands easyuo\eusyntax.pas colours and offers for autocomplete
+#   Completion  the sub-command lists autocomplete offers, from SubCommands in easyuo\eucomplete.pas:
+#               key (the words before, 'MENU FONT') -> the words it offers there
 
 $EuoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 
@@ -36,9 +38,17 @@ function Get-EuoNames {
   $interpFile = Join-Path $EuoRoot 'parser\EuoInterpreter.pas'
   $wrapFile   = Join-Path $EuoRoot 'uo\uowrap.pas'
   $synFile    = Join-Path $EuoRoot 'easyuo\eusyntax.pas'
+  $complFile  = Join-Path $EuoRoot 'easyuo\eucomplete.pas'
   $interp = Get-Content $interpFile -Raw
   $wrap   = Get-Content $wrapFile -Raw
   $syn    = Get-Content $synFile -Raw
+  $compl  = (Get-Content $complFile -Raw) -replace "'\s*\+\s*'", ''   # join 'a ' + 'b' literals
+
+  $completion = [ordered]@{}
+  foreach ($entry in Get-EuoPascalArray $compl 'SubCommands' $complFile) {
+    $key, $words = $entry.Split('=', 2)
+    $completion[$key] = @($words.Split(' ', [StringSplitOptions]::RemoveEmptyEntries))
+  }
 
   $subTypes = {
     param($body, $pattern = "ParList\[1\]\.StrU='([A-Z]+)'")
@@ -66,5 +76,6 @@ function Get-EuoNames {
       Variables = @(Get-EuoPascalArray $syn 'SystemKeywords' $synFile | ForEach-Object { $_.TrimStart('#') })
       Commands  = @(Get-EuoPascalArray $syn 'CommandKeywords' $synFile)
     }
+    Completion  = $completion
   }
 }

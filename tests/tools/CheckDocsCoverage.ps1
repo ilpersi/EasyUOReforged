@@ -16,7 +16,7 @@
 #   uo.dll members      dll\name.md - checked only once the dll\ section exists
 #
 # It also reports, as warnings that do not fail the run, names the interpreter and the editor's highlighter /
-# autocomplete list (easyuo\eusyntax.pas) disagree on.
+# autocomplete lists (easyuo\eusyntax.pas, and the sub-commands in easyuo\eucomplete.pas) disagree on.
 #
 # Usage:  pwsh ./tests/tools/CheckDocsCoverage.ps1
 
@@ -110,6 +110,23 @@ $notHl  = @($names.Variables | Where-Object { $hlVars -notcontains $_.ToLower() 
 $hlOnly = @($names.Highlighted.Variables | Where-Object { $vars -notcontains $_.ToLower() } | ForEach-Object { "#$_" })
 if ($notHl.Count -gt 0)  { Write-Host "Warning: not highlighted / not offered by autocomplete (easyuo\eusyntax.pas): $($notHl -join ', ')" -ForegroundColor Yellow }
 if ($hlOnly.Count -gt 0) { Write-Host "Warning: highlighted, but the interpreter has no such variable: $($hlOnly -join ', ')" -ForegroundColor Yellow }
+
+# The sub-commands autocomplete offers right after a command (SubCommands in easyuo\eucomplete.pas), against
+# the interpreter's own. Deeper levels (menu font align, ...) are not read off the source, so not checked.
+$complFamilies = [ordered]@{
+  EVENT = $names.Events; EXEVENT = $names.ExEvents; MENU = $names.Menu
+  NAMESPACE = $names.NameSpace; STR = $names.Str; SQL = $names.Sql
+}
+$notOffered = @(); $offeredOnly = @()
+foreach ($cmd in $complFamilies.Keys) {
+  $real = @($complFamilies[$cmd] | ForEach-Object { $_.ToUpper() })
+  $offered = if ($names.Completion.Contains($cmd)) { @($names.Completion[$cmd]) } else { @() }
+  $notOffered += @($real | Where-Object { $offered -notcontains $_ } | ForEach-Object { "$($cmd.ToLower()) $_" } |
+                   Where-Object { -not $NotDocumented.ContainsKey($_) })
+  $offeredOnly += @($offered | Where-Object { $real -notcontains $_ } | ForEach-Object { "$($cmd.ToLower()) $_" })
+}
+if ($notOffered.Count -gt 0)  { Write-Host "Warning: not offered by autocomplete (easyuo\eucomplete.pas SubCommands): $($notOffered -join ', ')" -ForegroundColor Yellow }
+if ($offeredOnly.Count -gt 0) { Write-Host "Warning: offered by autocomplete, but the interpreter has no such sub-command: $($offeredOnly -join ', ')" -ForegroundColor Yellow }
 
 # ---- result ----------------------------------------------------------------------------------------------
 $failed = $false
