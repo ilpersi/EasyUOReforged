@@ -20,7 +20,9 @@
 
   Depends on GenerateMulFixtures.ps1 having already been run (reuses its map0.mul as the
   payload to repackage, and expects staidx0.mul/statics0.mul/tiledata.mul to already exist
-  in the same shape).
+  in the same shape). The facet-1, facet-5 and dif files are deliberately NOT copied:
+  TilesTests also uses this set to check that facet 1 falls back to the facet-0 files,
+  and that usedif=True works on an install with no dif files at all.
 
   Usage: pwsh -File GenerateMulFixtures.ps1 ; pwsh -File GenerateUopFixture.ps1
 #>

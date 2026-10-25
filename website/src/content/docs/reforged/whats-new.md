@@ -33,6 +33,10 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 
 - **[`Tile`](/commands/tile/)** reads the `.uop` map files of newer client installs directly; there is no
   need to extract them to the old `.mul` format first.
+- **[`Tile`](/commands/tile/)** reads current maps correctly: Trammel from its own files instead of
+  Felucca's, Felucca and Trammel up to x 7167 instead of 6143, and Ter Mur from the right place in its
+  files. Scripts can see different tiles there than in EasyUO 1.5. Plain `tile init` also works on installs
+  that lack some of the map patch files, instead of stopping the script.
 
 ## uo.dll
 

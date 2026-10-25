@@ -23,8 +23,9 @@ source: wiki
 ## Details
 
 - **`tile init`** reads the files from the attached client's own folder. `nooverrides` skips the client's
-  statics override file (`verdata.mul`), for shards that do not use it. Without `tile init`, `cnt` gives 0
-  and `get` reads nothing.
+  map and statics patch files (`mapdif*.mul`, `mapdifl*.mul`, `stadif*.mul`, `stadifl*.mul` and
+  `stadifi*.mul`) and reads only the base map files, for shards that do not use the patches. Without
+  `tile init`, `cnt` gives 0 and `get` reads nothing.
 - **`facet`** is the facet number, as in [`#CursKind`](/variables/curskind/). Default: the facet you are on.
 - See [`#TileFlags`](/variables/tileflags/) for what the flags mean.
 
@@ -42,6 +43,22 @@ for %n 1 #TileCnt
 
 ## Reforged notes
 
-Newer client installs ship the maps packed in `.uop` files (`map0LegacyMUL.uop`, …) instead of the classic
-`map0.mul`. EasyUO Reforged reads those directly, so `tile` works on these installs without extracting the
-files to the old MUL format first. When both exist, the classic `.mul` file is used.
+- Newer client installs ship the maps packed in `.uop` files (`map0LegacyMUL.uop`, …) instead of the
+  classic `map0.mul`. EasyUO Reforged reads those directly, so `tile` works on these installs without
+  extracting the files to the old MUL format first. When both exist, the classic `.mul` file is used.
+- **Trammel** (facet 1) is read from its own map files (`map1`, `staidx1.mul` and `statics1.mul`).
+  EasyUO 1.5 read Felucca's files for Trammel, which matched clients before Mondain's Legacy but not
+  current ones, where places such as New Haven differ. Installs without Trammel files still use
+  Felucca's.
+- **Felucca and Trammel are 7168 tiles wide** on current clients. EasyUO 1.5 stopped at x 6143, so `cnt`
+  and `get` gave nothing further east. The width now comes from the map files, so older 6144-wide
+  installs work as before.
+- **Ter Mur** (facet 5) is read from the right place. EasyUO 1.5 computed the position in the map files
+  wrongly there and returned tiles from elsewhere on the facet.
+- **`tile init` works when patch files are missing.** Current installs no longer ship the map patch
+  files, and EasyUO 1.5's `tile init` stopped the script with an error when Felucca's or Trammel's were
+  not there, so only `tile init nooverrides` worked. Now a facet's patches are used only when all of
+  their files are present (`mapdifl` and `mapdif` for the map, `stadifl`, `stadifi` and `stadif` for
+  the statics), and are skipped otherwise.
+- Scripts that read Trammel, Ter Mur or the far east of Felucca can see different tiles than in
+  EasyUO 1.5: those are the client's real tiles.

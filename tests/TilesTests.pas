@@ -6,7 +6,9 @@ unit TilesTests;
   implements -- not by copying the Pascal formulas verbatim). Covers layer-0 (map)
   reads, layer>0 (statics) reads, and that GetLayerCount/GetTileData correctly filter
   by (x,y) within a shared 8x8 block rather than over-counting a neighbouring tile's
-  statics. }
+  statics. Also covers the Reforged map-reading fixes (see tiles.pas's header comment):
+  Trammel reading its own files or falling back to Felucca's, Ter Mur's block number,
+  and the Felucca/Trammel width taken from the staidx size. }
 
 {$mode objfpc}{$H+}
 
@@ -29,6 +31,12 @@ type
     procedure TestLayer1StaticTile;
     procedure TestLayer2StaticTile;
     procedure TestLayer0MapTileViaUopFallback;
+    procedure TestTrammelReadsOwnFiles;
+    procedure TestTrammelFallsBackToFeluccaFiles;
+    procedure TestTerMurBlockNumber;
+    procedure TestFelTramWidth;
+    procedure TestDifSetsApplyOnlyWhenComplete;
+    procedure TestMissingDifFilesAreSkipped;
   end;
 
 implementation
@@ -138,6 +146,141 @@ begin
       AssertEquals(5, z);
       AssertEquals('TestLand', Trim(name));
       AssertEquals($12345678, Integer(flags));
+    finally
+      UopT.Free;
+    end;
+  finally
+    UopCst.Free;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Reforged fix: facet 1 used to read map0/staidx0/statics0. tests\fixtures\mul has its
+// own map1/staidx1/statics1, with different data at (3,2) than facet 0.
+procedure TTilesTests.TestTrammelReadsOwnFiles;
+var
+  cnt  : byte;
+  tt   : word;
+  z    : shortint;
+  name : String;
+  flags: longword;
+begin
+  AssertTrue(T.GetLayerCount(3, 2, 1, cnt));
+  AssertEquals('statics1.mul has one static at (3,2), statics0.mul has two', 1, cnt);
+  AssertTrue(T.GetTileData(3, 2, 1, 0, tt, z, name, flags));
+  AssertEquals('layer 0 from map1.mul', 110, tt);
+  AssertEquals(6, z);
+  AssertTrue(T.GetTileData(3, 2, 1, 1, tt, z, name, flags));
+  AssertEquals('layer 1 from statics1.mul', 210, tt);
+  AssertEquals(12, z);
+end;
+
+// Old installs have no Trammel files: facet 1 keeps reading the facet-0 ones.
+// tests\fixtures\uop has none (and its map0 only as .uop), so this also checks that
+// the map1 .mul -> .uop -> map0 chain ends on map0LegacyMUL.uop.
+procedure TTilesTests.TestTrammelFallsBackToFeluccaFiles;
+var
+  UopCst : TCstDB;
+  UopT   : TTTBasic;
+  cnt    : byte;
+  tt     : word;
+  z      : shortint;
+  name   : String;
+  flags  : longword;
+begin
+  UopCst := TCstDB.Create;
+  try
+    UopCst.Update('');
+    UopT := TTTBasic.init(UopFixtureDir, False, UopCst);
+    try
+      AssertTrue(UopT.GetLayerCount(3, 2, 1, cnt));
+      AssertEquals('statics0.mul has two statics at (3,2)', 2, cnt);
+      AssertTrue(UopT.GetTileData(3, 2, 1, 0, tt, z, name, flags));
+      AssertEquals('layer 0 from map0LegacyMUL.uop', 100, tt);
+      AssertEquals(5, z);
+      AssertTrue(UopT.GetTileData(3, 2, 1, 1, tt, z, name, flags));
+      AssertEquals('layer 1 from statics0.mul', 200, tt);
+      AssertEquals(10, z);
+    finally
+      UopT.Free;
+    end;
+  finally
+    UopCst.Free;
+  end;
+end;
+
+// Reforged fix: Ter Mur is 160 columns of 512 blocks, so world (8,0) is block 512.
+// The old multiplier (196) lands on block 196, where the fixture keeps a decoy static.
+procedure TTilesTests.TestTerMurBlockNumber;
+var
+  cnt  : byte;
+  tt   : word;
+  z    : shortint;
+  name : String;
+  flags: longword;
+begin
+  AssertTrue(T.GetLayerCount(8, 0, 5, cnt));
+  AssertEquals(1, cnt);
+  AssertTrue(T.GetTileData(8, 0, 5, 1, tt, z, name, flags));
+  AssertEquals('static of block 512, not the decoy at block 196', 205, tt);
+  AssertEquals(15, z);
+end;
+
+// Reforged fix: the Felucca/Trammel width comes from the staidx size (12 bytes per
+// block, 512 blocks per column) instead of a fixed 6144. A real 7168-wide fixture
+// would be about 90 MB, so the sizes are checked on the helper directly.
+procedure TTilesTests.TestFelTramWidth;
+var cnt : byte;
+begin
+  AssertEquals('current installs: 896x512 blocks', 7168, FelTramWidth(5505024));
+  AssertEquals('old installs: 768x512 blocks', 6144, FelTramWidth(4718592));
+  AssertEquals('a short file keeps the old bound', 6144, FelTramWidth(12));
+  // The fixture's 12-byte staidx0.mul gives 6144, and GetBlockNumber uses it.
+  AssertTrue('x 6143 is inside the map', T.GetLayerCount(6143, 0, 0, cnt));
+  AssertFalse('x 6144 is outside the map', T.GetLayerCount(6144, 0, 0, cnt));
+end;
+
+// Reforged fix: dif files are used only as a complete set. tests\fixtures\mul has a
+// complete stadif set for facet 0's block 0, and a mapdifl0.mul without its mapdif0.mul.
+procedure TTilesTests.TestDifSetsApplyOnlyWhenComplete;
+var
+  DifT : TTTBasic;
+  cnt  : byte;
+  tt   : word;
+  z    : shortint;
+  name : String;
+  flags: longword;
+begin
+  DifT := TTTBasic.init(FixtureDir, True, Cst);
+  try
+    AssertTrue(DifT.GetLayerCount(3, 2, 0, cnt));
+    AssertEquals('stadif0.mul has one static at (3,2), statics0.mul has two', 1, cnt);
+    AssertTrue(DifT.GetTileData(3, 2, 0, 1, tt, z, name, flags));
+    AssertEquals('layer 1 from stadif0.mul', 202, tt);
+    AssertEquals(20, z);
+    AssertTrue(DifT.GetTileData(3, 2, 0, 0, tt, z, name, flags));
+    AssertEquals('mapdifl0.mul alone is ignored: layer 0 from map0.mul', 100, tt);
+    AssertEquals(5, z);
+  finally
+    DifT.Free;
+  end;
+end;
+
+// Reforged fix: init with dif files on (plain `tile init`) used to raise when facet 0/1
+// had none, as on current installs. tests\fixtures\uop has no dif files at all.
+procedure TTilesTests.TestMissingDifFilesAreSkipped;
+var
+  UopCst : TCstDB;
+  UopT   : TTTBasic;
+  cnt    : byte;
+begin
+  UopCst := TCstDB.Create;
+  try
+    UopCst.Update('');
+    UopT := TTTBasic.init(UopFixtureDir, True, UopCst);
+    try
+      AssertTrue(UopT.GetLayerCount(3, 2, 0, cnt));
+      AssertEquals('base statics0.mul, nothing overridden', 2, cnt);
     finally
       UopT.Free;
     end;
