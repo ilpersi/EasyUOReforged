@@ -90,6 +90,8 @@ the character is whenever layer 2 or 3 changes ahead of it.
   roughly halved the nodes, but the routes were about 4% longer with twice the turns. So the default is the
   exact search, with TazUO's budgets: 1,000,000 nodes and 5 s. A faster long-range search is a phase 4
   question.
+- **Checked in the editor on a live client:** `path can` gave the same height as `#CharPosZ`, and a route from
+  east of Minoc to Britain's bank (1,725 steps) took 273 ms.
 
 ### Walker (phase 2)
 
@@ -97,8 +99,13 @@ Two ways to drive the character:
 
 - **`client` mode** (the default where the client's pathfinder address is known):
   - Our path supplies the long route.
-  - The client's own `PathFind` walks to a point about 12 tiles ahead on it, with the exact Z, and handles every
-    live obstacle exactly.
+  - The client's own `PathFind` walks to a point ahead on it, with the exact Z, and handles every live obstacle
+    exactly.
+  - How far ahead the client accepts is not a fixed distance (see
+    [The client's own pathfinder](#the-clients-own-pathfinder)). The walker keeps its points within 18 tiles of
+    the character. It can run the client's search on our own map first, to pick the farthest point the client
+    should accept. It moves the point nearer along our path each time the client answers "Can't get there"; if
+    even a near point is refused, that stretch is walked in `steps` mode.
   - The next point is sent before the character arrives, so walking doesn't stop.
 - **`steps` mode:** one step at a time with the walk macro. Each step counts as refused when the position doesn't
   change in time.
@@ -127,6 +134,36 @@ EasyUO has always had `BlockInfo` (in `uo.dll` only). It calls the client's own 
 stand here at height z" or "blocked", it becomes the most precise overlay possible, for everything the client
 has loaded, custom houses included. Decoding it needs testing on a live client: a wall, a door, water, stairs,
 a house.
+
+### The client's own pathfinder
+
+Read from the code of `client.exe` 7.0.117.1 and `client_beta.exe` 7.0.117.31; the search is the same in both.
+
+- **The call.** `event PathFind` enters the client's walk-to function. It plans from the character's position,
+  plus any steps still queued. It searches once for the exact tile, then once more allowing one tile off. When
+  both fail it prints "Can't get there".
+- **The search.**
+  - It is an A* where every step costs 1, diagonals included.
+  - Its estimate of the distance left is the straight-line distance in 3D, so each unit of Z counts as a tile.
+  - It gives up after expanding 500 positions per attempt; the hard cap is 5,000.
+  - It accepts arrival within ±8 of the goal's Z.
+  - A diagonal step needs both neighbouring straight steps open, the same rule as ours.
+- **It only sees what the client has loaded.** Each cell comes from the client's in-memory world. A cell with
+  nothing loaded has no ground, so the search treats it as blocked. There is no other check on the distance from
+  the character.
+  - `client.exe` keeps a 7×7-block area (56×56 tiles), placed from the view range (18 by default). It reaches
+    at least 18 tiles west and north of the character, and at least 30 east and south.
+  - `client_beta.exe` uses a new block manager by default. It loads the blocks the game window shows through a
+    per-frame budget, and evicts blocks beyond a radius computed from the screen size. What is loaded at a given
+    moment depends on the window and on timing.
+  - Measured by reading memory with the character standing at 2713,523: `client.exe` had 18 tiles loaded
+    to the west, 20 north and 30 or more east and south. The beta had between 20 and 30 tiles in every direction.
+- **The budget is rarely the limit.** We ran the same search on our own map model:
+  - The refused case near Minoc (12 steps ahead) needed only 13 positions.
+  - On three long routes, points 30 to 40 steps ahead were accepted 97 to 100% of the time.
+  - So the 500 run out only when the straight line toward the goal meets a wide obstacle.
+- **What the refusals near Minoc really were:** a player house that our map can't see stood across our route
+  (see [Open questions](#open-questions)).
 
 ## Script commands
 
@@ -174,7 +211,28 @@ for %n 1 #PathCnt
 ## Open questions
 
 - How does a multi appear in the client's object list, and can a custom house's design be read from memory?
+  On the beta, yes: while the house is drawn, each of its pieces is an object in the client's dynamic-item grid,
+  with its position, height and graphic. Not yet checked on `client.exe`.
 - What does `BlockInfo`'s 2-byte result mean?
 - How far does the client's own `PathFind` really reach on each client version? That sets the walker's
-  look-ahead.
+  look-ahead. Measured by hand on a live client near Minoc, with points taken from our planned route:
+  - 8 steps ahead was accepted and walked exactly, height included;
+  - 12 steps ahead was refused with "Can't get there";
+  - the cut-off was different at every spot tried, so it depends on the start, the goal and what lies between;
+  - the beta client refused more often than the standard client.
+
+  Reading the clients' code explained the mechanism (see
+  [The client's own pathfinder](#the-clients-own-pathfinder)): a 500-position budget, and only cells the client
+  has loaded.
+
+  The refusal itself was the world, not a limit:
+  - A player house covers 2693–2723, 495–509, and our route from 2707,517 ran into it from step 8 onwards. Our
+    map has no houses.
+  - The beta holds the house's pieces (about 2,200 walls and floors) only while the house is drawn. From
+    2713,523 it had none; from 2709,513 it had them all.
+  - With those pieces added, the emulated client search gives the result seen in the game:
+    - step 8 is reached one tile off (the exact tile is part of the house);
+    - steps 9 to 13 are unreachable even with the 5,000-position cap;
+    - step 14 is reachable again, around the house.
+  - Our planner, given the same pieces, goes round the house for 4 extra steps.
 - Which shard-specific links (teleporters, moongates) are worth shipping as ready-made lists, if any?
