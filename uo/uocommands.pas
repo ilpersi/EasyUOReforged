@@ -49,14 +49,17 @@ unit uocommands;
   Port addition (not in the original): the PATH section. TUOCmd owns the pathfinder's planner
   (pathplan.pas, PathPlanner) and its world model (walkmap.pas), which PathMap opens on first use
   from the attached client's folder and reopens when that folder or the dif setting changes.
-  Nothing else in this unit uses them.
+  It also owns the walker (pathwalk.pas, PathWalker) and its live overlay (walklive.pas, PathLive),
+  which PathSource points at the world model and fills with what PathLiveObjects reads from the
+  client: ground items and mobiles from the item list FindItem reads, and house pieces from the
+  client's multi list where MultiLists knows it (read only). Nothing else in this unit uses them.
 }
 
 {$mode delphi}{$H+}
 
 interface
 uses Windows, SysUtils, Messages, Classes, Registry, access, EuoSortedList,
-     uotypes, uovariables, uoselector, uoclidata, tiles, walkmap, pathplan;
+     uotypes, uovariables, uoselector, uoclidata, tiles, walkmap, pathplan, walklive, pathwalk;
 
 type
   TSkillEntry   = record
@@ -170,6 +173,8 @@ type
     BuffGone    : Boolean;              // the selected buff has left the bar since it was selected
     PathPlanner : TPathPlanner;         // port addition (PATH): options, rules and the last path
     PathDifs    : Boolean;              // read the dif files (path set difs)
+    PathLive    : TLiveOverlay;         // the world model plus what the client holds (PathSource)
+    PathWalker  : TPathWalker;
     constructor Create(UOSelector : TUOSel; UOVariables : TUOVar; DFunc : TDelayFunc);
     procedure   Free;
     procedure   Key(KeyStr : String; Ctrl,Alt,Shift : Boolean);
@@ -187,10 +192,14 @@ type
     function    IgnoreItemReset(List : String = '') : Boolean;
     function    ScanJournal(OldRef : Cardinal) : Boolean;
     procedure   GetJournal(Index : Cardinal);
+    function    JournalLine(Index : Cardinal) : String;
     function    TileInit(NoOverrides : Boolean = False) : Boolean;
     function    TileCnt(X,Y : Cardinal; Facet : Integer = -1) : Cardinal;
     function    TileGet(X,Y,Layer : Cardinal; Facet : Integer = -1) : Boolean;
     function    PathMap(Facet : Integer) : TWalkMap;
+    function    PathSource(Facet : Integer) : TLiveOverlay;
+    procedure   PathRefreshLive(Facet : Integer);
+    procedure   PathLiveObjects(X, Y, Range : Integer; var Objs : TLiveObjs);
     function    GetCont(Index : Cardinal) : Boolean;
     function    GetShopInfo : Boolean;
     function    SetShopItem(ID,Quantity : Cardinal) : Boolean;
@@ -260,6 +269,8 @@ begin
   WalkMap:=nil;
   PathPlanner:=TPathPlanner.Create;
   PathDifs:=False;
+  PathLive:=TLiveOverlay.Create;
+  PathWalker:=TPathWalker.Create(PathPlanner,PathLive);
   Delay:=DFunc;
   JournalList:=TStringList.Create;
   IgnoreIDs:=TStringList.Create;
@@ -334,6 +345,8 @@ begin
   FilterID.Free;
   FilterType.Free;
   FilterCont.Free;
+  PathWalker.Free;
+  PathLive.Free;
   WalkMap.Free;
   PathPlanner.Free;
   inherited Free;
@@ -1160,6 +1173,129 @@ begin
   if WalkMap.SelectFacet(Facet) then Result:=WalkMap;
 end;
 
+// The live overlay on Facet's world model (nil without one, as PathMap). Its objects stay as they
+// are: PathRefreshLive or the walker fill them.
+function TUOCmd.PathSource(Facet : Integer) : TLiveOverlay;
+var
+  Map : TWalkMap;
+begin
+  Result:=nil;
+  Map:=PathMap(Facet);
+  if Map=nil then Exit;
+  PathLive.Base:=Map;
+  PathLive.TileInfo:=Map.StaticInfo;
+  PathLive.Facet:=Facet;
+  PathLive.SelfID:=UOVar.CharID;
+  Result:=PathLive;
+end;
+
+// Fills the live overlay with what the client holds around the character when Facet is the
+// character's; else empties it. The learned blocks stay either way.
+procedure TUOCmd.PathRefreshLive(Facet : Integer);
+var
+  Objs : TLiveObjs;
+begin
+  if (UOSel.Nr>0) and (Integer(UOVar.CursKind)=Facet) then
+  begin
+    PathLiveObjects(UOVar.CharPosX,UOVar.CharPosY,LIVE_RANGE,Objs);
+    PathLive.SetObjects(Objs);
+  end
+  else PathLive.ClearObjects;
+end;
+
+// Where a build keeps the pieces of the houses (multis) it has drawn: a linked list from a global,
+// each piece with its position and graphic. Not a TCstDB field: only the pathfinder reads it, and
+// it is known for one build so far. Read in the running client_beta.exe 7.0.117.31 near Minoc
+// on 2026-10-26: the ~3,400 objects of that list all share one vtable, and with the ~2,200 of
+// them inside the house at 2693..2723 x 495..509 an emulation of the client's own pathfinder gave
+// the "Can't get there" the game gave. Head is a link-time address (see TCstDB.ImageDelta).
+type
+  TMultiList = record
+    Stamp   : Cardinal;   // PE TimeDateStamp of the client exe
+    Head    : Cardinal;   // the global holding the first piece
+    Next    : Cardinal;   // in a piece: the next piece
+    Pos     : Cardinal;   //   X, Y, Z (SmallInts)
+    Graphic : Cardinal;   //   the tile graphic (Word)
+  end;
+
+const
+  MultiLists : array[0..0] of TMultiList = (
+    (Stamp: $6AD6CEB3; Head: $00B5B70C; Next: $9C; Pos: $48; Graphic: $70)
+  );
+  PATH_LIVE_MAX = 100000;   // objects read per list at most: a broken list never loops forever
+
+// What the client holds within Range tiles of X,Y, for the walker's live overlay. Ground items
+// and mobiles come from the item list FindItem reads (C_CHARPTR): an item's serial has bit
+// $40000000, a mobile's has not (the protocol's split), and a kind other than 1 is in a container.
+// House pieces come from the multi list of the builds MultiLists knows. Read only.
+procedure TUOCmd.PathLiveObjects(X, Y, Range : Integer; var Objs : TLiveObjs);
+var
+  Buf     : array[0..$3FF] of Byte;
+  Nxt, ID : Cardinal;
+  Img, E  : Cardinal;
+  Stamp   : Cardinal;
+  n, i, k : Integer;
+  O       : TLiveObj;
+
+  procedure Add;
+  begin
+    if (Abs(O.X-X)>Range) or (Abs(O.Y-Y)>Range) then Exit;
+    if Length(Objs)<=n then SetLength(Objs,n*2+64);
+    Objs[n]:=O;
+    Inc(n);
+  end;
+
+begin
+  n:=0;
+  SetLength(Objs,0);
+  if UOSel.Nr=0 then Exit;
+
+  RWV(Read,Cst.CHARPTR,@Nxt,4);
+  i:=0;
+  while (Nxt>0) and (i<PATH_LIVE_MAX) do
+  begin
+    RWV(Read,Nxt,@Buf,Cst.BITEMID+$10);
+    Nxt:=Cardinal((@Buf[Cst.BITEMID+$0C])^);
+    Inc(i);
+    if Buf[Cst.BPOS-4]<>1 then Continue;
+    ID:=Cardinal((@Buf[Cst.BITEMID])^);
+    O.ID:=ID;
+    O.X:=SmallInt((@Buf[Cst.BPOS])^);
+    O.Y:=SmallInt((@Buf[Cst.BPOS+2])^);
+    O.Z:=SmallInt((@Buf[Cst.BPOS+4])^);
+    O.Graphic:=Word((@Buf[Cst.BITEMTYPE])^);
+    if (ID and $40000000)<>0 then O.Kind:=lkItem
+    else O.Kind:=lkMobile;
+    Add;
+  end;
+
+  Img:=Cst.IMAGEBASE;
+  E:=0;
+  Stamp:=0;
+  RWV(Read,Img+$3C,@E,4);
+  if E<$1000 then RWV(Read,Img+E+8,@Stamp,4);
+  for i:=0 to High(MultiLists) do
+    if MultiLists[i].Stamp=Stamp then
+    begin
+      RWV(Read,MultiLists[i].Head+Img-LINK_IMAGE_BASE,@Nxt,4);
+      k:=0;
+      while (Nxt>0) and (k<PATH_LIVE_MAX) do
+      begin
+        RWV(Read,Nxt,@Buf,MultiLists[i].Next+4);
+        Nxt:=Cardinal((@Buf[MultiLists[i].Next])^);
+        Inc(k);
+        O.ID:=0;
+        O.Kind:=lkMulti;
+        O.X:=SmallInt((@Buf[MultiLists[i].Pos])^);
+        O.Y:=SmallInt((@Buf[MultiLists[i].Pos+2])^);
+        O.Z:=SmallInt((@Buf[MultiLists[i].Pos+4])^);
+        O.Graphic:=Word((@Buf[MultiLists[i].Graphic])^);
+        Add;
+      end;
+    end;
+  SetLength(Objs,n);
+end;
+
 ////////////////////////////////////////////////////////////////////////////////
 procedure TUOCmd.GetJournal(Index : Cardinal);
 begin
@@ -1168,6 +1304,14 @@ begin
   if Index>=JournalList.Count then Exit;
   JournalStr:=JournalList[Index];
   JournalCol:=Cardinal(JournalList.Objects[Index]);
+end;
+
+// Port addition (PATH): line Index of what the last ScanJournal read (0 = the newest), without
+// touching JournalStr/JournalCol, which the script reads.
+function TUOCmd.JournalLine(Index : Cardinal) : String;
+begin
+  Result:='';
+  if Index<Cardinal(JournalList.Count) then Result:=JournalList[Index];
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

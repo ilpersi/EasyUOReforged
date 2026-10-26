@@ -29,10 +29,20 @@ EasyUO for anything important, until you have checked that the scripts and featu
 - **Client versions.** EasyUO Reforged knows the classic client (`client.exe`) from 2.0.0 up to 7.0.117.1,
   and two builds of `client_beta.exe` (7.0.117.1 and 7.0.117.31). A newer client needs its memory offsets
   added first; see [Add a new client](/developers/adding-a-client/).
-- **[`Path`](/commands/path/) plans, it doesn't walk**, and it only knows the map files: player houses,
-  items players placed, doors and creatures are not on its map. Walking a route, and seeing those, comes
-  later; until then a script walks a planned route with [`event PathFind`](/commands/event/pathfind/). On a
-  live client, `path find` has only been checked by hand so far.
+- **[`Path`](/commands/path/)** knows the map files everywhere, but player houses, items players placed,
+  doors and creatures only where your client holds them, around the character. A long route can lead into
+  a house farther away; the walker goes round it once it gets near.
+  - It reads the walls and floors of player houses only on `client_beta.exe` 7.0.117.31. On other clients
+    the walker finds a house when its steps are refused, which is slower.
+  - The walker doesn't go into player houses unless told to ([`path set doors all`](/commands/path/set/)).
+    Inside a house, the server can refuse tiles the client shows as free.
+  - A link to another facet (a moongate) is not followed: the walk stops there.
+  - Client mode ([`path set mode client`](/commands/path/set/)) is not the default: on `client_beta.exe` the
+    client's own walk keeps ending early or taking its own way, and once left
+    [`#CharPosX`](/variables/charposx/) a few tiles off until the next login. There,
+    [`path stop`](/commands/path/stop/) also can't stop the client's walk to the last point it was sent to.
+  - Walking has been checked by hand on `client_beta.exe` only; `path find` and `path can` also on
+    `client.exe`.
 - **Symbol fonts in menus.** A [`menu`](/commands/menu/) text, button or checkbox using a symbol font such
   as Wingdings only shows the intended glyphs if that exact font is installed. Otherwise Windows substitutes
   another font, as the original did.

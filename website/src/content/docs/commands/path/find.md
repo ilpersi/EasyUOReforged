@@ -7,12 +7,12 @@ syntax: "path find {x} {y} [z]"
 origin: reforged
 needsClient: true
 sets: ["#PathState", "#PathCnt", "#PathX", "#PathY", "#PathZ", "#PathDir"]
-related: ["path get", "path set", "path from", "event PathFind"]
+related: ["path get", "path walk", "path go", "path set", "path from", "event PathFind"]
 aliases: ["pathfinding", "route"]
 ---
 
 `path find` plans a route from your character to `x`, `y` on the facet you are on, and keeps it for
-[`path get`](/commands/path/get/). The character does not move.
+[`path get`](/commands/path/get/) and [`path walk`](/commands/path/walk/). The character does not move.
 
 ## Parameters
 
@@ -37,9 +37,9 @@ aliases: ["pathfinding", "route"]
 
 ## Details
 
-- The route starts where your character stands, facing the way it faces: [`#CharPosX`](/variables/charposx/),
-  [`#CharPosY`](/variables/charposy/), [`#CharPosZ`](/variables/charposz/), [`#CharDir`](/variables/chardir/),
-  on facet [`#CursKind`](/variables/curskind/). [`path from`](/commands/path/from/) starts it elsewhere.
+- The route starts where your character stands: [`#CharPosX`](/variables/charposx/),
+  [`#CharPosY`](/variables/charposy/), [`#CharPosZ`](/variables/charposz/), on facet
+  [`#CursKind`](/variables/curskind/). The way it faces doesn't matter. [`path from`](/commands/path/from/) starts it elsewhere.
 - **Arriving.** The route ends exactly at `x`, `y`, unless `accuracy` is set ([`path set`](/commands/path/set/)).
   If nothing can stand there (a tree, a rock, a chest), the route ends next to it.
 - **The shortest walk.** A diagonal step takes as long as a straight one, so the route is the one with the
@@ -50,12 +50,27 @@ aliases: ["pathfinding", "route"]
   as the goal is near, because the search only looks within 100 tiles around start and goal (`margin`).
 - **Blocks, avoid areas and links** set with [`path block`](/commands/path/block/),
   [`path avoid`](/commands/path/avoid/) and [`path link`](/commands/path/link/) are used.
-- The map is read from the client's files. See [What the route knows about](/commands/path/#what-the-route-knows-about):
-  houses, items players placed, doors and creatures are not on it.
+- The map is read from the client's files. On top of it, the route sees what your client holds around the
+  character: items on the ground, doors, creatures and, on `client_beta.exe` 7.0.117.31, the pieces of
+  player houses. Farther away, those are not on it. See
+  [What the route knows about](/commands/path/#what-the-route-knows-about).
+- Places where a walk had a step refused are avoided for a while (`blocktime` in
+  [`path set`](/commands/path/set/)).
+- A walk [`path step`](/commands/path/step/) is moving on ends.
 
 ## Example
 
-Plan a route to the Britain bank, then walk it a stretch at a time with the client's own pathfinder:
+Plan a route to the Britain bank and walk it:
+
+```euo
+path find 1434 1699
+if #PathState <> ok
+  halt
+path walk
+```
+
+[`path walk`](/commands/path/walk/) does all the work. By hand, a script can walk the route a stretch at a time
+with the client's own pathfinder:
 
 ```euo
 path find 1434 1699

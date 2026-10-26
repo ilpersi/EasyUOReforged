@@ -45,6 +45,8 @@ type
     procedure TestPathFindNeedsAClient;
     procedure TestPathRulesWorkWithoutAClient;
     procedure TestPathBadArgumentsLandInPathState;
+    procedure TestPathWalkingNeedsAClient;
+    procedure TestPathWalkerOptions;
 
     procedure TestIfTrueRunsBodyAndSkipsElse;
     procedure TestIfFalseSkipsBodyAndRunsElse;
@@ -389,6 +391,67 @@ begin
   AssertEquals('error: unknown path command: frobnicate', Interp.GetVar('%e'));
   AssertTrue(Pos('error:', Interp.GetVar('%f')) = 1);
   AssertEquals('the script goes on', 'reached', Interp.GetVar('%x'));
+end;
+
+// GO, WALK and STEP say why they can't walk and never stop the script; STOP always answers stopped.
+procedure TEuoInterpreterTests.TestPathWalkingNeedsAClient;
+begin
+  PlayScript(
+    'path go 1434 1699' + #13#10 + 'set %a #PathState' + #13#10 +
+    'path walk' + #13#10 + 'set %b #PathState' + #13#10 +
+    'path step' + #13#10 + 'set %c #PathState' + #13#10 +
+    'path stop' + #13#10 + 'set %d #PathState' + #13#10 +
+    'path go abc 10' + #13#10 + 'set %e #PathState' + #13#10 +
+    'path go 10 10 0 -1' + #13#10 + 'set %f #PathState' + #13#10 +
+    'set %x reached' + #13#10 +
+    'HALT');
+  AssertEquals('noclient', Interp.GetVar('%a'));
+  AssertEquals('noclient', Interp.GetVar('%b'));
+  AssertEquals('noclient', Interp.GetVar('%c'));
+  AssertEquals('stopped', Interp.GetVar('%d'));
+  AssertEquals('error: path go {x} {y} [z] [accuracy] [timeout]', Interp.GetVar('%e'));
+  AssertEquals('error: path go {x} {y} [z] [accuracy] [timeout]', Interp.GetVar('%f'));
+  AssertEquals('reached', Interp.GetVar('%x'));
+end;
+
+procedure TEuoInterpreterTests.TestPathWalkerOptions;
+begin
+  PlayScript(
+    'path set mode steps' + #13#10 + 'set %a #PathState' + #13#10 +
+    'path set mode client' + #13#10 + 'set %b #PathState' + #13#10 +
+    'path set mode auto' + #13#10 + 'set %c #PathState' + #13#10 +
+    'path set mode fly' + #13#10 + 'set %d #PathState' + #13#10 +
+    'path set mobiles ignore' + #13#10 + 'set %e #PathState' + #13#10 +
+    'path set mobiles maybe' + #13#10 + 'set %f #PathState' + #13#10 +
+    'path set doors off' + #13#10 + 'set %g #PathState' + #13#10 +
+    'path set doors all' + #13#10 + 'set %p #PathState' + #13#10 +
+    'path set doors maybe' + #13#10 + 'set %q #PathState' + #13#10 +
+    'path set doorcost 80' + #13#10 + 'set %h #PathState' + #13#10 +
+    'path set lead 12' + #13#10 + 'set %i #PathState' + #13#10 +
+    'path set lead 0' + #13#10 + 'set %j #PathState' + #13#10 +
+    'path set blocktime 30s' + #13#10 + 'set %k #PathState' + #13#10 +
+    'path clear learned' + #13#10 + 'set %l #PathState' + #13#10 +
+    'path set log walk.log' + #13#10 + 'set %m #PathState' + #13#10 +
+    'path set log off' + #13#10 + 'set %n #PathState' + #13#10 +
+    'path set log' + #13#10 + 'set %o #PathState' + #13#10 +
+    'HALT');
+  AssertEquals('ok', Interp.GetVar('%a'));
+  AssertEquals('ok', Interp.GetVar('%b'));
+  AssertEquals('ok', Interp.GetVar('%c'));
+  AssertEquals('error: path set mode auto|client|steps', Interp.GetVar('%d'));
+  AssertEquals('ok', Interp.GetVar('%e'));
+  AssertEquals('error: path set mobiles block|ignore', Interp.GetVar('%f'));
+  AssertEquals('ok', Interp.GetVar('%g'));
+  AssertEquals('ok', Interp.GetVar('%p'));
+  AssertEquals('error: path set doors on|off|all', Interp.GetVar('%q'));
+  AssertEquals('ok', Interp.GetVar('%h'));
+  AssertEquals('ok', Interp.GetVar('%i'));
+  AssertEquals('error: path set lead needs a number of 1 or more', Interp.GetVar('%j'));
+  AssertEquals('ok', Interp.GetVar('%k'));
+  AssertEquals('ok', Interp.GetVar('%l'));
+  AssertEquals('ok', Interp.GetVar('%m'));
+  AssertEquals('ok', Interp.GetVar('%n'));
+  AssertEquals('error: path set log {file}|off', Interp.GetVar('%o'));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

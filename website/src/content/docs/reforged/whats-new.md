@@ -16,12 +16,18 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 ## New commands and variables
 
 - **[`Path`](/commands/path/)**: plan a walking route anywhere on the facet, around walls and water, over
-  bridges and up stairs, from the client's own map files. It is the first part of the pathfinder: it
-  plans but does not walk yet. With [`path block`](/commands/path/block/),
-  [`path avoid`](/commands/path/avoid/) and [`path link`](/commands/path/link/) a script adds what the map
-  doesn't know. Results come back in [`#PathState`](/variables/pathstate/), [`#PathCnt`](/variables/pathcnt/),
-  [`#PathX`](/variables/pathx/), [`#PathY`](/variables/pathy/), [`#PathZ`](/variables/pathz/) and
-  [`#PathDir`](/variables/pathdir/).
+  bridges and up stairs, from the client's own map files, and walk it.
+  - [`path go`](/commands/path/go/) and [`path walk`](/commands/path/walk/) walk a route and wait;
+    [`path step`](/commands/path/step/) and [`path stop`](/commands/path/stop/) let a script heal or fight
+    meanwhile.
+  - The walker walks step by step, or drives the client's own pathfinder a stretch at a time. It sees the
+    items, doors, creatures and (on `client_beta.exe` 7.0.117.31) house walls your client holds, opens doors,
+    and goes round what it finds in the way.
+  - With [`path block`](/commands/path/block/), [`path avoid`](/commands/path/avoid/) and
+    [`path link`](/commands/path/link/) a script adds what the map doesn't know.
+  - Results come back in [`#PathState`](/variables/pathstate/), [`#PathCnt`](/variables/pathcnt/),
+    [`#PathX`](/variables/pathx/), [`#PathY`](/variables/pathy/), [`#PathZ`](/variables/pathz/) and
+    [`#PathDir`](/variables/pathdir/).
 - **[`SQL`](/commands/sql/)**: keep data in an SQLite database file, with raw SQL or a quick
   [`save`](/commands/sql/save/) / [`load`](/commands/sql/load/) of variables. Results come back in
   [`#SqlRes`](/variables/sqlres/), [`#SqlCnt`](/variables/sqlcnt/),

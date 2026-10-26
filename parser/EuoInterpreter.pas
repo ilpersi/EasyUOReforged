@@ -55,7 +55,8 @@ unit EuoInterpreter;
   its statement from the raw source line (RawLineText) rather than changing ParseLine.
   Likewise the PATH command (the pathfinder, see docs\pathfinding.md) plus the read-only
   #PathCnt/#PathState/#PathX/#PathY/#PathZ/#PathDir (indices 119..124), another new
-  command word with plain ParseLine arguments.
+  command word with plain ParseLine arguments. Its walker (PATH GO/WALK/STEP) waits only
+  through Delay, as MOVE does, and drives the client through TEuoWalkClient below.
 }
 
 {$mode delphi}{$H+}
@@ -66,7 +67,7 @@ uses
   EuoTokens, EuoConversion, EuoExpression, EuoVariables, EuoScriptStack,
   EuoSortedList, EuoCommandRegistry, EuoStdCommands, EuoComm, EuoMenu,
   uotypes, access, ReforgedVersion, uoselector, uovariables, uocommands, uoevents, EuoLock,
-  EuoSql, walkrules, walkmap, pathplan;
+  EuoSql, walkrules, walkmap, pathplan, walklive, pathwalk;
 
 const
   RES_OK    = 0;
@@ -129,6 +130,14 @@ type
     PathFromY    : Integer;
     PathFromZ    : Integer;
     PathFromF    : Integer;
+    PathGoalSet  : Boolean;       // the goal PATH WALK/STEP walk to: the last PATH FIND's or GO's
+    PathGoalX    : Integer;
+    PathGoalY    : Integer;
+    PathGoalZ    : Integer;
+    PathGoalHasZ : Boolean;
+    PathGoalAcc  : Integer;
+    PathCli      : TWalkClient;   // the walker's view of the client (TEuoWalkClient)
+    PathLogFile  : String;        // path set log: where the walker's decisions go, '' = nowhere
 
     procedure    RegisterCommands;
     function     RawLineText : String;
@@ -189,6 +198,10 @@ type
     procedure    PathSetSub;
     procedure    PathAreaSub(const Sub : String);
     procedure    PathLinkSub;
+    procedure    PathGoSub;
+    procedure    PathWalkRun(Fresh, OneTick : Boolean; TimeOut : Cardinal);
+    procedure    PathShowRoute;
+    procedure    PathLogLine(const Line : String);
 
     // Cmd2 (client-dependent) command handlers
     procedure    TileProc;
@@ -472,6 +485,7 @@ begin
   DJournalSave:=0;
 
   Sql:=TEuoSql.Create(@Brk);
+  PathCli:=nil;
   SqlCnt:=0;
   SqlChanges:=0;
   SqlLastID:=0;
@@ -496,6 +510,7 @@ begin
   MenuObj.Free;
   CommObj.Free;
   Sql.Free;
+  PathCli.Free;
 
   CS.Free;
 
@@ -2608,11 +2623,136 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Port addition (PATH): the walker's view of the client (pathwalk.TWalkClient), through this
+// interpreter: the events (PathFind, the walk and the open-door macros), the journal, Delay (so
+// Stop and Pause work) and the lock, which a replan's search releases as PATH FIND's does. Time
+// spent paused is left out of Now, so a pause doesn't count as standing still.
+type
+  TEuoWalkClient = class(TWalkClient)
+  private
+    Interp   : TEuoInterpreter;
+    Mark     : Cardinal;   // JIndex at MarkJournal
+    PausedMs : QWord;
+  public
+    constructor Create(AInterp : TEuoInterpreter);
+    function  Position(out X, Y, Z, Dir, Facet : Integer) : Boolean; override;
+    procedure PathFind(X, Y, Z : Integer); override;
+    procedure Step(Dir : Integer); override;
+    procedure OpenDoor; override;
+    procedure MarkJournal; override;
+    function  CantGetThere : Boolean; override;
+    procedure LiveObjects(X, Y : Integer; var Objs : TLiveObjs); override;
+    function  Now : QWord; override;
+    function  Wait(Ms : Cardinal) : Boolean; override;
+    function  CanPathFind : Boolean; override;
+    procedure Busy(On : Boolean); override;
+    function  StopFlag : PBoolean; override;
+  end;
+
+constructor TEuoWalkClient.Create(AInterp : TEuoInterpreter);
+begin
+  inherited Create;
+  Interp:=AInterp;
+end;
+
+function TEuoWalkClient.Position(out X, Y, Z, Dir, Facet : Integer) : Boolean;
+begin
+  X:=0;
+  Y:=0;
+  Z:=0;
+  Dir:=0;
+  Facet:=0;
+  Result:=Interp.UOSel.Nr>0;
+  if not Result then Exit;
+  X:=Interp.UOVar.CharPosX;
+  Y:=Interp.UOVar.CharPosY;
+  Z:=Interp.UOVar.CharPosZ;
+  Dir:=Interp.UOVar.CharDir and 7;
+  Facet:=Interp.UOVar.CursKind;
+end;
+
+procedure TEuoWalkClient.PathFind(X, Y, Z : Integer);
+begin
+  Interp.EventObj.Pathfind(X,Y,Z);
+end;
+
+// The walk macro numbers directions from north-west (EVENT MACRO 5 0 = NW, 1 = N, ...), #CharDir
+// from north.
+procedure TEuoWalkClient.Step(Dir : Integer);
+begin
+  Interp.EventObj.Macro(5,(Dir+1) and 7);
+end;
+
+procedure TEuoWalkClient.OpenDoor;
+begin
+  Interp.EventObj.Macro(12,0);
+end;
+
+procedure TEuoWalkClient.MarkJournal;
+begin
+  Interp.UpdateJournal;
+  Mark:=Interp.JIndex;
+end;
+
+// The lines that came in since MarkJournal (JIndex counts them, as for SCANJOURNAL), newest first.
+function TEuoWalkClient.CantGetThere : Boolean;
+var
+  n, i : Cardinal;
+begin
+  Result:=False;
+  Interp.UpdateJournal;
+  if Interp.JIndex<=Mark then Exit;
+  n:=Interp.JIndex-Mark;
+  if n>100 then n:=100;
+  Mark:=Interp.JIndex;
+  for i:=0 to n-1 do
+    if Pos('can''t get there',LowerCase(Interp.UOCmd.JournalLine(i)))>0 then Exit(True);
+end;
+
+procedure TEuoWalkClient.LiveObjects(X, Y : Integer; var Objs : TLiveObjs);
+begin
+  Interp.UOCmd.PathLiveObjects(X,Y,LIVE_RANGE,Objs);
+end;
+
+function TEuoWalkClient.Now : QWord;
+begin
+  Result:=GetTickCount64-PausedMs;
+end;
+
+function TEuoWalkClient.Wait(Ms : Cardinal) : Boolean;
+var
+  T, E : QWord;
+begin
+  T:=GetTickCount64;
+  Result:=Interp.Delay(Ms);
+  E:=GetTickCount64-T;
+  if E>Ms+250 then Inc(PausedMs,E-Ms);   // held by Pause
+end;
+
+function TEuoWalkClient.CanPathFind : Boolean;
+begin
+  Result:=Interp.UOSel.CstDB.EPATHFINDADDR<>0;
+end;
+
+procedure TEuoWalkClient.Busy(On : Boolean);
+begin
+  if On then Interp.CS.EndWrite
+  else Interp.CS.BeginWrite;
+end;
+
+function TEuoWalkClient.StopFlag : PBoolean;
+begin
+  Result:=@Interp.Brk;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 // Port addition (PATH): the pathfinder (planner pathplan.pas, step rules walkrules.pas, world
-// model walkmap.pas, owned by UOCmd; see docs\pathfinding.md). Every sub-command sets #PathState:
-// 'ok', a search result (nopath, budget, timeout, stopped), 'blocked' for PATH CAN, 'noclient',
-// 'nomap', or 'error: ...' for bad arguments. Registered without RequiresClient so that a script
-// can set options and rules before a client is attached; FIND and CAN check for one themselves.
+// model walkmap.pas, walker pathwalk.pas and its live overlay walklive.pas, owned by UOCmd; see
+// docs\pathfinding.md). Every sub-command sets #PathState: 'ok', a search result (nopath, budget,
+// timeout, stopped), 'blocked' for PATH CAN, a walk result (walking, arrived, blocked, failed,
+// timeout, stopped, link), 'noclient', 'nomap', or 'error: ...' for bad arguments. Registered
+// without RequiresClient so that a script can set options and rules before a client is attached;
+// FIND, CAN and the walking ones check for one themselves.
 procedure TEuoInterpreter.PathReset;
 begin
   PathCnt:=0;
@@ -2626,6 +2766,13 @@ begin
   UOCmd.PathPlanner.ClearRules(True,True,True);
   UOCmd.PathPlanner.StepCount:=0;
   UOCmd.PathDifs:=False;
+  PathGoalSet:=False;
+  PathLogFile:='';
+  UOCmd.PathWalker.Reset;
+  UOCmd.PathWalker.ResetOptions;
+  UOCmd.PathLive.ResetOptions;
+  UOCmd.PathLive.ClearLearned;
+  UOCmd.PathLive.ClearObjects;
 end;
 
 // The facet rules and plans default to: PATH FROM's, else the character's.
@@ -2668,6 +2815,7 @@ var
   Sub  : String;
   What : String;
   N    : Integer;
+  T    : Cardinal;
   P   : TPathPlanner;
 begin
   P:=UOCmd.PathPlanner;
@@ -2679,6 +2827,19 @@ begin
   else if Sub='SET' then PathSetSub
   else if (Sub='BLOCK')or(Sub='UNBLOCK')or(Sub='AVOID') then PathAreaSub(Sub)
   else if Sub='LINK' then PathLinkSub
+  else if Sub='GO' then PathGoSub
+  else if Sub='WALK' then
+  begin
+    T:=0;
+    if ParList.Count>2 then T:=ParseTicksOrSeconds(ParList[2],0)*50;
+    PathWalkRun(False,False,T);
+  end
+  else if Sub='STEP' then PathWalkRun(False,True,0)
+  else if Sub='STOP' then
+  begin
+    UOCmd.PathWalker.Stop;   // the client still finishes a PathFind it was given
+    PathState:='stopped';
+  end
   else if Sub='GET' then
   begin
     N:=0;
@@ -2722,13 +2883,18 @@ begin
   else if Sub='CLEAR' then
   begin
     What:=ParList[2].StrU;   // not Sub: tests\tools\EuoNames.ps1 reads the sub-commands off Sub='...'
-    if (What='')or(What='ALL') then P.ClearRules(True,True,True)
+    if (What='')or(What='ALL') then
+    begin
+      P.ClearRules(True,True,True);
+      UOCmd.PathLive.ClearLearned;
+    end
     else if (What='BLOCKS')or(What='BLOCK') then P.ClearRules(True,False,False)
     else if (What='AVOIDS')or(What='AVOID') then P.ClearRules(False,True,False)
     else if (What='LINKS')or(What='LINK') then P.ClearRules(False,False,True)
+    else if What='LEARNED' then UOCmd.PathLive.ClearLearned
     else
     begin
-      PathState:='error: path clear [blocks|avoid|links|all]';
+      PathState:='error: path clear [blocks|avoid|links|learned|all]';
       Exit;
     end;
     PathState:='ok';
@@ -2736,20 +2902,23 @@ begin
   else PathState:='error: unknown path command: '+ParList[1].Str;
 end;
 
-// PATH FIND {x} {y} [z]: plans from PathStart. As SqlProc does, the lock is released while the
-// files are opened and the search runs, so the GUI never waits on it; the #Path* fields are only
-// written once it is held again. The search stops on the Stop button (Brk).
+// PATH FIND {x} {y} [z]: plans from PathStart, on the world model plus what the client holds
+// around the character (the walker's live overlay) and the learned blocks. As SqlProc does, the
+// lock is released while the files are opened and the search runs, so the GUI never waits on it;
+// the #Path* fields are only written once it is held again. The search stops on the Stop button
+// (Brk). The goal is kept for PATH WALK and PATH STEP, and a walk in progress ends.
 procedure TEuoInterpreter.PathFindSub;
 var
   SX, SY, SZ, SDir, F : Integer;
   GX, GY, GZ          : Integer;
   HasZ, Ok            : Boolean;
   R                   : TPathResult;
-  Map                 : TWalkMap;
+  Src                 : TLiveOverlay;
   Err                 : String;
   P                   : TPathPlanner;
 begin
   P:=UOCmd.PathPlanner;
+  UOCmd.PathWalker.Reset;
   PathCnt:=0;
   P.StepCount:=0;
   if not(ParList[2].CardValid and ParList[3].CardValid) then
@@ -2763,6 +2932,12 @@ begin
   HasZ:=ParList[4].IntValid;
   GZ:=0;
   if HasZ then GZ:=ParList[4].Int;
+  PathGoalX:=GX;
+  PathGoalY:=GY;
+  PathGoalZ:=GZ;
+  PathGoalHasZ:=HasZ;
+  PathGoalAcc:=P.AccuracyXY;
+  PathGoalSet:=True;
 
   Ok:=False;
   Err:='';
@@ -2770,10 +2945,13 @@ begin
   CS.EndWrite;
   try
     try
-      Map:=UOCmd.PathMap(F);
-      if Map<>nil then
+      Src:=UOCmd.PathSource(F);
+      if Src<>nil then
       begin
-        R:=P.Find(Map,F,SX,SY,SZ,SDir,GX,GY,GZ,HasZ,@Brk);
+        UOCmd.PathRefreshLive(F);
+        // No facing (-1): with it, a first step in the facing direction saves a turn, and a
+        // character facing south-east planned a V of 11 + 11 diagonal steps instead of 22 east.
+        R:=P.Find(Src,F,SX,SY,SZ,-1,GX,GY,GZ,HasZ,@Brk);
         Ok:=True;
       end;
     except
@@ -2808,11 +2986,12 @@ begin
 end;
 
 // PATH CAN {x} {y} [z]: can a character stand there (nearest height to z, default the start's)?
+// Asked of the world model plus what the client holds around the character, as PATH FIND.
 procedure TEuoInterpreter.PathCanSub;
 var
   SX, SY, SZ, SDir, F : Integer;
   X, Y, Z, i          : Integer;
-  Map                 : TWalkMap;
+  Src                 : TLiveOverlay;
   Ok                  : Boolean;
 begin
   if not(ParList[2].CardValid and ParList[3].CardValid) then
@@ -2827,7 +3006,8 @@ begin
   if ParList[4].IntValid then Z:=ParList[4].Int;
 
   try
-    Map:=UOCmd.PathMap(F);
+    Src:=UOCmd.PathSource(F);
+    if Src<>nil then UOCmd.PathRefreshLive(F);
   except
     on E: Exception do
     begin
@@ -2835,13 +3015,13 @@ begin
       Exit;
     end;
   end;
-  if Map=nil then
+  if Src=nil then
   begin
     PathState:='nomap';
     Exit;
   end;
 
-  Ok:=StandZ(Map,X,Y,Z);
+  Ok:=StandZ(Src,X,Y,Z);
   with UOCmd.PathPlanner do
     for i:=0 to High(Blocks) do
       if (Blocks[i].Facet=F) and (X>=Blocks[i].X1) and (X<=Blocks[i].X2) and
@@ -2859,16 +3039,102 @@ begin
   else PathState:='blocked';
 end;
 
-// PATH SET {option} {value}. Costs are in hundredths of a step; timeout as WAIT (ticks, or
-// seconds with an s).
+// PATH SET {option} {value}. Costs are in hundredths of a step; timeout and blocktime as WAIT
+// (ticks, or seconds with an s).
 procedure TEuoInterpreter.PathSetSub;
 var
   Opt : String;
+  Val : String;
   V   : Int64;
   P   : TPathPlanner;
+  W   : TPathWalker;
 begin
   P:=UOCmd.PathPlanner;
+  W:=UOCmd.PathWalker;
   Opt:=ParList[2].StrU;
+  Val:=ParList[3].StrU;
+  if Opt='MODE' then
+  begin
+    if Val='AUTO' then W.Mode:=wmAuto
+    else if Val='CLIENT' then W.Mode:=wmClient
+    else if Val='STEPS' then W.Mode:=wmSteps
+    else
+    begin
+      PathState:='error: path set mode auto|client|steps';
+      Exit;
+    end;
+    PathState:='ok';
+    Exit;
+  end;
+
+  if Opt='MOBILES' then
+  begin
+    if Val='BLOCK' then UOCmd.PathLive.IgnoreMobiles:=False
+    else if Val='IGNORE' then UOCmd.PathLive.IgnoreMobiles:=True
+    else
+    begin
+      PathState:='error: path set mobiles block|ignore';
+      Exit;
+    end;
+    PathState:='ok';
+    Exit;
+  end;
+
+  if Opt='DOORS' then
+  begin
+    if (Val='ON')or(ParList[3].IntValid and (ParList[3].Int<>0)) then
+    begin
+      UOCmd.PathLive.OpenDoors:=True;
+      UOCmd.PathLive.OpenHouseDoors:=False;
+    end
+    else if Val='ALL' then
+    begin
+      UOCmd.PathLive.OpenDoors:=True;
+      UOCmd.PathLive.OpenHouseDoors:=True;
+    end
+    else if (Val='OFF')or(ParList[3].IntValid and (ParList[3].Int=0)) then
+    begin
+      UOCmd.PathLive.OpenDoors:=False;
+      UOCmd.PathLive.OpenHouseDoors:=False;
+    end
+    else
+    begin
+      PathState:='error: path set doors on|off|all';
+      Exit;
+    end;
+    PathState:='ok';
+    Exit;
+  end;
+
+  if Opt='LOG' then
+  begin
+    if Val='OFF' then PathLogFile:=''
+    else if Val='' then
+    begin
+      PathState:='error: path set log {file}|off';
+      Exit;
+    end
+    else
+    begin
+      PathLogFile:=ParList[3].Str;
+      if ExtractFileDrive(PathLogFile)='' then PathLogFile:=ExtractFilePath(ParamStr(0))+PathLogFile;
+    end;
+    PathState:='ok';
+    Exit;
+  end;
+
+  if Opt='BLOCKTIME' then
+  begin
+    if not(ParList[3].CardValid or (Pos('S',Val)>0)) then
+    begin
+      PathState:='error: path set blocktime {time}';
+      Exit;
+    end;
+    W.BlockLifeMs:=ParseTicksOrSeconds(ParList[3],0)*50;
+    PathState:='ok';
+    Exit;
+  end;
+
   if Opt='DIFS' then
   begin
     if (ParList[3].StrU='ON')or(ParList[3].IntValid and (ParList[3].Int<>0)) then UOCmd.PathDifs:=True
@@ -2907,6 +3173,16 @@ begin
   else if Opt='MARGIN' then P.Margin:=V
   else if Opt='TURNCOST' then P.TurnCost:=V
   else if Opt='HEURISTIC' then P.Heuristic:=V
+  else if Opt='DOORCOST' then UOCmd.PathLive.DoorCost:=V
+  else if Opt='LEAD' then
+  begin
+    if V<1 then
+    begin
+      PathState:='error: path set lead needs a number of 1 or more';
+      Exit;
+    end;
+    W.MaxDist:=V;
+  end
   else
   begin
     PathState:='error: unknown path option: '+ParList[2].Str;
@@ -2964,6 +3240,120 @@ begin
   if Sub='BLOCK' then P.AddBlock(F,Nums[0],Nums[1],Nums[2],Nums[3])
   else P.RemoveBlocks(F,Nums[0],Nums[1],Nums[2],Nums[3]);
   PathState:='ok';
+end;
+
+// PATH GO {x} {y} [z] [accuracy] [timeout]: plans from the character and walks there, waiting
+// until the walk ends, as MOVE does (the timeout as MOVE's: ticks, or seconds with an s; none by
+// default). The accuracy defaults to PATH SET ACCURACY's.
+procedure TEuoInterpreter.PathGoSub;
+var
+  TOut : Cardinal;
+begin
+  if not(ParList[2].CardValid and ParList[3].CardValid) or
+    ((ParList.Count>4) and not ParList[4].IntValid) or
+    ((ParList.Count>5) and not ParList[5].CardValid) then
+  begin
+    PathState:='error: path go {x} {y} [z] [accuracy] [timeout]';
+    Exit;
+  end;
+  PathGoalX:=ParList[2].Int;
+  PathGoalY:=ParList[3].Int;
+  PathGoalHasZ:=ParList.Count>4;
+  PathGoalZ:=0;
+  if PathGoalHasZ then PathGoalZ:=ParList[4].Int;
+  PathGoalAcc:=UOCmd.PathPlanner.AccuracyXY;
+  if ParList.Count>5 then PathGoalAcc:=ParList[5].Int;
+  PathGoalSet:=True;
+  TOut:=0;
+  if ParList.Count>6 then TOut:=ParseTicksOrSeconds(ParList[6],0)*50;
+  PathWalkRun(True,False,TOut);
+end;
+
+// The walk behind GO, WALK and STEP (UOCmd.PathWalker, pathwalk.pas). Fresh: plan anew from the
+// character (GO); else walk on: the walk STEP started, or the last plan (PATH FIND's), toward
+// the goal it was made for. OneTick: one round, no waiting (STEP); else until the walk ends or
+// TimeOut ms (0 = none) run out. Every wait is a Delay, so Stop and Pause work.
+procedure TEuoInterpreter.PathWalkRun(Fresh, OneTick : Boolean; TimeOut : Cardinal);
+var
+  W  : TPathWalker;
+  St : TWalkState;
+begin
+  W:=UOCmd.PathWalker;
+  if UOSel.Nr=0 then
+  begin
+    W.Reset;
+    PathState:='noclient';
+    Exit;
+  end;
+  if PathCli=nil then PathCli:=TEuoWalkClient.Create(Self);
+  if PathLogFile<>'' then W.OnLog:=PathLogLine
+  else W.OnLog:=nil;
+  try
+    if UOCmd.PathSource(UOVar.CursKind)=nil then
+    begin
+      W.Reset;
+      PathState:='nomap';
+      Exit;
+    end;
+    if Fresh or (W.State<>wsWalking) then
+    begin
+      if not PathGoalSet then
+      begin
+        PathState:='error: nothing to walk: path find or path go first';
+        Exit;
+      end;
+      if not W.Start(PathCli,PathGoalX,PathGoalY,PathGoalZ,PathGoalHasZ,PathGoalAcc,not Fresh) then
+      begin
+        if W.State=wsBlocked then PathState:=PathResultName(W.PlanResult)
+        else PathState:=WalkStateName(W.State);
+        PathShowRoute;
+        Exit;
+      end;
+    end;
+    if OneTick then St:=W.Tick(PathCli)
+    else St:=W.Run(PathCli,TimeOut);
+  except
+    on E: Exception do
+    begin
+      W.Reset;
+      PathState:='error: '+E.Message;
+      Exit;
+    end;
+  end;
+  PathState:=WalkStateName(St);
+  PathShowRoute;
+end;
+
+// PATH SET LOG: one line of the walker's at the end of the file. A file that can't be written ends
+// the logging rather than the script.
+procedure TEuoInterpreter.PathLogLine(const Line : String);
+var
+  F : TextFile;
+begin
+  try
+    AssignFile(F,PathLogFile);
+    if FileExists(PathLogFile) then Append(F)
+    else Rewrite(F);
+    WriteLn(F,Line);
+    CloseFile(F);
+  except
+    PathLogFile:='';
+  end;
+end;
+
+// #PathCnt and #PathX..#PathDir show the route being walked, which changes when the walker
+// replans, as PATH FIND shows its plan: the number of steps and the last one.
+procedure TEuoInterpreter.PathShowRoute;
+var
+  P : TPathPlanner;
+begin
+  P:=UOCmd.PathPlanner;
+  PathCnt:=P.StepCount;
+  if PathCnt=0 then Exit;
+  PathX:=P.Steps[PathCnt-1].X;
+  PathY:=P.Steps[PathCnt-1].Y;
+  PathZ:=P.Steps[PathCnt-1].Z;
+  PathDir:=P.Steps[PathCnt-1].Dir;
 end;
 
 // PATH LINK {x} {y} {z} {x2} {y2} {z2} [cost] [facet]: a one-way jump, cost 100 (a step) by default.

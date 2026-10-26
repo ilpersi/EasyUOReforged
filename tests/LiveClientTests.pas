@@ -46,7 +46,7 @@ interface
 uses
   Classes, SysUtils, Windows, fpcunit, testregistry,
   uoselector, uovariables, uocommands, uoevents, uotypes, uoclidata, EuoExecutor,
-  walkrules, walkmap, pathplan,
+  walkrules, walkmap, pathplan, walklive,
   // Listed although nothing here names it: the tests read TEuoInterpreter fields through
   // TExecutor.Parser, and only a direct use makes FPC recompile this unit when that class's
   // layout changes (otherwise a stale .ppu reads the fields at their old offsets).
@@ -74,6 +74,7 @@ type
     procedure TestFindItemLocatesAtLeastTheBackpack;
     procedure TestTileLookupAtCharPositionReturnsData;
     procedure TestPathMapAgreesWithTheCharactersHeight;
+    procedure TestPathLiveObjectsSeeTheCharacter;
     procedure TestExEvCustomRoundTripsWithNoVisibleEffect;
     procedure TestDynamicScanAgreesWithMilestoneData;
     procedure TestAllDiscoveredClientsHaveNonEmptyVersion;
@@ -273,6 +274,52 @@ begin
   WriteLn(Format('  path from %d,%d,%d to %d,%d: %s, %d steps, %d nodes',
     [X, Y, Vr.CharPosZ, X + 10, Y, PathResultName(R), Cmd.PathPlanner.StepCount, Cmd.PathPlanner.Expanded]));
   AssertTrue('a route, or a clear "no route"', R in [prOk, prNoPath]);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The walker's live overlay (TUOCmd.PathLiveObjects): the character itself is one of the mobiles,
+// where #CharPosX/Y/Z say, and every object lies within range of it. Read-only. Prints what it saw
+// and how long the read took, which the walker does about once a second.
+procedure TLiveClientTests.TestPathLiveObjectsSeeTheCharacter;
+var
+  Objs                   : TLiveObjs;
+  i, X, Y                : Integer;
+  Items, Mobiles, Pieces : Integer;
+  Me                     : Boolean;
+  T0                     : QWord;
+begin
+  RequireLoggedIn;
+  X := Vr.CharPosX;
+  Y := Vr.CharPosY;
+  T0 := GetTickCount64;
+  Cmd.PathLiveObjects(X, Y, LIVE_RANGE, Objs);
+  T0 := GetTickCount64 - T0;
+  Items := 0;
+  Mobiles := 0;
+  Pieces := 0;
+  Me := False;
+  for i := 0 to High(Objs) do
+  begin
+    AssertTrue('within range', (Abs(Objs[i].X - X) <= LIVE_RANGE) and (Abs(Objs[i].Y - Y) <= LIVE_RANGE));
+    case Objs[i].Kind of
+      lkItem   : Inc(Items);
+      lkMulti  : Inc(Pieces);
+      lkMobile :
+        begin
+          Inc(Mobiles);
+          if Objs[i].ID = Vr.CharID then
+          begin
+            Me := True;
+            AssertEquals('the character''s x', X, Objs[i].X);
+            AssertEquals('the character''s y', Y, Objs[i].Y);
+            AssertEquals('the character''s z', Vr.CharPosZ, Objs[i].Z);
+          end;
+        end;
+    end;
+  end;
+  WriteLn(Format('  live objects around %d,%d: %d items, %d mobiles, %d house pieces, read in %d ms',
+    [X, Y, Items, Mobiles, Pieces, T0]));
+  AssertTrue('the character is one of the mobiles', Me);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

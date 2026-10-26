@@ -9,7 +9,8 @@ unit pathplan;
     straight one, because in UO it takes the same time. A change of direction adds TurnCost,
     since the client turns before it steps; by default 30, roughly what ClassicUO's walker waits
     for a turn compared to a walking step. Avoid areas add their cost to every step that ends
-    inside them. Links (teleporters, gates, ladders) are extra edges with their own cost.
+    inside them, and the source's CellCost (the walker's live overlay: doors) to every step onto
+    the cell. Links (teleporters, gates, ladders) are extra edges with their own cost.
   - The heuristic is the Chebyshev distance in steps times Heuristic percent. At the default 100
     the search is exact. Above it is a weighted A*: on Felucca, 120 expanded about half the
     nodes from Britain to Minoc, but the path was ~4% longer with twice the turns.
@@ -42,6 +43,7 @@ type
     X, Y, Z : Integer;
     Dir     : Integer;    // 0..7 as #CharDir, PATH_DIR_LINK for a link
   end;
+  TPathSteps = array of TPathStep;
 
   TPathRect = record      // a block (Cost unused) or an avoid area
     Facet          : Integer;
@@ -118,7 +120,11 @@ type
     Avoids     : array of TPathRect;
     Links      : array of TPathLink;
     // The result of the last Find.
-    Steps      : array of TPathStep;
+    StartX     : Integer;   // where it started (the walker finds the character on it)
+    StartY     : Integer;
+    StartZ     : Integer;
+    StartFacet : Integer;
+    Steps      : TPathSteps;
     StepCount  : Integer;
     Expanded   : Integer;   // nodes the search expanded
     GoalNear   : Boolean;   // the goal could not be stood on: the path ends next to it
@@ -434,7 +440,8 @@ begin
   for d := 0 to 7 do
     if Ok[d] then
     begin
-      Cost := PATH_STEP_COST + AvoidCost(X + DirX[d], Y + DirY[d]);
+      Cost := PATH_STEP_COST + AvoidCost(X + DirX[d], Y + DirY[d]) +
+        Src.CellCost(X + DirX[d], Y + DirY[d]);
       if (PDir >= 0) and (PDir <= 7) and (PDir <> d) then Inc(Cost, TurnCost);
       Relax(X + DirX[d], Y + DirY[d], NewZ[d], d, Node, Cost);
     end;
@@ -531,6 +538,10 @@ var
 begin
   StepCount := 0;
   SetLength(Steps, 0);
+  StartX := SX;
+  StartY := SY;
+  StartZ := SZ;
+  StartFacet := Facet;
   Expanded := 0;
   GoalNear := False;
   FNodeCount := 0;

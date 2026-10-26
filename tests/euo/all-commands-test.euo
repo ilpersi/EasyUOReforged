@@ -1609,10 +1609,11 @@ sub sql_checks
 return
 
 ; ===========================================================================
-;  09c  path  [Reforged]  (the pathfinder: it only plans, nobody moves)
+;  09c  path  [Reforged]  (the pathfinder: nobody moves)
 ; ===========================================================================
 ;  The options and rules need no client. With a logged-in client, a short
-;  plan from the character's own position, read from the client's map files.
+;  plan from the character's own position, read from the client's map files,
+;  and walks to where the character already stands.
 sub sec_path
   gosub t_head 09c_path_[Reforged]
   gosub t_eq path_state_is_NA_before_any_path_command #pathstate N/A
@@ -1643,6 +1644,27 @@ sub sec_path
   path set heuristic 100
   path set difs off
   gosub t_eq path_set_the_defaults_back #pathstate ok
+  path set mode steps
+  gosub t_eq path_set_mode #pathstate ok
+  path set mobiles ignore
+  gosub t_eq path_set_mobiles #pathstate ok
+  path set doors off
+  gosub t_eq path_set_doors #pathstate ok
+  path set doors all
+  gosub t_eq path_set_doors_all #pathstate ok
+  path set log off
+  gosub t_eq path_set_log_off #pathstate ok
+  path set mode auto
+  path set mobiles block
+  path set doors on
+  path set doorcost 50
+  path set lead 18
+  path set blocktime 60s
+  gosub t_eq path_set_the_walker_defaults_back #pathstate ok
+  path clear learned
+  gosub t_eq path_clear_learned #pathstate ok
+  path stop
+  gosub t_eq path_stop_without_a_walk #pathstate stopped
   path from 1434 1699 0
   gosub t_eq path_from #pathstate ok
   path from
@@ -1655,6 +1677,12 @@ sub sec_path
   {
     path find 1434 1699
     gosub t_eq path_find_without_a_client #pathstate noclient
+    path go 1434 1699
+    gosub t_eq path_go_without_a_client #pathstate noclient
+    path walk
+    gosub t_eq path_walk_without_a_client #pathstate noclient
+    path step
+    gosub t_eq path_step_without_a_client #pathstate noclient
   }
 return
 
@@ -1676,6 +1704,14 @@ sub path_checks
     set %pe #pathx , _ , #pathy , _ , #pathz , _dir_ , #pathdir
     gosub t_info path_first_step %pe
   }
+  ; walks to where the character stands: it is there already, nobody moves
+  path go #charposx #charposy
+  gosub t_soft path_go_here_arrives_at_once #pathstate arrived
+  path walk
+  gosub t_soft path_walk_here_arrives_at_once #pathstate arrived
+  path step
+  gosub t_soft path_step_here_arrives_at_once #pathstate arrived
+  path stop
   set %c_soft 0
 return
 

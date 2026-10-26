@@ -44,6 +44,7 @@ const
   TDF_WET        = $00000080;
   TDF_SURFACE    = $00000200;
   TDF_BRIDGE     = $00000400;
+  TDF_DOOR       = $20000000;
 
   BLOCK_HEIGHT     = 16;    // ClassicUO Constants.DEFAULT_BLOCK_HEIGHT: head room a character needs
   MAX_CELL_OBJECTS = 256;   // objects kept per cell; a real cell holds a few dozen at most
@@ -75,6 +76,9 @@ type
     // Fills List with the objects on the cell, in any order. False when the cell is outside
     // the map; a cell inside it may still give an empty list (nothing to stand on).
     function GetObjects(X, Y : Integer; var List : TPathObjList) : Boolean; virtual; abstract;
+    // What a step onto the cell costs on top of a plain step, in the planner's units (pathplan's
+    // PATH_STEP_COST). 0 here; the walker's live overlay charges a little for a closed door.
+    function CellCost(X, Y : Integer) : Integer; virtual;
   end;
 
 // Appends Obj, keeping one slot free for CalcNewZ's sentinel. False when the list is full.
@@ -113,6 +117,11 @@ function  CanStep(Src : TWalkSource; X, Y, Z, Direction : Integer; out NewZ : In
 function  StandZ(Src : TWalkSource; X, Y : Integer; var Z : Integer) : Boolean;
 
 implementation
+
+function TWalkSource.CellCost(X, Y : Integer) : Integer;
+begin
+  Result := 0;
+end;
 
 function AddPathObj(var List : TPathObjList; const Obj : TPathObj) : Boolean;
 begin

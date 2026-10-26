@@ -112,6 +112,10 @@ type
     // tiledata or the facet's files are missing.
     function  SelectFacet(Facet : Integer) : Boolean;
     function  GetObjects(X, Y : Integer; var List : TPathObjList) : Boolean; override;
+    // The static tile Graphic's tiledata flags (the low 32 bits) and height, for the walker's live
+    // overlay: items and house pieces are looked up by graphic like statics. False when tiledata
+    // isn't loaded yet (no facet selected) or has no such tile.
+    function  StaticInfo(Graphic : Integer; out Flags : Cardinal; out Height : Integer) : Boolean;
     property  Folder : String read FFolder;
     property  UseDifs : Boolean read FUseDifs;
     property  NewTileData : Boolean read FNewTileData;
@@ -608,6 +612,16 @@ begin
 
   Fa.Cells[Block] := Result;
   Inc(FDecoded);
+end;
+
+function TWalkMap.StaticInfo(Graphic : Integer; out Flags : Cardinal; out Height : Integer) : Boolean;
+begin
+  Result := (Graphic >= 0) and (Graphic < Length(StaticFlags));
+  Flags := 0;
+  Height := 0;
+  if not Result then Exit;
+  Flags := StaticFlags[Graphic];
+  Height := StaticHeight[Graphic];
 end;
 
 function TWalkMap.GetObjects(X, Y : Integer; var List : TPathObjList) : Boolean;

@@ -12,7 +12,9 @@ aliases: ["walkable", "passable"]
 ---
 
 `path can` checks whether a character can stand at `x`, `y` on the facet you are on: something to stand
-on, enough head room above it, and not a [`path block`](/commands/path/block/)ed place.
+on, enough head room above it, and not a [`path block`](/commands/path/block/)ed place. Near the character
+it also looks at what your client holds there: items, creatures and house pieces, as
+[`path find`](/commands/path/find/) does.
 
 [`#PathState`](/variables/pathstate/) is `ok` or `blocked` (or `noclient` / `nomap`, as for
 [`path find`](/commands/path/find/)). [`#PathZ`](/variables/pathz/) is the height the character would stand
