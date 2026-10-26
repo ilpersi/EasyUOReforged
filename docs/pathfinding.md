@@ -41,9 +41,10 @@ Three layers of knowledge are merged into one "what is at this cell" view:
 
 1. **Static world (files):** terrain and statics, known everywhere, all the time.
 2. **Live overlay:** what the client sees now. Ground items, multis and mobiles come from the client's object
-   list. Later, possibly the client's own walkability answer (see [BlockInfo](#blockinfo-the-clients-own-answer)).
+   list. The walker also asks the client's own step check about the route ahead (see
+   [BlockInfo](#blockinfo-the-clients-own-answer)).
 3. **Memory:**
-   - blocks learned from refused steps, which expire;
+   - blocks learned from refused steps and from the client's step check, which expire;
    - the script's own rules: blocked cells, areas to avoid, and links for teleporters, gates and ladders.
 
 A planner searches that view with the server's step rules. A walker follows the path, and replans from where
@@ -220,11 +221,74 @@ Doors cost a little more than open ground, and the walker opens them with the op
 
 ### BlockInfo: the client's own answer
 
-EasyUO has always had `BlockInfo` (in `uo.dll` only). It calls the client's own walkability check for up to
-32×32 tiles at once, but its 2-byte-per-tile result has never been decoded. If it turns out to mean "you can
-stand here at height z" or "blocked", it becomes the most precise overlay possible, for everything the client
-has loaded, custom houses included. Decoding it needs testing on a live client: a wall, a door, water, stairs,
-a house.
+EasyUO has always had `BlockInfo` (in `uo.dll` only). Read from the code of `client.exe` 7.0.117.1 and
+`client_beta.exe` 7.0.117.31, the client function it calls (`C_BLOCKINFO`) is the client's step check, the
+same algorithm as ClassicUO's `CalculateNewZ`. The client's own pathfinder calls it for every move it
+considers (and for a diagonal, for both straight steps beside it), and so does its walk code before it sends
+a step.
+
+- **What it answers:** `(x, y, z, dir, &newZ, &flag) → bool`. Can a character standing at height `z` on
+  the tile behind x,y (one step back from `dir`) step onto x,y? `newZ` is the height it lands at, -128 when
+  it can't. `flag` is set when an entry of the tile's object list has the Door bit within 3 of `z`, but
+  the list never carries it while walking: the Door flag only lets a dead or GM character ignore doors. A
+  live check of a shut house door read `blocked` with the flag clear.
+- **What it knows:** every object in the client's world on that tile: map, statics, items, house pieces,
+  custom houses. Mobiles block only while the character's stamina isn't full; the character itself never
+  does. A tile the client hasn't loaded has nothing to stand on, so it reads as -128.
+- **Conventions:** on `client.exe` it is cdecl with all six arguments on the stack (its callers pop 18h). On
+  the beta, x is in ecx and y in edx, and the other four are on the stack.
+- **`BlockInfo`'s result** is that answer for every tile of the rectangle, row by row, always with
+  `dir` 0: the step north onto the tile from the one south of it, at height `z`. Each 2 bytes are the signed
+  new height, `$FF80` (-128) meaning blocked.
+- **A bug in the original:** EasyUO 1.5's cave pushed five arguments. On `client.exe` the sixth was then the
+  row counter `pushad` had saved, and the client wrote its flag byte to an address below 32, which crashes it.
+  The port pushes a pointer to a spare dword as the sixth. A five-argument build ignores it, since a cdecl
+  function never pops its own arguments. The beta's cave, written for the port, was already right.
+
+**As built (phase 3).** One direction and one height for a whole rectangle is right on flat ground and
+wrong on stairs and slopes, so it can't replace the overlay in the planner. The walker asks about its route
+instead:
+
+- `TUOEvent.StepInfo` (`uo/uoevents.pas`) runs the same function for a list of up to 128 steps in one
+  event. Each entry is 16 bytes at the cave's `+$100`: X, Y, Z (the new height comes back over it), and Dir
+  (the flag byte lands in its byte 1, unread). The cave's last instruction sets a done dword at `+$F0`, so a
+  client that didn't run the event in time isn't read as having answered. Its code was run in a small x86
+  emulator, in both conventions, against a stand-in function that records its arguments.
+- `TPathWalker.ClientCheck` (`uo/pathwalk.pas`) sends every step within `CheckDist` (12) tiles of the
+  character, each from the height of the step before, and a diagonal's two flanks. It runs after every
+  refresh of the overlay and after every new route.
+  - A tile the client refuses becomes a learned block, unless a door the walker opens or a mobile stands on
+    it.
+  - Then `Probe` asks about the 11×11 tiles round it: each tile our own model lets the character step onto
+    from the south, at the height nearest the refused step's. Each one the client refuses is learned as
+    well. In the tests a hidden house of 8×11 tiles was learned in two checks, with three replans.
+  - A step the client lands more than 2 away from the plan's height takes the client's height.
+  - Each question starts with the step onto the character's own tile. If the client refuses that, it hasn't
+    loaded the area, and the whole answer is dropped.
+- `path check {n}` and `path check {x} {y} [z] [dir]` ask the same from a script; `path set check {tiles}`
+  sets `CheckDist` (0: never ask).
+
+Checked live on 2026-10-27, one test at a time, from 2709,511,15, south of the front steps of the house at
+2693–2723, 490–509 near Minoc:
+- **Single tiles**, on `client_beta.exe` 7.0.117.31 and `client.exe` 7.0.117.1. Both clients gave the same
+  answers, and neither crashed:
+  - the character's own tile: `ok` at 15;
+  - the front steps north of it: 18;
+  - the open ground round it: 15;
+  - the shut front door and the wall beside it: refused;
+  - the hall floor behind the door: 21.
+- **`BlockInfo` on `client.exe`**, through the fixed cave: 3×3 tiles gave the same heights, in 0.16 s
+  (`TLiveClientTests.TestBlockInfoAroundTheCharacter`).
+- **`path check {n}` on the beta:**
+  - A route east round the house agreed with the client on all 12 steps checked.
+  - A route into the hall, with house doors allowed, agreed except at the shut door.
+- **The walker on `client.exe`**, which can't read house pieces. From 2709,511 to 2727,500, the straight
+  route ran through the house. The walk arrived in 8.1 s:
+  - 7 replans, and no step refused;
+  - each of the 6 refusals that learned something set off a probe, which learned 10 to 47 tiles of the house.
+    The seventh found nothing new.
+  - The client's height for the front steps (18, planned 15) replaced the plan's.
+  - The house's doors were refused but left to open.
 
 ### The client's own pathfinder
 
@@ -273,6 +337,7 @@ Read from the code of `client.exe` 7.0.117.1 and `client_beta.exe` 7.0.117.31; t
 | `path clear [what]` | Forget rules. | 1 |
 | `path go {x} {y} [z] [accuracy] [timeout]` | Plan and walk, waiting until done, like `move`. | 2 |
 | `path walk` / `path step` / `path stop` | Walk the last plan. `path step` advances without waiting, so the script can heal or read the journal between steps. | 2 |
+| `path check {n}` / `path check {x} {y} [z] [dir]` | Ask the client's own step check about step n of the plan, or a step onto x,y. | 3 |
 
 Example (phase 1, planning only):
 
@@ -296,7 +361,7 @@ for %n 1 #PathCnt
 |---|---|---|
 | 1 | World model, step rules, planner; `path find/get/can/set/block/unblock/avoid/link/clear` | unit tests and the real client files |
 | 2 | Walker (`client` and `steps` modes), live overlay, learned blocks, doors; `path go/walk/step/stop` | a live client |
-| 3 | Decode `BlockInfo`, and use it as the local overlay | a live client |
+| 3 | Decode `BlockInfo`; the walker asks the client's step check about the route ahead; `path check` | a live client |
 | 4 | `uo.dll` access, links between facets, a faster long-range search if measurements need one | tests and a live client |
 | 5 | House pieces from the client table: a `TCstDB` field for the client's list of drawn house pieces (its head global, plus the next/position/graphic offsets), found by a runtime signature pattern in `ScannerTable_Modern`, in place of the one-build `MultiLists` table in `uo/uocommands.pas`; and where `client.exe` keeps its house pieces, added the same way | `CstDbModernBuildTests`, and the live overlay test (`TestPathLiveObjectsSeeTheCharacter`) on each client |
 
@@ -307,7 +372,9 @@ for %n 1 #PathCnt
   its old dynamic-item grid), with its position, height and graphic. The walker reads that list. Not yet checked
   on `client.exe`.
 - Does `event PathFind` to the character's own tile stop a walk the client is doing? `path stop` would need it.
-- What does `BlockInfo`'s 2-byte result mean?
+- What does `BlockInfo`'s 2-byte result mean? Answered from the code: the signed height after stepping north
+  onto the tile from the one south of it, -128 when that step is refused (see
+  [BlockInfo](#blockinfo-the-clients-own-answer)).
 - How far does the client's own `PathFind` really reach on each client version? That sets the walker's
   look-ahead. Measured by hand on a live client near Minoc, with points taken from our planned route:
   - 8 steps ahead was accepted and walked exactly, height included;

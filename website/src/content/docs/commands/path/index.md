@@ -3,7 +3,7 @@ title: "Path"
 description: "Plans a walking route across the map, around walls, water and buildings, with stairs and bridges, and walks it."
 kind: command
 category: path
-syntax: "path {go|walk|step|stop|find|get|can|from|set|block|unblock|avoid|link|clear} [arguments...]"
+syntax: "path {go|walk|step|stop|find|get|can|check|from|set|block|unblock|avoid|link|clear} [arguments...]"
 origin: reforged
 needsClient: true
 sets: ["#PathState", "#PathCnt", "#PathX", "#PathY", "#PathZ", "#PathDir"]
@@ -49,6 +49,7 @@ path walk
 | [`path find`](/commands/path/find/) | Plans a route from your character (or from `path from`) to a place. |
 | [`path get`](/commands/path/get/) | Loads one step of the route into `#PathX`, `#PathY`, `#PathZ`, `#PathDir`. |
 | [`path can`](/commands/path/can/) | Says whether a character can stand at a place, and at what height. |
+| [`path check`](/commands/path/check/) | Asks the client itself whether the character can take a step of the route, or onto a place. |
 | [`path from`](/commands/path/from/) | Plans from another place instead of your character. |
 | [`path set`](/commands/path/set/) | Changes an option: accuracy, search limits, how to walk, doors, creatures, … |
 | [`path block`](/commands/path/block/) | Marks places the route must never use. |
@@ -68,9 +69,11 @@ placed, open or closed doors, and creatures**. Your client only learns about tho
 about 18 tiles.
 
 So `path` adds what your client holds around the character: items on the ground, doors, creatures and, on
-`client_beta.exe` 7.0.117.31, the walls and floors of player houses. A route is right everywhere about the
-map, and right near the character about the rest. Farther away it can lead into a house or a crowd the
-client hasn't shown yet; the walker sees those as it gets near, and goes round them (see
+`client_beta.exe` 7.0.117.31, the walls and floors of player houses. While walking, it also asks the client
+itself about the next 12 tiles of the route ([`path check`](/commands/path/check/)), which covers what
+EasyUO Reforged can't read, such as the houses on `client.exe`. A route is right everywhere about the map,
+and right near the character about the rest. Farther away it can lead into a house or a crowd the client
+hasn't shown yet; the walker sees those as it gets near, and goes round them (see
 [How it walks](/commands/path/go/#how-it-walks)). Use [`path block`](/commands/path/block/) for places you
 know about.
 

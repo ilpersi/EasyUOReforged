@@ -26,7 +26,7 @@ interface
 
 uses
   Classes, SysUtils, fpcunit, testregistry, uoselector, uovariables, uocommands,
-  uoevents;
+  uoevents, walkrules;
 
 type
   TUoEventsTests = class(TTestCase)
@@ -49,6 +49,7 @@ type
     procedure TestStatBarWithUnknownIDIsANoOp;
     procedure TestBlockInfoOverLimitLeavesBlockStrEmpty;
     procedure TestBlockInfoWithinLimitDoesNotRaise;
+    procedure TestStepInfoWithNoClientAnswersNothing;
     procedure TestExEv_DragWithUnknownIDIsANoOp;
     procedure TestExEv_DropCDoesNotRaise;
     procedure TestExEv_DropGDoesNotRaise;
@@ -153,6 +154,25 @@ procedure TUoEventsTests.TestBlockInfoWithinLimitDoesNotRaise;
 begin
   Ev.BlockInfo(0, 0, 0, 4, 4);
   AssertEquals(4 * 4 * 2, Length(Ev.BlockStr));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// No client: nothing can answer, so StepInfo says so and leaves the steps alone.
+procedure TUoEventsTests.TestStepInfoWithNoClientAnswersNothing;
+var
+  Q : TStepChecks;
+begin
+  SetLength(Q, 2);
+  Q[0].X := 10;
+  Q[0].NewZ := 77;
+  Q[1].X := 11;
+  Q[1].NewZ := 77;
+  AssertFalse(Ev.StepInfo(Q));
+  AssertEquals('untouched', 77, Q[0].NewZ);
+  SetLength(Q, 0);
+  AssertFalse('no steps', Ev.StepInfo(Q));
+  SetLength(Q, STEP_CHECK_MAX + 1);
+  AssertFalse('too many', Ev.StepInfo(Q));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

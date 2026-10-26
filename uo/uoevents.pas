@@ -33,13 +33,19 @@ unit uoevents;
   client's memory), so no unforced changes of any kind belong here; the two
   above are the only edits, and both are pure "identical replacement,"
   changing nothing at the byte-sequence level.
+
+  Later port additions are marked where they are: the caves of the relocated
+  "modern" builds (the *FastCode functions) and StepInfo. One original byte
+  sequence did change: BlockInfo's loop for the fixed-base clients, which
+  passed the client's tile query one argument fewer than client.exe 7.0.117.1
+  takes (see BlockInfoCode).
 }
 
 {$mode delphi}{$H+}
 
 interface
 uses Windows, SysUtils, access, uotypes, uocommands, uovariables, uoselector,
-     uoclidata, wearables;
+     uoclidata, wearables, walkrules;
 
 type
   TUOEvent      = class(TObject)
@@ -64,6 +70,8 @@ type
     BaseAddr     : Cardinal;
     function     CallRel(Target, At : Cardinal) : String;
     function     BlockInfoFastCode(X,Y,Z,W,H : Integer) : String;
+    function     BlockInfoCode(X,Y,Z,W,H : Integer) : String;
+    function     StepInfoCode(N : Integer; Fast : Boolean) : String;
     function     PathfindFastCode(X,Y : Cardinal; Z : Integer) : String;
     function     PropFastCode(ID : Cardinal; FirstPass : Boolean) : String;
     function     NewMessageObject(Obj : Cardinal; Font, Color, TextAddr : Cardinal; Gate : Boolean) : String;
@@ -84,6 +92,7 @@ type
     procedure    ContTop(Index : Integer);
     procedure    StatBar(ID : Cardinal);
     procedure    BlockInfo(X,Y,Z,W,H : Integer);
+    function     StepInfo(var Q : TStepChecks) : Boolean;
     /////////
     procedure    ExEv_Drag(ID : Cardinal; Amount : Cardinal = 1);
     procedure    ExEv_DropC(ContID : Cardinal; X : Integer = -1; Y : Integer = -1);
@@ -348,6 +357,124 @@ begin
     NumStr(W,4,True)+                                       // dd    W
     #0#0#0#0+                                               // dd    T
     #0#0#0#0;                                               // dd    flag byte (+3 spare)
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port change: BlockInfo's loop for the cdecl tile query of the fixed-base clients. The original
+// pushed five arguments (X, Y, Z, 0, @T). client.exe 7.0.117.1's function takes a sixth, a pointer
+// to a byte it writes (a door flag that never gets set while walking: the tile's object list doesn't
+// carry the Door flag); its own callers push it and pop 18h. With five, the sixth was the row
+// counter pushad had saved, and the client wrote its byte to an address below 32. This pushes @flag as well: a five-argument build ignores it, since a
+// cdecl function never pops its own arguments (the original's add esp, 14h). The layout is
+// BlockInfoFastCode's: code padded to BaseAddr+$80, then the dwords X, Y, W, T and the flag.
+function TUOEvent.BlockInfoCode(X,Y,Z,W,H : Integer) : String;
+const
+  DataOfs = $80;
+var
+  s      : String;
+  Ende   : Integer;
+  L1,L2  : Integer;
+  Js1    : Integer;
+  Weiter : Integer;
+begin
+  s:=#186+NumStr(BaseAddr+$FE+2*W*H,4,True)+                // mov   edx, _P_
+     #191+NumStr(H,4,True);                                 // mov   edi, _H_
+  L1:=Length(s);                                            // loop1:
+  s:=s+#79+                                                 // dec   edi
+       #120#0;                                              // js    ende (fixed below)
+  Js1:=Length(s);
+  s:=s+#139#53+NumStr(BaseAddr+DataOfs+8,4,True);           // mov   esi, W
+  L2:=Length(s);                                            // loop2:
+  s:=s+#78+                                                 // dec   esi
+       #120+Char(L1-(Length(s)+3))+                         // js    loop1
+       #96+                                                 // pushad
+       #104+NumStr(BaseAddr+DataOfs+$10,4,True)+            // push  @flag
+       #104+NumStr(BaseAddr+DataOfs+$C,4,True)+             // push  @T
+       #106#0+                                              // push  0
+       #104+NumStr(Z,4,True)+                               // push  _Z_
+       #161+NumStr(BaseAddr+DataOfs+4,4,True)+              // mov   eax, Y
+       #1#248+                                              // add   eax, edi
+       #80+                                                 // push  eax
+       #161+NumStr(BaseAddr+DataOfs,4,True)+                // mov   eax, X
+       #1#240+                                              // add   eax, esi
+       #80;                                                 // push  eax
+  Weiter:=Length(s)+5+5+1;                                  // after push weiter, push func, ret
+  s:=s+#104+NumStr(BaseAddr+$20+Weiter,4,True)+             // push  weiter
+       #104+NumStr(Cst.BLOCKINFO,4,True)+                   // push  func
+       #195+                                                // ret
+       #131#196#24+                                         // weiter: add esp, 18h
+       #97+                                                 // popad
+       #161+NumStr(BaseAddr+DataOfs+$C,4,True)+             // mov   eax, T
+       #102#137#2+                                          // mov   [edx], ax
+       #131#234#2;                                          // sub   edx, 2
+  s:=s+#235+Char(L2-(Length(s)+2));                         // jmp   loop2
+  Ende:=Length(s);
+  s[Js1]:=Char(Ende-Js1);                                   // js    ende
+  s:=s+#195;                                                // ende: ret
+  while Length(s)<DataOfs-$20 do s:=s+#144;
+  if Length(s)>DataOfs-$20 then raise Exception.Create('BlockInfo cave code overlaps its data');
+  Result:=s+
+    NumStr(X,4,True)+                                       // dd    X
+    NumStr(Y,4,True)+                                       // dd    Y
+    NumStr(W,4,True)+                                       // dd    W
+    #0#0#0#0+                                               // dd    T
+    #0#0#0#0;                                               // dd    flag byte (+3 spare)
+end;
+
+const
+  STEPINFO_DONE = $F0;    // BaseAddr+$F0: the cave's last instruction sets it to 1
+  STEPINFO_DATA = $100;   // BaseAddr+$100: the entries, 16 bytes each (where BlockInfo's output goes)
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (the pathfinder, PATH CHECK): StepInfo's loop. It calls the tile query once per
+// entry at BaseAddr+$100. Each entry is 16 bytes: the dwords X, Y, Z and Dir. The query writes the
+// new height over Z, and its sixth argument's byte (see BlockInfoCode; unused) into byte 1 of Dir,
+// after Dir was pushed. Fast: X in ecx, Y in edx, then Z, Dir, @newZ, @byte (the relocated builds,
+// as BlockInfoFastCode). Else cdecl X, Y, Z, Dir, @newZ, @byte (as BlockInfoCode). Last, it sets the
+// done dword, so that a client that never ran the event isn't read as having answered.
+function TUOEvent.StepInfoCode(N : Integer; Fast : Boolean) : String;
+var
+  s      : String;
+  L1     : Integer;
+  Js1    : Integer;
+  Weiter : Integer;
+  Ende   : Integer;
+begin
+  s:=#190+NumStr(BaseAddr+STEPINFO_DATA,4,True)+            // mov   esi, entries
+     #191+NumStr(N,4,True);                                 // mov   edi, N
+  L1:=Length(s);                                            // loop:
+  s:=s+#79+                                                 // dec   edi
+       #120#0;                                              // js    ende (fixed below)
+  Js1:=Length(s);
+  s:=s+#96+                                                 // pushad
+       #141#70#13+                                          // lea   eax, [esi+0Dh]   the sixth's byte
+       #80+                                                 // push  eax
+       #141#70#8+                                           // lea   eax, [esi+8]     new height (over Z)
+       #80+                                                 // push  eax
+       #255#118#12+                                         // push  dword [esi+0Ch]  Dir
+       #255#118#8;                                          // push  dword [esi+8]    Z
+  if Fast then
+    s:=s+#139#14+                                           // mov   ecx, [esi]       X
+         #139#86#4                                          // mov   edx, [esi+4]     Y
+  else
+    s:=s+#255#118#4+                                        // push  dword [esi+4]    Y
+         #255#54;                                           // push  dword [esi]      X
+  Weiter:=Length(s)+5+5+1;                                  // after push weiter, push func, ret
+  s:=s+#104+NumStr(BaseAddr+$20+Weiter,4,True)+             // push  weiter
+       #104+NumStr(Cst.BLOCKINFO,4,True)+                   // push  func
+       #195;                                                // ret
+  if Fast then s:=s+#131#196#16                             // weiter: add esp, 10h
+  else s:=s+#131#196#24;                                    // weiter: add esp, 18h
+  s:=s+#97+                                                 // popad
+       #131#198#16;                                         // add   esi, 10h
+  s:=s+#235+Char(L1-(Length(s)+2));                         // jmp   loop
+  Ende:=Length(s);
+  s[Js1]:=Char(Ende-Js1);                                   // js    ende
+  s:=s+#199#5+NumStr(BaseAddr+STEPINFO_DONE,4,True)+        // ende: mov dword [done], 1
+       NumStr(1,4,True)+
+       #195;                                                // ret
+  if Length(s)>STEPINFO_DONE-$20 then raise Exception.Create('StepInfo cave code overlaps its data');
+  Result:=s;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -825,44 +952,7 @@ begin
   if Cst.FBLOCKINFOFAST=1 then
     sBuf:=BlockInfoFastCode(X,Y,Z,W,H)
   else
-  sBuf:=
-    #186+NumStr(BaseAddr+$FE+2*W*H,4,True)+                // mov   edx, _P_
-    #191+NumStr(H,4,True)+                                 // mov   edi, _H_
-                                                           // loop1:
-    #79+                                                   // dec   edi
-    #120#66+                                               // js    ende
-    #139#53+NumStr(BaseAddr+$78,4,True)+                   // mov   esi, W
-                                                           // loop2:
-    #78+                                                   // dec   esi
-    #120#244+                                              // js    loop1
-
-    #96+                                                   // pushad
-    #104+NumStr(BaseAddr+$7C,4,True)+                      // push  @T
-    #106#0+                                                // push  0
-    #104+NumStr(Z,4,True)+                                 // push  _Z_
-    #161+NumStr(BaseAddr+$74,4,True)+                      // mov   eax, Y
-    #1#248+                                                // add   eax, edi
-    #80+                                                   // push  eax
-    #161+NumStr(BaseAddr+$70,4,True)+                      // mov   eax, X
-    #1#240+                                                // add   eax, esi
-    #80+                                                   // push  eax
-    #104+NumStr(BaseAddr+$5E,4,True)+                      // push  weiter
-    #104+NumStr(Cst.BLOCKINFO,4,True)+                           // push  func
-    #195+                                                  // ret
-                                                           // weiter:
-    #131#196#20+                                           // add   esp, 14h
-    #97+                                                   // popad
-
-    #161+NumStr(BaseAddr+$7C,4,True)+                      // mov   eax, T
-    #102#137#2+                                            // mov   [edx], ax
-    #131#234#2+                                            // sub   edx, 2
-    #235#196+                                              // jmp   loop2
-                                                           // ende:
-    #195+                                                  // ret
-    NumStr(X,4,True)+                                      // dd    X
-    NumStr(Y,4,True)+                                      // dd    Y
-    NumStr(W,4,True)+                                      // dd    W
-    #0#0#0#0;                                              // dd    T
+    sBuf:=BlockInfoCode(X,Y,Z,W,H);                       // port change: one argument more, see there
 
   WriteMem(UOSel.HProc,BaseAddr+$20,@sBuf[1],Length(sBuf));
   WriteMem(UOSel.HProc,BaseAddr-2,#01#00,2);               // Start Event!
@@ -870,6 +960,50 @@ begin
 
   SetLength(BlockStr,W*H*2);
   ReadMem(UOSel.HProc,BaseAddr+$100,@BlockStr[1],W*H*2);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (the pathfinder's walker, PATH CHECK): the client's own step check for up to
+// STEP_CHECK_MAX steps in one event. C_BLOCKINFO is the client's CalculateNewZ (the one its own
+// pathfinder and walk code call before every move): from height Z next to X,Y, can the character
+// step onto it in Dir, and at what height does it land (-128: no)? False, and Q untouched, when the
+// address is unknown, there is no client, or the client didn't run the event in time.
+function TUOEvent.StepInfo(var Q : TStepChecks) : Boolean;
+var
+  sBuf : String;
+  Buf  : array of LongWord;
+  N, i : Integer;
+  Done : LongWord;
+begin
+  Result:=False;
+  N:=Length(Q);
+  if (N=0) or (N>STEP_CHECK_MAX) then Exit;
+  if Cst.BLOCKINFO=0 then Exit;                            // never `push 0; ret` into the client
+  InitEvents;
+  if BaseAddr=0 then Exit;                                 // no hook for this build: no event runs
+
+  SetLength(Buf,N*4);
+  for i:=0 to N-1 do
+  begin
+    Buf[i*4]:=LongWord(Q[i].X);
+    Buf[i*4+1]:=LongWord(Q[i].Y);
+    Buf[i*4+2]:=LongWord(Q[i].Z);
+    Buf[i*4+3]:=LongWord(Q[i].Dir and 7);                  // byte 1 (the sixth's) zero going in
+  end;
+  sBuf:=StepInfoCode(N,Cst.FBLOCKINFOFAST=1);
+  Done:=0;
+  WriteMem(UOSel.HProc,BaseAddr+STEPINFO_DATA,@Buf[0],N*16);
+  WriteMem(UOSel.HProc,BaseAddr+STEPINFO_DONE,@Done,4);
+  WriteMem(UOSel.HProc,BaseAddr+$20,@sBuf[1],Length(sBuf));
+  WriteMem(UOSel.HProc,BaseAddr-2,#01#00,2);               // Start Event!
+  WaitTillProcessed;                                       // Wait
+
+  Done:=0;
+  if not ReadMem(UOSel.HProc,BaseAddr+STEPINFO_DONE,@Done,4) or (Done<>1) then Exit;
+  if not ReadMem(UOSel.HProc,BaseAddr+STEPINFO_DATA,@Buf[0],N*16) then Exit;
+  for i:=0 to N-1 do
+    Q[i].NewZ:=LongInt(Buf[i*4+2]);
+  Result:=True;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

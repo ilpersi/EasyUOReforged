@@ -39,6 +39,18 @@ unit pathwalk;
   first tries a short search that rejoins the route a little further on, then a full one. A refused
   cell becomes a learned block in the overlay, for BlockLifeMs.
 
+  The client check (phase 3): the overlay can't see everything the client holds (the house pieces
+  of client.exe, custom-house designs), so the walker asks the client itself about the route ahead,
+  through its own step check (CheckSteps, the tile query EasyUO's BlockInfo calls). That covers
+  every step within CheckDist tiles of the character, each from the height of the one before, and
+  a diagonal's two flanks. It runs after each refresh and after every new route. A tile the client
+  refuses becomes a learned block before the character gets there, unless a door the walker opens
+  or a mobile stands on it (the overlay deals with those). Then the cells round it are asked about
+  too (Probe), so a whole house is learned at once rather than a row per replan. A step the client
+  lands at another height gets the client's height. Each question starts with the step onto the
+  character's own tile; when the client refuses that, it hasn't loaded the area, and the whole
+  answer is dropped.
+
   Doors: the overlay lets the route through a door at a small extra cost; the walker faces it and
   uses the open-door macro, up to twice, before it steps through. Links: the walker stands on the
   link's start and waits LinkWaitMs for the jump (a teleporter); after that it stops with wsLink, so
@@ -61,6 +73,7 @@ const
   CLIENT_SEARCH_ZACC = 8;     // it arrives within this many units of the goal's height
   CLIENT_SEARCH_CAP  = 5000;  // its hard limit, whatever it is asked for
   PUT_BACK_MS        = 1500;  // back on the tile it left within this: put back by the server
+  PROBE_RADIUS       = 5;     // the client check asks about this far round a tile it refused (11x11)
 
 type
   TWalkMode  = (wmAuto, wmClient, wmSteps);   // wmAuto: steps (see above)
@@ -85,6 +98,9 @@ type
     procedure LiveObjects(X, Y : Integer; var Objs : TLiveObjs); virtual; abstract;
     function  Now : QWord; virtual; abstract;                  // milliseconds
     function  Wait(Ms : Cardinal) : Boolean; virtual; abstract; // False: the script was stopped
+    // The client's own step check for each of Q (walkrules.TStepCheck); False when it can't be
+    // asked or didn't answer (always here).
+    function  CheckSteps(var Q : TStepChecks) : Boolean; virtual;
     function  CanPathFind : Boolean; virtual;                  // client mode works (True here)
     procedure Busy(On : Boolean); virtual;                     // a search starts / ends (nothing here)
     function  StopFlag : PBoolean; virtual;                    // interrupts a search (nil here)
@@ -149,6 +165,7 @@ type
     FLinkIdx     : Integer;
     FLinkSince   : QWord;
     FStarted     : QWord;
+    FCheckNow    : Boolean;    // ask the client about the route ahead on the next tick
     procedure Log(const Fmt : String; const Args : array of const);
     function  Finish(S : TWalkState) : TWalkState;
     procedure ResetActions;
@@ -157,6 +174,10 @@ type
     procedure Locate(Window : Integer);
     procedure Refresh;
     function  FirstBlockedAhead : Integer;
+    function  AskClient(var Q : TStepChecks; const What : String) : Boolean;
+    function  LearnRefusal(const C : TStepCheck) : Boolean;
+    procedure Probe(CX, CY, Z : Integer);
+    function  ClientCheck : Integer;
     procedure TakePlan;
     function  PlanFull : Boolean;
     function  PlanLocal(R : Integer; out Stopped : Boolean) : Boolean;
@@ -189,6 +210,7 @@ type
     StallMs     : Cardinal;   // no movement for this long: the walk fails
     ProgressMs  : Cardinal;   // no closer to the goal for this long: the walk fails
     CheckAhead  : Integer;    // steps checked against the overlay after each refresh
+    CheckDist   : Integer;    // the client is asked about the steps this many tiles ahead, 0 = never
     TickMs      : Cardinal;   // Run's pause between two ticks
     // Results.
     PlanResult  : TPathResult;   // of the last search
@@ -266,6 +288,11 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+function TWalkClient.CheckSteps(var Q : TStepChecks) : Boolean;
+begin
+  Result := False;
+end;
+
 function TWalkClient.CanPathFind : Boolean;
 begin
   Result := True;
@@ -488,6 +515,7 @@ begin
   StallMs := 15000;
   ProgressMs := 30000;
   CheckAhead := 16;
+  CheckDist := 12;    // well inside what both clients had loaded at rest (18 to 31 tiles)
   TickMs := 50;
 end;
 
@@ -603,6 +631,165 @@ begin
   end;
 end;
 
+// The client's step check for Q[1..], Q[0] being filled here with the step onto the character's
+// own tile (north, from its height), which the client must allow. When it doesn't, the client
+// hasn't loaded the area or answers nothing sensible, and the answer is dropped.
+function TPathWalker.AskClient(var Q : TStepChecks; const What : String) : Boolean;
+begin
+  Q[0].X := FX;
+  Q[0].Y := FY;
+  Q[0].Z := FZ;
+  Q[0].Dir := 0;
+  Result := FC.CheckSteps(Q);
+  if not Result then
+    Log('client check (%s, %d tiles): no answer', [What, Length(Q) - 1])
+  else if Q[0].NewZ = -128 then
+  begin
+    Log('client check (%s): the character''s own tile refused, answer dropped', [What]);
+    Result := False;
+  end;
+end;
+
+// A tile the client refused becomes a learned block, unless a door the walker opens or a mobile
+// stands on it: the overlay has those already.
+function TPathWalker.LearnRefusal(const C : TStepCheck) : Boolean;
+begin
+  Result := False;
+  if FOv.OpenDoors and FOv.DoorAt(C.X, C.Y) then
+    Log('client check: %d,%d refused, a door to open', [C.X, C.Y])
+  else if FOv.MobileAt(C.X, C.Y) then
+    Log('client check: %d,%d refused, a mobile there', [C.X, C.Y])
+  else
+  begin
+    FOv.Learn(FFacet, C.X, C.Y, FNow, BlockLifeMs);
+    Result := True;
+  end;
+end;
+
+// The cells round a tile the client refused, PROBE_RADIUS each way and within CheckDist of the
+// character, that our own model lets the character step onto from the south at the height nearest
+// Z: the client is asked about the same steps, and each it refuses is learned as well. So a house
+// our model lacks is learned in one go, rather than a row of it per replan.
+procedure TPathWalker.Probe(CX, CY, Z : Integer);
+var
+  Q             : TStepChecks;
+  n, k, Cnt     : Integer;
+  X, Y, SZ, NZ  : Integer;
+begin
+  SetLength(Q, STEP_CHECK_MAX);
+  n := 1;                                            // Q[0] is AskClient's
+  for Y := CY - PROBE_RADIUS to CY + PROBE_RADIUS do
+    for X := CX - PROBE_RADIUS to CX + PROBE_RADIUS do
+    begin
+      if n >= STEP_CHECK_MAX then Break;
+      if ((X = FX) and (Y = FY)) or (Cheb(FX, FY, X, Y) > CheckDist) then Continue;
+      if FOv.IsLearned(FFacet, X, Y) then Continue;
+      SZ := Z;
+      if not StandZ(FOv, X, Y + 1, SZ) or not CanStep(FOv, X, Y + 1, SZ, 0, NZ) then Continue;
+      Q[n].X := X;
+      Q[n].Y := Y;
+      Q[n].Z := SZ;
+      Q[n].Dir := 0;
+      Inc(n);
+    end;
+  if n = 1 then Exit;
+  SetLength(Q, n);
+  if not AskClient(Q, 'area') then Exit;
+  Cnt := 0;
+  for k := 1 to n - 1 do
+    if (Q[k].NewZ = -128) and LearnRefusal(Q[k]) then Inc(Cnt);
+  Log('client check round %d,%d: %d of %d tiles refused, learned', [CX, CY, Cnt, n - 1]);
+end;
+
+// Asks the client about the route ahead: every step within CheckDist tiles of the character, up to
+// a link, from the height of the step before, and a diagonal's two flanks as well, as the client's
+// own pathfinder checks them. Returns the first step with a tile the client refused (now learned,
+// and the area round it probed), -1 when none. A step the client lands more than 2 away from the
+// plan's height takes the client's, and the rest is asked again on the next tick, from there.
+function TPathWalker.ClientCheck : Integer;
+var
+  Q                : TStepChecks;
+  Owner            : array of Integer;   // the step each entry belongs to
+  n, i, j, k, d, t : Integer;
+  X, Y, Z          : Integer;
+  First            : Integer;
+
+  procedure Add(AX, AY, AZ, ADir, AOwner : Integer);
+  begin
+    Q[n].X := AX;
+    Q[n].Y := AY;
+    Q[n].Z := AZ;
+    Q[n].Dir := ADir;
+    Q[n].NewZ := -128;
+    Owner[n] := AOwner;
+    Inc(n);
+  end;
+
+begin
+  Result := -1;
+  FCheckNow := False;
+  if CheckDist <= 0 then Exit;
+  SetLength(Q, STEP_CHECK_MAX);
+  SetLength(Owner, STEP_CHECK_MAX);
+  n := 0;
+  Add(0, 0, 0, 0, -1);                               // AskClient's own-tile entry
+  StepPos(FIdx, X, Y, Z);
+  i := FIdx + 1;
+  while (i <= High(FSteps)) and (n + 3 <= STEP_CHECK_MAX) do
+  begin
+    if FSteps[i].Dir = PATH_DIR_LINK then Break;
+    if Cheb(FX, FY, FSteps[i].X, FSteps[i].Y) > CheckDist then Break;
+    d := DirTo(X, Y, FSteps[i].X, FSteps[i].Y);
+    if d < 0 then Break;
+    Add(FSteps[i].X, FSteps[i].Y, Z, d, i);
+    if Odd(d) then
+    begin
+      t := (d + 1) and 7;
+      Add(X + DirX[t], Y + DirY[t], Z, t, i);
+      t := (d + 7) and 7;
+      Add(X + DirX[t], Y + DirY[t], Z, t, i);
+    end;
+    X := FSteps[i].X;
+    Y := FSteps[i].Y;
+    Z := FSteps[i].Z;
+    Inc(i);
+  end;
+  if n = 1 then Exit;
+  SetLength(Q, n);
+  if not AskClient(Q, 'route') then Exit;
+
+  k := 1;
+  while k < n do
+  begin
+    i := Owner[k];
+    First := -1;
+    j := k;
+    while (j < n) and (Owner[j] = i) do              // the step's own tile, then its flanks
+    begin
+      if (Q[j].NewZ = -128) and LearnRefusal(Q[j]) then
+      begin
+        Log('client check: step %d refused at %d,%d: learned', [i + 1, Q[j].X, Q[j].Y]);
+        if First < 0 then First := j;
+      end;
+      Inc(j);
+    end;
+    if First >= 0 then
+    begin
+      Probe(Q[First].X, Q[First].Y, Q[First].Z);
+      Exit(i);
+    end;
+    if (Q[k].NewZ <> -128) and (Abs(Q[k].NewZ - FSteps[i].Z) > 2) then
+    begin
+      Log('client check: step %d (%d,%d) lands at %d, planned %d',
+        [i + 1, FSteps[i].X, FSteps[i].Y, Q[k].NewZ, FSteps[i].Z]);
+      FSteps[i].Z := Q[k].NewZ;
+      FCheckNow := True;
+      Exit;
+    end;
+    k := j;
+  end;
+end;
+
 // The planner's route becomes the walk's, from where the character is.
 procedure TPathWalker.TakePlan;
 begin
@@ -612,6 +799,7 @@ begin
   FSZ := FZ;
   FIdx := -1;
   FOnRoute := True;
+  FCheckNow := True;
 end;
 
 function TPathWalker.PlanFull : Boolean;
@@ -1044,6 +1232,7 @@ begin
     FIdx := -1;
     Locate(Length(FSteps) + 1);   // anywhere on it
     if not FOnRoute then FIdx := -1;
+    FCheckNow := True;
   end
   else if not PlanFull then
   begin
@@ -1155,7 +1344,13 @@ begin
     begin
       Log('step %d (%d,%d) now blocked: %d live objects', [k + 1, FSteps[k].X, FSteps[k].Y, FOv.ObjectCount]);
       if not Replan(k) then Exit(FState);
-    end;
+    end
+    else FCheckNow := True;
+  end;
+  if FCheckNow then
+  begin
+    k := ClientCheck;
+    if (k >= 0) and not Replan(k) then Exit(FState);
   end;
 
   if FStepIdx >= 0 then StepTick

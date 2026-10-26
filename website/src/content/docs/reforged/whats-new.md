@@ -23,6 +23,8 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
   - The walker walks step by step, or drives the client's own pathfinder a stretch at a time. It sees the
     items, doors, creatures and (on `client_beta.exe` 7.0.117.31) house walls your client holds, opens doors,
     and goes round what it finds in the way.
+  - It asks the client itself about the next 12 tiles of the route, so it goes round a house it can't read
+    before stepping into it. [`path check`](/commands/path/check/) asks the same from a script.
   - With [`path block`](/commands/path/block/), [`path avoid`](/commands/path/avoid/) and
     [`path link`](/commands/path/link/) a script adds what the map doesn't know.
   - Results come back in [`#PathState`](/variables/pathstate/), [`#PathCnt`](/variables/pathcnt/),
@@ -56,6 +58,8 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 - [`uo.dll`](/dll/) is a 64-bit build, for 64-bit programs. Its API is unchanged, plus
   [`ScanBuffs`](/dll/scanbuffs/), [`GetBuff`](/dll/getbuff/) and [`BuffBarOpen`](/dll/buffbaropen/) for the
   buff bar.
+- [`BlockInfo`](/dll/blockinfo/) no longer crashes `client.exe` 7.0.117.1: EasyUO 1.5 passed the client's
+  function one argument too few. Its page now says what the two bytes per tile mean.
 
 ## The editor
 

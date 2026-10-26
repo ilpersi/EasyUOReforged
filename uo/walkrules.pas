@@ -48,6 +48,7 @@ const
 
   BLOCK_HEIGHT     = 16;    // ClassicUO Constants.DEFAULT_BLOCK_HEIGHT: head room a character needs
   MAX_CELL_OBJECTS = 256;   // objects kept per cell; a real cell holds a few dozen at most
+  STEP_CHECK_MAX   = 128;   // steps one check asks the client about, at most (uoevents' StepInfo)
 
   // Direction offsets, numbered as #CharDir: 0 = north, clockwise to 7 = north-west.
   DirX : array[0..7] of Integer = (0, 1, 1, 1, 0, -1, -1, -1);
@@ -69,6 +70,16 @@ type
     Count : Integer;
     Items : array[0..MAX_CELL_OBJECTS-1] of TPathObj;
   end;
+
+  // One step for the client's own step check (uoevents' StepInfo, the walker's CheckSteps): from
+  // height Z next to cell X,Y, onto it in Dir. NewZ is the height the client lands it at, -128
+  // when it refuses.
+  TStepCheck = record
+    X, Y, Z : Integer;
+    Dir     : Integer;
+    NewZ    : Integer;
+  end;
+  TStepChecks = array of TStepCheck;
 
   // Answers "what stands on cell X,Y" for one facet.
   TWalkSource = class

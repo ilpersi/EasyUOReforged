@@ -16,7 +16,7 @@ interface
 
 uses
   Classes, SysUtils, Windows, fpcunit, testregistry, uoclidata, access, uoselector, uovariables,
-  uoevents, uocommands;
+  uoevents, uocommands, walkrules;
 
 type
   // A TUOCmd that reads the fake client process instead of requiring a selected client window:
@@ -37,6 +37,8 @@ type
     function  CaveMacro(Par1, Par2 : Cardinal) : String;
     function  CaveMsg(Obj, Font, Color, Text : Cardinal; Gate : Boolean) : String;
     function  CaveBlock(X,Y,Z,W,H : Integer) : String;
+    function  CaveBlockCdecl(X,Y,Z,W,H : Integer) : String;
+    function  CaveSteps(N : Integer; Fast : Boolean) : String;
     function  CavePath(X,Y : Cardinal; Z : Integer) : String;
     function  CaveProp(ID : Cardinal; First : Boolean) : String;
   end;
@@ -81,6 +83,8 @@ type
     procedure TestMacroCaveReturnsToItsRestoreCode;
     procedure TestMessageCaveJumpsAndCallsLandCorrectly;
     procedure TestBlockInfoCaveFitsBeforeItsData;
+    procedure TestBlockInfoCdeclCavePassesTheSixthArgument;
+    procedure TestStepInfoCaveCallsEachEntry;
     procedure TestPropertyCaveBranchesToTheRequest;
     procedure TestPathfindCaveLayout;
     // buff bar (port addition)
@@ -124,6 +128,8 @@ function TCaveEvent.CaveMacro(Par1, Par2 : Cardinal) : String;   begin Result:=M
 function TCaveEvent.CaveMsg(Obj, Font, Color, Text : Cardinal; Gate : Boolean) : String;
 begin Result:=NewMessageObject(Obj,Font,Color,Text,Gate); end;
 function TCaveEvent.CaveBlock(X,Y,Z,W,H : Integer) : String;     begin Result:=BlockInfoFastCode(X,Y,Z,W,H); end;
+function TCaveEvent.CaveBlockCdecl(X,Y,Z,W,H : Integer) : String; begin Result:=BlockInfoCode(X,Y,Z,W,H); end;
+function TCaveEvent.CaveSteps(N : Integer; Fast : Boolean) : String; begin Result:=StepInfoCode(N,Fast); end;
 function TCaveEvent.CavePath(X,Y : Cardinal; Z : Integer) : String; begin Result:=PathfindFastCode(X,Y,Z); end;
 function TCaveEvent.CaveProp(ID : Cardinal; First : Boolean) : String; begin Result:=PropFastCode(ID,First); end;
 
@@ -591,6 +597,100 @@ begin
   Weit:=Pos(#131#196#16, C)-1;                          // add esp, 10h
   Eq('the call returns to the cleanup', CaveBase+$20+Weit,
      Dw(C,Pos(#104+NumStr(Sel.CstDB.BLOCKINFO,4,True)+#195, C)-1+1-5));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The fixed-base clients' BlockInfo: six cdecl arguments, the sixth the address of a byte the
+// client writes (the original pushed five, and client.exe 7.0.117.1 wrote through the row counter
+// pushad had saved).
+procedure TCstDbModernBuildTests.TestBlockInfoCdeclCavePassesTheSixthArgument;
+var
+  C     : String;
+  Ende  : Integer;
+  Weit  : Integer;
+  P     : Integer;
+begin
+  OpenCave;
+  C:=Ev.CaveBlockCdecl(2563, 490, 7, 3, 3);             // raises if the code would overrun its data
+  Eq('code is padded up to the data, which holds 5 dwords', $60+20, Length(C));
+  Eq('X', 2563, Dw(C,$60));
+  Eq('Y', 490, Dw(C,$64));
+  Eq('W', 3, Dw(C,$68));
+  Eq('mov edx, row pointer', CaveBase+$FE+2*3*3, Dw(C,1));
+  Eq('loop2 reads W where the data keeps it', CaveBase+$80+8, Dw(C,15));
+
+  P:=Pos(#96#104, C)-1;                                 // pushad; push @flag
+  AssertTrue('pushad, then a push', P>0);
+  Eq('the sixth argument: the flag dword', CaveBase+$80+$10, Dw(C,P+2));
+  Eq('the fifth: T', CaveBase+$80+$C, Dw(C,P+7));
+  Eq('the fourth: direction 0', $006A, Bt(C,P+11) or (Bt(C,P+12) shl 8));
+  Eq('the third: Z', 7, Dw(C,P+14));
+
+  Ende:=Rel8(C,12);                                     // js ende
+  Eq('js ende lands on the ret', $C3, Bt(C,Ende));
+  Eq('inner js goes back to loop1', 10, Rel8(C,21));
+  Eq('closing jmp goes back to loop2', 19, Rel8(C,Ende-1));
+  Eq('the jmp opcode', $EB, Bt(C,Ende-2));
+
+  Weit:=Pos(#131#196#24, C)-1;                          // add esp, 18h: six arguments
+  AssertTrue('the caller pops six arguments', Weit>0);
+  AssertEquals('not five', 0, Pos(#131#196#20, C));
+  Eq('the call returns to the cleanup', CaveBase+$20+Weit,
+     Dw(C,Pos(#104+NumStr(Sel.CstDB.BLOCKINFO,4,True)+#195, C)-1+1-5));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// StepInfo's loop, in both conventions: one call per 16-byte entry at BaseAddr+$100, X/Y/Z/Dir read
+// from the entry, the new height written over its Z and the sixth argument's byte into its Dir, then the done
+// dword set before the final ret.
+procedure TCstDbModernBuildTests.TestStepInfoCaveCallsEachEntry;
+var
+  C          : String;
+  Fast       : Boolean;
+  Ende, P, W : Integer;
+  Name       : String;
+begin
+  OpenCave;
+  for Fast:=False to True do
+  begin
+    if Fast then Name:='fast: ' else Name:='cdecl: ';
+    C:=Ev.CaveSteps(3, Fast);
+    Eq(Name+'mov esi, the entries', $BE, Bt(C,0));
+    Eq(Name+'the entries at BaseAddr+$100', CaveBase+$100, Dw(C,1));
+    Eq(Name+'mov edi, N', $BF, Bt(C,5));
+    Eq(Name+'N', 3, Dw(C,6));
+    Eq(Name+'loop: dec edi', $4F, Bt(C,10));
+
+    AssertTrue(Name+'pushad; @byte [esi+0Dh]; @newZ [esi+8]; Dir [esi+0Ch]; Z [esi+8]',
+      Pos(#96#141#70#13#80#141#70#8#80#255#118#12#255#118#8, C)=14);
+    if Fast then
+      AssertTrue(Name+'X in ecx, Y in edx', Pos(#139#14#139#86#4, C)>0)
+    else
+      AssertTrue(Name+'Y, then X, on the stack', Pos(#255#118#4#255#54, C)>0);
+
+    P:=Pos(#104+NumStr(Sel.CstDB.BLOCKINFO,4,True)+#195, C)-1;   // push func; ret
+    AssertTrue(Name+'push func; ret', P>0);
+    W:=P+6;                                                       // weiter
+    Eq(Name+'the call returns right after the ret', CaveBase+$20+W, Dw(C,P-5+1));
+    Eq(Name+'add esp', $83C4, (Bt(C,W) shl 8) or Bt(C,W+1));
+    if Fast then Eq(Name+'four stack arguments', $10, Bt(C,W+2))
+    else Eq(Name+'six stack arguments', $18, Bt(C,W+2));
+    Eq(Name+'popad', $61, Bt(C,W+3));
+    Eq(Name+'add esi, 10h', $83C610, (Bt(C,W+4) shl 16) or (Bt(C,W+5) shl 8) or Bt(C,W+6));
+    Eq(Name+'jmp back to the loop', 10, Rel8(C,W+8));
+
+    Ende:=Rel8(C,12);                                   // js ende
+    Eq(Name+'js ende lands on the done store', $C7, Bt(C,Ende));
+    Eq(Name+'mov dword [disp32], imm32', $05, Bt(C,Ende+1));
+    Eq(Name+'the done dword at BaseAddr+$F0', CaveBase+$F0, Dw(C,Ende+2));
+    Eq(Name+'set to 1', 1, Dw(C,Ende+6));
+    Eq(Name+'then ret, the last byte', Ende+10, Length(C)-1);
+    Eq(Name+'ret', $C3, Bt(C,Length(C)-1));
+
+    C:=Ev.CaveSteps(STEP_CHECK_MAX, Fast);             // raises if the code would reach the done dword
+    AssertTrue(Name+'the code ends before the done dword', Length(C)<=$F0-$20);
+    AssertTrue(Name+'128 entries end by BaseAddr+$900', $100+16*STEP_CHECK_MAX<=$900);
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

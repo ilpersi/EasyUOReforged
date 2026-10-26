@@ -71,6 +71,12 @@ when it has to, so it can differ from the first one. [`path get`](/commands/path
   a second: items on the ground, doors, creatures and, on `client_beta.exe` 7.0.117.31, the walls and
   floors of player houses. When something new stands on the next steps of the route, it plans again from
   where the character is. It also plans again when the character ends up off the route.
+- **It asks the client.** About once a second, and whenever the route changes, the walker asks the client
+  itself whether the next 12 tiles of the route can be walked (`check` in [`path set`](/commands/path/set/)),
+  with the check the client runs before every step ([`path check`](/commands/path/check/)). A tile the client
+  refuses is avoided like a refused step, before the character gets there, and the walker asks about the
+  tiles round it too, so a house it couldn't see is learned in one go. Doors it opens and creatures are left
+  to it. Where the client lands a step at another height (stairs it can't see), the walker takes the client's.
 - **Refused steps.** A place where a step was refused is avoided for a minute (`blocktime` in
   [`path set`](/commands/path/set/)), and the walker plans around it. Planning around such a place first
   looks for a short way back onto the route; only if there is none does it plan the whole way again. [`path clear learned`](/commands/path/clear/) forgets these places.

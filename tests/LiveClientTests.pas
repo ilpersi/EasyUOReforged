@@ -36,7 +36,9 @@ unit LiveClientTests;
   only proves "doesn't raise when PHandle=0", never that the injected bytes
   actually run correctly inside a real process. An unrecognized custom event
   ID is expected to round-trip the whole write/flip/wait/read-back protocol
-  with no crash and no visible in-game effect.
+  with no crash and no visible in-game effect. The client's own step check
+  (StepInfo, BlockInfo) is the other: it runs code in the client too, asks
+  about the tiles next to the character and changes nothing in the game.
 }
 
 {$mode delphi}{$H+}
@@ -60,6 +62,7 @@ type
     Cmd : TUOCmd;
     Ev  : TUOEvent;
     function NoWaitDelay(Duration : Cardinal) : Boolean;
+    function SleepDelay(Duration : Cardinal) : Boolean;
     procedure RequireClient;
     procedure RequireLoggedIn;
   protected
@@ -76,6 +79,8 @@ type
     procedure TestPathMapAgreesWithTheCharactersHeight;
     procedure TestPathLiveObjectsSeeTheCharacter;
     procedure TestExEvCustomRoundTripsWithNoVisibleEffect;
+    procedure TestStepInfoAroundTheCharacter;
+    procedure TestBlockInfoAroundTheCharacter;
     procedure TestDynamicScanAgreesWithMilestoneData;
     procedure TestAllDiscoveredClientsHaveNonEmptyVersion;
     procedure TestScriptDoesNotHangWhenACommandRaises;
@@ -124,6 +129,13 @@ end;
 function TLiveClientTests.NoWaitDelay(Duration : Cardinal) : Boolean;
 begin
   Result := True; // never interrupted -- fine, nothing here loops on Delay
+end;
+
+// For an event whose answer is read back: the client needs real time to run it.
+function TLiveClientTests.SleepDelay(Duration : Cardinal) : Boolean;
+begin
+  Sleep(Duration);
+  Result := True;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -332,6 +344,90 @@ begin
   // is a corrupt packet and the server dropped the connection after every test run.
   // This only asserts it doesn't raise.
   Ev.ExEv_Custom(#115#0);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The client's own step check (TUOEvent.StepInfo, the tile query BlockInfo calls), live: the step
+// onto the character's own tile, which it must allow at the character's height, and the eight
+// steps from it. Runs code in the client, with an event object that waits for real; changes
+// nothing in the game. Prints what the client answered.
+procedure TLiveClientTests.TestStepInfoAroundTheCharacter;
+var
+  E       : TUOEvent;
+  Q       : TStepChecks;
+  d, X, Y : Integer;
+  Z       : Integer;
+  S       : String;
+begin
+  RequireLoggedIn;
+  if Sel.CstDB.BLOCKINFO = 0 then Ignore('No C_BLOCKINFO address for this client.');
+  X := Vr.CharPosX;
+  Y := Vr.CharPosY;
+  Z := Vr.CharPosZ;
+  SetLength(Q, 9);
+  Q[0].X := X;
+  Q[0].Y := Y;
+  Q[0].Z := Z;
+  Q[0].Dir := 0;
+  for d := 0 to 7 do
+  begin
+    Q[d + 1].X := X + DirX[d];
+    Q[d + 1].Y := Y + DirY[d];
+    Q[d + 1].Z := Z;
+    Q[d + 1].Dir := d;
+  end;
+  E := TUOEvent.Create(Sel, Vr, SleepDelay);
+  try
+    AssertTrue('the client ran the event', E.StepInfo(Q));
+  finally
+    E.Free;
+  end;
+  S := '';
+  for d := 0 to 8 do
+  begin
+    S := S + Format(' %d,%d:%d', [Q[d].X, Q[d].Y, Q[d].NewZ]);
+  end;
+  WriteLn(Format('  step check from %d,%d,%d (own tile first):%s', [X, Y, Z, S]));
+  AssertTrue('the client still answers', Vr.CliLogged);
+  AssertTrue('its own tile allowed', Q[0].NewZ <> -128);
+  AssertTrue('at its height', Abs(Q[0].NewZ - Z) <= 2);
+  for d := 1 to 8 do
+    AssertTrue('a height near the character''s, or refused',
+      (Q[d].NewZ = -128) or (Abs(Q[d].NewZ - Z) <= 20));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// uo.dll's BlockInfo, live: 3x3 tiles round the character at its height. On client.exe this is the
+// fixed cave (six arguments; the original's five made the client write through a saved counter).
+// The middle one is the step north onto the character's own tile.
+procedure TLiveClientTests.TestBlockInfoAroundTheCharacter;
+var
+  E       : TUOEvent;
+  i, X, Y : Integer;
+  Z, V    : Integer;
+  S       : String;
+begin
+  RequireLoggedIn;
+  if Sel.CstDB.BLOCKINFO = 0 then Ignore('No C_BLOCKINFO address for this client.');
+  X := Vr.CharPosX;
+  Y := Vr.CharPosY;
+  Z := Vr.CharPosZ;
+  E := TUOEvent.Create(Sel, Vr, SleepDelay);
+  try
+    E.BlockInfo(X - 1, Y - 1, Z, 3, 3);
+    S := E.BlockStr;
+  finally
+    E.Free;
+  end;
+  AssertEquals('two bytes a tile', 18, Length(S));
+  AssertTrue('the client still answers', Vr.CliLogged);
+  for i := 0 to 8 do
+  begin
+    V := SmallInt(Byte(S[2*i + 1]) or (Byte(S[2*i + 2]) shl 8));
+    WriteLn(Format('  BlockInfo %d,%d: %d', [X - 1 + i mod 3, Y - 1 + i div 3, V]));
+    if i = 4 then AssertTrue('the character''s own tile at its height', Abs(V - Z) <= 2)
+    else AssertTrue('a height near the character''s, or refused', (V = -128) or (Abs(V - Z) <= 20));
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

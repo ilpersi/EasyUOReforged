@@ -20,7 +20,9 @@ unit walklive;
     OpenHouseDoors: walked live on the beta, a route through a house's doors met a tile inside that
     the server refused although the client showed it free.
   - A learned block is an obstacle from -128 up past 127 over the whole cell: nothing stands there.
-    Each has its own expiry time; Expire drops the old ones.
+    Each has its own expiry time; Expire drops the old ones. The walker learns them from refused
+    steps and from the client's own step check, which can add a hundred at once, so they are kept
+    with the rectangle they lie in, and a cell outside it is answered without looking at the list.
 
   Pure logic: the objects come from the caller (uocommands.pas reads them from the client), so the
   tests run it on a synthetic grid.
@@ -71,6 +73,9 @@ type
     FX1, FY1   : Integer;             // the rectangle the objects lie in
     FX2, FY2   : Integer;
     FLearned   : array of TLearnedBlock;
+    FLX1, FLY1 : Integer;             // the rectangle the learned blocks lie in
+    FLX2, FLY2 : Integer;
+    procedure LearnedBounds;
     function  Slot(X, Y : Integer) : Integer;
     function  FirstAt(X, Y : Integer) : Integer;
     function  IsDoorObj(i : Integer) : Boolean;
@@ -96,6 +101,8 @@ type
     // Is there a door on the cell the walker may open (whatever OpenDoors says)? A house door
     // counts only with OpenHouseDoors.
     function  DoorAt(X, Y : Integer) : Boolean;
+    // Is a mobile other than the character standing on the cell (whatever IgnoreMobiles says)?
+    function  MobileAt(X, Y : Integer) : Boolean;
     // Learned blocks: Learn adds (or renews) one that lasts LifeMs from Now.
     procedure Learn(AFacet, X, Y : Integer; Now : QWord; LifeMs : Cardinal);
     procedure Unlearn(AFacet, X, Y : Integer);
@@ -257,16 +264,51 @@ begin
   Result := False;
 end;
 
+function TLiveOverlay.MobileAt(X, Y : Integer) : Boolean;
+var
+  i : Integer;
+begin
+  Result := True;
+  i := FirstAt(X, Y);
+  while i >= 0 do
+  begin
+    if (FObjs[i].Kind = lkMobile) and (FObjs[i].ID <> SelfID) then Exit;
+    i := FNext[i];
+  end;
+  Result := False;
+end;
+
 function TLiveOverlay.CellCost(X, Y : Integer) : Integer;
 begin
   Result := 0;
   if OpenDoors and (DoorCost > 0) and DoorAt(X, Y) then Result := DoorCost;
 end;
 
+// The client's step check can learn a hundred cells at once, and the planner asks about every cell
+// it reaches: the rectangle keeps the search far from them from scanning the list.
+procedure TLiveOverlay.LearnedBounds;
+var
+  i : Integer;
+begin
+  FLX1 := 1;
+  FLX2 := 0;
+  FLY1 := 1;
+  FLY2 := 0;
+  for i := 0 to High(FLearned) do
+  begin
+    if (i = 0) or (FLearned[i].X < FLX1) then FLX1 := FLearned[i].X;
+    if (i = 0) or (FLearned[i].X > FLX2) then FLX2 := FLearned[i].X;
+    if (i = 0) or (FLearned[i].Y < FLY1) then FLY1 := FLearned[i].Y;
+    if (i = 0) or (FLearned[i].Y > FLY2) then FLY2 := FLearned[i].Y;
+  end;
+end;
+
 function TLiveOverlay.LearnedAt(X, Y : Integer) : Boolean;
 var
   i : Integer;
 begin
+  Result := False;
+  if (X < FLX1) or (X > FLX2) or (Y < FLY1) or (Y > FLY2) then Exit;
   Result := True;
   for i := 0 to High(FLearned) do
     if (FLearned[i].X = X) and (FLearned[i].Y = Y) and (FLearned[i].Facet = Facet) then Exit;
@@ -329,6 +371,7 @@ begin
   FLearned[High(FLearned)].X := X;
   FLearned[High(FLearned)].Y := Y;
   FLearned[High(FLearned)].Expires := Now + LifeMs;
+  LearnedBounds;
 end;
 
 procedure TLiveOverlay.Unlearn(AFacet, X, Y : Integer);
@@ -343,6 +386,7 @@ begin
       Inc(n);
     end;
   SetLength(FLearned, n);
+  LearnedBounds;
 end;
 
 procedure TLiveOverlay.Expire(Now : QWord);
@@ -357,11 +401,13 @@ begin
       Inc(n);
     end;
   SetLength(FLearned, n);
+  LearnedBounds;
 end;
 
 procedure TLiveOverlay.ClearLearned;
 begin
   SetLength(FLearned, 0);
+  LearnedBounds;
 end;
 
 function TLiveOverlay.IsLearned(AFacet, X, Y : Integer) : Boolean;

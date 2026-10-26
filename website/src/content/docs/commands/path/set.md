@@ -34,6 +34,7 @@ The walk:
 | `doors` | `on` | `on`: a route may go through a door, which the walker opens, except the doors of player houses. `all`: those too, to walk into your own house. `off`: doors are walls. |
 | `doorcost` | `50` | What going through a door costs on top of the step, in hundredths of a step. |
 | `blocktime` | `60s` | How long the walker avoids a place where a step was refused. A time, as for `timeout`. |
+| `check` | `12` | How far ahead, in tiles from the character, the walker asks the client itself whether the route can be walked (see [`path check`](/commands/path/check/)). A tile the client refuses is avoided like a refused step, before the character gets there. `0` never asks. |
 | `log` | `off` | A file the walker writes what it does to, one line each time it decides something: the waypoints it sends, the refusals and why, the replans, the steps, the doors. A name without a folder goes in the EasyUO Reforged folder; lines are added at the end. `off` stops it. For when a walk doesn't do what you expect. |
 
 [`#PathState`](/variables/pathstate/) is `ok`, or `error: …` for an unknown option or a bad value.

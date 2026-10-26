@@ -33,16 +33,21 @@ EasyUO for anything important, until you have checked that the scripts and featu
   doors and creatures only where your client holds them, around the character. A long route can lead into
   a house farther away; the walker goes round it once it gets near.
   - It reads the walls and floors of player houses only on `client_beta.exe` 7.0.117.31. On other clients
-    the walker finds a house when its steps are refused, which is slower.
+    the walker learns a house from the client itself ([`path check`](/commands/path/check/)), once it is
+    within 12 tiles of the character: a route planned from farther away can still lead toward it.
+  - A tile the client hasn't loaded reads as refused to [`path check`](/commands/path/check/), which is why
+    the walker only asks about the next 12 tiles.
   - The walker doesn't go into player houses unless told to ([`path set doors all`](/commands/path/set/)).
-    Inside a house, the server can refuse tiles the client shows as free.
+    Inside a house, the server can refuse tiles the client shows as free. On `client.exe` the walker can't
+    tell a house's door from any other door, but it learns the floor behind it from the client once the
+    character is within 12 tiles, so routes still go round the house.
   - A link to another facet (a moongate) is not followed: the walk stops there.
   - Client mode ([`path set mode client`](/commands/path/set/)) is not the default: on `client_beta.exe` the
     client's own walk keeps ending early or taking its own way, and once left
     [`#CharPosX`](/variables/charposx/) a few tiles off until the next login. There,
     [`path stop`](/commands/path/stop/) also can't stop the client's walk to the last point it was sent to.
-  - Walking has been checked by hand on `client_beta.exe` only; `path find` and `path can` also on
-    `client.exe`.
+  - Walking has been checked by hand mostly on `client_beta.exe`. On `client.exe`: `path find`, `path can`,
+    `path check`, and one walk round a player house.
 - **Symbol fonts in menus.** A [`menu`](/commands/menu/) text, button or checkbox using a symbol font such
   as Wingdings only shows the intended glyphs if that exact font is installed. Otherwise Windows substitutes
   another font, as the original did.

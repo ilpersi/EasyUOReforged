@@ -47,6 +47,7 @@ type
     procedure TestPathBadArgumentsLandInPathState;
     procedure TestPathWalkingNeedsAClient;
     procedure TestPathWalkerOptions;
+    procedure TestPathCheckNeedsAClient;
 
     procedure TestIfTrueRunsBodyAndSkipsElse;
     procedure TestIfFalseSkipsBodyAndRunsElse;
@@ -434,6 +435,9 @@ begin
     'path set log walk.log' + #13#10 + 'set %m #PathState' + #13#10 +
     'path set log off' + #13#10 + 'set %n #PathState' + #13#10 +
     'path set log' + #13#10 + 'set %o #PathState' + #13#10 +
+    'path set check 8' + #13#10 + 'set %r #PathState' + #13#10 +
+    'path set check 0' + #13#10 + 'set %s #PathState' + #13#10 +
+    'path set check -1' + #13#10 + 'set %t #PathState' + #13#10 +
     'HALT');
   AssertEquals('ok', Interp.GetVar('%a'));
   AssertEquals('ok', Interp.GetVar('%b'));
@@ -452,6 +456,32 @@ begin
   AssertEquals('ok', Interp.GetVar('%m'));
   AssertEquals('ok', Interp.GetVar('%n'));
   AssertEquals('error: path set log {file}|off', Interp.GetVar('%o'));
+  AssertEquals('ok', Interp.GetVar('%r'));
+  AssertEquals('ok', Interp.GetVar('%s'));
+  AssertEquals('error: path set check needs a number of 0 or more', Interp.GetVar('%t'));
+end;
+
+// PATH CHECK asks the client itself: without one it says noclient, once its arguments are right.
+procedure TEuoInterpreterTests.TestPathCheckNeedsAClient;
+begin
+  PlayScript(
+    'path check 10 10' + #13#10 + 'set %a #PathState' + #13#10 +
+    'path check 10 10 5 3' + #13#10 + 'set %b #PathState' + #13#10 +
+    'path check 1' + #13#10 + 'set %c #PathState' + #13#10 +
+    'path check' + #13#10 + 'set %d #PathState' + #13#10 +
+    'path check 10 10 5 8' + #13#10 + 'set %e #PathState' + #13#10 +
+    'path check 10 x' + #13#10 + 'set %f #PathState' + #13#10 +
+    'path check 10 10 5 3 9' + #13#10 + 'set %g #PathState' + #13#10 +
+    'set %h #PathCnt' + #13#10 +
+    'HALT');
+  AssertEquals('noclient', Interp.GetVar('%a'));
+  AssertEquals('noclient', Interp.GetVar('%b'));
+  AssertEquals('no plan: no step 1', 'error: no step 1 (1..0)', Interp.GetVar('%c'));
+  AssertEquals('error: path check {n} | {x} {y} [z] [dir]', Interp.GetVar('%d'));
+  AssertEquals('error: path check {n} | {x} {y} [z] [dir]', Interp.GetVar('%e'));
+  AssertEquals('error: path check {n} | {x} {y} [z] [dir]', Interp.GetVar('%f'));
+  AssertEquals('error: path check {n} | {x} {y} [z] [dir]', Interp.GetVar('%g'));
+  AssertEquals('#PathCnt left alone', '0', Interp.GetVar('%h'));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

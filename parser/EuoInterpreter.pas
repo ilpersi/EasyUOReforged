@@ -56,7 +56,9 @@ unit EuoInterpreter;
   Likewise the PATH command (the pathfinder, see docs\pathfinding.md) plus the read-only
   #PathCnt/#PathState/#PathX/#PathY/#PathZ/#PathDir (indices 119..124), another new
   command word with plain ParseLine arguments. Its walker (PATH GO/WALK/STEP) waits only
-  through Delay, as MOVE does, and drives the client through TEuoWalkClient below.
+  through Delay, as MOVE does, and drives the client through TEuoWalkClient below. PATH
+  CHECK, and the walker before it walks on, ask the client's own step check (the tile query
+  BlockInfo calls) through TUOEvent.StepInfo.
 }
 
 {$mode delphi}{$H+}
@@ -195,6 +197,7 @@ type
     function     PathStart(out X, Y, Z, Dir, Facet : Integer) : Boolean;
     procedure    PathFindSub;
     procedure    PathCanSub;
+    procedure    PathCheckSub;
     procedure    PathSetSub;
     procedure    PathAreaSub(const Sub : String);
     procedure    PathLinkSub;
@@ -2642,6 +2645,7 @@ type
     procedure MarkJournal; override;
     function  CantGetThere : Boolean; override;
     procedure LiveObjects(X, Y : Integer; var Objs : TLiveObjs); override;
+    function  CheckSteps(var Q : TStepChecks) : Boolean; override;
     function  Now : QWord; override;
     function  Wait(Ms : Cardinal) : Boolean; override;
     function  CanPathFind : Boolean; override;
@@ -2712,6 +2716,11 @@ end;
 procedure TEuoWalkClient.LiveObjects(X, Y : Integer; var Objs : TLiveObjs);
 begin
   Interp.UOCmd.PathLiveObjects(X,Y,LIVE_RANGE,Objs);
+end;
+
+function TEuoWalkClient.CheckSteps(var Q : TStepChecks) : Boolean;
+begin
+  Result:=Interp.EventObj.StepInfo(Q);
 end;
 
 function TEuoWalkClient.Now : QWord;
@@ -2824,6 +2833,7 @@ begin
 
   if Sub='FIND' then PathFindSub
   else if Sub='CAN' then PathCanSub
+  else if Sub='CHECK' then PathCheckSub
   else if Sub='SET' then PathSetSub
   else if (Sub='BLOCK')or(Sub='UNBLOCK')or(Sub='AVOID') then PathAreaSub(Sub)
   else if Sub='LINK' then PathLinkSub
@@ -3039,6 +3049,122 @@ begin
   else PathState:='blocked';
 end;
 
+// PATH CHECK {n} | {x} {y} [z] [dir]: the client's own step check (TUOEvent.StepInfo, the tile
+// query BlockInfo calls), which sees everything the client holds. {n}: step n of the last plan,
+// from the step before it (or the plan's start) in its direction, and for a diagonal its two
+// flanks as well, as the walker asks it. Else: the step onto x,y in dir (default 0, north, as
+// BlockInfo) from the tile behind it, at height z (default #CharPosZ). #PathX/#PathY: the tile
+// asked about, or the flank that refused; #PathZ: the height the client lands it at (0 when it
+// refuses); #PathDir: the direction. #PathState: ok, blocked, noclient, or nocheck (no address for
+// this client, or no answer). #PathCnt is left alone.
+procedure TEuoInterpreter.PathCheckSub;
+var
+  Q          : TStepChecks;
+  P          : TPathPlanner;
+  N, i, d, t : Integer;
+  X, Y, Z    : Integer;
+  Raw        : Boolean;
+begin
+  P:=UOCmd.PathPlanner;
+  PathX:=0;
+  PathY:=0;
+  PathZ:=0;
+  PathDir:=-1;
+  Raw:=ParList.Count>3;
+  if Raw then
+  begin
+    if not(ParList[2].CardValid and ParList[3].CardValid) or (ParList.Count>6) or
+      ((ParList.Count>4) and not ParList[4].IntValid) or
+      ((ParList.Count>5) and not(ParList[5].CardValid and (ParList[5].Int<=7))) then
+    begin
+      PathState:='error: path check {n} | {x} {y} [z] [dir]';
+      Exit;
+    end;
+  end
+  else if not ParList[2].IntValid or (ParList.Count<>3) then
+  begin
+    PathState:='error: path check {n} | {x} {y} [z] [dir]';
+    Exit;
+  end
+  else if (ParList[2].Int<1) or (ParList[2].Int>P.StepCount) then
+  begin
+    PathState:='error: no step '+ParList[2].Str+' (1..'+IntToStr(P.StepCount)+')';
+    Exit;
+  end
+  else if P.Steps[ParList[2].Int-1].Dir=PATH_DIR_LINK then
+  begin
+    PathState:='error: step '+ParList[2].Str+' is a link';
+    Exit;
+  end;
+  if UOSel.Nr=0 then
+  begin
+    PathState:='noclient';
+    Exit;
+  end;
+
+  if Raw then
+  begin
+    SetLength(Q,1);
+    Q[0].X:=ParList[2].Int;
+    Q[0].Y:=ParList[3].Int;
+    Q[0].Z:=UOVar.CharPosZ;
+    if ParList.Count>4 then Q[0].Z:=ParList[4].Int;
+    Q[0].Dir:=0;
+    if ParList.Count>5 then Q[0].Dir:=ParList[5].Int;
+  end
+  else
+  begin
+    N:=ParList[2].Int;
+    X:=P.StartX;
+    Y:=P.StartY;
+    Z:=P.StartZ;
+    if N>1 then
+    begin
+      X:=P.Steps[N-2].X;
+      Y:=P.Steps[N-2].Y;
+      Z:=P.Steps[N-2].Z;
+    end;
+    d:=P.Steps[N-1].Dir and 7;
+    if Odd(d) then SetLength(Q,3)
+    else SetLength(Q,1);
+    Q[0].X:=P.Steps[N-1].X;
+    Q[0].Y:=P.Steps[N-1].Y;
+    Q[0].Z:=Z;
+    Q[0].Dir:=d;
+    for i:=1 to High(Q) do
+    begin
+      if i=1 then t:=(d+1) and 7
+      else t:=(d+7) and 7;
+      Q[i].X:=X+DirX[t];
+      Q[i].Y:=Y+DirY[t];
+      Q[i].Z:=Z;
+      Q[i].Dir:=t;
+    end;
+  end;
+
+  if not EventObj.StepInfo(Q) then
+  begin
+    PathState:='nocheck';
+    Exit;
+  end;
+  i:=0;
+  while (i<Length(Q)) and (Q[i].NewZ<>-128) do Inc(i);
+  PathDir:=Q[0].Dir;
+  if i<Length(Q) then
+  begin
+    PathX:=Q[i].X;
+    PathY:=Q[i].Y;
+    PathState:='blocked';
+  end
+  else
+  begin
+    PathX:=Q[0].X;
+    PathY:=Q[0].Y;
+    PathZ:=Q[0].NewZ;
+    PathState:='ok';
+  end;
+end;
+
 // PATH SET {option} {value}. Costs are in hundredths of a step; timeout and blocktime as WAIT
 // (ticks, or seconds with an s).
 procedure TEuoInterpreter.PathSetSub;
@@ -3174,6 +3300,7 @@ begin
   else if Opt='TURNCOST' then P.TurnCost:=V
   else if Opt='HEURISTIC' then P.Heuristic:=V
   else if Opt='DOORCOST' then UOCmd.PathLive.DoorCost:=V
+  else if Opt='CHECK' then W.CheckDist:=V
   else if Opt='LEAD' then
   begin
     if V<1 then

@@ -1659,6 +1659,7 @@ sub sec_path
   path set doors on
   path set doorcost 50
   path set lead 18
+  path set check 12
   path set blocktime 60s
   gosub t_eq path_set_the_walker_defaults_back #pathstate ok
   path clear learned
@@ -1683,6 +1684,13 @@ sub sec_path
     gosub t_eq path_walk_without_a_client #pathstate noclient
     path step
     gosub t_eq path_step_without_a_client #pathstate noclient
+    path check 10 10 0 0
+    gosub t_eq path_check_without_a_client #pathstate noclient
+    set %r 0
+    path check 1
+    if #pathstate <> ok
+      set %r 1
+    gosub t_eq path_check_without_a_plan_is_an_error %r 1
   }
 return
 
@@ -1691,6 +1699,10 @@ sub path_checks
   path can #charposx #charposy #charposz
   gosub t_soft path_can_stand_where_the_character_stands #pathstate ok
   gosub t_soft path_can_height_is_the_characters #pathz #charposz
+  ; the client's own step check, onto the character's own tile
+  path check #charposx #charposy #charposz
+  gosub t_soft path_check_the_characters_own_tile #pathstate ok
+  gosub t_soft path_check_height_is_the_characters #pathz #charposz
   set %px #charposx + 3
   path find %px #charposy
   gosub t_soft path_find_3_tiles_east #pathstate ok

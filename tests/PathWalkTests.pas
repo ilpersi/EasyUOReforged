@@ -7,7 +7,9 @@ unit PathWalkTests;
     simulation keeps the true world (Truth: the grid plus every object, doors shut) apart from what
     it shows the walker (Visible), so a test can hide a wall, refuse far waypoints, open a door,
     move a creature into the way or teleport. Its PathFind runs ClientSearch on the true world, as
-    the real client does on what it has loaded, then walks the result one step every StepMs.
+    the real client does on what it has loaded, then walks the result one step every StepMs. Its
+    CheckSteps (CheckOn) answers the client's step check from the true world, as the client's own
+    CalculateNewZ does.
     Time is simulated: Wait advances it, so a walk of minutes takes milliseconds. }
 
 {$mode objfpc}{$H+}
@@ -21,6 +23,7 @@ uses
 const
   W_WALL = 100;   // the made-up tiledata, as in WalkLiveTests
   W_DOOR = 102;
+  W_RAMP = 103;   // stairs the walker can't see: a bridge 8 high, stood on half way up
 
 type
   TSimClient = class(TWalkClient)
@@ -64,6 +67,11 @@ type
     SpawnAt      : QWord;      // at this time Spawn appears (0 = never)
     Spawn        : TLiveObj;
     Visits       : TStringList;
+    CheckOn      : Boolean;    // CheckSteps answers (else it can't be asked)
+    CheckBlind   : Boolean;    // ... and refuses everything, the character's own tile included
+    Checks       : Integer;    // CheckSteps calls
+    MaxCheckDist : Integer;    // the farthest tile asked about from the character
+    Asked        : TStringList;   // every tile asked about, as x,y
     constructor Create(Grid : TWalkSource; Info : TTileInfoFunc; SX, SY : Integer);
     destructor  Destroy; override;
     procedure Rebuild;
@@ -77,6 +85,7 @@ type
     procedure MarkJournal; override;
     function  CantGetThere : Boolean; override;
     procedure LiveObjects(LX, LY : Integer; var Objs : TLiveObjs); override;
+    function  CheckSteps(var Q : TStepChecks) : Boolean; override;
     function  Now : QWord; override;
     function  Wait(Ms : Cardinal) : Boolean; override;
   end;
@@ -95,6 +104,7 @@ type
     procedure Sim(SX, SY : Integer);
     function  Walk(GX, GY : Integer; Mode : TWalkMode; TimeoutMs : Cardinal = 600000) : TWalkState;
     function  Straight(N : Integer) : TPathSteps;
+    function  Logged(const S : String) : Boolean;
   protected
     procedure SetUp; override;
     procedure TearDown; override;
@@ -130,6 +140,17 @@ type
     procedure TestNoProgressEndsTheWalk;
     procedure TestAutoModeWalksInSteps;
     procedure TestFacingDoesNotBendTheRoute;
+    // the client check (phase 3)
+    procedure TestClientCheckLearnsHiddenWallBeforeStepping;
+    procedure TestClientCheckLearnsAHiddenHouseInFewReplans;
+    procedure TestClientCheckRefusesADiagonalByItsFlank;
+    procedure TestClientCheckLeavesADoorToOpen;
+    procedure TestClientCheckLeavesAMobile;
+    procedure TestClientCheckDroppedWhenOwnTileRefused;
+    procedure TestClientCheckWithoutAnswerChangesNothing;
+    procedure TestClientCheckStaysWithinCheckDist;
+    procedure TestClientCheckNeverAsksAcrossALink;
+    procedure TestClientCheckTakesTheClientsHeight;
   end;
 
 implementation
@@ -155,11 +176,15 @@ begin
   Visits := TStringList.Create;
   Visits.Sorted := True;
   Visits.Duplicates := dupIgnore;
+  Asked := TStringList.Create;
+  Asked.Sorted := True;
+  Asked.Duplicates := dupIgnore;
 end;
 
 destructor TSimClient.Destroy;
 begin
   Visits.Free;
+  Asked.Free;
   Truth.Free;
   inherited Destroy;
 end;
@@ -345,6 +370,23 @@ begin
   Objs := Copy(Visible, 0, Length(Visible));
 end;
 
+function TSimClient.CheckSteps(var Q : TStepChecks) : Boolean;
+var
+  i, NZ : Integer;
+begin
+  Inc(Checks);
+  Result := CheckOn;
+  if not Result then Exit;
+  for i := 0 to High(Q) do
+  begin
+    MaxCheckDist := Max(MaxCheckDist, Max(Abs(Q[i].X - X), Abs(Q[i].Y - Y)));
+    Asked.Add(Format('%d,%d', [Q[i].X, Q[i].Y]));
+    NZ := Q[i].Z;
+    if CheckBlind or not CalculateNewZ(Truth, Q[i].X, Q[i].Y, NZ, Q[i].Dir) then NZ := -128;
+    Q[i].NewZ := NZ;
+  end;
+end;
+
 function TSimClient.Now : QWord;
 begin
   Result := T;
@@ -395,6 +437,10 @@ begin
   case Graphic of
     W_WALL : Flags := TDF_IMPASSABLE;
     W_DOOR : Flags := TDF_IMPASSABLE or TDF_DOOR;
+    W_RAMP : begin
+               Flags := TDF_SURFACE or TDF_BRIDGE;
+               Height := 8;
+             end;
   else
     Flags := 0;
     Height := 0;
@@ -796,6 +842,177 @@ begin
   AssertEquals(22, Length(W.Steps));
   for i := 0 to High(W.Steps) do
     AssertEquals('step ' + IntToStr(i + 1) + ' east', 2, W.Steps[i].Dir);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The client check (phase 3).
+
+function TPathWalkTests.Logged(const S : String) : Boolean;
+var
+  i : Integer;
+begin
+  Result := False;
+  for i := 0 to Lines.Count-1 do
+    if Pos(S, Lines[i]) > 0 then Exit(True);
+end;
+
+// A wall the overlay can't see but the client can: the check learns it before the character gets
+// there, so no step is ever refused.
+procedure TPathWalkTests.TestClientCheckLearnsHiddenWallBeforeStepping;
+begin
+  Sim(5, 5);
+  C.CheckOn := True;
+  C.AddHidden(Item(12, 5, W_WALL));
+  AssertTrue(Walk(20, 5, wmSteps) = wsArrived);
+  AssertEquals(20, C.X);
+  AssertTrue('learned', Ov.IsLearned(0, 12, 5));
+  AssertEquals('never walked into it', 0, C.BlockedSteps);
+  AssertFalse(C.Visited(12, 5));
+  AssertTrue(C.Checks >= 1);
+end;
+
+// A house the overlay lacks, 8 by 11, across the route: the probe round the first refused tile
+// learns a block of it at once, so the walk gets round it in a few replans, never refused.
+procedure TPathWalkTests.TestClientCheckLearnsAHiddenHouseInFewReplans;
+var
+  X, Y : Integer;
+begin
+  Sim(5, 7);
+  C.CheckOn := True;
+  for Y := 2 to 12 do
+    for X := 15 to 22 do
+      C.AddHidden(Item(X, Y, W_WALL));
+  W.OnLog := @Collect;
+  AssertTrue(Walk(35, 7, wmSteps) = wsArrived);
+  if GetEnvironmentVariable('PATHWALK_LOG') <> '' then WriteLn(Lines.Text);
+  AssertEquals(35, C.X);
+  AssertEquals('never walked into it', 0, C.BlockedSteps);
+  AssertTrue('learned a block of it: ' + IntToStr(Ov.LearnedCount), Ov.LearnedCount >= 30);
+  AssertTrue('in few replans: ' + IntToStr(W.Replans), W.Replans <= 6);
+  AssertTrue(Logged('client check round '));
+end;
+
+// The diagonal from 7,7 to 8,8 needs both 8,7 and 7,8 free; the client refuses 8,7, so that flank is
+// learned and the route goes another way.
+procedure TPathWalkTests.TestClientCheckRefusesADiagonalByItsFlank;
+begin
+  Sim(5, 5);
+  C.CheckOn := True;
+  C.AddHidden(Item(8, 7, W_WALL));
+  W.OnLog := @Collect;
+  AssertTrue(Walk(15, 15, wmSteps) = wsArrived);
+  AssertTrue('the flank learned', Ov.IsLearned(0, 8, 7));
+  AssertTrue(Logged('refused at 8,7'));
+  AssertEquals(0, C.BlockedSteps);
+end;
+
+// A shut door the walker opens: the client refuses it, as any shut door, but it is not learned.
+procedure TPathWalkTests.TestClientCheckLeavesADoorToOpen;
+begin
+  G.AddStaticRect(15, 0, 15, 4, 0, 20, TDF_IMPASSABLE);
+  G.AddStaticRect(15, 6, 15, 63, 0, 20, TDF_IMPASSABLE);
+  Sim(10, 5);
+  C.CheckOn := True;
+  C.AddVisible(Item(15, 5, W_DOOR));
+  W.OnLog := @Collect;
+  AssertTrue(Walk(20, 5, wmSteps) = wsArrived);
+  AssertEquals(20, C.X);
+  AssertEquals(1, C.DoorsOpened);
+  AssertTrue(Logged('15,5 refused, a door to open'));
+end;
+
+// A creature on the route with mobiles ignored: the client refuses its tile, but the check leaves
+// it to the overlay rather than learning it for a minute.
+procedure TPathWalkTests.TestClientCheckLeavesAMobile;
+begin
+  Sim(5, 30);
+  C.CheckOn := True;
+  Ov.IgnoreMobiles := True;
+  C.AddVisible(Item(12, 30, 0, lkMobile));
+  W.OnLog := @Collect;
+  W.Mode := wmSteps;
+  AssertTrue(W.Start(C, 20, 30, 0, False, 0, False));
+  W.Tick(C);
+  AssertTrue(Logged('12,30 refused, a mobile there'));
+  AssertFalse(Ov.IsLearned(0, 12, 30));
+end;
+
+// A client that refuses even the character's own tile hasn't loaded the area: its answer is
+// dropped, and the hidden wall is found the old way, by a refused step.
+procedure TPathWalkTests.TestClientCheckDroppedWhenOwnTileRefused;
+begin
+  Sim(5, 5);
+  C.CheckOn := True;
+  C.CheckBlind := True;
+  C.AddHidden(Item(12, 5, W_WALL));
+  W.OnLog := @Collect;
+  AssertTrue(Walk(20, 5, wmSteps) = wsArrived);
+  AssertTrue(Logged('own tile refused, answer dropped'));
+  AssertEquals('only the refused step learned', 1, Ov.LearnedCount);
+  AssertTrue(C.BlockedSteps >= 1);
+end;
+
+procedure TPathWalkTests.TestClientCheckWithoutAnswerChangesNothing;
+begin
+  Sim(5, 5);
+  C.AddHidden(Item(12, 5, W_WALL));
+  AssertTrue(Walk(20, 5, wmSteps) = wsArrived);
+  AssertTrue('asked', C.Checks >= 1);
+  AssertEquals('found by a refused step', 1, Ov.LearnedCount);
+  AssertTrue(C.BlockedSteps >= 1);
+end;
+
+// Nothing farther than CheckDist from the character is asked about (the character may be a step
+// ahead of what the walker last saw); 0 asks nothing.
+procedure TPathWalkTests.TestClientCheckStaysWithinCheckDist;
+begin
+  Sim(5, 30);
+  C.CheckOn := True;
+  AssertTrue(Walk(50, 30, wmSteps) = wsArrived);
+  AssertTrue('looked ahead: ' + IntToStr(C.MaxCheckDist), C.MaxCheckDist >= W.CheckDist - 1);
+  AssertTrue('no farther: ' + IntToStr(C.MaxCheckDist), C.MaxCheckDist <= W.CheckDist + 1);
+  FreeAndNil(C);
+  Sim(5, 30);
+  C.CheckOn := True;
+  W.CheckDist := 0;
+  AssertTrue(Walk(50, 30, wmSteps) = wsArrived);
+  AssertEquals(0, C.Checks);
+end;
+
+// The route jumps from 18,5 to 22,5: the tiles between are never asked about.
+procedure TPathWalkTests.TestClientCheckNeverAsksAcrossALink;
+begin
+  G.AddStaticRect(20, 0, 20, 63, 0, 20, TDF_IMPASSABLE);
+  P.AddLink(0, 18, 5, 0, 22, 5, 0, PATH_STEP_COST);
+  Sim(10, 5);
+  C.CheckOn := True;
+  C.TeleX := 18;
+  C.TeleY := 5;
+  C.TeleX2 := 22;
+  C.TeleY2 := 5;
+  AssertTrue(Walk(30, 5, wmSteps) = wsArrived);
+  AssertEquals(30, C.X);
+  AssertTrue(C.Checks >= 2);
+  AssertTrue(C.Asked.IndexOf('19,5') < 0);
+  AssertTrue(C.Asked.IndexOf('20,5') < 0);
+  AssertTrue(C.Asked.IndexOf('21,5') < 0);
+end;
+
+// Stairs the overlay can't see: the client lands the character 4 up, and the route takes that
+// height rather than its own.
+procedure TPathWalkTests.TestClientCheckTakesTheClientsHeight;
+var
+  X : Integer;
+begin
+  Sim(5, 5);
+  C.CheckOn := True;
+  for X := 10 to 13 do
+    C.AddHidden(Item(X, 5, W_RAMP));
+  W.OnLog := @Collect;
+  AssertTrue(Walk(20, 5, wmSteps) = wsArrived);
+  AssertTrue(Logged('step 5 (10,5) lands at 4, planned 0'));
+  AssertEquals(0, C.BlockedSteps);
+  AssertEquals(0, Ov.LearnedCount);
 end;
 
 initialization
