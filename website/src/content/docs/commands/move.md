@@ -5,7 +5,7 @@ kind: command
 category: client
 syntax: "move {x} {y} [tolerance] [timeout]"
 needsClient: true
-related: ["event PathFind", "#CharPosX", "#CharPosY"]
+related: ["event PathFind", "Path", "#CharPosX", "#CharPosY"]
 aliases: ["walk", "go to"]
 dll: Move
 source: wiki
@@ -13,7 +13,7 @@ source: wiki
 
 `move` walks the character towards the world position `x`, `y` by pressing the movement keys, step by step
 in a straight line. It does **no pathfinding**: walls and obstacles stop it. [`event PathFind`](/commands/event/pathfind/)
-lets the client find a way around them.
+lets the client find a way around them, and [`path find`](/commands/path/find/) plans longer routes.
 
 ## Parameters
 

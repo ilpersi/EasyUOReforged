@@ -173,6 +173,7 @@ gosub sec_namespaces
 gosub sec_misc
 gosub sec_sysvars
 gosub sec_sql
+gosub sec_path
 if %DO_MENU = 1
 {
   gosub sec_menu
@@ -1605,6 +1606,77 @@ sub sql_checks
   gosub t_eq sql_close_empties_the_row_snapshot #sqlcnt 0
   sql exec SELECT 1
   gosub t_eq sql_exec_after_close_says_no_database #sqlres %exp
+return
+
+; ===========================================================================
+;  09c  path  [Reforged]  (the pathfinder: it only plans, nobody moves)
+; ===========================================================================
+;  The options and rules need no client. With a logged-in client, a short
+;  plan from the character's own position, read from the client's map files.
+sub sec_path
+  gosub t_head 09c_path_[Reforged]
+  gosub t_eq path_state_is_NA_before_any_path_command #pathstate N/A
+  gosub t_eq path_cnt_is_0_before_any_path_command #pathcnt 0
+  path set accuracy 1
+  gosub t_eq path_set_accuracy #pathstate ok
+  set %r 0
+  path set bogus 1
+  if #pathstate <> ok
+    set %r 1
+  gosub t_eq path_set_unknown_option_is_an_error %r 1
+  path block 10 10 12 12
+  gosub t_eq path_block_an_area #pathstate ok
+  path unblock 11 11
+  gosub t_eq path_unblock_a_cell_in_it #pathstate ok
+  path avoid 1 1 5 5 500
+  gosub t_eq path_avoid #pathstate ok
+  path link 1 1 0 9 9 0
+  gosub t_eq path_link #pathstate ok
+  path clear
+  gosub t_eq path_clear #pathstate ok
+  path set accuracy 0
+  path set accuracyz 5
+  path set maxnodes 1000000
+  path set timeout 5s
+  path set margin 100
+  path set turncost 30
+  path set heuristic 100
+  path set difs off
+  gosub t_eq path_set_the_defaults_back #pathstate ok
+  path from 1434 1699 0
+  gosub t_eq path_from #pathstate ok
+  path from
+  gosub t_eq path_from_back_to_the_character #pathstate ok
+  if %LOGGED = 1
+  {
+    gosub path_checks
+  }
+  else
+  {
+    path find 1434 1699
+    gosub t_eq path_find_without_a_client #pathstate noclient
+  }
+return
+
+sub path_checks
+  set %c_soft 1
+  path can #charposx #charposy #charposz
+  gosub t_soft path_can_stand_where_the_character_stands #pathstate ok
+  gosub t_soft path_can_height_is_the_characters #pathz #charposz
+  set %px #charposx + 3
+  path find %px #charposy
+  gosub t_soft path_find_3_tiles_east #pathstate ok
+  if #pathstate = ok
+  {
+    gosub c_nonneg path_cnt_is_>=_0 #pathcnt
+    set %pe #pathx , _ , #pathy , _ , #pathz , _dir_ , #pathdir
+    gosub t_info path_find_ends_at %pe
+    path get 1
+    gosub t_eq path_get_1 #pathstate ok
+    set %pe #pathx , _ , #pathy , _ , #pathz , _dir_ , #pathdir
+    gosub t_info path_first_step %pe
+  }
+  set %c_soft 0
 return
 
 ; ===========================================================================

@@ -53,6 +53,9 @@ unit EuoInterpreter;
   #SqlCnt/#SqlChanges/#SqlLastID/#SqlRes (indices 115..118). SQL is the only new
   command word -- a line starting with it was a silent no-op before -- and it reads
   its statement from the raw source line (RawLineText) rather than changing ParseLine.
+  Likewise the PATH command (the pathfinder, see docs\pathfinding.md) plus the read-only
+  #PathCnt/#PathState/#PathX/#PathY/#PathZ/#PathDir (indices 119..124), another new
+  command word with plain ParseLine arguments.
 }
 
 {$mode delphi}{$H+}
@@ -63,7 +66,7 @@ uses
   EuoTokens, EuoConversion, EuoExpression, EuoVariables, EuoScriptStack,
   EuoSortedList, EuoCommandRegistry, EuoStdCommands, EuoComm, EuoMenu,
   uotypes, access, ReforgedVersion, uoselector, uovariables, uocommands, uoevents, EuoLock,
-  EuoSql;
+  EuoSql, walkrules, walkmap, pathplan;
 
 const
   RES_OK    = 0;
@@ -115,6 +118,17 @@ type
     SqlChanges   : Int64;
     SqlLastID    : Int64;
     SqlRes       : String;
+    PathCnt      : Int64;         // port addition (PATH)
+    PathState    : String;
+    PathX        : Int64;
+    PathY        : Int64;
+    PathZ        : Int64;
+    PathDir      : Int64;
+    PathFromSet  : Boolean;       // path from: plan from here instead of the character
+    PathFromX    : Integer;
+    PathFromY    : Integer;
+    PathFromZ    : Integer;
+    PathFromF    : Integer;
 
     procedure    RegisterCommands;
     function     RawLineText : String;
@@ -166,6 +180,15 @@ type
     procedure    SetProc;
     procedure    WaitProc;
     procedure    SqlProc;
+    procedure    PathProc;
+    procedure    PathReset;
+    function     PathFacet : Integer;
+    function     PathStart(out X, Y, Z, Dir, Facet : Integer) : Boolean;
+    procedure    PathFindSub;
+    procedure    PathCanSub;
+    procedure    PathSetSub;
+    procedure    PathAreaSub(const Sub : String);
+    procedure    PathLinkSub;
 
     // Cmd2 (client-dependent) command handlers
     procedure    TileProc;
@@ -357,7 +380,7 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 const
-  VarNamesR : Array[0..118] of String = (
+  VarNamesR : Array[0..124] of String = (
     'CliCnt','CliNr','Time','Date','SysTime','Random','OSVer','CharPosX',
     'CharPosY','CharPosZ','CharID','CharGhost','CharStatus','CharDir',
     'CharName','Sex','Str','MaxWeight','Dex','Int','Hits','MaxHits',
@@ -378,7 +401,9 @@ const
     // Port additions (ScanBuffs): indices 108..114, after the original names.
     'BuffCnt','BuffID','BuffCliloc','BuffName','BuffDesc','BuffTime','BuffBarOpen',
     // Port additions (SQL): indices 115..118.
-    'SqlCnt','SqlChanges','SqlLastID','SqlRes');
+    'SqlCnt','SqlChanges','SqlLastID','SqlRes',
+    // Port additions (PATH): indices 119..124.
+    'PathCnt','PathState','PathX','PathY','PathZ','PathDir');
 
   VarNamesRW : Array[0..33] of String = (
     'SCnt','SCnt2','LShard','ContPosX','ContPosY','NextCPosX','NextCPosY',
@@ -451,6 +476,7 @@ begin
   SqlChanges:=0;
   SqlLastID:=0;
   SqlRes:='N/A';
+  PathReset;
 
   CmdRegistry:=TEuoCommandRegistry.Create;
   RegisterCommands;
@@ -507,6 +533,7 @@ begin
   SqlChanges:=0;
   SqlLastID:=0;
   SqlRes:='N/A';
+  PathReset;   // port addition (PATH): options, rules and the last path
 
   UOVar.IgnoreCont($FFFFFFFF);
 end;
@@ -881,6 +908,13 @@ begin
     116: Result:=IntToStr   (SqlChanges   );
     117: Result:=IntToStr   (SqlLastID    );
     118: Result:=            SqlRes        ;
+    // Port additions (PATH).
+    119: Result:=IntToStr   (PathCnt      );
+    120: Result:=            PathState     ;
+    121: Result:=IntToStr   (PathX        );
+    122: Result:=IntToStr   (PathY        );
+    123: Result:=IntToStr   (PathZ        );
+    124: Result:=IntToStr   (PathDir      );
     500: Result:=IntToStr   (GetTickCount div 1000 - SCntBase);
     501: Result:=IntToStr   (GetTickCount div 100 - SCnt2Base);
     525: Result:=            _Result       ;
@@ -1308,6 +1342,7 @@ begin
   CmdRegistry.Register('Continue',ContinueBreakProc);
   CmdRegistry.Register('LinesPerCycle',LinesPerCycleProc);
   CmdRegistry.Register('Sql',SqlProc);   // port addition
+  CmdRegistry.Register('Path',PathProc); // port addition; checks for a client itself
 
   // Cmd2 -- client-dependent (RequiresClient=True).
   CmdRegistry.Register('Key',KeyProc,True);
@@ -2570,6 +2605,393 @@ end;
 function TEuoInterpreter.SqlGetVar(const Name : String) : String;
 begin
   Result:=GetVar(Name);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (PATH): the pathfinder (planner pathplan.pas, step rules walkrules.pas, world
+// model walkmap.pas, owned by UOCmd; see docs\pathfinding.md). Every sub-command sets #PathState:
+// 'ok', a search result (nopath, budget, timeout, stopped), 'blocked' for PATH CAN, 'noclient',
+// 'nomap', or 'error: ...' for bad arguments. Registered without RequiresClient so that a script
+// can set options and rules before a client is attached; FIND and CAN check for one themselves.
+procedure TEuoInterpreter.PathReset;
+begin
+  PathCnt:=0;
+  PathState:='N/A';
+  PathX:=0;
+  PathY:=0;
+  PathZ:=0;
+  PathDir:=-1;
+  PathFromSet:=False;
+  UOCmd.PathPlanner.ResetOptions;
+  UOCmd.PathPlanner.ClearRules(True,True,True);
+  UOCmd.PathPlanner.StepCount:=0;
+  UOCmd.PathDifs:=False;
+end;
+
+// The facet rules and plans default to: PATH FROM's, else the character's.
+function TEuoInterpreter.PathFacet : Integer;
+begin
+  if PathFromSet then Result:=PathFromF
+  else if UOSel.Nr>0 then Result:=UOVar.CursKind
+  else Result:=0;
+end;
+
+// Where a plan starts: PATH FROM's position, else the character's. False (and #PathState
+// 'noclient') when neither is there.
+function TEuoInterpreter.PathStart(out X, Y, Z, Dir, Facet : Integer) : Boolean;
+begin
+  Result:=True;
+  if PathFromSet then
+  begin
+    X:=PathFromX;
+    Y:=PathFromY;
+    Z:=PathFromZ;
+    Dir:=-1;
+    Facet:=PathFromF;
+    Exit;
+  end;
+  Result:=UOSel.Nr>0;
+  if not Result then
+  begin
+    PathState:='noclient';
+    Exit;
+  end;
+  X:=UOVar.CharPosX;
+  Y:=UOVar.CharPosY;
+  Z:=UOVar.CharPosZ;
+  Dir:=UOVar.CharDir and 7;
+  Facet:=UOVar.CursKind;
+end;
+
+procedure TEuoInterpreter.PathProc;
+var
+  Sub  : String;
+  What : String;
+  N    : Integer;
+  P   : TPathPlanner;
+begin
+  P:=UOCmd.PathPlanner;
+  Sub:='';
+  if ParList.Count>1 then Sub:=ParList[1].StrU;
+
+  if Sub='FIND' then PathFindSub
+  else if Sub='CAN' then PathCanSub
+  else if Sub='SET' then PathSetSub
+  else if (Sub='BLOCK')or(Sub='UNBLOCK')or(Sub='AVOID') then PathAreaSub(Sub)
+  else if Sub='LINK' then PathLinkSub
+  else if Sub='GET' then
+  begin
+    N:=0;
+    if ParList[2].IntValid then N:=ParList[2].Int;
+    if (N>=1) and (N<=PathCnt) and (N<=P.StepCount) then
+    begin
+      PathX:=P.Steps[N-1].X;
+      PathY:=P.Steps[N-1].Y;
+      PathZ:=P.Steps[N-1].Z;
+      PathDir:=P.Steps[N-1].Dir;
+      PathState:='ok';
+    end
+    else
+    begin
+      PathX:=0;
+      PathY:=0;
+      PathZ:=0;
+      PathDir:=-1;
+      PathState:='error: no step '+ParList[2].Str+' (1..'+IntToStr(PathCnt)+')';
+    end;
+  end
+  else if Sub='FROM' then
+  begin
+    if ParList.Count=2 then
+    begin
+      PathFromSet:=False;
+      PathState:='ok';
+    end
+    else if ParList[2].CardValid and ParList[3].CardValid and ParList[4].IntValid then
+    begin
+      PathFromF:=PathFacet;
+      if ParList[5].CardValid then PathFromF:=ParList[5].Int;
+      PathFromX:=ParList[2].Int;
+      PathFromY:=ParList[3].Int;
+      PathFromZ:=ParList[4].Int;
+      PathFromSet:=True;
+      PathState:='ok';
+    end
+    else PathState:='error: path from {x} {y} {z} [facet]';
+  end
+  else if Sub='CLEAR' then
+  begin
+    What:=ParList[2].StrU;   // not Sub: tests\tools\EuoNames.ps1 reads the sub-commands off Sub='...'
+    if (What='')or(What='ALL') then P.ClearRules(True,True,True)
+    else if (What='BLOCKS')or(What='BLOCK') then P.ClearRules(True,False,False)
+    else if (What='AVOIDS')or(What='AVOID') then P.ClearRules(False,True,False)
+    else if (What='LINKS')or(What='LINK') then P.ClearRules(False,False,True)
+    else
+    begin
+      PathState:='error: path clear [blocks|avoid|links|all]';
+      Exit;
+    end;
+    PathState:='ok';
+  end
+  else PathState:='error: unknown path command: '+ParList[1].Str;
+end;
+
+// PATH FIND {x} {y} [z]: plans from PathStart. As SqlProc does, the lock is released while the
+// files are opened and the search runs, so the GUI never waits on it; the #Path* fields are only
+// written once it is held again. The search stops on the Stop button (Brk).
+procedure TEuoInterpreter.PathFindSub;
+var
+  SX, SY, SZ, SDir, F : Integer;
+  GX, GY, GZ          : Integer;
+  HasZ, Ok            : Boolean;
+  R                   : TPathResult;
+  Map                 : TWalkMap;
+  Err                 : String;
+  P                   : TPathPlanner;
+begin
+  P:=UOCmd.PathPlanner;
+  PathCnt:=0;
+  P.StepCount:=0;
+  if not(ParList[2].CardValid and ParList[3].CardValid) then
+  begin
+    PathState:='error: path find {x} {y} [z]';
+    Exit;
+  end;
+  if not PathStart(SX,SY,SZ,SDir,F) then Exit;
+  GX:=ParList[2].Int;
+  GY:=ParList[3].Int;
+  HasZ:=ParList[4].IntValid;
+  GZ:=0;
+  if HasZ then GZ:=ParList[4].Int;
+
+  Ok:=False;
+  Err:='';
+  R:=prNoPath;
+  CS.EndWrite;
+  try
+    try
+      Map:=UOCmd.PathMap(F);
+      if Map<>nil then
+      begin
+        R:=P.Find(Map,F,SX,SY,SZ,SDir,GX,GY,GZ,HasZ,@Brk);
+        Ok:=True;
+      end;
+    except
+      on E: Exception do Err:=E.Message;
+    end;
+  finally
+    CS.BeginWrite;
+  end;
+
+  if Err<>'' then PathState:='error: '+Err
+  else if not Ok then PathState:='nomap'
+  else
+  begin
+    PathState:=PathResultName(R);
+    if R=prOk then
+    begin
+      PathCnt:=P.StepCount;
+      PathX:=SX;
+      PathY:=SY;
+      PathZ:=SZ;
+      PathDir:=-1;
+      if PathCnt>0 then
+      begin
+        PathX:=P.Steps[PathCnt-1].X;
+        PathY:=P.Steps[PathCnt-1].Y;
+        PathZ:=P.Steps[PathCnt-1].Z;
+        PathDir:=P.Steps[PathCnt-1].Dir;
+      end;
+    end
+    else P.StepCount:=0;
+  end;
+end;
+
+// PATH CAN {x} {y} [z]: can a character stand there (nearest height to z, default the start's)?
+procedure TEuoInterpreter.PathCanSub;
+var
+  SX, SY, SZ, SDir, F : Integer;
+  X, Y, Z, i          : Integer;
+  Map                 : TWalkMap;
+  Ok                  : Boolean;
+begin
+  if not(ParList[2].CardValid and ParList[3].CardValid) then
+  begin
+    PathState:='error: path can {x} {y} [z]';
+    Exit;
+  end;
+  if not PathStart(SX,SY,SZ,SDir,F) then Exit;
+  X:=ParList[2].Int;
+  Y:=ParList[3].Int;
+  Z:=SZ;
+  if ParList[4].IntValid then Z:=ParList[4].Int;
+
+  try
+    Map:=UOCmd.PathMap(F);
+  except
+    on E: Exception do
+    begin
+      PathState:='error: '+E.Message;
+      Exit;
+    end;
+  end;
+  if Map=nil then
+  begin
+    PathState:='nomap';
+    Exit;
+  end;
+
+  Ok:=StandZ(Map,X,Y,Z);
+  with UOCmd.PathPlanner do
+    for i:=0 to High(Blocks) do
+      if (Blocks[i].Facet=F) and (X>=Blocks[i].X1) and (X<=Blocks[i].X2) and
+        (Y>=Blocks[i].Y1) and (Y<=Blocks[i].Y2) then
+        Ok:=False;
+  PathX:=X;
+  PathY:=Y;
+  PathZ:=0;
+  PathDir:=-1;
+  if Ok then
+  begin
+    PathZ:=Z;
+    PathState:='ok';
+  end
+  else PathState:='blocked';
+end;
+
+// PATH SET {option} {value}. Costs are in hundredths of a step; timeout as WAIT (ticks, or
+// seconds with an s).
+procedure TEuoInterpreter.PathSetSub;
+var
+  Opt : String;
+  V   : Int64;
+  P   : TPathPlanner;
+begin
+  P:=UOCmd.PathPlanner;
+  Opt:=ParList[2].StrU;
+  if Opt='DIFS' then
+  begin
+    if (ParList[3].StrU='ON')or(ParList[3].IntValid and (ParList[3].Int<>0)) then UOCmd.PathDifs:=True
+    else if (ParList[3].StrU='OFF')or(ParList[3].IntValid and (ParList[3].Int=0)) then UOCmd.PathDifs:=False
+    else
+    begin
+      PathState:='error: path set difs on|off';
+      Exit;
+    end;
+    PathState:='ok';
+    Exit;
+  end;
+
+  if Opt='TIMEOUT' then
+  begin
+    if not(ParList[3].CardValid or (Pos('S',ParList[3].StrU)>0)) then
+    begin
+      PathState:='error: path set timeout {time}';
+      Exit;
+    end;
+    P.TimeoutMs:=ParseTicksOrSeconds(ParList[3],0)*50;
+    PathState:='ok';
+    Exit;
+  end;
+
+  if not ParList[3].IntValid or (ParList[3].Int<0) then
+  begin
+    PathState:='error: path set '+LowerCase(Opt)+' needs a number of 0 or more';
+    Exit;
+  end;
+  V:=ParList[3].Int;
+  if V>MaxInt then V:=MaxInt;
+  if Opt='ACCURACY' then P.AccuracyXY:=V
+  else if Opt='ACCURACYZ' then P.AccuracyZ:=V
+  else if Opt='MAXNODES' then P.MaxNodes:=V
+  else if Opt='MARGIN' then P.Margin:=V
+  else if Opt='TURNCOST' then P.TurnCost:=V
+  else if Opt='HEURISTIC' then P.Heuristic:=V
+  else
+  begin
+    PathState:='error: unknown path option: '+ParList[2].Str;
+    Exit;
+  end;
+  PathState:='ok';
+end;
+
+// PATH BLOCK|UNBLOCK {x} {y} [{x2} {y2}] [facet], PATH AVOID {x} {y} {x2} {y2} {cost} [facet].
+procedure TEuoInterpreter.PathAreaSub(const Sub : String);
+var
+  N, i, F : Integer;
+  Nums    : array[0..5] of Integer;
+  P       : TPathPlanner;
+begin
+  P:=UOCmd.PathPlanner;
+  N:=ParList.Count-2;
+  for i:=0 to 5 do
+  begin
+    Nums[i]:=0;
+    if i<N then
+    begin
+      if not ParList[i+2].IntValid then N:=-1
+      else Nums[i]:=ParList[i+2].Int;
+    end;
+    if N<0 then Break;
+  end;
+
+  F:=PathFacet;
+  if Sub='AVOID' then
+  begin
+    if (N<5) or (N>6) then
+    begin
+      PathState:='error: path avoid {x} {y} {x2} {y2} {cost} [facet]';
+      Exit;
+    end;
+    if N=6 then F:=Nums[5];
+    P.AddAvoid(F,Nums[0],Nums[1],Nums[2],Nums[3],Nums[4]);
+    PathState:='ok';
+    Exit;
+  end;
+
+  if (N<2) or (N>5) then
+  begin
+    PathState:='error: path '+LowerCase(Sub)+' {x} {y} [{x2} {y2}] [facet]';
+    Exit;
+  end;
+  if N<=3 then
+  begin
+    if N=3 then F:=Nums[2];
+    Nums[2]:=Nums[0];
+    Nums[3]:=Nums[1];
+  end
+  else if N=5 then F:=Nums[4];
+  if Sub='BLOCK' then P.AddBlock(F,Nums[0],Nums[1],Nums[2],Nums[3])
+  else P.RemoveBlocks(F,Nums[0],Nums[1],Nums[2],Nums[3]);
+  PathState:='ok';
+end;
+
+// PATH LINK {x} {y} {z} {x2} {y2} {z2} [cost] [facet]: a one-way jump, cost 100 (a step) by default.
+procedure TEuoInterpreter.PathLinkSub;
+var
+  N, i, F, Cost : Integer;
+  Nums          : array[0..7] of Integer;
+begin
+  N:=ParList.Count-2;
+  if (N<6) or (N>8) then N:=-1;
+  for i:=0 to N-1 do
+    if not ParList[i+2].IntValid then
+    begin
+      N:=-1;
+      Break;
+    end
+    else Nums[i]:=ParList[i+2].Int;
+  if N<0 then
+  begin
+    PathState:='error: path link {x} {y} {z} {x2} {y2} {z2} [cost] [facet]';
+    Exit;
+  end;
+  Cost:=PATH_STEP_COST;
+  if N>=7 then Cost:=Nums[6];
+  F:=PathFacet;
+  if N=8 then F:=Nums[7];
+  UOCmd.PathPlanner.AddLink(F,Nums[0],Nums[1],Nums[2],Nums[3],Nums[4],Nums[5],Cost);
+  PathState:='ok';
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

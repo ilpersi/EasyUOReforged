@@ -12,6 +12,7 @@
 #   event / exevent X   commands\event\x.md, commands\exevent\x.md
 #   menu X              commands\menu\x.md, or any page under commands\menu\x\ (menu font align)
 #   namespace / sql X   commands\namespace\x.md, commands\sql\x.md
+#   path X              commands\path\x.md
 #   str X               mentioned on commands\str.md (one page documents every str operation)
 #   uo.dll members      dll\name.md - checked only once the dll\ section exists
 #
@@ -72,6 +73,7 @@ foreach ($e in $names.ExEvents)  { Need "exevent $e"   (Test-Page "commands/exev
 foreach ($e in $names.Menu)      { Need "menu $e"      (Test-PageTree "commands/menu/$($e.ToLower())") }
 foreach ($e in $names.NameSpace) { Need "namespace $e" (Test-Page "commands/namespace/$($e.ToLower())") }
 foreach ($e in $names.Sql)       { Need "sql $e"       (Test-Page "commands/sql/$($e.ToLower())") }
+foreach ($e in $names.Path)      { Need "path $e"      (Test-Page "commands/path/$($e.ToLower())") }
 $strText = if (Test-Page 'commands/str') { $pages['commands/str'].Text } else { '' }
 foreach ($e in $names.Str)       { Need "str $e"       ($strText -match "(?i)\bstr\s+$e\b") }
 $dllOn = Test-Path (Join-Path $Docs 'dll')
@@ -83,7 +85,7 @@ if ($dllOn) {
 $lower = { param($list) @($list | ForEach-Object { $_.ToLower() }) }
 $families = @{
   event = & $lower $names.Events; exevent = & $lower $names.ExEvents; menu = & $lower $names.Menu
-  namespace = & $lower $names.NameSpace; sql = & $lower $names.Sql
+  namespace = & $lower $names.NameSpace; sql = & $lower $names.Sql; path = & $lower $names.Path
 }
 $vars = & $lower $names.Variables
 $cmds = & $lower $names.Commands
@@ -115,7 +117,7 @@ if ($hlOnly.Count -gt 0) { Write-Host "Warning: highlighted, but the interpreter
 # the interpreter's own. Deeper levels (menu font align, ...) are not read off the source, so not checked.
 $complFamilies = [ordered]@{
   EVENT = $names.Events; EXEVENT = $names.ExEvents; MENU = $names.Menu
-  NAMESPACE = $names.NameSpace; STR = $names.Str; SQL = $names.Sql
+  NAMESPACE = $names.NameSpace; STR = $names.Str; SQL = $names.Sql; PATH = $names.Path
 }
 $notOffered = @(); $offeredOnly = @()
 foreach ($cmd in $complFamilies.Keys) {

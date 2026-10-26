@@ -41,6 +41,10 @@ type
     procedure TestScanBuffsIsASilentNoOpWithNoClient;
     procedure TestBuffVariablesReadNAWithNoClient;
     procedure TestBuffAdditionsLeaveTheOriginalVariablesAlone;
+    procedure TestPathVariablesBeforeAnyPathCommand;
+    procedure TestPathFindNeedsAClient;
+    procedure TestPathRulesWorkWithoutAClient;
+    procedure TestPathBadArgumentsLandInPathState;
 
     procedure TestIfTrueRunsBodyAndSkipsElse;
     procedure TestIfFalseSkipsBodyAndRunsElse;
@@ -312,6 +316,79 @@ begin
   AssertEquals('0', Interp.GetVar('#False'));
   AssertEquals(' ', Interp.GetVar('#SPC'));
   AssertEquals('N/A', Interp.GetVar('#NoSuchVariable'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// PATH is a port addition (the pathfinder; the planner itself is tested in PathPlanTests).
+procedure TEuoInterpreterTests.TestPathVariablesBeforeAnyPathCommand;
+begin
+  AssertEquals('N/A', Interp.GetVar('#PathState'));
+  AssertEquals('0', Interp.GetVar('#PathCnt'));
+  AssertEquals('0', Interp.GetVar('#PathX'));
+  AssertEquals('-1', Interp.GetVar('#PathDir'));
+end;
+
+// Registered without RequiresClient, so FIND runs and says why it can't plan: no character to
+// start from, or, with PATH FROM, no client folder to read the map from.
+procedure TEuoInterpreterTests.TestPathFindNeedsAClient;
+begin
+  PlayScript(
+    'path find 1434 1699' + #13#10 +
+    'set %a #PathState' + #13#10 +
+    'set %n #PathCnt' + #13#10 +
+    'path from 1434 1699 0' + #13#10 +
+    'set %b #PathState' + #13#10 +
+    'path find 1440 1699' + #13#10 +
+    'set %c #PathState' + #13#10 +
+    'HALT');
+  AssertEquals('noclient', Interp.GetVar('%a'));
+  AssertEquals('0', Interp.GetVar('%n'));
+  AssertEquals('ok', Interp.GetVar('%b'));
+  AssertEquals('nomap', Interp.GetVar('%c'));
+end;
+
+procedure TEuoInterpreterTests.TestPathRulesWorkWithoutAClient;
+begin
+  PlayScript(
+    'path set accuracy 2' + #13#10 + 'set %a #PathState' + #13#10 +
+    'path set timeout 3s' + #13#10 + 'set %b #PathState' + #13#10 +
+    'path block 10 10' + #13#10 + 'set %c #PathState' + #13#10 +
+    'path block 10 10 20 20 1' + #13#10 + 'set %d #PathState' + #13#10 +
+    'path unblock 15 15' + #13#10 + 'set %e #PathState' + #13#10 +
+    'path avoid 1 2 3 4 500' + #13#10 + 'set %f #PathState' + #13#10 +
+    'path link 1 2 0 3 4 0' + #13#10 + 'set %g #PathState' + #13#10 +
+    'path clear links' + #13#10 + 'set %h #PathState' + #13#10 +
+    'path set difs on' + #13#10 + 'set %i #PathState' + #13#10 +
+    'HALT');
+  AssertEquals('ok', Interp.GetVar('%a'));
+  AssertEquals('ok', Interp.GetVar('%b'));
+  AssertEquals('ok', Interp.GetVar('%c'));
+  AssertEquals('ok', Interp.GetVar('%d'));
+  AssertEquals('ok', Interp.GetVar('%e'));
+  AssertEquals('ok', Interp.GetVar('%f'));
+  AssertEquals('ok', Interp.GetVar('%g'));
+  AssertEquals('ok', Interp.GetVar('%h'));
+  AssertEquals('ok', Interp.GetVar('%i'));
+end;
+
+procedure TEuoInterpreterTests.TestPathBadArgumentsLandInPathState;
+begin
+  PlayScript(
+    'path set bogus 1' + #13#10 + 'set %a #PathState' + #13#10 +
+    'path set accuracy -1' + #13#10 + 'set %b #PathState' + #13#10 +
+    'path link 1 2 3' + #13#10 + 'set %c #PathState' + #13#10 +
+    'path get 1' + #13#10 + 'set %d #PathState' + #13#10 +
+    'path frobnicate' + #13#10 + 'set %e #PathState' + #13#10 +
+    'path find abc 10' + #13#10 + 'set %f #PathState' + #13#10 +
+    'set %x reached' + #13#10 +
+    'HALT');
+  AssertEquals('error: unknown path option: bogus', Interp.GetVar('%a'));
+  AssertTrue(Pos('error:', Interp.GetVar('%b')) = 1);
+  AssertTrue(Pos('error:', Interp.GetVar('%c')) = 1);
+  AssertEquals('error: no step 1 (1..0)', Interp.GetVar('%d'));
+  AssertEquals('error: unknown path command: frobnicate', Interp.GetVar('%e'));
+  AssertTrue(Pos('error:', Interp.GetVar('%f')) = 1);
+  AssertEquals('the script goes on', 'reached', Interp.GetVar('%x'));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

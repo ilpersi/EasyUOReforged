@@ -144,6 +144,15 @@ var
    '#SQLLASTID'#13#10+
 
     #13#10+
+   '\Path'#13#10+
+   '#PATHSTATE'#13#10+
+   '#PATHCNT'#13#10+
+   '#PATHX'#13#10+
+   '#PATHY'#13#10+
+   '#PATHZ'#13#10+
+   '#PATHDIR'#13#10+
+
+    #13#10+
    '\Extended Info'#13#10+
    '#SKILL'#13#10+
    '#SKILLLOCK'#13#10+

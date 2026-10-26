@@ -15,6 +15,13 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 
 ## New commands and variables
 
+- **[`Path`](/commands/path/)**: plan a walking route anywhere on the facet, around walls and water, over
+  bridges and up stairs, from the client's own map files. It is the first part of the pathfinder: it
+  plans but does not walk yet. With [`path block`](/commands/path/block/),
+  [`path avoid`](/commands/path/avoid/) and [`path link`](/commands/path/link/) a script adds what the map
+  doesn't know. Results come back in [`#PathState`](/variables/pathstate/), [`#PathCnt`](/variables/pathcnt/),
+  [`#PathX`](/variables/pathx/), [`#PathY`](/variables/pathy/), [`#PathZ`](/variables/pathz/) and
+  [`#PathDir`](/variables/pathdir/).
 - **[`SQL`](/commands/sql/)**: keep data in an SQLite database file, with raw SQL or a quick
   [`save`](/commands/sql/save/) / [`load`](/commands/sql/load/) of variables. Results come back in
   [`#SqlRes`](/variables/sqlres/), [`#SqlCnt`](/variables/sqlcnt/),

@@ -5,7 +5,7 @@ kind: subcommand
 category: event
 syntax: "event PathFind {x} {y} [z]"
 needsClient: true
-related: ["Move", "#CharPosX", "#CharPosY", "#SCnt"]
+related: ["Path", "Move", "#CharPosX", "#CharPosY", "#SCnt"]
 aliases: ["pathfinding", "walk to", "go to"]
 dll: Pathfind
 source: wiki
@@ -25,7 +25,8 @@ obstacles.
 
 - **The script does not wait** for the character to arrive. To wait, compare `#CharPosX` and `#CharPosY`
   with the target in a loop, with a timeout.
-- **It only reaches spots within about one screen.** For longer trips, walk in several steps.
+- **It only reaches spots within about one screen.** For longer trips, walk in several steps:
+  [`path find`](/commands/path/find/) plans the whole route, and its steps are good stops along the way.
 - When the client cannot find a way, it says so in the journal and the character does not move.
 
 The command calls a function inside the client. On a client version where that function's address is not

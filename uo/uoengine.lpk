@@ -15,7 +15,7 @@
         <CompilerPath Value="$(CompPath)"/>
       </Other>
     </CompilerOptions>
-    <Files Count="13">
+    <Files Count="16">
       <Item1>
         <Filename Value="uoclidata.pas"/>
         <UnitName Value="uoclidata"/>
@@ -68,6 +68,18 @@
         <Filename Value="uowrap.pas"/>
         <UnitName Value="uowrap"/>
       </Item13>
+      <Item14>
+        <Filename Value="walkrules.pas"/>
+        <UnitName Value="walkrules"/>
+      </Item14>
+      <Item15>
+        <Filename Value="walkmap.pas"/>
+        <UnitName Value="walkmap"/>
+      </Item15>
+      <Item16>
+        <Filename Value="pathplan.pas"/>
+        <UnitName Value="pathplan"/>
+      </Item16>
     </Files>
     <i18n>
       <EnableI18N LFM="False"/>

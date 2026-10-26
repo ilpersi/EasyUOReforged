@@ -15,6 +15,7 @@ export const COMMAND_CATEGORIES = [
 	['menu', 'Menu'],
 	['namespace', 'Namespace'],
 	['data', 'Data (SQL)'],
+	['path', 'Pathfinding'],
 	['misc', 'Miscellaneous'],
 	['obsolete', 'Obsolete'],
 ];
@@ -32,6 +33,7 @@ export const VARIABLE_CATEGORIES = [
 	['combat', 'Combat'],
 	['namespace', 'Namespace'],
 	['sql', 'SQL'],
+	['path', 'Pathfinding'],
 	['misc', 'Miscellaneous'],
 	['result', 'Result'],
 	['tile', 'Tile'],

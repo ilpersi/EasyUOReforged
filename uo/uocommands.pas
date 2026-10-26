@@ -45,13 +45,18 @@ unit uocommands;
   Port addition (not in the original): the BUFF BAR section (ScanBuffs / GetBuff / ClilocText and
   the client-free helpers ExpandCliloc / ClilocToPlain). It only reads client memory, through the
   same RWV helper, and is unsupported (finds nothing) on a client whose layout is not known.
+
+  Port addition (not in the original): the PATH section. TUOCmd owns the pathfinder's planner
+  (pathplan.pas, PathPlanner) and its world model (walkmap.pas), which PathMap opens on first use
+  from the attached client's folder and reopens when that folder or the dif setting changes.
+  Nothing else in this unit uses them.
 }
 
 {$mode delphi}{$H+}
 
 interface
 uses Windows, SysUtils, Messages, Classes, Registry, access, EuoSortedList,
-     uotypes, uovariables, uoselector, uoclidata, tiles;
+     uotypes, uovariables, uoselector, uoclidata, tiles, walkmap, pathplan;
 
 type
   TSkillEntry   = record
@@ -93,6 +98,7 @@ type
     Cst         : TCstDB;
     UOVar       : TUOVar;
     TileObj     : TTTBasic;
+    WalkMap     : TWalkMap;      // port addition (PATH), opened by PathMap
     JournalList : TStringList;
     Delay       : TDelayFunc;
     IgnoreIDs   : TStringList;
@@ -162,6 +168,8 @@ type
     BuffScanned : Boolean;              // ScanBuffs ran at least once
     BuffPos     : Cardinal;             // the selected position, 1-based (what #BuffIndex shows)
     BuffGone    : Boolean;              // the selected buff has left the bar since it was selected
+    PathPlanner : TPathPlanner;         // port addition (PATH): options, rules and the last path
+    PathDifs    : Boolean;              // read the dif files (path set difs)
     constructor Create(UOSelector : TUOSel; UOVariables : TUOVar; DFunc : TDelayFunc);
     procedure   Free;
     procedure   Key(KeyStr : String; Ctrl,Alt,Shift : Boolean);
@@ -182,6 +190,7 @@ type
     function    TileInit(NoOverrides : Boolean = False) : Boolean;
     function    TileCnt(X,Y : Cardinal; Facet : Integer = -1) : Cardinal;
     function    TileGet(X,Y,Layer : Cardinal; Facet : Integer = -1) : Boolean;
+    function    PathMap(Facet : Integer) : TWalkMap;
     function    GetCont(Index : Cardinal) : Boolean;
     function    GetShopInfo : Boolean;
     function    SetShopItem(ID,Quantity : Cardinal) : Boolean;
@@ -248,6 +257,9 @@ begin
   Cst:=UOSel.CstDB;
   UOVar:=UOVariables;
   TileObj:=nil;
+  WalkMap:=nil;
+  PathPlanner:=TPathPlanner.Create;
+  PathDifs:=False;
   Delay:=DFunc;
   JournalList:=TStringList.Create;
   IgnoreIDs:=TStringList.Create;
@@ -322,6 +334,8 @@ begin
   FilterID.Free;
   FilterType.Free;
   FilterCont.Free;
+  WalkMap.Free;
+  PathPlanner.Free;
   inherited Free;
 end;
 
@@ -1119,6 +1133,31 @@ begin
   TileName:='';
   TileFlags:=0;
   Result:=False;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+/// PATH (port addition) ///////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+// The world model of the attached client's folder with Facet selected, or nil when there is no
+// client, or its folder lacks tiledata or the facet's files. Opened on first use, reopened when
+// the folder, the tiledata format or PathDifs changes.
+function TUOCmd.PathMap(Facet : Integer) : TWalkMap;
+var
+  Folder : String;
+  NewTD  : Boolean;
+begin
+  Result:=nil;
+  if UOSel.Nr=0 then Exit;
+  Folder:=ExtractFilePath(UOSel.ExePath);
+  if (Folder='') or not DirectoryExists(Folder) then Exit;
+  Folder:=IncludeTrailingPathDelimiter(Folder);
+  NewTD:=(Cst.FFLAGS and 1)=1;
+  if (WalkMap<>nil) and (not SameText(WalkMap.Folder,Folder) or
+    (WalkMap.NewTileData<>NewTD) or (WalkMap.UseDifs<>PathDifs)) then
+    FreeAndNil(WalkMap);
+  if WalkMap=nil then WalkMap:=TWalkMap.Create(Folder,NewTD,PathDifs);
+  if WalkMap.SelectFacet(Facet) then Result:=WalkMap;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

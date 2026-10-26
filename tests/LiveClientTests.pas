@@ -46,6 +46,7 @@ interface
 uses
   Classes, SysUtils, Windows, fpcunit, testregistry,
   uoselector, uovariables, uocommands, uoevents, uotypes, uoclidata, EuoExecutor,
+  walkrules, walkmap, pathplan,
   // Listed although nothing here names it: the tests read TEuoInterpreter fields through
   // TExecutor.Parser, and only a direct use makes FPC recompile this unit when that class's
   // layout changes (otherwise a stale .ppu reads the fields at their old offsets).
@@ -72,6 +73,7 @@ type
     procedure TestTithingPointsReadable;
     procedure TestFindItemLocatesAtLeastTheBackpack;
     procedure TestTileLookupAtCharPositionReturnsData;
+    procedure TestPathMapAgreesWithTheCharactersHeight;
     procedure TestExEvCustomRoundTripsWithNoVisibleEffect;
     procedure TestDynamicScanAgreesWithMilestoneData;
     procedure TestAllDiscoveredClientsHaveNonEmptyVersion;
@@ -241,6 +243,36 @@ begin
     Ignore('Could not initialize tile data from this client''s install path.');
   AssertTrue('There should be at least one static/land tile under the character',
     Cmd.TileCnt(Cardinal(Vr.CharPosX), Cardinal(Vr.CharPosY)) > 0);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (PATH): the pathfinder's world model, read from this client's own map files, must
+// put the character's cell at the height the client reports -- unless the character stands on
+// something the files don't have (a house floor, a boat). Read-only: no event, no packet. Also
+// plans a short route from the character and prints it, as a smoke test of the whole chain.
+procedure TLiveClientTests.TestPathMapAgreesWithTheCharactersHeight;
+var
+  Map        : TWalkMap;
+  X, Y, Z, F : Integer;
+  R          : TPathResult;
+begin
+  RequireLoggedIn;
+  F := Vr.CursKind;
+  Map := Cmd.PathMap(F);
+  if Map = nil then Ignore('This client''s folder has no map files for facet ' + IntToStr(F) + '.');
+  X := Vr.CharPosX;
+  Y := Vr.CharPosY;
+  Z := Vr.CharPosZ;
+  if not StandZ(Map, X, Y, Z) then
+    Ignore(Format('Nothing to stand on at %d,%d in the map files: the character stands on something ' +
+      'they don''t have (a house, a boat).', [X, Y]));
+  AssertEquals(Format('stand height at %d,%d,%d on facet %d', [X, Y, Vr.CharPosZ, F]), Vr.CharPosZ, Z);
+
+  Cmd.PathPlanner.AccuracyXY := 1;
+  R := Cmd.PathPlanner.Find(Map, F, X, Y, Vr.CharPosZ, Vr.CharDir and 7, X + 10, Y, 0, False, nil);
+  WriteLn(Format('  path from %d,%d,%d to %d,%d: %s, %d steps, %d nodes',
+    [X, Y, Vr.CharPosZ, X + 10, Y, PathResultName(R), Cmd.PathPlanner.StepCount, Cmd.PathPlanner.Expanded]));
+  AssertTrue('a route, or a clear "no route"', R in [prOk, prNoPath]);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

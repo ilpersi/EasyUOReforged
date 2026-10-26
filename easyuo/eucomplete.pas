@@ -99,7 +99,7 @@ const
   // Left out on purpose: menu Test (an empty debug hook) and event Sleep (not
   // implemented). tests\tools\CheckDocsCoverage.ps1 warns when the first-level
   // words here and the interpreter's drift apart.
-  SubCommands : array[0..24] of String = (
+  SubCommands : array[0..28] of String = (
     'DISPLAY=OK OKCANCEL YESNO YESNOCANCEL',
     'EVENT=CONTTOP DRAG EXMSG MACRO PATHFIND PROPERTY SKILLLOCK STATBAR SYSMESSAGE',
     'EVENT SKILLLOCK *=DOWN LOCKED UP',
@@ -121,6 +121,10 @@ const
     'NAMESPACE COPY *=FROM TO',
     'NAMESPACE COPY * FROM=GLOBAL LOCAL',
     'NAMESPACE COPY * TO=GLOBAL LOCAL',
+    'PATH=AVOID BLOCK CAN CLEAR FIND FROM GET LINK SET UNBLOCK',
+    'PATH CLEAR=ALL AVOID BLOCKS LINKS',
+    'PATH SET=ACCURACY ACCURACYZ DIFS HEURISTIC MARGIN MAXNODES TIMEOUT TURNCOST',
+    'PATH SET DIFS=OFF ON',
     'SQL=CLOSE DELETE EXEC LOAD OPEN QUERY ROW SAVE',
     'STR=COUNT DEL INS LEFT LEN LOWER MID POS RIGHT UPPER',
     'TILE=CNT GET INIT',

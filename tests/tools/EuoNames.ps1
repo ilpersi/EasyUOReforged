@@ -14,6 +14,7 @@
 #   NameSpace   'namespace <action>' actions, the same in NameSpaceProc
 #   Str         'str <operation>' operations, the same in StrProc
 #   Sql         'sql <command>' sub-commands, from the Sub='...' tests in SqlProc
+#   Path        'path <command>' sub-commands, the same in PathProc
 #   DllMembers  uo.dll names (properties, methods), from UOTbl in uo\uowrap.pas
 #   DllCalls    uo.dll generic calls (Call, Get, Set, ...), from Commands in uo\uowrap.pas
 #   Highlighted the #variables and commands easyuo\eusyntax.pas colours and offers for autocomplete
@@ -70,6 +71,7 @@ function Get-EuoNames {
     NameSpace   = @(& $subTypes (Get-EuoProcBody $interp 'NameSpaceProc' $interpFile))
     Str         = @(& $subTypes (Get-EuoProcBody $interp 'StrProc' $interpFile))
     Sql         = @(& $subTypes (Get-EuoProcBody $interp 'SqlProc' $interpFile) "Sub\s*(?:=|<>)\s*'([A-Z]+)'")
+    Path        = @(& $subTypes (Get-EuoProcBody $interp 'PathProc' $interpFile) "Sub\s*(?:=|<>)\s*'([A-Z]+)'")
     DllMembers  = @(& $itemNames $uoTbl)
     DllCalls    = @(& $itemNames $calls)
     Highlighted = [pscustomobject]@{

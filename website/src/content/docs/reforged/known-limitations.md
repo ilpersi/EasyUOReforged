@@ -29,6 +29,10 @@ EasyUO for anything important, until you have checked that the scripts and featu
 - **Client versions.** EasyUO Reforged knows the classic client (`client.exe`) from 2.0.0 up to 7.0.117.1,
   and two builds of `client_beta.exe` (7.0.117.1 and 7.0.117.31). A newer client needs its memory offsets
   added first; see [Add a new client](/developers/adding-a-client/).
+- **[`Path`](/commands/path/) plans, it doesn't walk**, and it only knows the map files: player houses,
+  items players placed, doors and creatures are not on its map. Walking a route, and seeing those, comes
+  later; until then a script walks a planned route with [`event PathFind`](/commands/event/pathfind/). On a
+  live client, `path find` has only been checked by hand so far.
 - **Symbol fonts in menus.** A [`menu`](/commands/menu/) text, button or checkbox using a symbol font such
   as Wingdings only shows the intended glyphs if that exact font is installed. Otherwise Windows substitutes
   another font, as the original did.

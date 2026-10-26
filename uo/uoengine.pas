@@ -9,7 +9,7 @@ interface
 
 uses
   uoclidata, stack, tables, wearables, tiles, uopfile, uoscanver, uoselector,
-  uovariables, uocommands, uoevents, uodef, uowrap;
+  uovariables, uocommands, uoevents, uodef, uowrap, walkrules, walkmap, pathplan;
 
 implementation
 

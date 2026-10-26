@@ -27,7 +27,10 @@ common/   OS-facing primitives  ── package: uocommon
   UO client: version detection (`uoscanver`), the per-version memory-offset
   table (`uoclidata`), the client-window selector (`uoselector`), named state
   reads/writes (`uovariables`), higher-level actions like FindItem/Click
-  (`uocommands`, with `tiles` + `uopfile` for tile data), event synthesis via
+  (`uocommands`, with `tiles` + `uopfile` for tile data), the pathfinder
+  behind the `PATH` command (`walkmap` world model from the map files,
+  `walkrules` step rules ported from ClassicUO, `pathplan` A* planner; see
+  [pathfinding.md](pathfinding.md)), event synthesis via
   code-caving (`uoevents`), the Lua-C-API-style stack machine + name-dispatch
   tables (`stack`, `tables`), and the flat external API surface (`uodef`,
   `uowrap`).
