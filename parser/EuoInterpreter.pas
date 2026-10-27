@@ -1878,7 +1878,13 @@ begin
     // Commands that change what the window looks like join the current repaint
     // burst (see TMenuObj.BurstBegin); SHOW/HIDE/HIDEEUO end it so the window
     // is painted in a consistent state; reads (GET/GETNUM/ACTIVATE) leave it be.
-    if (ParList[1].StrU<>'SHOW') and (ParList[1].StrU<>'HIDE') and
+    // SET only joins a burst already running (TMenuObj.BurstJoin): it changes
+    // one control in place, and it is what a script runs over and over to keep
+    // a status line current, so starting a burst on it held painting back after
+    // every update.
+    if ParList[1].StrU='SET' then
+      MenuObj.BurstJoin
+    else if (ParList[1].StrU<>'SHOW') and (ParList[1].StrU<>'HIDE') and
        (ParList[1].StrU<>'HIDEEUO') and (ParList[1].StrU<>'GET') and
        (ParList[1].StrU<>'GETNUM') and (ParList[1].StrU<>'ACTIVATE') then
       MenuObj.BurstBegin;

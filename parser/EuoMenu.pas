@@ -95,6 +95,13 @@ unit EuoMenu;
     also sets Font.CharSet:=SYMBOL_CHARSET (via the shared
     IsSymbolFontName check) whenever the selected font is a known
     Symbol-charset one.
+  - Controls are parented to TEuoMenuForm.Surface, a borderless panel filling
+    the client area, not to the form itself. TMenuObj's repaint coalescing (not
+    in the original) holds painting with WM_SETREDRAW, which Windows implements
+    by clearing WS_VISIBLE; held on the top-level window, that made the MENU
+    window count as hidden for every burst -- its taskbar button blinked off and
+    on with each update, and clicks went through it to the window below (the UO
+    client). Held on a child window it does neither. See TMenuObj.BurstBegin.
 
   Everything else -- every method name/signature, the Ctrls TStringList of
   UPPERCASE(name)->control pairs, the ClassName-string dispatch in Get/_Set/
@@ -123,6 +130,7 @@ type
   protected
     procedure   CreateParams(var Params: TCreateParams); override;
   public
+    Surface     : TPanel;      // parent of every MENU control -- see Create
     constructor Create(AOwner : TComponent); override;
     destructor  Destroy; override;
     procedure   SetTransparency(Value : Byte);
@@ -174,6 +182,7 @@ type
     constructor Create;
     procedure   Free;
     procedure   BurstBegin;
+    procedure   BurstJoin;
     procedure   BurstFlush;
     procedure   Clear;
     procedure   Del(sName : String);
@@ -309,6 +318,16 @@ begin
   // same effect as the original's WndParent:=GetDesktopWindow), and gives the
   // window its own taskbar button so it can be minimized/restored on its own.
   ShowInTaskBar:=stAlways;
+
+  // Every MENU control goes on this panel rather than on the form, so that
+  // TMenuObj's repaint hold can sit on a child window instead of on this
+  // top-level one -- see TMenuObj.BurstBegin. No border and alClient keep the
+  // controls' X/Y exactly where they were; ParentColor (the TPanel default)
+  // keeps MENU WINDOW COLOR colouring the whole window.
+  Surface:=TPanel.Create(Self);
+  Surface.BevelOuter:=bvNone;
+  Surface.Align:=alClient;
+  Surface.Parent:=Self;
 
   // The main editor window's TMainMenu carries Ctrl+A/C/X/V/Z shortcuts, and
   // LCL's TApplication.IsShortcut falls back to the MainForm's menu for any key
@@ -516,13 +535,18 @@ end;
 // one) -- or after BURST_MAX_MS regardless, so a long-running build still
 // shows progress. Everything here runs on the main thread (MenuProcSync).
 // A window that is not shown yet is skipped: nothing is on screen to flicker.
+// The hold goes on Form.Surface, never on the form: WM_SETREDRAW(False) works
+// by clearing WS_VISIBLE, and a top-level window without it counts as hidden --
+// its taskbar button blinked off and on with every burst, and clicks went
+// through it to the window below (the UO client). A child window has no taskbar
+// button, and a click on it while it is held lands on the form instead.
 procedure TMenuObj.BurstBegin;
 begin
-  if not (Form.Visible and Form.HandleAllocated) then Exit;
+  if not (Form.Visible and Form.Surface.HandleAllocated) then Exit;
 
   if not RedrawOff then
   begin
-    SendMessage(Form.Handle,WM_SETREDRAW,0,0);
+    SendMessage(Form.Surface.Handle,WM_SETREDRAW,0,0);
     RedrawOff:=True;
     BurstStart:=GetTickCount64;
   end
@@ -538,14 +562,23 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// For a command that changes one control in place: it extends a burst already
+// running, so a rebuild that also sets values still repaints once, but does not
+// start one -- there is no half-built frame to hide.
+procedure TMenuObj.BurstJoin;
+begin
+  if RedrawOff then BurstBegin;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 procedure TMenuObj.BurstFlush;
 begin
   BurstTimer.Enabled:=False;
   if not RedrawOff then Exit;
   RedrawOff:=False;
-  if not Form.HandleAllocated then Exit;
-  SendMessage(Form.Handle,WM_SETREDRAW,1,0);
-  RedrawWindow(Form.Handle,nil,0,
+  if not Form.Surface.HandleAllocated then Exit;
+  SendMessage(Form.Surface.Handle,WM_SETREDRAW,1,0);
+  RedrawWindow(Form.Surface.Handle,nil,0,
     RDW_INVALIDATE or RDW_ERASE or RDW_ALLCHILDREN or RDW_UPDATENOW);
 end;
 
@@ -565,7 +598,7 @@ begin
   // intermediate step of the parenting.
   Form.DisableAutoSizing;
   try
-    C.Parent:=Form;
+    C.Parent:=Form.Surface;
   finally
     Form.EnableAutoSizing;
   end;
