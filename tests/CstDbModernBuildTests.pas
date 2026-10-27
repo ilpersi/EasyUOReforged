@@ -59,6 +59,7 @@ type
     procedure PutStr(Addr : Cardinal; const S : String);
     procedure PutWide(Addr : Cardinal; const W : UnicodeString);
     procedure PutDouble(Addr : Cardinal; D : Double);
+    procedure PutGridSignatures;
     procedure PutNode(Addr, Left, Right, Key, Value : Cardinal);
     procedure PutBuffEntry(Addr, ID : Cardinal; Dur, TimerID : Integer; Title, Desc : Cardinal;
       const DescArgs : UnicodeString);
@@ -107,6 +108,7 @@ type
     // house pieces (the pathfinder's live overlay)
     procedure TestUnknownModernBuildFindsTheMultiListByScanning;
     procedure TestFixedBaseFindsTheWorldGridByScanning;
+    procedure TestOlderFixedBaseGetsTheGridLayoutToo;
     procedure TestPathLiveObjectsReadsTheMultiList;
     procedure TestPathLiveObjectsReadsHousePiecesFromTheWorldGrid;
   end;
@@ -1284,10 +1286,9 @@ begin
 end;
 
 // client.exe 7.0.117.1's grid cell lookup ($44DAC0) and static object constructor ($5BB1E8), byte for
-// byte but for the two addresses.
-procedure TCstDbModernBuildTests.TestFixedBaseFindsTheWorldGridByScanning;
+// byte but for the two addresses, in a fixed-base fake client.
+procedure TCstDbModernBuildTests.PutGridSignatures;
 begin
-  if not Ready then Ignore(Why);
   WriteHeader(KnownStamp, $0000, $2000);              // fixed-base, code = $401000..$403000
   PutBytes($401100, [$8B,$44,$24,$08,$8B,$4C,$24,$04,$83,$E0,$3F,$C1,$E0,$06,$83,$E1,$3F,$03,$C1,
                      $56,$8B,$34,$85]);
@@ -1298,6 +1299,12 @@ begin
   PutBytes($40120D, [$89,$86,$88,$00,$00,$00,$89,$86,$8C,$00,$00,$00,$89,$86,$90,$00,$00,$00,
                      $C6,$86,$94,$00,$00,$00,$FF,$89,$86,$98,$00,$00,$00,$89,$86,$9C,$00,$00,$00,
                      $88,$86,$A0,$00,$00,$00,$89,$86,$A4,$00,$00,$00]);
+end;
+
+procedure TCstDbModernBuildTests.TestFixedBaseFindsTheWorldGridByScanning;
+begin
+  if not Ready then Ignore(Why);
+  PutGridSignatures;
 
   Cst.Update('7.0.117.1', PHnd);
 
@@ -1308,6 +1315,22 @@ begin
   Eq('B_GRIDSIZE', 64, Cst.BGRIDSIZE);
   Eq('B_MULTIOWNER', $A4, Cst.BMULTIOWNER);
   Eq('no list on a fixed-base build', 0, Cst.MULTILIST);
+end;
+
+// An older build the patterns match (7.0.108.0 is: the scan found its grid and vtable in the running
+// client) has the same layout, which no older milestone lists: the getters supply it.
+procedure TCstDbModernBuildTests.TestOlderFixedBaseGetsTheGridLayoutToo;
+begin
+  if not Ready then Ignore(Why);
+  PutGridSignatures;
+
+  Cst.Update('7.0.108.0', PHnd);
+
+  Eq('C_WORLDGRID', WorldGrid, Cst.WORLDGRID);
+  Eq('C_STATICVT', StaticVT, Cst.STATICVT);
+  Eq('B_GRIDNEXT', $18, Cst.BGRIDNEXT);
+  Eq('B_GRIDSIZE', 64, Cst.BGRIDSIZE);
+  Eq('B_MULTIOWNER', $A4, Cst.BMULTIOWNER);
 end;
 
 // Three pieces in the list, as the beta keeps them: X/Y/Z at B_POS, the graphic at B_ITEMTYPE, the next

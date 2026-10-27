@@ -409,8 +409,10 @@ re-fingerprinted. `TUOCmd.PathLiveObjects` reads the pieces through new `TCstDB`
   - A house piece is a static object whose owner at `+$A4` is set. The routine that adds a house's
     components (`0x5B30B0`) sets it; the static constructor (`0x5BB1C0`) clears it.
   - The two scanned addresses come from a cell lookup (`0x44DAC0`) and the constructor. Both patterns spell out
-    the layout. They are in `ScannerTable_Post6062` and `EUO Updtr Strings 6062 and newer.txt`; the three
-    layout values are in milestone 0.
+    the layout. They are in `ScannerTable_Post6062` and `EUO Updtr Strings 6062 and newer.txt`.
+  - The three layout values are in no milestone. Their getters answer `$18`, 64 and `$A4` when the table
+    holds 0, since every build the patterns match has that layout. As first built they were in milestone 0
+    only, so an older build found the addresses but read nothing; see below for 7.0.108.0.
 - **Read live next to the house at 2693–2723, 490–509** (character at 2727,500):
   - 1,093 static objects with an owner matched the beta's pieces of that house: position, height and graphic.
   - 410 were the next house's.
@@ -430,6 +432,17 @@ re-fingerprinted. `TUOCmd.PathLiveObjects` reads the pieces through new `TCstDB`
 - **Checked live on `client_beta.exe` `6AD6CEB3`** (2026-10-27): `TestPathLiveObjectsSeeTheCharacter` read 3,451
   house pieces around 2727,500 in 16 ms, through the scanned `C_MULTILIST`. That is the count phase 2 read with
   the hard-coded entry.
+- **Checked on an older build, `client_noenc.exe` 7.0.108.0** (fixed base, stamp `67F4AA95`, logged into a live
+  shard), 2026-10-27, read-only:
+  - Both patterns match once in the exe and give `C_WORLDGRID` `$75D898` and `C_STATICVT` `$6C1D84`.
+    TCstDB's runtime scan of the running client gives the same.
+  - `euomigrate migrate` gives the same two values (accepted: 30 functions vote for the grid, the vtable by
+    signature). It finds `C_MULTILIST` unused, which is right, and the same `C_CHARPTR`, `C_BLOCKINFO`,
+    `C_CLILOC` and `C_BUFFTIMERS`.
+  - The routine that adds a house's components stores the owner at `+$A4` here too (`$5B178D`).
+  - With the layout defaults, `PathLiveObjects` read 1,741 house pieces of 2 houses near 1032,518 on Malas.
+    An independent read of the grid with a Python probe found the same 1,741, all with an owner of one class.
+    7,405 map statics without an owner were left out.
 - **EUOMigrate's knowledge base:**
   - `client.exe` was re-fingerprinted with the two new addresses (`--set`).
   - The current beta `6AD6CEB3` was added from its earlier migration, plus `C_MULTILIST`.

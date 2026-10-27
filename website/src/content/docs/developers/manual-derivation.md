@@ -203,9 +203,9 @@ different ways, and a client with neither set of values simply reads no house pi
 | `B_MULTINEXT` | The next pointer in that list. Each piece has the item layout: `B_POS`, `B_ITEMTYPE`. | `$9C` | `0` |
 | `C_WORLDGRID` | The world grid: `B_GRIDSIZE` × `B_GRIDSIZE` chain heads, one per cell, holding every world object. | `0` | Scanned (`$760098` on `client.exe`). |
 | `C_STATICVT` | The vtable of the grid's static objects. | `0` | Scanned (`$6C3D9C`). |
-| `B_GRIDNEXT` | The next pointer in a cell's chain. | `0` | `$18` |
-| `B_GRIDSIZE` | Cells per side; a cell is `(y mod size) × size + (x mod size)`. | `0` | `64` |
-| `B_MULTIOWNER` | A static object's owner: non-zero for a house piece, 0 for one of the map's statics. | `0` | `$A4` |
+| `B_GRIDNEXT` | The next pointer in a cell's chain. | unused | `$18` |
+| `B_GRIDSIZE` | Cells per side; a cell is `(y mod size) × size + (x mod size)`. | unused | `64` |
+| `B_MULTIOWNER` | A static object's owner: non-zero for a house piece, 0 for one of the map's statics. | unused | `$A4` |
 
 How they were found:
 - **On the beta:** the list has an add routine and a remove routine. The remove routine
@@ -218,6 +218,12 @@ How they were found:
 - **Checked live** next to a player house near Minoc:
   - on `client.exe`, the static objects with an owner matched the beta's pieces of the same house exactly;
   - the ones without an owner were the map's statics.
+
+The three grid layout values are not in any milestone. Their getters answer `$18`, 64 and `$A4` when the
+table holds 0, as `B_POS` answers `$24`. The two patterns spell that layout out, so every build they match
+has it, and a build they don't match has no grid to read. That is how an older build gets house pieces with
+no table entry: on `client.exe` 7.0.108.0, the scan found `$75D898` and `$6C1D84`, and 1,741 pieces of two
+houses were read, as many as an independent read of the grid found.
 
 The live test `TestPathLiveObjectsSeeTheCharacter` prints how many house pieces it read.
 

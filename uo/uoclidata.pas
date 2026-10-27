@@ -150,7 +150,10 @@ type
     // in a cliloc map node; the text pointer follows it. All zero on builds without a verified layout.
     B_BUFFVEC,B_BUFFSIZE,B_STLHEAD,B_CLILOCKEY,
     // House pieces (see C_MULTILIST): the next pointer in that list, the next pointer in a grid cell,
-    // the grid's size, and a static object's owner (its house). Zero on builds without them.
+    // the grid's size, and a static object's owner (its house). B_MULTINEXT is zero on builds without
+    // the list. The three grid values answer the fixed-base layout when zero ($18, 64, $A4): the
+    // C_WORLDGRID / C_STATICVT patterns spell that layout out, so every build they match has it, and
+    // a build they don't match has no grid to read.
     B_MULTINEXT,B_GRIDNEXT,B_GRIDSIZE,B_MULTIOWNER,
     /// EVENTS ////////////
     E_REDIR,E_OLDDIR,E_EXMSGADDR,
@@ -482,12 +485,10 @@ const
 // the multi's add-component routine ($5B30B0) and cleared by the static constructor ($5BB1C0), is at
 // +$A4 (B_MULTIOWNER). Read live next to a player house near Minoc: 1,093 static objects with an
 // owner matched client_beta.exe's pieces of that house exactly (position, height, graphic), 410 more
-// were the next house's, and the 832 without one were the map's statics. Older milestones have none
-// of these, so no house piece is read there.
-SysVarMS0 : array[0..39] of TSysVarList = (
-  (Expr: B_GRIDNEXT; Val: $00000018),
-  (Expr: B_GRIDSIZE; Val: $00000040),
-  (Expr: B_MULTIOWNER; Val: $000000A4),
+// were the next house's, and the 832 without one were the map's statics. The layout values are not
+// listed here: their getters answer this layout when zero, so older builds the patterns match get
+// it too (7.0.108.0: the scan found $0075D898 / $006C1D84 in the running client).
+SysVarMS0 : array[0..36] of TSysVarList = (
   (Expr: C_BLOCKINFO; Val: $005A74B0),
   (Expr: C_CHARDIR; Val: $00A02C90),
   (Expr: C_CHARPTR; Val: $00A590C4),
@@ -6428,8 +6429,10 @@ function TCstDB.BBUFFSIZE : Cardinal; begin CS.BeginRead; try Result:=Values[B_B
 function TCstDB.BSTLHEAD : Cardinal; begin CS.BeginRead; try Result:=Values[B_STLHEAD]; finally CS.EndRead; end; end;
 function TCstDB.BCLILOCKEY : Cardinal; begin CS.BeginRead; try Result:=Values[B_CLILOCKEY]; finally CS.EndRead; end; end;
 function TCstDB.BMULTINEXT : Cardinal; begin CS.BeginRead; try Result:=Values[B_MULTINEXT]; finally CS.EndRead; end; end;
-function TCstDB.BGRIDNEXT : Cardinal; begin CS.BeginRead; try Result:=Values[B_GRIDNEXT]; finally CS.EndRead; end; end;
-function TCstDB.BGRIDSIZE : Cardinal; begin CS.BeginRead; try Result:=Values[B_GRIDSIZE]; finally CS.EndRead; end; end;
-function TCstDB.BMULTIOWNER : Cardinal; begin CS.BeginRead; try Result:=Values[B_MULTIOWNER]; finally CS.EndRead; end; end;
+// The fixed-base grid layout when zero: the layout the C_WORLDGRID / C_STATICVT patterns spell out
+// (see TConstantNames), the same way BPOS answers $24.
+function TCstDB.BGRIDNEXT : Cardinal; begin CS.BeginRead; try Result:=Values[B_GRIDNEXT]; if Result=0 then Result:=$18; finally CS.EndRead; end; end;
+function TCstDB.BGRIDSIZE : Cardinal; begin CS.BeginRead; try Result:=Values[B_GRIDSIZE]; if Result=0 then Result:=64; finally CS.EndRead; end; end;
+function TCstDB.BMULTIOWNER : Cardinal; begin CS.BeginRead; try Result:=Values[B_MULTIOWNER]; if Result=0 then Result:=$A4; finally CS.EndRead; end; end;
 
 end.
