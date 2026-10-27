@@ -16,7 +16,7 @@ uses
   UoCommandsTests, UoEventsTests, LiveClientTests, EuoLockTests, PerfBenchTests,
   MenuBenchTests, EuoMenuImageTests, EuoMenuWindowTests, EuoSqlTests, EuoBlocksTests, EuoFoldSynTests,
   EuoCompleteTests, EuoFindTests, WalkRulesTests, PathPlanTests, WalkMapTests, WalkLiveTests,
-  PathWalkTests;
+  PathWalkTests, UoWrapPathTests;
 
 type
   TEasyUOTestRunner = class(TTestRunner)

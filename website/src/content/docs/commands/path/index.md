@@ -89,6 +89,10 @@ walk and Open Door macros itself.
 The step rules (how high a character can climb, how much head room it needs, how stairs and bridges work)
 are those of the ClassicUO client.
 
+Programs that drive the client through [`uo.dll`](/dll/) get the planning too: [`GetPath`](/dll/getpath/)
+returns a whole route in one call, and `PathCan`, `PathCheck`, `PathSet`, `PathBlock`, `PathUnblock`,
+`PathAvoid`, `PathLink` and `PathClear` match the sub-commands. There is no walker in `uo.dll`.
+
 The first route on a facet loads that facet's map files, which takes a moment. Current clients ship
 Felucca and Trammel as `.uop` files, which use about 90 MB of memory each once loaded. A long route takes
 under a second: Britain to Minoc, about 1,500 steps, took 0.7 s on the developer's PC.

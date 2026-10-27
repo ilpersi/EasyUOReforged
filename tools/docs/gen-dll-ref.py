@@ -46,6 +46,12 @@ PARAMS = {
     'reference': 'Reference returned by the previous call; 0 the first time.', 'packet': 'The packet\'s bytes.',
     'width': 'Width in tiles.', 'height': 'Height in tiles.', 'filter': 'Filter number, see above.',
     'value': 'Filter value.',
+    'fromx': 'X position to plan from.', 'fromy': 'Y position to plan from.', 'fromz': 'Height to plan from.',
+    'dir': 'Direction of the step, 0 north to 7 north-west, as `CharDir`. Default: 0.',
+    'option': 'Option name, as for `path set`.',
+    'x2': 'X of the opposite corner, or of the other end.', 'y2': 'Y of the opposite corner, or of the other end.',
+    'z2': 'Height of the other end.', 'cost': 'Extra cost, in hundredths of a step.',
+    'what': '`blocks`, `avoid`, `links`, `learned` or `all`. Default: `all`.',
 }
 
 METHODS = {
@@ -113,6 +119,21 @@ METHODS = {
         ['FindItem', '#FindID', 'dll:ScanItems', 'dll:FilterItems'], None),
     'GetJournal': ([('n', 'index')], [('text', 'string', 'The line.'), ('colour', 'number', 'Its colour.')],
         'Reads one journal line of the list `ScanJournal` made: 0 is the newest.', ['ScanJournal', '#Journal', 'dll:ScanJournal'], None),
+    'GetPath': ([('nn', 'x y'), ('nnn', 'x y z'), ('nnnnnnn', 'x y z fromx fromy fromz facet')],
+        [('state', 'string', '`ok`, or why there is no route: `nopath`, `budget`, `timeout`, `noclient`, `nomap` or '
+          '`error: …`, as `#PathState` after `path find`.'),
+         ('count', 'number', 'Steps in the route; 0 without one.'),
+         ('steps', 'string', 'Six bytes a step: x and y (2 bytes each, low byte first), the height (1 byte, signed) and '
+          'the direction (1 byte: 0 north to 7 north-west, 8 a link). Empty without a route.')],
+        'Plans a walking route, like `path find`: from your character on its facet, or from `fromx`, `fromy`, `fromz` on '
+        '`facet`, to `x`, `y` (with `z`, to the floor nearest that height). It reads the map files of the attached '
+        'client and what the client holds around the character. It doesn\'t walk: walk the steps with `Move` or the '
+        'walk macro. The options and rules set with `PathSet`, `PathBlock`, `PathAvoid` and `PathLink` apply. They '
+        'belong to this uo.dll handle, not to the scripts in the editor.',
+        ['path find', 'dll:PathSet', 'dll:PathCheck', 'dll:Move'],
+        'Where EasyUO Reforged can\'t read the walls of player houses (every client but `client_beta.exe` '
+        '7.0.117.31), a route can run through a house. Before walking a step, `PathCheck` asks the client about it: '
+        'the walker of `path go` does the same.'),
     'GetPix': ([('nn', 'x y')], [('colour', 'number', 'In `$BBGGRR` order.')], 'Reads the colour of a pixel of the client window.',
         ['SavePix', '#PixCol'], 'The client window has to be visible.'),
     'GetShop': ([('', '')], [('found', 'boolean', 'False, with nothing after it, when no shop gump is open.'),
@@ -138,6 +159,39 @@ METHODS = {
         'carriage return (character 13) at the end to send it.', ['Msg', 'dll:Macro'], None),
     'OpenClient': ([('b', 'switch')], [('started', 'boolean', 'True when the client was started.')], 'Starts another client, like `uoxl new`. With `switch` '
         'true, the handle then drives the new client.', ['UOXL', 'dll:CloseClient'], None),
+    'PathAvoid': ([('nnnnn', 'x y x2 y2 cost'), ('nnnnnn', 'x y x2 y2 cost facet')], [('state', 'string', '`ok`, or `error: …`.')],
+        'Marks the rectangle from `x`, `y` to `x2`, `y2` as a place routes should go round if they can, like '
+        '`path avoid`. `cost` is what each step in it costs on top.', ['path avoid', 'dll:GetPath'], None),
+    'PathBlock': ([('nn', 'x y'), ('nnn', 'x y facet'), ('nnnn', 'x y x2 y2'), ('nnnnn', 'x y x2 y2 facet')], [('state', 'string', '`ok`, or `error: …`.')],
+        'Marks a tile, or the rectangle from `x`, `y` to `x2`, `y2`, as a place routes must never use, like '
+        '`path block`.', ['path block', 'dll:PathUnblock', 'dll:GetPath'], None),
+    'PathCan': ([('nn', 'x y'), ('nnn', 'x y z')],
+        [('state', 'string', '`ok`, `blocked`, `noclient`, `nomap` or `error: …`.'),
+         ('z', 'number', 'The height a character would stand at, the floor nearest `z`; 0 when it can\'t.')],
+        'Says whether a character can stand at `x`, `y`, like `path can`. Default height: your own.',
+        ['path can', 'dll:GetPath'], None),
+    'PathCheck': ([('nn', 'x y'), ('nnn', 'x y z'), ('nnnn', 'x y z dir')],
+        [('state', 'string', '`ok`, `blocked`, `noclient`, or `nocheck` when EasyUO Reforged doesn\'t know this '
+          'client\'s check or the client didn\'t answer.'),
+         ('z', 'number', 'The height the step lands at; 0 when it is refused.')],
+        'Asks the client itself whether the character can step onto `x`, `y` in direction `dir` from the tile behind it, '
+        'at height `z`, like `path check`: the check the client makes before every step, with everything it has '
+        'loaded. Default height: your own. A tile the client hasn\'t loaded reads as blocked.',
+        ['path check', 'dll:BlockInfo', 'dll:GetPath'], None),
+    'PathClear': ([('', ''), ('s', 'what')], [('state', 'string', '`ok`, or `error: …`.')],
+        'Forgets rules, like `path clear`.', ['path clear', 'dll:GetPath'], None),
+    'PathLink': ([('nnnnnn', 'x y z x2 y2 z2'), ('nnnnnnn', 'x y z x2 y2 z2 cost'),
+                  ('nnnnnnnn', 'x y z x2 y2 z2 cost facet')], [('state', 'string', '`ok`, or `error: …`.')],
+        'Adds a teleporter, gate or ladder routes may use, from `x`, `y`, `z` to `x2`, `y2`, `z2` on the same facet, '
+        'like `path link`. Default cost: 100, one step.', ['path link', 'dll:GetPath'], None),
+    'PathSet': ([('ss', 'option value'), ('sn', 'option value')], [('state', 'string', '`ok`, or `error: …`.')],
+        'Changes a planning option, like `path set`: `accuracy`, `accuracyz`, `maxnodes`, `timeout`, `margin`, '
+        '`turncost`, `heuristic`, `doorcost`, `difs`, `mobiles` or `doors`. `value` is a number, or a word for '
+        '`difs`, `mobiles` and `doors`. `timeout` is in milliseconds here. The walking options are refused: uo.dll '
+        'doesn\'t walk.', ['path set', 'dll:GetPath'], None),
+    'PathUnblock': ([('nn', 'x y'), ('nnn', 'x y facet'), ('nnnn', 'x y x2 y2'), ('nnnnn', 'x y x2 y2 facet')], [('state', 'string', '`ok`, or `error: …`.')],
+        'Removes the blocks that overlap a tile or a rectangle, like `path unblock`.',
+        ['path unblock', 'dll:PathBlock'], None),
     'Pathfind': ([('nn', 'x y'), ('nnn', 'x y z')], [], 'Walks to a nearby position with the client\'s pathfinding, like '
         '`event PathFind`. Default height: your own.', ['event PathFind', 'dll:Move'], None),
     'Popup': ([('n', 'id'), ('nnn', 'id x y')], [], 'Opens the context menu of an object, like `exevent PopUp`. Unlike the '

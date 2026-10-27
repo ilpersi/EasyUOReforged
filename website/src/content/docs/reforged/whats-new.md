@@ -57,7 +57,11 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 
 - [`uo.dll`](/dll/) is a 64-bit build, for 64-bit programs. Its API is unchanged, plus
   [`ScanBuffs`](/dll/scanbuffs/), [`GetBuff`](/dll/getbuff/) and [`BuffBarOpen`](/dll/buffbaropen/) for the
-  buff bar.
+  buff bar, and the pathfinder for external programs: [`GetPath`](/dll/getpath/) plans a route,
+  [`PathCan`](/dll/pathcan/) and [`PathCheck`](/dll/pathcheck/) check a tile or a step, and
+  [`PathSet`](/dll/pathset/), [`PathBlock`](/dll/pathblock/), [`PathUnblock`](/dll/pathunblock/),
+  [`PathAvoid`](/dll/pathavoid/), [`PathLink`](/dll/pathlink/) and [`PathClear`](/dll/pathclear/) set its
+  options and rules. They plan; they don't walk.
 - [`BlockInfo`](/dll/blockinfo/) no longer crashes `client.exe` 7.0.117.1: EasyUO 1.5 passed the client's
   function one argument too few. Its page now says what the two bytes per tile mean.
 

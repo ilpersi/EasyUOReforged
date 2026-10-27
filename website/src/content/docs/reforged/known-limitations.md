@@ -54,8 +54,10 @@ EasyUO for anything important, until you have checked that the scripts and featu
 - **[`menu Image File`](/commands/menu/image/file/)** reliably loads BMP, PNG, JPEG and GIF. Older formats
   the original accepted (WMF, EMF, ICO) may not work.
 - **64-bit Windows only.** EasyUO Reforged itself is 64-bit; it still drives the usual 32-bit UO client.
-- **`uo.dll`**, the API for external programs, is built but has not been tested by a real external program
-  yet.
+- **`uo.dll`**, the API for external programs, has only been tested by a small Python script (ctypes) on
+  `client.exe` 7.0.117.1. It selected the client, read variables, and planned and checked with the
+  [`GetPath`](/dll/getpath/), [`PathCan`](/dll/pathcan/) and [`PathCheck`](/dll/pathcheck/) methods. The rest
+  of its methods have not been tried from an external program.
 - **EUOUpdater**, the tool for new client versions, has had only light testing.
 
 Expect bugs in less common commands and menu features, and please

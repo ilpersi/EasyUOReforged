@@ -53,13 +53,16 @@ unit uocommands;
   which PathSource points at the world model and fills with what PathLiveObjects reads from the
   client: ground items and mobiles from the item list FindItem reads, and house pieces from the
   client's multi list where MultiLists knows it (read only). Nothing else in this unit uses them.
+  PathFindFrom, PathCanAt, PathPacked and PathSetOption are PATH FIND / CAN / SET for uo.dll
+  (uowrap.pas), without the interpreter.
 }
 
 {$mode delphi}{$H+}
 
 interface
 uses Windows, SysUtils, Messages, Classes, Registry, access, EuoSortedList,
-     uotypes, uovariables, uoselector, uoclidata, tiles, walkmap, pathplan, walklive, pathwalk;
+     uotypes, uovariables, uoselector, uoclidata, tiles, walkrules, walkmap, pathplan, walklive,
+     pathwalk;
 
 type
   TSkillEntry   = record
@@ -200,6 +203,11 @@ type
     function    PathSource(Facet : Integer) : TLiveOverlay;
     procedure   PathRefreshLive(Facet : Integer);
     procedure   PathLiveObjects(X, Y, Range : Integer; var Objs : TLiveObjs);
+    function    PathFindFrom(Facet, SX, SY, SZ, GX, GY, GZ : Integer; HasZ : Boolean;
+                out State : String) : Boolean;
+    function    PathCanAt(Facet, X, Y : Integer; var Z : Integer; out State : String) : Boolean;
+    function    PathPacked : String;
+    function    PathSetOption(const Opt, Val : String) : String;
     function    GetCont(Index : Cardinal) : Boolean;
     function    GetShopInfo : Boolean;
     function    SetShopItem(ID,Quantity : Cardinal) : Boolean;
@@ -1294,6 +1302,167 @@ begin
       end;
     end;
   SetLength(Objs,n);
+end;
+
+// For uo.dll (uowrap.pas, GetPath): plans from SX,SY,SZ on Facet to GX,GY (and GZ when HasZ), as
+// PATH FIND does: on the world model, what the client holds around the character and the learned
+// blocks. State is PATH FIND's #PathState: ok, nopath, budget, timeout, noclient, nomap or
+// 'error: ...'. The route is the planner's (PathPacked). There is no Stop button to listen to; the
+// planner's TimeoutMs bounds the search.
+function TUOCmd.PathFindFrom(Facet, SX, SY, SZ, GX, GY, GZ : Integer; HasZ : Boolean;
+  out State : String) : Boolean;
+var
+  Src : TLiveOverlay;
+  R   : TPathResult;
+begin
+  Result:=False;
+  PathPlanner.StepCount:=0;
+  if UOSel.Nr=0 then
+  begin
+    State:='noclient';
+    Exit;
+  end;
+  try
+    Src:=PathSource(Facet);
+    if Src=nil then
+    begin
+      State:='nomap';
+      Exit;
+    end;
+    PathRefreshLive(Facet);
+    R:=PathPlanner.Find(Src,Facet,SX,SY,SZ,-1,GX,GY,GZ,HasZ,nil);
+  except
+    on E: Exception do
+    begin
+      PathPlanner.StepCount:=0;
+      State:='error: '+E.Message;
+      Exit;
+    end;
+  end;
+  State:=PathResultName(R);
+  Result:=R=prOk;
+  if not Result then PathPlanner.StepCount:=0;
+end;
+
+// For uo.dll (PathCan): can a character stand on X,Y on Facet, and at what height (the floor nearest
+// Z; Z becomes it)? As PATH CAN: the world model, what the client holds, and PATH BLOCK's blocks.
+// State: ok, blocked, noclient, nomap or 'error: ...'.
+function TUOCmd.PathCanAt(Facet, X, Y : Integer; var Z : Integer; out State : String) : Boolean;
+var
+  Src : TLiveOverlay;
+  i   : Integer;
+begin
+  Result:=False;
+  if UOSel.Nr=0 then
+  begin
+    State:='noclient';
+    Exit;
+  end;
+  try
+    Src:=PathSource(Facet);
+    if Src=nil then
+    begin
+      State:='nomap';
+      Exit;
+    end;
+    PathRefreshLive(Facet);
+    Result:=StandZ(Src,X,Y,Z);
+  except
+    on E: Exception do
+    begin
+      State:='error: '+E.Message;
+      Exit;
+    end;
+  end;
+  for i:=0 to High(PathPlanner.Blocks) do
+    if (PathPlanner.Blocks[i].Facet=Facet) and
+      (X>=PathPlanner.Blocks[i].X1) and (X<=PathPlanner.Blocks[i].X2) and
+      (Y>=PathPlanner.Blocks[i].Y1) and (Y<=PathPlanner.Blocks[i].Y2) then
+      Result:=False;
+  if Result then State:='ok'
+  else State:='blocked';
+end;
+
+// For uo.dll (GetPath): the last plan's steps, 6 bytes each: X and Y (2 bytes each, low byte
+// first), Z (1 byte, signed) and the direction (1 byte: 0 north .. 7 north-west, PATH_DIR_LINK for a
+// link).
+function TUOCmd.PathPacked : String;
+var
+  i : Integer;
+begin
+  SetLength(Result,6*PathPlanner.StepCount);
+  for i:=0 to PathPlanner.StepCount-1 do
+  begin
+    Result[6*i+1]:=Char(PathPlanner.Steps[i].X and $FF);
+    Result[6*i+2]:=Char((PathPlanner.Steps[i].X shr 8) and $FF);
+    Result[6*i+3]:=Char(PathPlanner.Steps[i].Y and $FF);
+    Result[6*i+4]:=Char((PathPlanner.Steps[i].Y shr 8) and $FF);
+    Result[6*i+5]:=Char(PathPlanner.Steps[i].Z and $FF);
+    Result[6*i+6]:=Char(PathPlanner.Steps[i].Dir and $FF);
+  end;
+end;
+
+// For uo.dll (PathSet): one of PATH SET's planning options, by name (any case), its value as text.
+// The timeout is in milliseconds here, as Move's in uo.dll. The walker's options are refused: uo.dll
+// doesn't walk. Returns 'ok' or 'error: ...'.
+function TUOCmd.PathSetOption(const Opt, Val : String) : String;
+var
+  O, V : String;
+  N    : Int64;
+begin
+  Result:='ok';
+  O:=UpperCase(Trim(Opt));
+  V:=UpperCase(Trim(Val));
+  if O='DIFS' then
+  begin
+    if (V='ON') or (V='1') then PathDifs:=True
+    else if (V='OFF') or (V='0') then PathDifs:=False
+    else Result:='error: difs on|off';
+  end
+  else if O='MOBILES' then
+  begin
+    if V='BLOCK' then PathLive.IgnoreMobiles:=False
+    else if V='IGNORE' then PathLive.IgnoreMobiles:=True
+    else Result:='error: mobiles block|ignore';
+  end
+  else if O='DOORS' then
+  begin
+    if (V='ON') or (V='1') then
+    begin
+      PathLive.OpenDoors:=True;
+      PathLive.OpenHouseDoors:=False;
+    end
+    else if V='ALL' then
+    begin
+      PathLive.OpenDoors:=True;
+      PathLive.OpenHouseDoors:=True;
+    end
+    else if (V='OFF') or (V='0') then
+    begin
+      PathLive.OpenDoors:=False;
+      PathLive.OpenHouseDoors:=False;
+    end
+    else Result:='error: doors on|off|all';
+  end
+  else if (O='MODE') or (O='LEAD') or (O='BLOCKTIME') or (O='LOG') or (O='CHECK') then
+    Result:='error: '+LowerCase(O)+' is a walking option, and uo.dll doesn''t walk'
+  else if (O<>'ACCURACY') and (O<>'ACCURACYZ') and (O<>'MAXNODES') and (O<>'TIMEOUT') and
+    (O<>'MARGIN') and (O<>'TURNCOST') and (O<>'HEURISTIC') and (O<>'DOORCOST') then
+    Result:='error: unknown path option: '+Opt
+  else if not TryStrToInt64(V,N) or (N<0) then
+    Result:='error: '+LowerCase(O)+' needs a number of 0 or more'
+  else
+  begin
+    if N>MaxInt then N:=MaxInt;
+    if O='ACCURACY' then PathPlanner.AccuracyXY:=N
+    else if O='ACCURACYZ' then PathPlanner.AccuracyZ:=N
+    else if O='MAXNODES' then PathPlanner.MaxNodes:=N
+    else if O='TIMEOUT' then PathPlanner.TimeoutMs:=N
+    else if O='MARGIN' then PathPlanner.Margin:=N
+    else if O='TURNCOST' then PathPlanner.TurnCost:=N
+    else if O='HEURISTIC' then PathPlanner.Heuristic:=N
+    else PathLive.DoorCost:=N;
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

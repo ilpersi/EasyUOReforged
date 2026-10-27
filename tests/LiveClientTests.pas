@@ -48,7 +48,7 @@ interface
 uses
   Classes, SysUtils, Windows, fpcunit, testregistry,
   uoselector, uovariables, uocommands, uoevents, uotypes, uoclidata, EuoExecutor,
-  walkrules, walkmap, pathplan, walklive,
+  walkrules, walkmap, pathplan, walklive, uowrap,
   // Listed although nothing here names it: the tests read TEuoInterpreter fields through
   // TExecutor.Parser, and only a direct use makes FPC recompile this unit when that class's
   // layout changes (otherwise a stale .ppu reads the fields at their old offsets).
@@ -81,6 +81,7 @@ type
     procedure TestExEvCustomRoundTripsWithNoVisibleEffect;
     procedure TestStepInfoAroundTheCharacter;
     procedure TestBlockInfoAroundTheCharacter;
+    procedure TestDllGetPathFromTheCharacter;
     procedure TestDynamicScanAgreesWithMilestoneData;
     procedure TestAllDiscoveredClientsHaveNonEmptyVersion;
     procedure TestScriptDoesNotHangWhenACommandRaises;
@@ -427,6 +428,57 @@ begin
     WriteLn(Format('  BlockInfo %d,%d: %d', [X - 1 + i mod 3, Y - 1 + i div 3, V]));
     if i = 4 then AssertTrue('the character''s own tile at its height', Abs(V - Z) <= 2)
     else AssertTrue('a height near the character''s, or refused', (V = -128) or (Abs(V - Z) <= 20));
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// uo.dll's GetPath, live, the way an external program calls it: through TUOWrap.Execute, after
+// selecting the client with Set CliNr 1. A route 5 tiles east of the character, unpacked from its
+// 6-byte steps. Read-only (the client's memory and its map files).
+procedure TLiveClientTests.TestDllGetPathFromTheCharacter;
+var
+  W          : TUOWrap;
+  X, Y       : Integer;
+  State      : String;
+  Cnt, Len   : Integer;
+  P          : PChar;
+  LX, LY, LZ : Integer;
+begin
+  RequireLoggedIn;
+  X := Vr.CharPosX;
+  Y := Vr.CharPosY;
+  W := TUOWrap.Create;
+  try
+    W.Stack.SetTop(0);
+    W.Stack.PushStrVal('Set');
+    W.Stack.PushStrVal('CliNr');
+    W.Stack.PushInteger(1);
+    AssertEquals('Set CliNr 1', 0, W.Execute);
+
+    W.Stack.SetTop(0);
+    W.Stack.PushStrVal('Call');
+    W.Stack.PushStrVal('GetPath');
+    W.Stack.PushInteger(X + 5);
+    W.Stack.PushInteger(Y);
+    AssertEquals('Call GetPath', 0, W.Execute);
+    State := String(W.Stack.GetString(1));
+    Cnt := W.Stack.GetInteger(2);
+    P := W.Stack.GetLString(3, Len);
+    WriteLn(Format('  uo.dll GetPath %d,%d -> %d,%d: %s, %d steps, %d bytes',
+      [X, Y, X + 5, Y, State, Cnt, Len]));
+    AssertTrue('a route or a clear "no route": ' + State, (State = 'ok') or (State = 'nopath'));
+    AssertEquals('6 bytes a step', 6*Cnt, Len);
+    if State = 'ok' then
+    begin
+      LX := Byte(P[6*(Cnt-1)]) or (Byte(P[6*(Cnt-1)+1]) shl 8);
+      LY := Byte(P[6*(Cnt-1)+2]) or (Byte(P[6*(Cnt-1)+3]) shl 8);
+      LZ := ShortInt(Byte(P[6*(Cnt-1)+4]));
+      WriteLn(Format('  last step %d,%d,%d', [LX, LY, LZ]));
+      AssertEquals('ends 5 tiles east', X + 5, LX);
+      AssertEquals('on the same row', Y, LY);
+    end;
+  finally
+    W.Free;
   end;
 end;
 

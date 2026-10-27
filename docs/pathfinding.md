@@ -89,8 +89,8 @@ the character is whenever layer 2 or 3 changes ahead of it.
 - **Exact by default.** On the real Felucca map, Britain to Trinsic (1,214 steps) took 260k nodes and about
   0.5 s, and Britain to Minoc (1,480 steps) took 450k nodes and 0.8 s. A weighted search (heuristic 120)
   roughly halved the nodes, but the routes were about 4% longer with twice the turns. So the default is the
-  exact search, with TazUO's budgets: 1,000,000 nodes and 5 s. A faster long-range search is a phase 4
-  question.
+  exact search, with TazUO's budgets: 1,000,000 nodes and 5 s. A faster long-range search was left out of
+  phase 4 (2026-10-27): no measured route came near the budget.
 - **Checked in the editor on a live client:** `path can` gave the same height as `#CharPosZ`, and a route from
   east of Minoc to Britain's bank (1,725 steps) took 273 ms.
 
@@ -362,8 +362,37 @@ for %n 1 #PathCnt
 | 1 | World model, step rules, planner; `path find/get/can/set/block/unblock/avoid/link/clear` | unit tests and the real client files |
 | 2 | Walker (`client` and `steps` modes), live overlay, learned blocks, doors; `path go/walk/step/stop` | a live client |
 | 3 | Decode `BlockInfo`; the walker asks the client's step check about the route ahead; `path check` | a live client |
-| 4 | `uo.dll` access, links between facets, a faster long-range search if measurements need one | tests and a live client |
+| 4 | `uo.dll` access: plan and check (`GetPath`, `PathCan`, `PathCheck`, `PathSet` and the rules). Links between facets and a faster long-range search were left out (see below) | tests and a live client |
 | 5 | House pieces from the client table: a `TCstDB` field for the client's list of drawn house pieces (its head global, plus the next/position/graphic offsets), found by a runtime signature pattern in `ScannerTable_Modern`, in place of the one-build `MultiLists` table in `uo/uocommands.pas`; and where `client.exe` keeps its house pieces, added the same way | `CstDbModernBuildTests`, and the live overlay test (`TestPathLiveObjectsSeeTheCharacter`) on each client |
+
+### uo.dll (phase 4, as built)
+
+External programs that drive a client through `uo.dll` can plan and check, but not walk; the user chose that
+scope on 2026-10-27. Nine methods in `uo/uowrap.pas` (codes 057 to 066) mirror the script sub-commands. The
+work is in `TUOCmd` (`PathFindFrom`, `PathCanAt`, `PathPacked`, `PathSetOption`) and `TUOEvent.StepInfo`.
+
+- `GetPath x y [z]`, or `GetPath x y z fromx fromy fromz facet`, returns a state (as `#PathState`), the step
+  count and the whole route in one string: 6 bytes a step (X and Y as 2 bytes each, low byte first, Z as a
+  signed byte, the direction as a byte, 8 for a link).
+- `PathCan x y [z]` and `PathCheck x y [z] [dir]` return a state and a height.
+- `PathSet option value` takes the planning options; `timeout` is in milliseconds. It refuses the walking ones.
+- `PathBlock`, `PathUnblock`, `PathAvoid`, `PathLink` and `PathClear` set the rules.
+- The DLL has its own `TUOCmd`, so its options and rules are its own, apart from the editor's scripts.
+- Tests: `tests/UoWrapPathTests.pas` calls every method through `TUOWrap.Execute`, as the exports do.
+  `TLiveClientTests.TestDllGetPathFromTheCharacter` plans live through it.
+- Checked live on 2026-10-27 on `client.exe` 7.0.117.1, at 2727,500,15:
+  - `TestDllGetPathFromTheCharacter` planned 5 steps east in 0.35 s.
+  - A Python ctypes script loaded the built `uo.dll` and drove it through its exports. It selected the
+    client, read `CharPosX`/`CliVer`, and planned `GetPath 2709 511`: 18 steps, which is what `path find` gave
+    in the editor, first step and last step included.
+  - `PathCan` and `PathCheck` on the character's own tile gave `ok` at 15.
+  - Without a client selected, every method answered `noclient`.
+
+Left out of phase 4, by the user's choice:
+- **Links between facets** (a moongate as a `path link` with a facet at each end, and the walker carrying on on
+  the new facet).
+- **A faster long-range search.** The exact search needed 0.3 to 0.8 s for routes of 1,200 to 1,700 steps,
+  well inside its 5 s budget.
 
 ## Open questions
 

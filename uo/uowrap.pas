@@ -20,13 +20,20 @@ unit uowrap;
   real fix for a 64-bit host (the Integer-sized object handle in
   Open/Close/Query/etc.) lives in uodef.pas, not here -- see that unit's
   header comment.
+
+  Port addition (not in the original): UOTbl's methods 057..066 (GetPath, PathCan, PathCheck,
+  PathSet, PathBlock, PathUnblock, PathAvoid, PathLink, PathClear), the pathfinder's PATH FIND /
+  CAN / CHECK / SET and rules for external programs (docs\pathfinding.md, phase 4). They plan and
+  check; they don't walk. The work is in TUOCmd (PathFindFrom, PathCanAt, PathPacked,
+  PathSetOption) and TUOEvent.StepInfo; MCall only reads the stack and pushes the answers. Their
+  rows keep UOTbl in CompareStr order, as tables.pas's binary search needs.
 }
 
 {$mode delphi}{$H+}
 
 interface
 uses Windows, SysUtils, access, uotypes, stack, tables, uoselector,
-     uovariables, uocommands, uoevents;
+     uovariables, uocommands, uoevents, walkrules, pathplan;
 
 type
   TUOWrap      = class(TObject)
@@ -94,7 +101,7 @@ const
 ////////////////////////////////////////////////////////////////////////////////
 
 var
-  UOTbl : array[0..143] of TItem = (
+  UOTbl : array[0..168] of TItem = (
     (N: 'AR'          ;T: RO ;C: 206 ;P: 'n'        ),
     (N: 'BackpackID'  ;T: RO ;C: 224 ;P: 'n'        ),
     (N: 'BlockInfo'   ;T: ME ;C: 041 ;P: 'nnnnn'    ),
@@ -161,6 +168,9 @@ var
     (N: 'GetCont'     ;T: ME ;C: 032 ;P: 'n'        ),
     (N: 'GetItem'     ;T: ME ;C: 024 ;P: 'n'        ),
     (N: 'GetJournal'  ;T: ME ;C: 027 ;P: 'n'        ),
+    (N: 'GetPath'     ;T: ME ;C: 057 ;P: 'nnnnnnn'  ),    // port addition (the pathfinder)
+     (N: 'GetPath'    ;T: ME ;C: 057 ;P: 'nnn'      ),
+     (N: 'GetPath'    ;T: ME ;C: 057 ;P: 'nn'       ),
     (N: 'GetPix'      ;T: ME ;C: 008 ;P: 'nn'       ),
     (N: 'GetShop'     ;T: ME ;C: 034 ;P: ''         ),
     (N: 'GetSkill'    ;T: ME ;C: 007 ;P: 's'        ),
@@ -207,6 +217,28 @@ var
     (N: 'NextCPosY'   ;T: RW ;C: 180 ;P: 'n'        ),
     (N: 'OpenClient'  ;T: ME ;C: 050 ;P: 'b'        ),
     (N: 'PR'          ;T: RO ;C: 248 ;P: 'n'        ),
+    (N: 'PathAvoid'   ;T: ME ;C: 064 ;P: 'nnnnnn'   ),    // port addition (the pathfinder)
+     (N: 'PathAvoid'  ;T: ME ;C: 064 ;P: 'nnnnn'    ),
+    (N: 'PathBlock'   ;T: ME ;C: 062 ;P: 'nnnnn'    ),
+     (N: 'PathBlock'  ;T: ME ;C: 062 ;P: 'nnnn'     ),
+     (N: 'PathBlock'  ;T: ME ;C: 062 ;P: 'nnn'      ),
+     (N: 'PathBlock'  ;T: ME ;C: 062 ;P: 'nn'       ),
+    (N: 'PathCan'     ;T: ME ;C: 058 ;P: 'nnn'      ),
+     (N: 'PathCan'    ;T: ME ;C: 058 ;P: 'nn'       ),
+    (N: 'PathCheck'   ;T: ME ;C: 059 ;P: 'nnnn'     ),
+     (N: 'PathCheck'  ;T: ME ;C: 059 ;P: 'nnn'      ),
+     (N: 'PathCheck'  ;T: ME ;C: 059 ;P: 'nn'       ),
+    (N: 'PathClear'   ;T: ME ;C: 066 ;P: 's'        ),
+     (N: 'PathClear'  ;T: ME ;C: 066 ;P: ''         ),
+    (N: 'PathLink'    ;T: ME ;C: 065 ;P: 'nnnnnnnn' ),
+     (N: 'PathLink'   ;T: ME ;C: 065 ;P: 'nnnnnnn'  ),
+     (N: 'PathLink'   ;T: ME ;C: 065 ;P: 'nnnnnn'   ),
+    (N: 'PathSet'     ;T: ME ;C: 060 ;P: 'sn'       ),
+     (N: 'PathSet'    ;T: ME ;C: 061 ;P: 'ss'       ),
+    (N: 'PathUnblock' ;T: ME ;C: 063 ;P: 'nnnnn'    ),
+     (N: 'PathUnblock';T: ME ;C: 063 ;P: 'nnnn'     ),
+     (N: 'PathUnblock';T: ME ;C: 063 ;P: 'nnn'      ),
+     (N: 'PathUnblock';T: ME ;C: 063 ;P: 'nn'       ),
     (N: 'Pathfind'    ;T: ME ;C: 011 ;P: 'nnn'      ),
      (N: 'Pathfind'   ;T: ME ;C: 011 ;P: 'nn'       ),
     (N: 'Popup'       ;T: ME ;C: 036 ;P: 'nnn'      ),
@@ -383,6 +415,38 @@ var
   Res : TFindRes;
   i   : Integer;
   s   : String;
+  Q   : TStepChecks;
+
+  // Port addition (the pathfinder): the facet a rule applies to, the character's when the call
+  // gives none (stack position Index is past the top), 0 without a client.
+  function RuleFacet(Index : Integer) : Integer;
+  begin
+    if Stack.GetTop>=Index then Result:=Stack.GetInteger(Index)
+    else if UOSel.Nr>0 then Result:=UOVar.CursKind
+    else Result:=0;
+  end;
+
+  // PathBlock / PathUnblock x y [x2 y2] [facet]
+  procedure PathArea(Block : Boolean);
+  var
+    X2, Y2, F : Integer;
+  begin
+    X2:=Stack.GetInteger(3);
+    Y2:=Stack.GetInteger(4);
+    F:=RuleFacet(99);
+    case Stack.GetTop of
+      5: F:=Stack.GetInteger(5);
+      6, 7: begin
+              X2:=Stack.GetInteger(5);
+              Y2:=Stack.GetInteger(6);
+              F:=RuleFacet(7);
+            end;
+    end;
+    if Block then UOCmd.PathPlanner.AddBlock(F,Stack.GetInteger(3),Stack.GetInteger(4),X2,Y2)
+    else UOCmd.PathPlanner.RemoveBlocks(F,Stack.GetInteger(3),Stack.GetInteger(4),X2,Y2);
+    Stack.PushStrVal('ok');
+  end;
+
 begin
   Result:=RES_OK;
   Find_First(Res,Name,UOTbl);
@@ -551,6 +615,80 @@ begin
              PushInteger(BuffRes.Time);
            end
            else PushNil;
+         end;
+    // Port addition (the pathfinder, docs\pathfinding.md phase 4): PATH FIND / CAN / CHECK / SET and
+    // the rules, for external programs. Each pushes a state string first, as #PathState says it.
+    057: begin                                             // GetPath x y [z] | x y z fromx fromy fromz facet
+           if GetTop=9 then
+             PathFindFrom(GetInteger(9),GetInteger(6),GetInteger(7),GetInteger(8),
+               GetInteger(3),GetInteger(4),GetInteger(5),True,s)
+           else
+             PathFindFrom(RuleFacet(99),UOVar.CharPosX,UOVar.CharPosY,UOVar.CharPosZ,
+               GetInteger(3),GetInteger(4),GetInteger(5),GetTop=5,s);
+           PushStrVal(PChar(s));
+           PushInteger(PathPlanner.StepCount);
+           s:=PathPacked;
+           PushLStrVal(PChar(s),Length(s));
+         end;
+    058: begin                                             // PathCan x y [z]
+           i:=UOVar.CharPosZ;
+           if GetTop=5 then i:=GetInteger(5);
+           if not PathCanAt(RuleFacet(99),GetInteger(3),GetInteger(4),i,s) then i:=0;
+           PushStrVal(PChar(s));
+           PushInteger(i);
+         end;
+    059: begin                                             // PathCheck x y [z] [dir]
+           SetLength(Q,1);
+           Q[0].X:=GetInteger(3);
+           Q[0].Y:=GetInteger(4);
+           Q[0].Z:=UOVar.CharPosZ;
+           if GetTop>=5 then Q[0].Z:=GetInteger(5);
+           Q[0].Dir:=0;
+           if GetTop>=6 then Q[0].Dir:=GetInteger(6) and 7;
+           if UOSel.Nr=0 then s:='noclient'
+           else if not StepInfo(Q) then s:='nocheck'
+           else if Q[0].NewZ=-128 then s:='blocked'
+           else s:='ok';
+           PushStrVal(PChar(s));
+           if s='ok' then PushInteger(Q[0].NewZ)
+           else PushInteger(0);
+         end;
+    060: begin                                             // PathSet option number
+           s:=PathSetOption(GetString(3),IntToStr(GetInteger(4)));
+           PushStrVal(PChar(s));
+         end;
+    061: begin                                             // PathSet option text
+           s:=PathSetOption(GetString(3),GetString(4));
+           PushStrVal(PChar(s));
+         end;
+    062: PathArea(True);
+    063: PathArea(False);
+    064: begin                                             // PathAvoid x y x2 y2 cost [facet]
+           PathPlanner.AddAvoid(RuleFacet(8),GetInteger(3),GetInteger(4),GetInteger(5),GetInteger(6),
+             GetInteger(7));
+           PushStrVal('ok');
+         end;
+    065: begin                                             // PathLink x y z x2 y2 z2 [cost] [facet]
+           i:=PATH_STEP_COST;
+           if GetTop>=9 then i:=GetInteger(9);
+           PathPlanner.AddLink(RuleFacet(10),GetInteger(3),GetInteger(4),GetInteger(5),GetInteger(6),
+             GetInteger(7),GetInteger(8),i);
+           PushStrVal('ok');
+         end;
+    066: begin                                             // PathClear [what]
+           s:=UpperCase(GetString(3));
+           if (s='') or (s='ALL') then
+           begin
+             PathPlanner.ClearRules(True,True,True);
+             PathLive.ClearLearned;
+           end
+           else if (s='BLOCKS') or (s='BLOCK') then PathPlanner.ClearRules(True,False,False)
+           else if (s='AVOIDS') or (s='AVOID') then PathPlanner.ClearRules(False,True,False)
+           else if (s='LINKS') or (s='LINK') then PathPlanner.ClearRules(False,False,True)
+           else if s='LEARNED' then PathLive.ClearLearned
+           else s:='?';
+           if s='?' then PushStrVal('error: PathClear [blocks|avoid|links|learned|all]')
+           else PushStrVal('ok');
          end;
     -01: Result:=ERR_NOTFOUND;
     -02: Result:=ERR_WRONGPAR;
