@@ -51,8 +51,10 @@ unit uocommands;
   from the attached client's folder and reopens when that folder or the dif setting changes.
   It also owns the walker (pathwalk.pas, PathWalker) and its live overlay (walklive.pas, PathLive),
   which PathSource points at the world model and fills with what PathLiveObjects reads from the
-  client: ground items and mobiles from the item list FindItem reads, and house pieces from the
-  client's multi list where MultiLists knows it (read only). Nothing else in this unit uses them.
+  client: ground items and mobiles from the item list FindItem reads, and house pieces from where
+  the build keeps the ones it has drawn: the list of the modern builds (C_MULTILIST) or the world
+  grid of the fixed-base ones (C_WORLDGRID), both found by signature scan (read only). Nothing else
+  in this unit uses them.
   PathFindFrom, PathCanAt, PathPacked and PathSetOption are PATH FIND / CAN / SET for uo.dll
   (uowrap.pas), without the interpreter.
 }
@@ -1211,39 +1213,33 @@ begin
   else PathLive.ClearObjects;
 end;
 
-// Where a build keeps the pieces of the houses (multis) it has drawn: a linked list from a global,
-// each piece with its position and graphic. Not a TCstDB field: only the pathfinder reads it, and
-// it is known for one build so far. Read in the running client_beta.exe 7.0.117.31 near Minoc
-// on 2026-10-26: the ~3,400 objects of that list all share one vtable, and with the ~2,200 of
-// them inside the house at 2693..2723 x 495..509 an emulation of the client's own pathfinder gave
-// the "Can't get there" the game gave. Head is a link-time address (see TCstDB.ImageDelta).
-type
-  TMultiList = record
-    Stamp   : Cardinal;   // PE TimeDateStamp of the client exe
-    Head    : Cardinal;   // the global holding the first piece
-    Next    : Cardinal;   // in a piece: the next piece
-    Pos     : Cardinal;   //   X, Y, Z (SmallInts)
-    Graphic : Cardinal;   //   the tile graphic (Word)
-  end;
-
 const
-  MultiLists : array[0..0] of TMultiList = (
-    (Stamp: $6AD6CEB3; Head: $00B5B70C; Next: $9C; Pos: $48; Graphic: $70)
-  );
   PATH_LIVE_MAX = 100000;   // objects read per list at most: a broken list never loops forever
+  PATH_CELL_MAX = 64;       // objects read per grid cell at most
 
 // What the client holds within Range tiles of X,Y, for the walker's live overlay. Ground items
 // and mobiles come from the item list FindItem reads (C_CHARPTR): an item's serial has bit
 // $40000000, a mobile's has not (the protocol's split), and a kind other than 1 is in a container.
-// House pieces come from the multi list of the builds MultiLists knows. Read only.
+// House pieces come from where the build keeps the ones it has drawn (see uoclidata.pas,
+// C_MULTILIST): the list of the modern builds, or the world grid of the fixed-base ones. From the
+// grid only the static objects (C_STATICVT) with a house as their owner count: the rest are the
+// map's own statics, which the world model has already, and taking them for house pieces would
+// make the doors on them house doors. The grid wraps, so an object counts only in the cell its own
+// X,Y select. A build without these fields gives no house piece. Read only.
 procedure TUOCmd.PathLiveObjects(X, Y, Range : Integer; var Objs : TLiveObjs);
 var
-  Buf     : array[0..$3FF] of Byte;
-  Nxt, ID : Cardinal;
-  Img, E  : Cardinal;
-  Stamp   : Cardinal;
-  n, i, k : Integer;
-  O       : TLiveObj;
+  Buf       : array[0..$3FF] of Byte;
+  Grid      : array of Cardinal;
+  Nxt, ID   : Cardinal;
+  Size, VT  : Cardinal;
+  NextOfs   : Cardinal;
+  OwnOfs    : Cardinal;
+  PosOfs    : Cardinal;
+  TypeOfs   : Cardinal;
+  Need      : Cardinal;
+  n, i, k   : Integer;
+  c         : Integer;
+  O         : TLiveObj;
 
   procedure Add;
   begin
@@ -1253,10 +1249,15 @@ var
     Inc(n);
   end;
 
+  procedure Fit(Ofs : Cardinal);
+  begin
+    if Ofs>Need then Need:=Ofs;
+  end;
+
 begin
   n:=0;
   SetLength(Objs,0);
-  if UOSel.Nr=0 then Exit;
+  if not ClientAttached then Exit;
 
   RWV(Read,Cst.CHARPTR,@Nxt,4);
   i:=0;
@@ -1277,30 +1278,71 @@ begin
     Add;
   end;
 
-  Img:=Cst.IMAGEBASE;
-  E:=0;
-  Stamp:=0;
-  RWV(Read,Img+$3C,@E,4);
-  if E<$1000 then RWV(Read,Img+E+8,@Stamp,4);
-  for i:=0 to High(MultiLists) do
-    if MultiLists[i].Stamp=Stamp then
+  PosOfs:=Cst.BPOS;
+  TypeOfs:=Cst.BITEMTYPE;
+  O.ID:=0;
+  O.Kind:=lkMulti;
+
+  // The list of drawn house pieces (modern builds).
+  NextOfs:=Cst.BMULTINEXT;
+  Need:=0;
+  Fit(NextOfs+4);
+  Fit(PosOfs+6);
+  Fit(TypeOfs+2);
+  if (Cst.MULTILIST<>0) and (NextOfs<>0) and (Need<=SizeOf(Buf)) then
+  begin
+    Nxt:=0;
+    RWV(Read,Cst.MULTILIST,@Nxt,4);
+    k:=0;
+    while (Nxt>0) and (k<PATH_LIVE_MAX) do
     begin
-      RWV(Read,MultiLists[i].Head+Img-LINK_IMAGE_BASE,@Nxt,4);
+      RWV(Read,Nxt,@Buf,Need);
+      Nxt:=Cardinal((@Buf[NextOfs])^);
+      Inc(k);
+      O.X:=SmallInt((@Buf[PosOfs])^);
+      O.Y:=SmallInt((@Buf[PosOfs+2])^);
+      O.Z:=SmallInt((@Buf[PosOfs+4])^);
+      O.Graphic:=Word((@Buf[TypeOfs])^);
+      Add;
+    end;
+  end;
+
+  // The world grid (fixed-base builds): the static objects that belong to a house.
+  Size:=Cst.BGRIDSIZE;
+  NextOfs:=Cst.BGRIDNEXT;
+  OwnOfs:=Cst.BMULTIOWNER;
+  VT:=Cst.STATICVT;
+  Need:=4;
+  Fit(NextOfs+4);
+  Fit(OwnOfs+4);
+  Fit(PosOfs+6);
+  Fit(TypeOfs+2);
+  if (Cst.WORLDGRID<>0) and (VT<>0) and (NextOfs<>0) and (OwnOfs<>0) and (Size>=8) and (Size<=1024) and
+    (Need<=SizeOf(Buf)) then
+  begin
+    SetLength(Grid,Size*Size);
+    FillDWord(Grid[0],Length(Grid),0);
+    RWV(Read,Cst.WORLDGRID,@Grid[0],Size*Size*4);
+    for c:=0 to High(Grid) do
+    begin
+      Nxt:=Grid[c];
       k:=0;
-      while (Nxt>0) and (k<PATH_LIVE_MAX) do
+      while (Nxt>0) and (k<PATH_CELL_MAX) do
       begin
-        RWV(Read,Nxt,@Buf,MultiLists[i].Next+4);
-        Nxt:=Cardinal((@Buf[MultiLists[i].Next])^);
+        RWV(Read,Nxt,@Buf,Need);
+        Nxt:=Cardinal((@Buf[NextOfs])^);
         Inc(k);
-        O.ID:=0;
-        O.Kind:=lkMulti;
-        O.X:=SmallInt((@Buf[MultiLists[i].Pos])^);
-        O.Y:=SmallInt((@Buf[MultiLists[i].Pos+2])^);
-        O.Z:=SmallInt((@Buf[MultiLists[i].Pos+4])^);
-        O.Graphic:=Word((@Buf[MultiLists[i].Graphic])^);
+        if (Cardinal((@Buf[0])^)<>VT) or (Cardinal((@Buf[OwnOfs])^)=0) then Continue;
+        O.X:=SmallInt((@Buf[PosOfs])^);
+        O.Y:=SmallInt((@Buf[PosOfs+2])^);
+        if (O.X<0) or (O.Y<0) or ((Cardinal(O.Y) mod Size)*Size+Cardinal(O.X) mod Size<>Cardinal(c)) then
+          Continue;
+        O.Z:=SmallInt((@Buf[PosOfs+4])^);
+        O.Graphic:=Word((@Buf[TypeOfs])^);
         Add;
       end;
     end;
+  end;
   SetLength(Objs,n);
 end;
 

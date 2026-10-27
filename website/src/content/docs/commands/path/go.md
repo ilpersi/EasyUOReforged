@@ -68,9 +68,9 @@ when it has to, so it can differ from the first one. [`path get`](/commands/path
     one step at a time straight away.
   - On a client whose pathfinder EasyUO Reforged doesn't know, it walks one step at a time anyway.
 - **What it sees.** Besides the map files, it reads what your client holds around the character about once
-  a second: items on the ground, doors, creatures and, on `client_beta.exe` 7.0.117.31, the walls and
-  floors of player houses. When something new stands on the next steps of the route, it plans again from
-  where the character is. It also plans again when the character ends up off the route.
+  a second: items on the ground, doors, creatures and the walls and floors of player houses (on `client.exe`
+  7.0.117.1, `client_beta.exe` 7.0.117.31, and other builds where EasyUO Reforged finds them). When
+  something new stands on the next steps of the route, it plans again from where the character is. It also plans again when the character ends up off the route.
 - **It asks the client.** About once a second, and whenever the route changes, the walker asks the client
   itself whether the next 12 tiles of the route can be walked (`check` in [`path set`](/commands/path/set/)),
   with the check the client runs before every step ([`path check`](/commands/path/check/)). A tile the client

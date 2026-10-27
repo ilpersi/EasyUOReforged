@@ -36,6 +36,7 @@ GROUPS = {
     'macros': ('E_MACROADDR', 'E_MACROTAB'),
     'send packet': ('E_SENDPACKET', 'E_SENDECX', 'E_SENDLEN'),
     'buff bar': ('C_CLILOC', 'C_BUFFTIMERS'),
+    'house pieces': ('C_WORLDGRID', 'C_STATICVT'),
 }
 
 

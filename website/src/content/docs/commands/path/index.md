@@ -68,10 +68,11 @@ bridges, stairs and dungeons. The map files don't have the dynamic world: **play
 placed, open or closed doors, and creatures**. Your client only learns about those when they come within
 about 18 tiles.
 
-So `path` adds what your client holds around the character: items on the ground, doors, creatures and, on
-`client_beta.exe` 7.0.117.31, the walls and floors of player houses. While walking, it also asks the client
-itself about the next 12 tiles of the route ([`path check`](/commands/path/check/)), which covers what
-EasyUO Reforged can't read, such as the houses on `client.exe`. A route is right everywhere about the map,
+So `path` adds what your client holds around the character: items on the ground, doors, creatures, and the
+walls and floors of player houses (on `client.exe` 7.0.117.1 and `client_beta.exe` 7.0.117.31, and on other
+builds where EasyUO Reforged finds them). While walking, it also asks the client itself about the next 12
+tiles of the route ([`path check`](/commands/path/check/)), which covers whatever is left: custom houses, or
+a build where it can't read house pieces. A route is right everywhere about the map,
 and right near the character about the rest. Farther away it can lead into a house or a crowd the client
 hasn't shown yet; the walker sees those as it gets near, and goes round them (see
 [How it walks](/commands/path/go/#how-it-walks)). Use [`path block`](/commands/path/block/) for places you

@@ -16,7 +16,7 @@ interface
 
 uses
   Classes, SysUtils, Windows, fpcunit, testregistry, uoclidata, access, uoselector, uovariables,
-  uoevents, uocommands, walkrules;
+  uoevents, uocommands, walkrules, walklive;
 
 type
   // A TUOCmd that reads the fake client process instead of requiring a selected client window:
@@ -104,6 +104,11 @@ type
     procedure TestUnknownModernBuildFindsTheSkillArraysByScanning;
     procedure TestSkillArraysFallbackPattern;
     procedure TestSkillValuesComeFromTheirOwnArrays;
+    // house pieces (the pathfinder's live overlay)
+    procedure TestUnknownModernBuildFindsTheMultiListByScanning;
+    procedure TestFixedBaseFindsTheWorldGridByScanning;
+    procedure TestPathLiveObjectsReadsTheMultiList;
+    procedure TestPathLiveObjectsReadsHousePiecesFromTheWorldGrid;
   end;
 
 implementation
@@ -1242,6 +1247,147 @@ begin
   Eq('C_CLILOC', 0, Sel.CstDB.CLILOC);
   AssertFalse(Cmd.ScanBuffs);
   Eq('count', 0, Cmd.BuffCnt);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+/// House pieces (port addition, the pathfinder) ///////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+const
+  HouseHeap = $03000000;
+  MultiHead = $00A50000;          // C_MULTILIST, inside the fake image
+  WorldGrid = $00A40000;          // C_WORLDGRID: 64 x 64 dwords, $A40000..$A44000
+  StaticVT  = $006C3D9C;          // C_STATICVT
+
+// The beta's remove routine of its list of drawn house pieces, byte for byte as at $5A1F00 in the
+// build stamped $6AD6CEB3 but for the two globals.
+procedure TCstDbModernBuildTests.TestUnknownModernBuildFindsTheMultiListByScanning;
+const
+  At = $401100;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader(KnownStamp + 1, $8140, $2000);          // code = $401000..$403000
+  PutBytes(At, [$39,$0D]);
+  PutDWord(At + 2, MultiHead);
+  PutBytes(At + 6, [$75,$0B,$8B,$81,$9C,$00,$00,$00,$A3]);
+  PutDWord(At + 15, MultiHead);
+  PutBytes(At + 19, [$39,$0D]);
+  PutDWord(At + 21, MultiHead + $10);
+  PutBytes(At + 25, [$75,$0B,$8B,$81,$A0,$00,$00,$00,$A3]);
+  PutDWord(At + 34, MultiHead + $10);
+
+  Cst.Update('7.0.117.1', PHnd);
+
+  AssertTrue('modern', Cst.ISMODERN);
+  Eq('C_MULTILIST', MultiHead, Cst.MULTILIST);
+  Eq('B_MULTINEXT from the layout', $9C, Cst.BMULTINEXT);
+  Eq('no grid on a modern build', 0, Cst.WORLDGRID);
+end;
+
+// client.exe 7.0.117.1's grid cell lookup ($44DAC0) and static object constructor ($5BB1E8), byte for
+// byte but for the two addresses.
+procedure TCstDbModernBuildTests.TestFixedBaseFindsTheWorldGridByScanning;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader(KnownStamp, $0000, $2000);              // fixed-base, code = $401000..$403000
+  PutBytes($401100, [$8B,$44,$24,$08,$8B,$4C,$24,$04,$83,$E0,$3F,$C1,$E0,$06,$83,$E1,$3F,$03,$C1,
+                     $56,$8B,$34,$85]);
+  PutDWord($401117, WorldGrid);
+  PutBytes($40111B, [$85,$F6,$75,$04,$33,$C0,$5E,$C3,$8B,$46,$18,$85,$C0,$57,$74,$4E]);
+  PutBytes($401200, [$E8,$33,$08,$E9,$FF,$33,$C0,$C7,$06]);
+  PutDWord($401209, StaticVT);
+  PutBytes($40120D, [$89,$86,$88,$00,$00,$00,$89,$86,$8C,$00,$00,$00,$89,$86,$90,$00,$00,$00,
+                     $C6,$86,$94,$00,$00,$00,$FF,$89,$86,$98,$00,$00,$00,$89,$86,$9C,$00,$00,$00,
+                     $88,$86,$A0,$00,$00,$00,$89,$86,$A4,$00,$00,$00]);
+
+  Cst.Update('7.0.117.1', PHnd);
+
+  AssertFalse('fixed-base', Cst.ISMODERN);
+  Eq('C_WORLDGRID', WorldGrid, Cst.WORLDGRID);
+  Eq('C_STATICVT', StaticVT, Cst.STATICVT);
+  Eq('B_GRIDNEXT', $18, Cst.BGRIDNEXT);
+  Eq('B_GRIDSIZE', 64, Cst.BGRIDSIZE);
+  Eq('B_MULTIOWNER', $A4, Cst.BMULTIOWNER);
+  Eq('no list on a fixed-base build', 0, Cst.MULTILIST);
+end;
+
+// Three pieces in the list, as the beta keeps them: X/Y/Z at B_POS, the graphic at B_ITEMTYPE, the next
+// at +$9C. The one 50 tiles away is out of range.
+procedure TCstDbModernBuildTests.TestPathLiveObjectsReadsTheMultiList;
+
+  procedure Piece(At, X, Y, Z, Graphic, Next : Cardinal);
+  begin
+    PutBytes(At + $48, [Byte(X), Byte(X shr 8), Byte(Y), Byte(Y shr 8), Byte(Z), Byte(Z shr 8)]);
+    PutBytes(At + $70, [Byte(Graphic), Byte(Graphic shr 8)]);
+    PutDWord(At + $9C, Next);
+  end;
+
+var
+  Objs : TLiveObjs;
+begin
+  TestUnknownModernBuildFindsTheMultiListByScanning;
+  if VirtualAllocEx(PHnd, Pointer(HouseHeap), $10000, MEM_RESERVE or MEM_COMMIT, PAGE_READWRITE) = nil then
+    Ignore('Cannot map the fake heap (Win32 error ' + IntToStr(GetLastError) + ').');
+  Sel := TUOSel.Create;
+  Sel.CstDB.Update('7.0.117.1', PHnd);
+  Vr := TUOVar.Create(Sel);
+  Cmd := TFakeClientCmd.Create(Sel, Vr, nil);
+  Cmd.FakeHandle := PHnd;
+
+  PutDWord(MultiHead, HouseHeap + $100);
+  Piece(HouseHeap + $100, 2709, 509, 21, $0677, HouseHeap + $300);
+  Piece(HouseHeap + $300, 2711, 509, 21, $01D0, HouseHeap + $500);
+  Piece(HouseHeap + $500, 2759, 509, 21, $01D0, 0);
+
+  Cmd.PathLiveObjects(2709, 511, 40, Objs);
+  Eq('two pieces within range', 2, Length(Objs));
+  AssertTrue('a house piece', Objs[0].Kind = lkMulti);
+  Eq('x', 2709, Objs[0].X);
+  Eq('y', 509, Objs[0].Y);
+  Eq('z', 21, Objs[0].Z);
+  Eq('graphic', $0677, Objs[0].Graphic);
+  Eq('the next one', 2711, Objs[1].X);
+end;
+
+// One cell of client.exe's grid, (2709,511), holding: a map static (no owner), a land tile (another class,
+// with something at +$A4), an object of the next cell (a stale or wrapped chain), and a house piece. Only
+// the house piece is one.
+procedure TCstDbModernBuildTests.TestPathLiveObjectsReadsHousePiecesFromTheWorldGrid;
+
+  procedure Obj(At, VT, Owner, X, Y, Z, Graphic, Next : Cardinal);
+  begin
+    PutDWord(At, VT);
+    PutDWord(At + $18, Next);
+    PutBytes(At + $24, [Byte(X), Byte(X shr 8), Byte(Y), Byte(Y shr 8), Byte(Z), Byte(Z shr 8)]);
+    PutBytes(At + $38, [Byte(Graphic), Byte(Graphic shr 8)]);
+    PutDWord(At + $A4, Owner);
+  end;
+
+var
+  Objs : TLiveObjs;
+  Cell : Cardinal;
+begin
+  TestFixedBaseFindsTheWorldGridByScanning;
+  if VirtualAllocEx(PHnd, Pointer(HouseHeap), $10000, MEM_RESERVE or MEM_COMMIT, PAGE_READWRITE) = nil then
+    Ignore('Cannot map the fake heap (Win32 error ' + IntToStr(GetLastError) + ').');
+  Sel := TUOSel.Create;
+  Sel.CstDB.Update('7.0.117.1', PHnd);
+  Vr := TUOVar.Create(Sel);
+  Cmd := TFakeClientCmd.Create(Sel, Vr, nil);
+  Cmd.FakeHandle := PHnd;
+
+  Cell := (511 mod 64) * 64 + 2709 mod 64;
+  PutDWord(WorldGrid + Cell * 4, HouseHeap + $100);
+  Obj(HouseHeap + $100, StaticVT, 0, 2709, 511, 15, $0ED7, HouseHeap + $200);              // map static
+  Obj(HouseHeap + $200, $006C3CCC, HouseHeap, 2709, 511, 15, $00C8, HouseHeap + $300);     // land
+  Obj(HouseHeap + $300, StaticVT, HouseHeap, 2710, 511, 21, $0521, HouseHeap + $400);      // next cell's
+  Obj(HouseHeap + $400, StaticVT, HouseHeap, 2709, 511, 21, $0521, 0);                     // house piece
+
+  Cmd.PathLiveObjects(2709, 511, 40, Objs);
+  Eq('the house piece only', 1, Length(Objs));
+  AssertTrue('a house piece', Objs[0].Kind = lkMulti);
+  Eq('x', 2709, Objs[0].X);
+  Eq('z', 21, Objs[0].Z);
+  Eq('graphic', $0521, Objs[0].Graphic);
 end;
 
 initialization

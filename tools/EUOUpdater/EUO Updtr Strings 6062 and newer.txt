@@ -100,3 +100,13 @@ C40484C0740955E8                       ; 11; +08; CB; +00; {ITEMREQADDR}
 // 2013 client_tc.exe. Anything else means this client's gump layout moved: B_BUFFVEC (and B_BUFFSIZE, the entry size) have
 // to be re-derived before ScanBuffs can be trusted -- see docs/adding-client-support.md (The buff bar).
 899E11111111899E11111111899E11111111899E54010000889E58010000 ; 11; +02; C ; +00; {BUFFVEC_CHECK}
+
+// ---- House pieces (the pathfinder) -------------------------------------------------------------------------
+// Added 2026-10-27. Both are unique in client.exe (7.0.117.1) and gave the values read live: {WORLDGRID} $00760098,
+// {STATICVT} $006C3D9C. {WORLDGRID}: the world grid, 64 x 64 chain heads, from a cell lookup
+// (cell = (y and 63) shl 6 + (x and 63); mov esi,[cell*4+GRID]; ...; mov eax,[esi+18h]).
+// {STATICVT}: the static object's vtable, from its constructor, which then clears the fields up to the owner at +$A4.
+// A static object with an owner is a house piece; the layout (B_GRIDNEXT $18, B_GRIDSIZE 64, B_MULTIOWNER $A4) is part
+// of both patterns, so a build that moved it gives N/A.
+8B4424088B4C240483E03FC1E00683E13F03C1568B34851111111185F6750433C05EC38B461885C05774 ; 11; +23; C ; +00; {WORLDGRID}
+E81111111133C0C7061111111189868800000089868C000000898690000000C68694000000FF89869800000089869C0000008886A00000008986A4000000 ; 11; +09; C ; +00; {STATICVT}

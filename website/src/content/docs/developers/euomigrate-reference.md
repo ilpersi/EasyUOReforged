@@ -139,8 +139,9 @@ Lists the knowledge base:
 
 ```text
 > python tools/EUOMigrate/euomigrate.py kb
-7.0.117.1-6A8E6F9D       7.0.117.1 (fixed base, stamp 6A8E6F9D, uoclidata.pas + C_CLILOC from the live client + C_BUFFTIMERS from the live client)  22379 functions, 52 located fields
+7.0.117.1-6A8E6F9D       7.0.117.1 (fixed base, stamp 6A8E6F9D, uoclidata.pas + C_CLILOC from the live client + C_BUFFTIMERS from the live client + C_WORLDGRID from the live client + C_STATICVT from the live client)  22379 functions, 54 located fields
 7.0.117.1-6AC94360       7.0.117.1 (relocatable, stamp 6AC94360, uoclidata.pas)  34138 functions, 58 located fields
+7.0.117.31-6AD6CEB3      7.0.117.31 (relocatable, stamp 6AD6CEB3, migrated by EUOMigrate (0 values verified live) + C_MULTILIST from the live client)  38546 functions, 59 located fields
 ```
 
 ## Output files

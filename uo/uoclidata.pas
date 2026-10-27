@@ -102,6 +102,15 @@ type
     // B_STLHEAD for where the tree head sits relative to it). Both are found by signature scan only;
     // zero on a build the scanner could not resolve, in which case the buff bar is unsupported.
     C_CLILOC,C_BUFFTIMERS,
+    // House pieces for the pathfinder's live overlay (TUOCmd.PathLiveObjects): where a client keeps
+    // the walls and floors of the player houses it has drawn. C_MULTILIST: the global holding the
+    // first piece of the modern builds' list of drawn house pieces (next at B_MULTINEXT; X/Y/Z at
+    // B_POS, graphic at B_ITEMTYPE). C_WORLDGRID: the fixed-base builds' world grid, B_GRIDSIZE x
+    // B_GRIDSIZE chain heads (cell ((y mod size)*size)+(x mod size), next at B_GRIDNEXT), holding
+    // every world object; C_STATICVT is the vtable of its static objects, and a static object with a
+    // non-zero owner at B_MULTIOWNER is a house piece (the rest are the map's statics). All found by
+    // signature scan only; zero on a build the scanner could not resolve, where no house piece is read.
+    C_MULTILIST,C_WORLDGRID,C_STATICVT,
     /// BASE CONSTANTS ////
     B_TARGPROC,B_CHARSTATUS,B_ITEMID,B_ITEMTYPE,
     B_ITEMSTACK,B_STATNAME,B_STATWEIGHT,B_STATAR,B_STATML,B_CONTSIZEX,
@@ -140,6 +149,9 @@ type
     // the pointer itself, 4 where the old STL puts a proxy in front). B_CLILOCKEY: offset of the key
     // in a cliloc map node; the text pointer follows it. All zero on builds without a verified layout.
     B_BUFFVEC,B_BUFFSIZE,B_STLHEAD,B_CLILOCKEY,
+    // House pieces (see C_MULTILIST): the next pointer in that list, the next pointer in a grid cell,
+    // the grid's size, and a static object's owner (its house). Zero on builds without them.
+    B_MULTINEXT,B_GRIDNEXT,B_GRIDSIZE,B_MULTIOWNER,
     /// EVENTS ////////////
     E_REDIR,E_OLDDIR,E_EXMSGADDR,
     E_ITEMPROPID,E_ITEMNAMEADDR,E_ITEMPROPADDR,E_ITEMCHECKADDR,
@@ -299,6 +311,9 @@ type
     function    SKILLSPOS       : Cardinal;
     function    CLILOC          : Cardinal;
     function    BUFFTIMERS      : Cardinal;
+    function    MULTILIST       : Cardinal;
+    function    WORLDGRID       : Cardinal;
+    function    STATICVT        : Cardinal;
     ///////////////////////////////////////
     function    BTARGPROC       : Cardinal;
     function    BCHARSTATUS     : Cardinal;
@@ -391,6 +406,10 @@ type
     function    BBUFFSIZE       : Cardinal;
     function    BSTLHEAD        : Cardinal;
     function    BCLILOCKEY      : Cardinal;
+    function    BMULTINEXT      : Cardinal;
+    function    BGRIDNEXT       : Cardinal;
+    function    BGRIDSIZE       : Cardinal;
+    function    BMULTIOWNER     : Cardinal;
   end;
 
 // Replaces the old flat SupportedCli string -- see this unit's header comment and
@@ -456,7 +475,19 @@ const
 //
 // Every other field not called out above (B_*, F_*, E_SKILLLOCKADDR/E_SENDLEN/E_SENDECX):
 // inherited from the older milestones -- a reasonable-but-unverified default.
-SysVarMS0 : array[0..36] of TSysVarList = (
+//
+// House pieces (port addition, the pathfinder; added 2026-10-27): this build keeps them in its world
+// grid, C_WORLDGRID ($00760098, 64 x 64 chain heads, found by ScannerTable_Post6062 with C_STATICVT
+// $006C3D9C). Each cell's objects are chained at +$18 (B_GRIDNEXT); a static object's owner, set by
+// the multi's add-component routine ($5B30B0) and cleared by the static constructor ($5BB1C0), is at
+// +$A4 (B_MULTIOWNER). Read live next to a player house near Minoc: 1,093 static objects with an
+// owner matched client_beta.exe's pieces of that house exactly (position, height, graphic), 410 more
+// were the next house's, and the 832 without one were the map's statics. Older milestones have none
+// of these, so no house piece is read there.
+SysVarMS0 : array[0..39] of TSysVarList = (
+  (Expr: B_GRIDNEXT; Val: $00000018),
+  (Expr: B_GRIDSIZE; Val: $00000040),
+  (Expr: B_MULTIOWNER; Val: $000000A4),
   (Expr: C_BLOCKINFO; Val: $005A74B0),
   (Expr: C_CHARDIR; Val: $00A02C90),
   (Expr: C_CHARPTR; Val: $00A590C4),
@@ -5412,7 +5443,7 @@ const
   // C_TARGETCNT has no entry here (and never has) -- not covered by any scan string in
   // the file at all, and every known version's own milestone data also carries $00000000
   // for it, consistent with it being vestigial (see milestone 1's own comment).
-  ScannerTable_Post6062 : array[0..40] of TScannerEntry = (
+  ScannerTable_Post6062 : array[0..42] of TScannerEntry = (
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0;
      Expr: C_BLOCKINFO; Pattern: 'B820180000E8'),
     // NOT reused from the scan-string file -- that pattern is already known not to match
@@ -5488,6 +5519,18 @@ const
      Pattern: '0F94C0568B74240CC74424040000000050518B0D1111111156E8111111118BC65E59C3'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 5; Mode: 3; AddOffset2: 0; Expr: C_BUFFTIMERS;
      Pattern: '8B500852B911111111E811111111E811111111578BCE8BE8'),
+    // House pieces (the pathfinder), added 2026-10-27. Each is unique in client.exe (7.0.117.1) and
+    // resolves to the address read live.
+    // C_WORLDGRID: a grid cell lookup, `cell = (y and 63) shl 6 + (x and 63); mov esi,[cell*4+GRID];
+    // test esi,esi; ...; mov eax,[esi+18h]` -- the 64 and the +$18 are part of the pattern.
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 23; Mode: 3; AddOffset2: 0; Expr: C_WORLDGRID;
+     Pattern: '8B4424088B4C240483E03FC1E00683E13F03C1568B34851111111185F6750433C05EC38B461885C05774'),
+    // C_STATICVT: the static object's constructor storing its vtable, then clearing its fields up to the
+    // owner at +$A4.
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 9; Mode: 3; AddOffset2: 0; Expr: C_STATICVT;
+     Pattern: 'E81111111133C0C706111111118986880000008986' +
+              '8C000000898690000000C68694000000FF8986980000008986' +
+              '9C0000008886A00000008986A4000000'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 0; AddOffset2: 0; Expr: LISTEND; Pattern: nil)
   );
 
@@ -5540,7 +5583,7 @@ const
 // +$C0 in the one stamped $6AD6CEB3). The scan derives it from the skills gump's code (see
 // ScannerTable_Modern); 0 until it does, so the with-bonuses value then repeats the base value
 // instead of reading some other array.
-SysVarModernLayout : array[0..38] of TSysVarList = (
+SysVarModernLayout : array[0..39] of TSysVarList = (
   (Expr: B_POS;       Val: $00000048),   // kind=$44, X=$48, Y=$4A, Z=$4C
   (Expr: B_ITEMTYPE;  Val: $00000070),
   (Expr: B_ITEMSTACK; Val: $00000076),   // type+6 as on every older build; hue (stack+2) = $78 seen live
@@ -5593,6 +5636,11 @@ SysVarModernLayout : array[0..38] of TSysVarList = (
   (Expr: B_BUFFSIZE;  Val: $000001B0),
   (Expr: B_STLHEAD;   Val: $00000000),
   (Expr: B_CLILOCKEY; Val: $00000010),
+  // House pieces: the list C_MULTILIST heads (scanned) is doubly linked through +$9C (next) and +$A0
+  // (previous), read in the beta stamped $6AD6CEB3 (add $59A970, remove $5A1F00); the pieces have the
+  // item layout (B_POS, B_ITEMTYPE). The scan pattern spells out +$9C and +$A0, so a build that moved
+  // them finds no list rather than a wrong one.
+  (Expr: B_MULTINEXT; Val: $0000009C),
   (Expr: LISTEND;     Val: 0)
 );
 
@@ -5754,7 +5802,7 @@ ModernBuilds : array[0..1] of TModernBuild = (
 // of a field match, the LAST one's result is kept (ScanMemory overwrites, EUO Updtr replaces its
 // line): a $6AD6CEB3 pattern for a function that changed sits before the older beta's, so that one
 // still decides on that beta.
-ScannerTable_Modern : array[0..83] of TScannerEntry = (
+ScannerTable_Modern : array[0..84] of TScannerEntry = (
     // E_REDIR
     (Joker: $11; Unused: (0,0,0); AddOffset1: 12; Mode: 1; AddOffset2: 0; Expr: E_REDIR;
      Pattern: '6A0068E8030000FF75C86A00E8111111118BF0B85917B7D1F765C4'),
@@ -5981,6 +6029,11 @@ ScannerTable_Modern : array[0..83] of TScannerEntry = (
     // truncated time-left value is formatted
     (Joker: $11; Unused: (0,0,0); AddOffset1: 1; Mode: 3; AddOffset2: 0; Expr: C_BUFFTIMERS;
      Pattern: 'A111111111C645FC2E8B4DA03BC8740B'),
+    // C_MULTILIST ($6AD6CEB3, added 2026-10-27): the remove routine of the list of drawn house pieces,
+    // `cmp [head],ecx; jne; mov eax,[ecx+9Ch]; mov [head],eax; cmp [tail],ecx; jne;
+    // mov eax,[ecx+A0h]; mov [tail],eax` -- B_MULTINEXT's +$9C is part of the pattern.
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 2; Mode: 3; AddOffset2: 0; Expr: C_MULTILIST;
+     Pattern: '390D11111111750B8B819C000000A311111111390D11111111750B8B81A0000000A311111111'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 0; AddOffset2: 0; Expr: LISTEND; Pattern: nil)
   );
 
@@ -6011,7 +6064,7 @@ var
 begin
   // No fixed-base address is meaningful for this exe.
   for Expr := Low(TConstantNames) to High(TConstantNames) do
-    if Expr in [C_BLOCKINFO..C_BUFFTIMERS, E_REDIR..E_PATHFINDMID] then
+    if Expr in [C_BLOCKINFO..C_STATICVT, E_REDIR..E_PATHFINDMID] then
       Values[Expr] := 0;
 
   Apply(ModernBuilds[0].Layout);      // one layout family so far: the first entry's
@@ -6277,6 +6330,9 @@ function TCstDB.SKILLLOCK : Cardinal; begin CS.BeginRead; try Result:=Rebase(Val
 function TCstDB.SKILLSPOS : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_SKILLSPOS]); finally CS.EndRead; end; end;
 function TCstDB.CLILOC : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_CLILOC]); finally CS.EndRead; end; end;
 function TCstDB.BUFFTIMERS : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_BUFFTIMERS]); finally CS.EndRead; end; end;
+function TCstDB.MULTILIST : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_MULTILIST]); finally CS.EndRead; end; end;
+function TCstDB.WORLDGRID : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_WORLDGRID]); finally CS.EndRead; end; end;
+function TCstDB.STATICVT : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_STATICVT]); finally CS.EndRead; end; end;
 ////////////////////////////////////////////////////////////////////////////////
 function TCstDB.BTARGPROC : Cardinal; begin CS.BeginRead; try Result:=Values[B_TARGPROC]; finally CS.EndRead; end; end;
 function TCstDB.BCHARSTATUS : Cardinal; begin CS.BeginRead; try Result:=Values[B_CHARSTATUS]; finally CS.EndRead; end; end;
@@ -6371,5 +6427,9 @@ function TCstDB.BBUFFVEC : Cardinal; begin CS.BeginRead; try Result:=Values[B_BU
 function TCstDB.BBUFFSIZE : Cardinal; begin CS.BeginRead; try Result:=Values[B_BUFFSIZE]; finally CS.EndRead; end; end;
 function TCstDB.BSTLHEAD : Cardinal; begin CS.BeginRead; try Result:=Values[B_STLHEAD]; finally CS.EndRead; end; end;
 function TCstDB.BCLILOCKEY : Cardinal; begin CS.BeginRead; try Result:=Values[B_CLILOCKEY]; finally CS.EndRead; end; end;
+function TCstDB.BMULTINEXT : Cardinal; begin CS.BeginRead; try Result:=Values[B_MULTINEXT]; finally CS.EndRead; end; end;
+function TCstDB.BGRIDNEXT : Cardinal; begin CS.BeginRead; try Result:=Values[B_GRIDNEXT]; finally CS.EndRead; end; end;
+function TCstDB.BGRIDSIZE : Cardinal; begin CS.BeginRead; try Result:=Values[B_GRIDSIZE]; finally CS.EndRead; end; end;
+function TCstDB.BMULTIOWNER : Cardinal; begin CS.BeginRead; try Result:=Values[B_MULTIOWNER]; finally CS.EndRead; end; end;
 
 end.

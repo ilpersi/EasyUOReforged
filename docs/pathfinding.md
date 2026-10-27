@@ -207,12 +207,9 @@ Doors cost a little more than open ground, and the walker opens them with the op
   client. A serial with bit `$40000000` is an item, any other is a mobile; that is the protocol's split. Only
   objects with kind 1 (on the ground) count. Read live on the beta: mobiles and items share that list, with
   different vtables.
-- House pieces come from the client's multi list: on `client_beta.exe` 7.0.117.31 (stamp `$6AD6CEB3`) a linked
-  list from `[0xB5B70C]`, next at +0x9C, X/Y/Z at +0x48, graphic at +0x70. It holds the pieces of every house
-  the client has drawn (about 3,400 near Minoc). This is a small table keyed by PE stamp in `uocommands.pas`
-  (`MultiLists`), not a `TCstDB` field. Where it is on `client.exe` is still open.
-- Classic multis are not read from `multi.mul`: on the beta they sit in the same list, and on `client.exe` the
-  walker learns them from refused steps.
+- House pieces come from where the client keeps the ones it has drawn (phase 5, below): the beta's list of
+  drawn house pieces, or `client.exe`'s world grid. Both are found by signature.
+- Classic multis are not read from `multi.mul`: they sit in the same list or grid.
 - Items and house pieces are statics as far as the step rules go: tiledata flags and height by graphic, at
   their own height. A mobile is an obstacle 16 high, as in ClassicUO. Doors (the tiledata Door flag) are left
   out when the walker opens doors, and cost `doorcost` (50) more.
@@ -363,7 +360,7 @@ for %n 1 #PathCnt
 | 2 | Walker (`client` and `steps` modes), live overlay, learned blocks, doors; `path go/walk/step/stop` | a live client |
 | 3 | Decode `BlockInfo`; the walker asks the client's step check about the route ahead; `path check` | a live client |
 | 4 | `uo.dll` access: plan and check (`GetPath`, `PathCan`, `PathCheck`, `PathSet` and the rules). Links between facets and a faster long-range search were left out (see below) | tests and a live client |
-| 5 | House pieces from the client table: a `TCstDB` field for the client's list of drawn house pieces (its head global, plus the next/position/graphic offsets), found by a runtime signature pattern in `ScannerTable_Modern`, in place of the one-build `MultiLists` table in `uo/uocommands.pas`; and where `client.exe` keeps its house pieces, added the same way | `CstDbModernBuildTests`, and the live overlay test (`TestPathLiveObjectsSeeTheCharacter`) on each client |
+| 5 | House pieces from the client tables, on both clients: the beta's list and `client.exe`'s world grid as `TCstDB` fields found by signature (in place of the one-build `MultiLists` table), and EUOMigrate's knowledge base re-fingerprinted | `CstDbModernBuildTests`, and the live overlay test (`TestPathLiveObjectsSeeTheCharacter`) on each client |
 
 ### uo.dll (phase 4, as built)
 
@@ -394,12 +391,57 @@ Left out of phase 4, by the user's choice:
 - **A faster long-range search.** The exact search needed 0.3 to 0.8 s for routes of 1,200 to 1,700 steps,
   well inside its 5 s budget.
 
+### House pieces (phase 5, as built)
+
+The user chose this on 2026-10-27: both clients, found by signature scan, and EUOMigrate's knowledge base
+re-fingerprinted. `TUOCmd.PathLiveObjects` reads the pieces through new `TCstDB` fields (`uo/uoclidata.pas`):
+
+- **`client_beta.exe`**: `C_MULTILIST` (the head of the list of drawn house pieces, `$B5B70C` on `6AD6CEB3`) and
+  `B_MULTINEXT` (`$9C`, in the modern layout). The list is doubly linked: next `+0x9C`, previous `+0xA0`, tail
+  `[0xB5B71C]`. It is added to at `0x59A970` and removed from at `0x5A1F00`. Its pieces have the item layout
+  (`B_POS`, `B_ITEMTYPE`).
+  - The scan pattern is the remove routine, with `+$9C` and `+$A0` as literal bytes, in `ScannerTable_Modern`
+    and `EUO Updtr Strings modern.txt`.
+- **`client.exe` 7.0.117.1**: there is no such list. The pieces sit in its 64×64 world grid, mixed with land,
+  the map's statics and items.
+  - The fields are `C_WORLDGRID` (`$760098`), `C_STATICVT` (`$6C3D9C`), `B_GRIDNEXT` (`$18`), `B_GRIDSIZE` (64)
+    and `B_MULTIOWNER` (`$A4`).
+  - A house piece is a static object whose owner at `+$A4` is set. The routine that adds a house's
+    components (`0x5B30B0`) sets it; the static constructor (`0x5BB1C0`) clears it.
+  - The two scanned addresses come from a cell lookup (`0x44DAC0`) and the constructor. Both patterns spell out
+    the layout. They are in `ScannerTable_Post6062` and `EUO Updtr Strings 6062 and newer.txt`; the three
+    layout values are in milestone 0.
+- **Read live next to the house at 2693–2723, 490–509** (character at 2727,500):
+  - 1,093 static objects with an owner matched the beta's pieces of that house: position, height and graphic.
+  - 410 were the next house's.
+  - The 832 without an owner were the map's statics. They are left out: the overlay would count a door on one
+    of them as a house door.
+  - Pieces exist only within about 18 tiles of the character.
+- **Land objects use `+$A4` for something else**, so the class (vtable) check comes first.
+- **The grid wraps**, so an object counts only in the cell its own X,Y select.
+- **Checked live on `client.exe`** (2026-10-27), one test at a time:
+  - `TestPathLiveObjectsSeeTheCharacter` read 1,638 house pieces around 2715,511, the same count as an
+    independent read with the Python probe.
+  - `path from 2727 500 15` and `path find 2709 511` gave 25 steps with none inside the house. Phase 4 gave 18
+    straight through it.
+  - `path go` from 2709,511 to 2727,500 arrived in 7.3 s. It planned round the house from the start and needed
+    no replan, refusal or client-check refusal. Phase 3, with only the client check, needed 7 replans and
+    8.1 s for the same walk.
+- **Checked live on `client_beta.exe` `6AD6CEB3`** (2026-10-27): `TestPathLiveObjectsSeeTheCharacter` read 3,451
+  house pieces around 2727,500 in 16 ms, through the scanned `C_MULTILIST`. That is the count phase 2 read with
+  the hard-coded entry.
+- **EUOMigrate's knowledge base:**
+  - `client.exe` was re-fingerprinted with the two new addresses (`--set`).
+  - The current beta `6AD6CEB3` was added from its earlier migration, plus `C_MULTILIST`.
+  - The first beta (`6AC94360`) isn't installed, so its entry is unchanged.
+
 ## Open questions
 
 - How does a multi appear in the client's object list, and can a custom house's design be read from memory?
-  On the beta, yes: while the house is drawn, each of its pieces is an object in the client's multi list (and in
-  its old dynamic-item grid), with its position, height and graphic. The walker reads that list. Not yet checked
-  on `client.exe`.
+  - **On the beta**: while the house is drawn, each of its pieces is an object in the client's list of drawn
+    house pieces (and in its old dynamic-item grid), with its position, height and graphic.
+  - **On `client.exe`**: each piece is a static object with an owner in the world grid (phase 5).
+  - The walker reads both. Not checked yet: whether a custom house's design shows up the same way.
 - Does `event PathFind` to the character's own tile stop a walk the client is doing? `path stop` would need it.
 - What does `BlockInfo`'s 2-byte result mean? Answered from the code: the signed height after stepping north
   onto the tile from the one south of it, -128 when that step is refused (see
@@ -426,5 +468,5 @@ Left out of phase 4, by the user's choice:
     - step 14 is reachable again, around the house.
   - Our planner, given the same pieces, goes round the house for 4 extra steps.
 - Which shard-specific links (teleporters, moongates) are worth shipping as ready-made lists, if any?
-- Where does `client.exe` keep the pieces of the houses it draws, and can the beta's list (`[0xB5B70C]`,
-  next +0x9C) be found by a signature, so a new beta build gets it without a hand-made entry? Phase 5.
+- Where does `client.exe` keep the pieces of the houses it draws, and can the beta's list be found by a
+  signature? Answered by phase 5 (see [House pieces](#house-pieces-phase-5-as-built)).

@@ -21,7 +21,7 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
     [`path step`](/commands/path/step/) and [`path stop`](/commands/path/stop/) let a script heal or fight
     meanwhile.
   - The walker walks step by step, or drives the client's own pathfinder a stretch at a time. It sees the
-    items, doors, creatures and (on `client_beta.exe` 7.0.117.31) house walls your client holds, opens doors,
+    items, doors, creatures and house walls your client holds, opens doors,
     and goes round what it finds in the way.
   - It asks the client itself about the next 12 tiles of the route, so it goes round a house it can't read
     before stepping into it. [`path check`](/commands/path/check/) asks the same from a script.

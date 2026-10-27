@@ -212,3 +212,8 @@ C74511FFFFFFFFEB1133F6C74511FFFFFFFFEB110FBE05111111118B0D11111111 ; 11; +29; C 
 // Buff bar (ScanBuffs). Global holding the head node of the buff-timer std::map, read in CBuffIconsGump::GetToolTipString
 // just before the truncated time-left value is formatted.
 A111111111C645FC2E8B4DA03BC8740B ; 11; +01; C ; +00; {BUFFTIMERS}
+
+// House pieces (the pathfinder). Global heading the list of drawn house pieces, from its remove routine:
+// cmp [head],ecx; jne; mov eax,[ecx+9Ch]; mov [head],eax; cmp [tail],ecx; jne; mov eax,[ecx+0A0h]; mov [tail],eax.
+// The next pointer +$9C (B_MULTINEXT) is part of the pattern. $6AD6CEB3: $00B5B70C.
+390D11111111750B8B819C000000A311111111390D11111111750B8B81A0000000A311111111 ; 11; +02; C ; +00; {MULTILIST}

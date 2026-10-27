@@ -191,6 +191,36 @@ and read the offsets off the disassembly; the tooltip function shows the entry f
 the cliloc lookup in one place. Then check in a client with a few buffs on (Bless, Curse and Hiding are
 enough), and run stage 9 of the self-test (below). EUOMigrate's `verify` and `probe` check all six values.
 
+## House pieces
+
+The pathfinder's walker reads the walls and floors of the player houses the client has drawn
+([`path`](/commands/path/)). The map files don't have them. The two client generations keep them in
+different ways, and a client with neither set of values simply reads no house piece:
+
+| Value | Meaning | Relocatable (beta) | Fixed-base |
+|---|---|---|---|
+| `C_MULTILIST` | The global holding the first piece of the list of drawn house pieces. | Scanned (`$B5B70C` on `6AD6CEB3`). | `0` |
+| `B_MULTINEXT` | The next pointer in that list. Each piece has the item layout: `B_POS`, `B_ITEMTYPE`. | `$9C` | `0` |
+| `C_WORLDGRID` | The world grid: `B_GRIDSIZE` × `B_GRIDSIZE` chain heads, one per cell, holding every world object. | `0` | Scanned (`$760098` on `client.exe`). |
+| `C_STATICVT` | The vtable of the grid's static objects. | `0` | Scanned (`$6C3D9C`). |
+| `B_GRIDNEXT` | The next pointer in a cell's chain. | `0` | `$18` |
+| `B_GRIDSIZE` | Cells per side; a cell is `(y mod size) × size + (x mod size)`. | `0` | `64` |
+| `B_MULTIOWNER` | A static object's owner: non-zero for a house piece, 0 for one of the map's statics. | `0` | `$A4` |
+
+How they were found:
+- **On the beta:** the list has an add routine and a remove routine. The remove routine
+  (`cmp [head],ecx; jne; mov eax,[ecx+9Ch]; mov [head],eax; …`) is the signature. Its `+$9C` and `+$A0`
+  are literal bytes, so a build that moved them finds no list rather than a wrong one.
+- **On `client.exe`:**
+  - The grid comes from a cell lookup (`(y and 63) shl 6 + (x and 63)`, then the chain at `+$18`).
+  - The vtable comes from the static object's constructor, which clears the owner at `+$A4`.
+  - The routine that adds a house's components sets that owner.
+- **Checked live** next to a player house near Minoc:
+  - on `client.exe`, the static objects with an owner matched the beta's pieces of the same house exactly;
+  - the ones without an owner were the map's statics.
+
+The live test `TestPathLiveObjectsSeeTheCharacter` prints how many house pieces it read.
+
 ## Checking what you wrote
 
 - **A unit test** in `tests/CstDbTests.pas` (fixed-base) or `tests/CstDbModernBuildTests.pas`
