@@ -328,8 +328,8 @@ The price:
   version ran everything.
 - **Called files with `menu reforge includecall #true`:**
   - The detection also reads every file the script calls with a literal name, resolved the way
-    `call` resolves it at runtime: relative to the script's folder, with `.txt` then `.euo` tried
-    when the name has no extension.
+    `call` resolves it at runtime: a relative name is taken from `#CurPath` (EasyUO's own folder,
+    not the script's), then `.txt` and `.euo` are tried when the name as given does not exist.
   - The scan is recursive (files called by called files) and visits each file once, so a call
     cycle cannot loop.
   - A name built at runtime (`call %lib`) cannot be resolved in advance and is skipped; so is a
@@ -340,7 +340,8 @@ The price:
   `menu reforge mode 1.6` (or `menu reforge includecall #true`, when the command came from a
   called file). This covers the cases the scan cannot see.
 - **Changing logic between runs:** if a tab's script starts with a different logic than its
-  previous run, the previous menu windows are destroyed first.
+  previous run, the previous logic's windows are taken down first: the 1.5 window is hidden
+  (not closed, so its `#MenuButton` is left alone) and emptied, the 1.6 windows are destroyed.
 - **Cost:** one pass over the script text at start (the largest scanned script has about 5,000
   lines), plus reading the called files when `includecall` is on, plus one indirect call per MENU
   command. Every MENU command already pays a hop to the main thread, which costs far more.
@@ -355,12 +356,12 @@ settings:
 | Line | Values | Effect |
 |---|---|---|
 | `menu reforge mode {logic}` | `1.5` or `1.6` | Forces that logic for the whole run; automatic selection is skipped. |
-| `menu reforge includecall {flag}` | `#true` or `#false` (also `true`/`false`, `1`/`0`) | `#true`: the automatic selection also scans the files the script calls (§6.2). `#false` (the default): only the main script is scanned. |
+| `menu reforge includecall {flag}` | `#true` or `#false` (also `true`/`false`, `1`/`-1`/`0`) | `#true`: the automatic selection also scans the files the script calls (§6.2). `#false` (the default): only the main script is scanned. |
 
 Common rules:
 - **Read before the run.** Both settings are read from the main script's text before it starts, so
   their position does not matter; the top of the script is the conventional place. For each
-  setting, the first line found outside comments wins. A forced `mode` makes `includecall`
+  setting, the first line with a valid value wins; commented-out lines are not read. A forced `mode` makes `includecall`
   irrelevant.
 - **Literal values only.** The value must be written literally. A variable (`menu reforge mode %m`)
   cannot be read before the run and is ignored, as is any value outside the lists above;

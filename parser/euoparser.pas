@@ -8,10 +8,10 @@ unit euoparser;
 interface
 
 uses
-  EuoConversion, EuoTokens, EuoExpression, EuoVariables, EuoScriptStack,
-  EuoCommandRegistry, EuoStdCommands, EuoComm, EuoMenuCommon, EuoMenu,
-  EuoInterpreter,
-  EuoBreakCondition, EuoCallStackFormat, EuoExecutor, EuoSql, EuoBlocks;
+  EuoConversion, EuoTokens, EuoExpression, EuoVariables, EuoScriptStack, 
+  EuoCommandRegistry, EuoStdCommands, EuoComm, EuoMenuCommon, EuoMenu, 
+  EuoMenu16, EuoMenuSelect, EuoInterpreter, EuoBreakCondition, 
+  EuoCallStackFormat, EuoExecutor, EuoSql, EuoBlocks;
 
 implementation
 
