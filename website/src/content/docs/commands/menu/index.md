@@ -39,6 +39,8 @@ set %mingold #MenuRes
 menu Get bags
 set %openbags #MenuRes
 menu Hide
+display ok Minimum gold %mingold open bags %openbags
+halt
 ```
 
 ## How it works

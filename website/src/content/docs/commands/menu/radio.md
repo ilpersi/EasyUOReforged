@@ -34,7 +34,7 @@ credits: ['scriptuo']
 ## Example
 
 ```euo
-menu Reforge Mode 1.6
+menu Window Size 120 100
 menu Radio easy 10 10 80 20 #true Easy
 menu Radio hard 10 35 80 20 #false Hard
 menu Button go 10 65 60 25 Go
@@ -45,4 +45,7 @@ while #MenuButton = N/A
 menu Get hard
 if #MenuRes = -1
   display ok Hard it is.
+else
+  display ok Easy it is.
+halt
 ```

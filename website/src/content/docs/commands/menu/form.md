@@ -37,7 +37,6 @@ credits: ['scriptuo']
 ## Example
 
 ```euo
-menu Reforge Mode 1.6
 menu Form opts 400 200 200 90 Options
 menu Check loot 10 10 150 20 #true Loot corpses
 menu Button ok 60 50 80 25 OK
@@ -48,6 +47,8 @@ while #MenuButton = N/A
 menu Get loot
 set %loot #MenuRes
 menu SetProp opts visible #false
+display ok Loot corpses: %loot
+halt
 ```
 
 ## Notes

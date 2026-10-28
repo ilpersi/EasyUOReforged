@@ -14,5 +14,9 @@ source: wiki
 ## Example
 
 ```euo
+menu Clear
 menu Window Title Loot settings
+menu Text t 10 10 Look at the title bar.
+menu Show
+halt
 ```

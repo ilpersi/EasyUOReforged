@@ -138,6 +138,23 @@ foreach ($p in $pages.Values | Sort-Object Slug) {
     $menuProblems.Add("$($p.Slug): menuDiffers is set but there is no '## 1.5 and 1.6' section")
   }
 }
+# The examples on the MENU pages are whole scripts a reader can paste and run: each ends with halt
+# (reaching the end of a script would restart it), or, for a file meant to be called (a block with a
+# title="..."), with exit.
+$menuExamplePages = @($pages.Values | Where-Object {
+  $_.Slug -like 'commands/menu*' -or $_.Slug -in @('variables/menubutton', 'variables/menures') })
+foreach ($p in $menuExamplePages | Sort-Object Slug) {
+  $n = 0
+  foreach ($m in [regex]::Matches($p.Text, '```euo([^\r\n]*)\r?\n(.*?)```', 'Singleline')) {
+    $n++
+    $code = @($m.Groups[2].Value -split '\r?\n' | ForEach-Object { ($_ -split ';')[0].Trim() } | Where-Object { $_ })
+    $last = if ($code.Count) { $code[-1].ToLower() } else { '' }
+    $want = if ($m.Groups[1].Value -match 'title=') { @('halt', 'exit') } else { @('halt') }
+    if ($want -notcontains $last) {
+      $menuProblems.Add("$($p.Slug): example $n does not end with $($want -join ' or ')")
+    }
+  }
+}
 
 # ---- highlighter / autocomplete drift (warnings) ---------------------------------------------------------
 $hlVars = & $lower $names.Highlighted.Variables
@@ -180,9 +197,9 @@ if ($orphans.Count -gt 0) {
   $failed = $true
 }
 if ($menuProblems.Count -gt 0) {
-  Write-Host "Docs coverage: $($menuProblems.Count) MENU pages disagree with the two MENU logics:" -ForegroundColor Red
+  Write-Host "Docs coverage: $($menuProblems.Count) problems on the MENU pages:" -ForegroundColor Red
   $menuProblems | ForEach-Object { Write-Host "  $_" }
-  Write-Host "Set menuLogic to the logics that have the sub-command, and give a menuDiffers page its '## 1.5 and 1.6' section."
+  Write-Host "Set menuLogic to the logics that have the sub-command, give a menuDiffers page its '## 1.5 and 1.6' section, and end every example with halt."
   $failed = $true
 }
 if ($failed) { exit 1 }

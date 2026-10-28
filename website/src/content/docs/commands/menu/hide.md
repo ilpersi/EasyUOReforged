@@ -18,7 +18,12 @@ controls stay; [`menu Show`](/commands/menu/show/) shows the window again.
 ## Example
 
 ```euo
+menu Clear
+menu Text t 10 10 Hiding in two seconds.
+menu Show
+wait 40
 menu Hide
+halt
 ```
 
 ## 1.5 and 1.6

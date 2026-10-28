@@ -16,7 +16,15 @@ your menu. Closing the menu window, or [`menu Hide`](/commands/menu/hide/), brin
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 180 45
+menu Button back 10 10 160 25 Bring EasyUO back
 menu HideEUO
+set #MenuButton N/A
+while #MenuButton = N/A
+  wait 1
+menu Hide
+halt
 ```
 
 ## 1.5 and 1.6

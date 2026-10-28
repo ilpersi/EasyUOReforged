@@ -35,7 +35,6 @@ other controls. Positions inside it are counted from its own top-left corner.
 ## Example
 
 ```euo
-menu Reforge Mode 1.6
 menu Window Size 220 130
 menu Panel size 10 10 200 30
 menu Radio small 5 5 60 20 #true Small
@@ -47,6 +46,7 @@ menu Radio fast 80 5 60 20 #false Fast
 menu SetDef parent form0
 menu Button ok 70 95 80 25 OK
 menu Show
+halt
 ```
 
 The two pairs of radio buttons are independent, because each pair has its own panel.

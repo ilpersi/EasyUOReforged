@@ -30,10 +30,17 @@ It uses the current [font settings](/commands/menu/#fonts). Read what the user t
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 180 80
 menu Edit pet 10 10 150 Fluffy
-; later
+menu Button ok 10 45 60 25 OK
+menu Show
+set #MenuButton N/A
+while #MenuButton = N/A
+  wait 1
 menu Get pet
-set %petname #MenuRes
+display ok Your pet is called #MenuRes
+halt
 ```
 
 ## 1.5 and 1.6

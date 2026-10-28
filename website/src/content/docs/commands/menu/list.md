@@ -37,6 +37,7 @@ menu List Select lst 2
 menu Window Title List example
 menu Window Size 200 140
 menu Show
+halt
 ```
 
 ## 1.5 and 1.6

@@ -17,6 +17,11 @@ A colour, see [Colours](/commands/menu/#colours): a name such as `red` or `btnfa
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 200 140
 menu Font BGColor white
 menu List Create lst 10 10 180 120
+menu List Add lst A white list
+menu Show
+halt
 ```

@@ -14,7 +14,12 @@ source: wiki
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 200 70
 menu Font Size 14
 menu Text title 10 10 Big title
 menu Font Size 10
+menu Text body 10 40 Normal text
+menu Show
+halt
 ```

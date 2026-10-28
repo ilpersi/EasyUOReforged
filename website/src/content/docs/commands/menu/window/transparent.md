@@ -19,10 +19,14 @@ This did not work under Linux and Wine (1.1.2) in the original EasyUO.
 ## Example
 
 ```euo
-; fade the window in
+menu Clear
+menu Text t 10 10 Fading in...
+menu Window Transparent 0
+menu Show
 for %i 0 100
 {
   menu Window Transparent %i
   wait 1
 }
+halt
 ```

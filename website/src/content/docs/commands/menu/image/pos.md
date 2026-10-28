@@ -25,7 +25,14 @@ it, and what is drawn in it is stretched to fit.
 ## Example
 
 ```euo
-menu Image Pos pic 100 10 128 128
+menu Clear
+menu Window Size 250 150
+menu Image Create pic 10 10 64 64
+menu Image Ellipse pic 8 8 56 56 yellow #true
+menu Show
+wait 40
+menu Image Pos pic 100 10 128 128     ; moved and stretched to twice the size
+halt
 ```
 
 ## 1.5 and 1.6

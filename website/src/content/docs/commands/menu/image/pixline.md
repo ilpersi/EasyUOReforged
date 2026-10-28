@@ -37,8 +37,15 @@ Keep pictures painted this way small. For anything bigger, load a file with
 ## Example
 
 ```euo
-; a 4-pixel black, grey, white, navy row
-menu Image PixLine pic 0 0 AAAPPP666AAP
+menu Clear
+menu Window Size 60 180
+menu Image Create pic 10 10 4 16
+; 16 rows of a 4-pixel black, grey, white, navy line
+for %y 0 15
+  menu Image PixLine pic 0 %y AAAPPP666AAP
+menu Image Pos pic 10 10 40 160      ; stretched ten times, to see it
+menu Show
+halt
 ```
 
 ## 1.5 and 1.6

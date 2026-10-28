@@ -21,12 +21,18 @@ Comparisons ignore case.
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 160 45
+menu Button ok 10 10 60 25 OK
 menu Show
 set #MenuButton N/A
 while #MenuButton = N/A
   wait 1
 if #MenuButton = closed
-  halt
+  display ok You closed the window.
+else
+  display ok You clicked #MenuButton
+halt
 ```
 
 ## 1.5 and 1.6

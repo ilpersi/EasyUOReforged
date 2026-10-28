@@ -34,11 +34,15 @@ credits: ['scriptuo']
 ## Example
 
 ```euo
-menu Reforge Mode 1.6
 menu Form opts 300 200 200 100 Options
 menu Button ok 60 60 80 25 OK
 menu SetProp ok tooltip Saves the options and closes the window
 menu SetProp ok fontstyle 1
 menu SetProp opts color $C0FFC0
 menu SetProp opts visible #true
+set #MenuButton N/A
+while #MenuButton = N/A
+  wait 1
+menu SetProp opts visible #false
+halt
 ```

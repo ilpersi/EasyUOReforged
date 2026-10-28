@@ -18,9 +18,13 @@ or list box. What the user types then goes into it.
 ## Example
 
 ```euo
-menu Edit search 10 10 150
+menu Clear
+menu Window Size 180 75
+menu Edit name 10 10 150 Bob
+menu Edit search 10 40 150
 menu Show
-menu Activate search
+menu Activate search     ; the cursor goes to the second field
+halt
 ```
 
 ## 1.5 and 1.6

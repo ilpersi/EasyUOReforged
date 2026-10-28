@@ -32,9 +32,11 @@ on the standard button colour (`-16777201`), aligned left, in `form0`, the main 
 ## Example
 
 ```euo
-menu Reforge Mode 1.6
 menu GetDef fontname
-display ok New controls use #MenuRes
+set %font #MenuRes
+menu GetDef fontsize
+display ok New controls use %font #MenuRes
+halt
 ```
 
 ## Notes

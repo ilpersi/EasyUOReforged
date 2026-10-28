@@ -29,8 +29,20 @@ Clicks need no `menu Get`: they go to [`#MenuButton`](/variables/menubutton/) by
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 180 110
+menu Edit pet 10 10 150 Fluffy
+menu Check feed 10 40 150 20 #true Feed it
+menu Button ok 10 75 60 25 OK
+menu Show
+set #MenuButton N/A
+while #MenuButton = N/A
+  wait 1
 menu Get pet
 set %petname #MenuRes
+menu Get feed
+display ok Pet %petname feed #MenuRes
+halt
 ```
 
 ## 1.5 and 1.6

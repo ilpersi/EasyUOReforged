@@ -20,7 +20,14 @@ again.
 ## Example
 
 ```euo
-menu Delete button_1
+menu Clear
+menu Window Size 220 60
+menu Text keep 10 10 This line stays.
+menu Text gone 10 30 This line goes in two seconds.
+menu Show
+wait 40
+menu Delete gone
+halt
 ```
 
 ## 1.5 and 1.6

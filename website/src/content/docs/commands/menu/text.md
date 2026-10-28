@@ -31,9 +31,13 @@ text cannot be read back with `menu Get`.
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 180 40
 menu Text status 10 10 Waiting...
-; later
+menu Show
+wait 40
 menu Set status Done
+halt
 ```
 
 ## 1.5 and 1.6

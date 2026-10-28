@@ -42,6 +42,7 @@ while #MenuButton <> ok
   wait 1
 menu Get notes
 display ok #MenuRes
+halt
 ```
 
 ## Reforged notes

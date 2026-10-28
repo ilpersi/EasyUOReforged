@@ -16,6 +16,12 @@ A colour, see [Colours](/commands/menu/#colours): a name such as `red` or `btnfa
 ## Example
 
 ```euo
-menu Window Color black
+menu Clear
+menu Window Size 200 40
 menu Window Color $202020
+menu Font Color white
+menu Font BGColor $202020
+menu Text t 10 10 Light text on a dark window
+menu Show
+halt
 ```

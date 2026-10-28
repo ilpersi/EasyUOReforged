@@ -30,7 +30,13 @@ square gives a circle. Positions are inside the image, `0, 0` being its top-left
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 84 84
+menu Image Create pic 10 10 64 64
 menu Image Ellipse pic 8 8 56 56 yellow #true
+menu Image Ellipse pic 20 20 44 44 red #false 3
+menu Show
+halt
 ```
 
 ## 1.5 and 1.6

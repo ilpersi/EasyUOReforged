@@ -16,13 +16,15 @@ font, the colour and the parent. [`menu PopDef`](/commands/menu/popdef/) brings 
 ## Example
 
 ```euo
-menu Reforge Mode 1.6
+menu Window Size 300 70
 menu PushDef
 menu Font Style b
 menu Panel header 0 0 300 30
 menu Text title 5 5 Settings
 menu PopDef
 menu Text body 5 40 Plain text, in the main window again
+menu Show
+halt
 ```
 
 ## Notes

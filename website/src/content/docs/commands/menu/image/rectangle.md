@@ -28,8 +28,13 @@ source: wiki
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 84 84
+menu Image Create pic 10 10 64 64
 menu Image Rectangle pic 0 0 64 64 white #true
 menu Image Rectangle pic 4 4 60 60 black #false 2
+menu Show
+halt
 ```
 
 ## 1.5 and 1.6

@@ -28,9 +28,13 @@ with the other `menu Image` commands. It starts completely transparent.
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 84 84
 menu Image Create pic 10 10 64 64
 menu Image Rectangle pic 0 0 64 64 navy 1
 menu Image Ellipse pic 8 8 56 56 yellow 1
+menu Show
+halt
 ```
 
 ## 1.5 and 1.6

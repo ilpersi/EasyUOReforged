@@ -25,7 +25,13 @@ source: wiki
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 84 84
+menu Image Create pic 10 10 64 64
 menu Image Line pic 0 0 63 63 red 2
+menu Image Line pic 0 63 63 0 blue
+menu Show
+halt
 ```
 
 ## 1.5 and 1.6

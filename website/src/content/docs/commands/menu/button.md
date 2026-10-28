@@ -31,14 +31,20 @@ It uses the current [font settings](/commands/menu/#fonts).
 ignore case, so `ok` matches `OK`:
 
 ```euo
-menu Button ok 10 70 60 25 OK
-menu Button cancel 80 70 60 25 Cancel
+menu Clear
+menu Window Size 160 100
+menu Text ask 10 10 Go on?
+menu Button ok 10 60 60 25 OK
+menu Button cancel 80 60 60 25 Cancel
 menu Show
 set #MenuButton N/A
 while #MenuButton = N/A
   wait 1
 if #MenuButton = cancel || #MenuButton = closed
-  halt
+  display ok Cancelled.
+else
+  display ok Going on.
+halt
 ```
 
 Change the caption later with [`menu Set`](/commands/menu/set/).

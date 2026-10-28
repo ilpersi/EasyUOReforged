@@ -37,9 +37,21 @@ and the files those call.
 
 ## Example
 
-```euo
+Save this as `menulib.txt` in the folder EasyUO Reforged is in:
+
+```euo title="menulib.txt"
+menu Form lib 300 200 260 50 Built by menulib.txt
+menu Text t 10 10 This window comes from the called file.
+menu SetProp lib visible #true
+exit
+```
+
+Then run this script. Without its first line it would run under the 1.5 MENU and show nothing.
+
+```euo title="Main script"
 menu Reforge IncludeCall #true
 call menulib.txt     ; uses menu Form: the script runs under the 1.6 MENU
+halt
 ```
 
 ## Reforged notes

@@ -37,7 +37,12 @@ runs.
 
 ```euo
 menu Reforge Mode 1.6
-gosub BuildMenu      ; uses menu Form and menu SetProp, maybe through variables
+set %make Form
+set %change SetProp
+menu %make main 300 200 260 50 Chosen by menu Reforge Mode
+menu Text t 10 10 Form and SetProp come from variables.
+menu %change main visible #true
+halt
 ```
 
 ## Reforged notes

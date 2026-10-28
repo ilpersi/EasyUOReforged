@@ -27,8 +27,15 @@ Drop-down lists and list boxes are changed with [`menu Combo`](/commands/menu/co
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 180 70
+menu Text status 10 10 Waiting...
+menu Check loot 10 35 150 20 #true Loot corpses
+menu Show
+wait 40
 menu Set status Looting...
 menu Set loot #false
+halt
 ```
 
 ## 1.5 and 1.6

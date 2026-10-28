@@ -19,7 +19,10 @@ at that position on the screen.
 ## Example
 
 ```euo
+menu Clear
+menu Text t 10 10 Hello
 menu Show 200 150
+halt
 ```
 
 ## 1.5 and 1.6

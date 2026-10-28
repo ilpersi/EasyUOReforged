@@ -19,6 +19,10 @@ The default is `left`.
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 200 60
 menu Font Align center
-menu Text info 10 10 First line$second line
+menu Text info 10 10 First line$second line, longer
+menu Show
+halt
 ```

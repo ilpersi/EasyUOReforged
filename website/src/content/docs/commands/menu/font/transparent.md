@@ -17,10 +17,14 @@ goes back to normal.
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 200 40
 menu Shape bg 0 0 200 40 3 1 1 0 7 navy
 menu Font Transparent #true
 menu Font Color white
 menu Text title 10 10 On a blue band
+menu Show
+halt
 ```
 
 ## 1.5 and 1.6

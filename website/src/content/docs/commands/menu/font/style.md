@@ -15,7 +15,12 @@ italic, `u` underline, `s` strikeout. Without letters, the style goes back to pl
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 200 60
 menu Font Style bi
 menu Text warn 10 10 Careful!
 menu Font Style
+menu Text body 10 30 Plain again
+menu Show
+halt
 ```

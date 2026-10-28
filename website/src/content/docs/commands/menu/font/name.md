@@ -18,6 +18,10 @@ Windows substitutes another font and the characters look unrelated.
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 200 40
 menu Font Name Times New Roman
 menu Text title 10 10 Hello
+menu Show
+halt
 ```

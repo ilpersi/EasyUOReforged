@@ -42,8 +42,12 @@ Any other number gives a rectangle, a solid line and a solid fill.
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 200 100
 ; a white frame with a dark inside
 menu Shape frame 5 5 190 90 3 7 2 white 7 $303030
+menu Show
+halt
 ```
 
 ## 1.5 and 1.6

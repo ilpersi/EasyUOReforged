@@ -27,14 +27,21 @@ nothing is selected.
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 160 80
 menu Combo Create town 10 10 120
 menu Combo Add town Britain
 menu Combo Add town Trinsic
 menu Combo Add town Vesper
 menu Combo Select town 1
-; later
+menu Button ok 10 45 60 25 OK
+menu Show
+set #MenuButton N/A
+while #MenuButton = N/A
+  wait 1
 menu Get town
 display ok You chose town number #MenuRes
+halt
 ```
 
 ## 1.5 and 1.6

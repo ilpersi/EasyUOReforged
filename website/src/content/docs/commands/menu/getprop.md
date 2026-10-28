@@ -50,12 +50,13 @@ the standard button colour, `btnface`, is `-16777201`.
 ## Example
 
 ```euo
-menu Reforge Mode 1.6
 menu Edit name 10 10 120 Bob
+menu Show
 menu GetProp name width
 set %w #MenuRes
 menu GetProp name text
 display ok The field is %w pixels wide and says #MenuRes
+halt
 ```
 
 ## Notes

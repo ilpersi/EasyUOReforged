@@ -15,5 +15,9 @@ without the title bar and borders.
 ## Example
 
 ```euo
+menu Clear
 menu Window Size 300 200
+menu Text t 10 10 This window is 300 x 200 inside.
+menu Show
+halt
 ```

@@ -24,11 +24,14 @@ credits: ['scriptuo']
 ## Example
 
 ```euo
-menu Reforge Mode 1.6
+menu Window Size 220 120
 menu Panel tools 10 10 200 60
+menu SetProp tools color $FFE0C0
 menu Button a 5 5 60 25 One
 menu SetDef parent form0
 menu Button b 10 80 60 25 Two
+menu Show
+halt
 ```
 
 `a` goes into the panel; `b`, after `menu SetDef parent form0`, into the main window.

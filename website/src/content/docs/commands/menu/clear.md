@@ -20,7 +20,13 @@ The menu window stays when a script stops, so start your menu code with `menu Cl
 
 ```euo
 menu Clear
-menu Window Size 200 100
+menu Window Size 220 60
+menu Text old 10 10 This text goes in two seconds.
+menu Show
+wait 40
+menu Clear
+menu Text new 10 10 A new menu in the same window.
+halt
 ```
 
 ## 1.5 and 1.6

@@ -18,8 +18,17 @@ source: wiki
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 180 80
+menu Edit name 10 10 150 Bob
+menu Button ok 10 45 60 25 OK
+menu Show
+set #MenuButton N/A
+while #MenuButton = N/A
+  wait 1
 menu Get name
-set %name #MenuRes
+display ok The field says #MenuRes
+halt
 ```
 
 ## 1.5 and 1.6

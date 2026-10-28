@@ -36,12 +36,17 @@ When a stopped script starts, Reforged reads its text once:
 3. Otherwise, the 1.5 logic.
 
 ```euo
-menu Form main 100 100 300 200 My tool   ; 1.6-only: this script runs under the 1.6 logic
+menu Form main 300 200 260 50 My tool   ; 1.6-only: this script runs under the 1.6 logic
+menu Text t 10 10 Built with menu Form.
+menu SetProp main visible #true
+halt
 ```
 
 ```euo
-menu Text status 10 10 Waiting...        ; only sub-commands both have: the 1.5 logic
+menu Clear
+menu Text status 10 10 Waiting...       ; only sub-commands both have: the 1.5 logic
 menu Show
+halt
 ```
 
 Only real `menu` lines count: a sub-command in a comment does not, and neither does one that comes from a
@@ -60,6 +65,12 @@ Put a `menu Reforge Mode` line in the main script, usually at the top:
 
 ```euo
 menu Reforge Mode 1.6
+set %make Form
+set %change SetProp
+menu %make main 300 200 260 50 Chosen by menu Reforge Mode
+menu Text t 10 10 Form and SetProp come from variables.
+menu %change main visible #true
+halt
 ```
 
 It is read before the script runs, wherever it is, so it works even in a script whose 1.6 sub-commands all
@@ -129,9 +140,13 @@ change logic, stop the script and start it again; the windows of the old logic a
   the second button records nothing. Names are not case-sensitive and are kept in lower case.
 
 ```euo
+menu Clear
+menu Window Size 200 70
 menu Text status 10 10 one
 menu Text status 10 30 two
 menu Set status three       ; 1.5: both labels say "three". 1.6: only the first does.
+menu Show
+halt
 ```
 
 ### #MenuButton and #MenuRes
