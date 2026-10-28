@@ -239,6 +239,19 @@ def capture_client(h, x, y, w, hh):
     return rows
 
 
+def stable_capture(h, x, y, w, hh):
+    """capture_client, repeated until two captures 0.3 s apart agree: a single capture once
+    came back blank for a control that was drawn, apparently while the form was repainting."""
+    rows = capture_client(h, x, y, w, hh)
+    for _ in range(8):
+        time.sleep(0.3)
+        again = capture_client(h, x, y, w, hh)
+        if again == rows:
+            break
+        rows = again
+    return rows
+
+
 # ---------------------------------------------------------------- EasyUO process
 
 class EasyUO:
@@ -399,9 +412,8 @@ def run_probe(exe_dir, name, log):
                 f = e.find_form(prefix)
                 ev['found'] = bool(f)
                 if f:
-                    time.sleep(0.3)
                     file = '%s.%s.png' % (name, pic)
-                    png(os.path.join(FIXTURES, file), w, hh, capture_client(f, x, y, w, hh))
+                    png(os.path.join(FIXTURES, file), w, hh, stable_capture(f, x, y, w, hh))
                     ev['file'] = file
                 log('  snap %s%s' % (pic, '' if f else ' (FORM NOT FOUND)'))
             elif kind == 'alpha':

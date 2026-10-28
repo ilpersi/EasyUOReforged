@@ -14,7 +14,7 @@ uses
   EuoExpressionTests, EuoCommandRegistryTests, EuoInterpreterTests,
   EuoExecutorTests, UoScanVerTests, UoSelectorTests, UoVariablesTests,
   UoCommandsTests, UoEventsTests, LiveClientTests, EuoLockTests, PerfBenchTests,
-  MenuBenchTests, EuoMenuImageTests, EuoMenuWindowTests, EuoMenuSelectTests, EuoSqlTests, EuoBlocksTests, EuoFoldSynTests,
+  MenuBenchTests, EuoMenuImageTests, EuoMenuWindowTests, EuoMenuSelectTests, EuoMenu16GoldenTests, EuoSqlTests, EuoBlocksTests, EuoFoldSynTests,
   EuoCompleteTests, EuoFindTests, WalkRulesTests, PathPlanTests, WalkMapTests, WalkLiveTests,
   PathWalkTests, UoWrapPathTests;
 

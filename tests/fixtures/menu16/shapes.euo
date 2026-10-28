@@ -50,5 +50,5 @@ menu getprop tt color
 set %r %r , _TTCOL= , #menures
 menu show 100 100
 menu window title R:A: , %r
-wait 40
+wait 200
 halt

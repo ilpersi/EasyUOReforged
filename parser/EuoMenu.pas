@@ -12,8 +12,9 @@ unit EuoMenu;
 
   Ported near-verbatim from menu.pas; deviations, all deliberate and narrow:
 
-  - The window and button classes and the Symbol-font helpers live in EuoMenuCommon.pas,
-    shared with the 1.6 MENU logic, and their deviations from menu.pas are documented there:
+  - The window and button classes, the Symbol-font helpers and the MENU IMAGE primitives
+    (image setup and drawing, per control) live in EuoMenuCommon.pas, shared with the 1.6
+    MENU logic, and their deviations from menu.pas are documented there:
     TBitBtnWithColor replaced by TEuoMenuButton; TMenuForm's CreateParams(WS_EX_TOPMOST), the
     window's own taskbar button and HWND_TOPMOST re-applied after deactivation; SetTransparency
     through AlphaBlend. TMenuObj.MyFormClose is the original TMenuForm.MyFormClose, moved here
@@ -668,23 +669,9 @@ procedure TMenuObj.ImageCreate(sName : String; X,Y,W,H : Integer);
 var
   NewImage : TImage;
 begin
-  NewImage:=TImage.Create(nil);
+  NewImage:=NewMenuImage(W,H);   // EuoMenuCommon: 24 bpp, $FEEEED key
   NewImage.Left:=X;
   NewImage.Top:=Y;
-  NewImage.Width:=W;
-  NewImage.Height:=H;
-
-  NewImage.Transparent:=True;
-  NewImage.Picture.Bitmap.TransparentColor:=$FEEEED;
-  // pf24bit, not the original's pf32bit: a 32-bit LCL bitmap carries an alpha
-  // channel that GDI drawing leaves at 0, and LCL's colour-key mask compares
-  // alpha too (TLazIntfImage.Mask), so no pixel ever matched $FEEEED and the
-  // image painted as an opaque block instead of transparent.
-  NewImage.Picture.Bitmap.PixelFormat:=pf24bit;
-  NewImage.Picture.Bitmap.Height:=H;
-  NewImage.Picture.Bitmap.Width:=W;
-  NewImage.Canvas.Brush.Color:=$FEEEED;
-  NewImage.Canvas.Rectangle(-10,-10,W+10,H+10);
 
   AttachCtrl(NewImage);
   Ctrls.AddObject(UpperCase(sName),NewImage);
@@ -716,64 +703,36 @@ end;
 procedure TMenuObj.ImageLine(sName : String; X1,Y1,X2,Y2,C : Integer; W:Integer=1);
 var
   Cnt : Integer;
-  Cvs : TCanvas;
 begin
   sName:=UpperCase(sName);
   for Cnt:=0 to Ctrls.Count-1 do
     if Ctrls[Cnt]=sName then
     if Ctrls.Objects[Cnt].ClassName='TImage' then
-  begin
-    Cvs:=TImage(Ctrls.Objects[Cnt]).Canvas;
-    Cvs.Pen.Color:=C;
-    Cvs.Pen.Width:=W;
-    Cvs.MoveTo(X1,Y1);
-    Cvs.LineTo(X2,Y2);
-    InvalidateImageMask(TImage(Ctrls.Objects[Cnt]));
-  end;
+      MenuImageLine(TImage(Ctrls.Objects[Cnt]),X1,Y1,X2,Y2,C,W);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
 procedure TMenuObj.ImageEllipse(sName:String;X1,Y1,X2,Y2,C : Integer; Fill:Boolean; W:Integer=1);
 var
   Cnt : Integer;
-  Cvs : TCanvas;
 begin
   sName:=UpperCase(sName);
   for Cnt:=0 to Ctrls.Count-1 do
     if Ctrls[Cnt]=sName then
     if Ctrls.Objects[Cnt].ClassName='TImage' then
-  begin
-    Cvs:=TImage(Ctrls.Objects[Cnt]).Canvas;
-    Cvs.Pen.Color:=C;
-    Cvs.Pen.Width:=W;
-    Cvs.Brush.Color:=C;
-    if Fill then Cvs.Brush.Style:=bsSolid
-    else Cvs.Brush.Style:=bsClear;
-    Cvs.Ellipse(X1,Y1,X2,Y2);
-    InvalidateImageMask(TImage(Ctrls.Objects[Cnt]));
-  end;
+      MenuImageEllipse(TImage(Ctrls.Objects[Cnt]),X1,Y1,X2,Y2,C,Fill,W);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
 procedure TMenuObj.ImageRectangle(sName:String;X1,Y1,X2,Y2,C : Integer; Fill:Boolean; W:Integer=1);
 var
   Cnt : Integer;
-  Cvs : TCanvas;
 begin
   sName:=UpperCase(sName);
   for Cnt:=0 to Ctrls.Count-1 do
     if Ctrls[Cnt]=sName then
     if Ctrls.Objects[Cnt].ClassName='TImage' then
-  begin
-    Cvs:=TImage(Ctrls.Objects[Cnt]).Canvas;
-    Cvs.Pen.Color:=C;
-    Cvs.Pen.Width:=W;
-    Cvs.Brush.Color:=C;
-    if Fill then Cvs.Brush.Style:=bsSolid
-    else Cvs.Brush.Style:=bsClear;
-    Cvs.Rectangle(X1,Y1,X2,Y2);
-    InvalidateImageMask(TImage(Ctrls.Objects[Cnt]));
-  end;
+      MenuImageRectangle(TImage(Ctrls.Objects[Cnt]),X1,Y1,X2,Y2,C,Fill,W);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -785,10 +744,7 @@ begin
   for Cnt:=0 to Ctrls.Count-1 do
     if Ctrls[Cnt]=sName then
     if Ctrls.Objects[Cnt].ClassName='TImage' then
-    begin
-      TImage(Ctrls.Objects[Cnt]).Canvas.Pixels[X,Y]:=C;
-      InvalidateImageMask(TImage(Ctrls.Objects[Cnt]));
-    end;
+      MenuImagePix(TImage(Ctrls.Objects[Cnt]),X,Y,C);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -859,43 +815,25 @@ end;
 procedure TMenuObj.ImageFloodFill(sName : String; X,Y,C : Integer);
 var
   Cnt : Integer;
-  Cvs : TCanvas;
 begin
   sName:=UpperCase(sName);
   for Cnt:=0 to Ctrls.Count-1 do
     if Ctrls[Cnt]=sName then
     if Ctrls.Objects[Cnt].ClassName='TImage' then
-  begin
-    Cvs:=TImage(Ctrls.Objects[Cnt]).Canvas;
-    Cvs.Brush.Color:=C;
-    Cvs.FloodFill(X,Y,Cvs.Pixels[X,Y],fsSurface);
-    InvalidateImageMask(TImage(Ctrls.Objects[Cnt]));
-  end;
+      MenuImageFloodFill(TImage(Ctrls.Objects[Cnt]),X,Y,C);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
 procedure TMenuObj.ImageFile(sName : String; X,Y : Integer; FN : String);
 var
   Cnt : Integer;
-  Pic : TPicture;
 begin
   if not FileExists(FN) then Exit;
   sName:=UpperCase(sName);
   for Cnt:=0 to Ctrls.Count-1 do
     if Ctrls[Cnt]=sName then
     if Ctrls.Objects[Cnt].ClassName='TImage' then
-  begin
-    Pic:=TPicture.Create;
-    try
-      try
-        Pic.LoadFromFile(FN);
-        TImage(Ctrls.Objects[Cnt]).Canvas.Draw(X,Y,Pic.Graphic);
-        InvalidateImageMask(TImage(Ctrls.Objects[Cnt]));
-      except end;
-    finally
-      Pic.Free;
-    end;
-  end;
+      MenuImageFile(TImage(Ctrls.Objects[Cnt]),X,Y,FN);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

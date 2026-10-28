@@ -313,6 +313,9 @@ The price:
 
 - **When:** once, when a stopped script is started (`TEuoInterpreter.Clear`, the point where
   Reforged resets a script today). The choice holds for the whole run. An `EXIT` restart keeps it.
+  Play reaches `Clear` through `TExecutor.LoadScript`, which therefore puts the new text in place
+  before calling it (`SetState`'s own `Clear` runs only when the script thread has gone back to
+  `Paused`, which pressing Play does not wait for).
   It is never changed mid-run: controls built under one naming model cannot be translated into
   the other, and behaviour would depend on which branch ran first.
 - **Rule, in this order:**
@@ -414,13 +417,30 @@ particular:
 - **Validation:** negative widths and corners are rejected, and an invalid line width draws
   width 1.
 
-Deliberate deviations, each listed on `reforged/known-limitations.md`:
-- `image …` on a control that is not an image is ignored. In 1.6 it writes into the wrong object
-  and can crash.
+Deliberate deviations, each listed on `reforged/known-limitations.md` (the full list, with the
+reasons, is in `EuoMenu16.pas`'s header):
+- `image …` drawing on a control that is not an image is ignored. In 1.6 it writes into the
+  wrong object and can crash. `image pos` still moves any control, as in 1.6.
+- `show`, `hide` and `window` need form0 to be a form (after `delete form0` another control can
+  take the name).
+- A control is never moved into itself or into one of its own children; `activate` focuses
+  only a control that can take the focus (VCL raised in both cases).
+- `list select` out of range leaves the selection alone (LCL raises where VCL failed quietly).
+- A panel asked for a negative size reads back 0 (VCL kept the number while the panel had no
+  window).
+- `image file` draws the whole picture; 1.6's OLE loader lost a bitmap's last column to its
+  HIMETRIC rounding.
+- Unreachable controls (duplicate names, children of a deleted container) are kept as in 1.6,
+  a duplicate form even across a restart, and freed with the interpreter.
 - The button is `TEuoMenuButton` and images are 24 bpp, as in 1.5 logic (platform reasons
   already documented in `EuoMenu.pas`).
-- Anything LCL cannot reproduce, found while implementing. One example to check:
-  `setprop … parent` into a button or a radio button, which 1.6 allows.
+- Not done: the repaint bursts the 1.5 logic holds while a script rebuilds a visible window.
+
+Where LCL differs from VCL and the 1.6 logic puts VCL's behaviour back: labels are sized as
+VCL's `AdjustBounds` and edits as its `AdjustHeight` did; a form's size is clamped to Windows'
+minimum window size at once (VCL created the window when the size was set, LCL only when it is
+shown); rectangles on images get square corners like VCL's wide pens; colours read and write as
+Delphi 7 numbers. `setprop … parent` into a button or a radio button works in LCL, as in 1.6.
 
 Reforged additions in 1.6 logic:
 - **`menu memo`:** included, with the same syntax as in 1.5 logic. It is a control type with the

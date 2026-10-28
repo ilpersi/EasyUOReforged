@@ -6,6 +6,11 @@ unit EuoMenuCommon;
   EuoMenu.pas (the 1.5 MENU logic) so that the 1.6 MENU logic uses the same window, button and
   glyph handling instead of a second copy (docs/menu-1.6-analysis.md, section 6.4).
 
+  Since then the MENU IMAGE primitives (image setup, line/ellipse/rectangle/pix/floodfill/file)
+  moved here too, as they were, with the deviations EuoMenu.pas's header documents for them
+  (24 bpp bitmaps, TPicture instead of TOleGraphic); and ColorToVcl/ColorFromVcl, which the 1.6
+  logic needs because its properties read and write colours as Delphi 7 numbers.
+
   The one change made in the move: TEuoMenuForm no longer assigns its own OnClose. What closing
   the window means (#MenuButton becomes CLOSED in 1.5, the form's name in 1.6) belongs to the MENU
   logic that owns the form, so the owner assigns OnClose (TMenuObj.MyFormClose in EuoMenu.pas).
@@ -107,6 +112,22 @@ type
 function  IsSymbolFontName(const AFontName : String) : Boolean;
 function  RemapForSymbolFont(const Str, AFontName : String) : String;
 procedure InvalidateImageMask(Img : TImage);
+
+// MENU IMAGE primitives, the same for both MENU logics (moved out of TMenuObj, which calls
+// them once per control of the name). NewMenuImage is MENU IMAGE CREATE's image before it is
+// placed: W x H, 24 bpp (see EuoMenu.pas's header), filled with the transparent key $FEEEED.
+function  NewMenuImage(W,H : Integer) : TImage;
+procedure MenuImageLine(Img : TImage; X1,Y1,X2,Y2,C,W : Integer);
+procedure MenuImageEllipse(Img : TImage; X1,Y1,X2,Y2,C : Integer; Fill : Boolean; W : Integer);
+procedure MenuImageRectangle(Img : TImage; X1,Y1,X2,Y2,C : Integer; Fill : Boolean; W : Integer);
+procedure MenuImagePix(Img : TImage; X,Y,C : Integer);
+procedure MenuImageFloodFill(Img : TImage; X,Y,C : Integer);
+procedure MenuImageFile(Img : TImage; X,Y : Integer; const FN : String);
+
+// System colours are $FF0000xx in Delphi 7 (what EasyUO's scripts read and write, e.g.
+// clBtnFace = -16777201) and $800000xx in LCL. Every other colour is the same in both.
+function  ColorToVcl(C : TColor) : Integer;
+function  ColorFromVcl(C : Integer) : TColor;
 
 implementation
 
@@ -382,6 +403,123 @@ end;
 procedure InvalidateImageMask(Img : TImage);
 begin
   Img.Picture.Bitmap.MaskHandle:=0;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function NewMenuImage(W,H : Integer) : TImage;
+begin
+  Result:=TImage.Create(nil);
+  Result.Width:=W;
+  Result.Height:=H;
+
+  Result.Transparent:=True;
+  Result.Picture.Bitmap.TransparentColor:=$FEEEED;
+  // pf24bit, not the original's pf32bit: a 32-bit LCL bitmap carries an alpha
+  // channel that GDI drawing leaves at 0, and LCL's colour-key mask compares
+  // alpha too (TLazIntfImage.Mask), so no pixel ever matched $FEEEED and the
+  // image painted as an opaque block instead of transparent.
+  Result.Picture.Bitmap.PixelFormat:=pf24bit;
+  Result.Picture.Bitmap.Height:=H;
+  Result.Picture.Bitmap.Width:=W;
+  Result.Canvas.Brush.Color:=$FEEEED;
+  Result.Canvas.Rectangle(-10,-10,W+10,H+10);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure MenuImageLine(Img : TImage; X1,Y1,X2,Y2,C,W : Integer);
+var
+  Cvs : TCanvas;
+begin
+  Cvs:=Img.Canvas;
+  Cvs.Pen.Color:=C;
+  Cvs.Pen.Width:=W;
+  Cvs.MoveTo(X1,Y1);
+  Cvs.LineTo(X2,Y2);
+  InvalidateImageMask(Img);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure MenuImageEllipse(Img : TImage; X1,Y1,X2,Y2,C : Integer; Fill : Boolean; W : Integer);
+var
+  Cvs : TCanvas;
+begin
+  Cvs:=Img.Canvas;
+  Cvs.Pen.Color:=C;
+  Cvs.Pen.Width:=W;
+  Cvs.Brush.Color:=C;
+  if Fill then Cvs.Brush.Style:=bsSolid
+  else Cvs.Brush.Style:=bsClear;
+  Cvs.Ellipse(X1,Y1,X2,Y2);
+  InvalidateImageMask(Img);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure MenuImageRectangle(Img : TImage; X1,Y1,X2,Y2,C : Integer; Fill : Boolean; W : Integer);
+var
+  Cvs : TCanvas;
+begin
+  Cvs:=Img.Canvas;
+  Cvs.Pen.Color:=C;
+  Cvs.Pen.Width:=W;
+  Cvs.Brush.Color:=C;
+  if Fill then Cvs.Brush.Style:=bsSolid
+  else Cvs.Brush.Style:=bsClear;
+  Cvs.Rectangle(X1,Y1,X2,Y2);
+  InvalidateImageMask(Img);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure MenuImagePix(Img : TImage; X,Y,C : Integer);
+begin
+  Img.Canvas.Pixels[X,Y]:=C;
+  InvalidateImageMask(Img);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure MenuImageFloodFill(Img : TImage; X,Y,C : Integer);
+var
+  Cvs : TCanvas;
+begin
+  Cvs:=Img.Canvas;
+  Cvs.Brush.Color:=C;
+  Cvs.FloodFill(X,Y,Cvs.Pixels[X,Y],fsSurface);
+  InvalidateImageMask(Img);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// TOleGraphic in the original; TPicture reads BMP/PNG/JPEG/GIF natively. A file that
+// does not exist or does not load draws nothing.
+procedure MenuImageFile(Img : TImage; X,Y : Integer; const FN : String);
+var
+  Pic : TPicture;
+begin
+  if not FileExists(FN) then Exit;
+  Pic:=TPicture.Create;
+  try
+    try
+      Pic.LoadFromFile(FN);
+      Img.Canvas.Draw(X,Y,Pic.Graphic);
+      InvalidateImageMask(Img);
+    except end;
+  finally
+    Pic.Free;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function ColorToVcl(C : TColor) : Integer;
+begin
+  Result:=Integer(C);
+  if (Cardinal(C) and $FF000000)=$80000000 then
+    Result:=Integer($FF000000 or (Cardinal(C) and $FF));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function ColorFromVcl(C : Integer) : TColor;
+begin
+  Result:=TColor(C);
+  if (Cardinal(C) and $FFFFFF00)=$FF000000 then
+    Result:=TColor($80000000 or (Cardinal(C) and $FF));
 end;
 
 end.

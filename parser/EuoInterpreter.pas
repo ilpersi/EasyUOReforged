@@ -60,11 +60,14 @@ unit EuoInterpreter;
   CHECK, and the walker before it walks on, ask the client's own step check (the tile query
   BlockInfo calls) through TUOEvent.StepInfo.
   Likewise the MENU 1.5/1.6 split (docs/menu-1.6-analysis.md): MENU runs under EasyUO 1.5's
-  logic (TMenuObj, EuoMenu.pas, unchanged) or EasyUO 1.6's (TMenu16, EuoMenu16.pas), chosen once
-  per run in Clear by EuoMenuSelect from the script's text. #MenuButton/#MenuRes (527/528) are
-  read and written through the chosen logic. MENU REFORGE only carries the selection's settings
-  and does nothing at runtime. A 1.6-only MENU line reached under a 1.5 logic that was chosen
-  automatically leaves MenuNotice for the GUI, once per run; the 1.5 path itself runs as before.
+  logic (TMenuObj, EuoMenu.pas, unchanged) or EasyUO 1.6's (TMenu16, EuoMenu16.pas, with its own
+  dispatcher, run on the main thread like MenuProcSync), chosen once per run in Clear by
+  EuoMenuSelect from the script's text. #MenuButton/#MenuRes (527/528) are read and written
+  through the chosen logic. MENU REFORGE only carries the selection's settings and does nothing
+  at runtime. A 1.6-only MENU line reached under a 1.5 logic that was chosen automatically
+  leaves MenuNotice for the GUI, once per run; the 1.5 path itself runs as before. Under the 1.6
+  logic MENU must do what EasyUO 1.6 did as recorded in tests/fixtures/menu16, which
+  EuoMenu16GoldenTests replays.
 }
 
 {$mode delphi}{$H+}
@@ -185,6 +188,7 @@ type
     procedure    MenuProc;
     procedure    MenuProcSync;
     procedure    MenuFontProc;
+    procedure    Menu16ProcSync;
     procedure    MenuStart;
     function     ResolveCallFile(const Name : String) : String;
     procedure    NoteMenu16Needed(const Sub : String);
@@ -1819,11 +1823,20 @@ begin
   //
   // Port addition (MENU 1.5/1.6): MENU REFORGE's settings were read from the script
   // text before the run (EuoMenuSelect), so the line itself does nothing. Under the 1.6
-  // logic MENU lines do nothing yet: the 1.6 dispatcher arrives with the 1.6 port
-  // (docs/menu-1.6-analysis.md, section 6.10, step 4). Under the 1.5 logic a 1.6-only
-  // line runs exactly as it always did (it matches nothing), and leaves a notice.
+  // logic the whole line, MENU FONT included, runs on the main thread in TMenu16.Run.
+  // Under the 1.5 logic a 1.6-only line runs exactly as it always did (it matches
+  // nothing), and leaves a notice.
   if (ParList.Count>1) and (ParList[1].StrU='REFORGE') then Exit;
-  if FMenuLogic=mlMenu16 then Exit;
+  if FMenuLogic=mlMenu16 then
+  begin
+    CS.EndWrite;
+    try
+      TThread.Synchronize(TThread.CurrentThread, Menu16ProcSync);
+    finally
+      CS.BeginWrite;
+    end;
+    Exit;
+  end;
   if (ParList.Count>1) and IsMenu16Only(ParList[1].StrU) then
     NoteMenu16Needed(ParList[1].StrU);
 
@@ -1847,6 +1860,12 @@ end;
 // logic between runs first takes down the other logic's windows: the 1.5 window is
 // hidden (Hide, not Close, so #MenuButton is left alone) and emptied, the 1.6 object
 // is freed. Called by Clear, so it runs on the main thread like MenuObj.Clear always did.
+procedure TEuoInterpreter.Menu16ProcSync;
+begin
+  Menu16.Run(ParList);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 procedure TEuoInterpreter.MenuStart;
 var
   NewLogic : TMenuLogic;

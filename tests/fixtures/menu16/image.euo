@@ -46,5 +46,5 @@ menu image create im4 180 10 32 16
 menu image file im4 8 4 %f
 menu show 100 100
 menu window title R:A: , %r
-wait 40
+wait 200
 halt
