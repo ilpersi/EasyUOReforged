@@ -1,0 +1,129 @@
+{
+ "probe": "shapes",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "A"
+   ],
+   "report": "S1W=60_S5W=30_S5H=30_S5L=80_S5T=75_S4W=60_S6W=30_S6L=165_S7W=60_S8W=30_TTCOL=-16777201",
+   "values": [
+    "S1W=60",
+    "S5W=30",
+    "S5H=30",
+    "S5L=80",
+    "S5T=75",
+    "S4W=60",
+    "S6W=30",
+    "S6L=165",
+    "S7W=60",
+    "S8W=30",
+    "TTCOL=-16777201"
+   ]
+  },
+  {
+   "step": "snap",
+   "args": [
+    "R:A:",
+    "s1",
+    "10",
+    "10",
+    "60",
+    "30"
+   ],
+   "found": true,
+   "file": "shapes.s1.png"
+  },
+  {
+   "step": "snap",
+   "args": [
+    "R:A:",
+    "s2",
+    "80",
+    "10",
+    "60",
+    "30"
+   ],
+   "found": true,
+   "file": "shapes.s2.png"
+  },
+  {
+   "step": "snap",
+   "args": [
+    "R:A:",
+    "s3",
+    "150",
+    "10",
+    "40",
+    "40"
+   ],
+   "found": true,
+   "file": "shapes.s3.png"
+  },
+  {
+   "step": "snap",
+   "args": [
+    "R:A:",
+    "s4",
+    "10",
+    "60",
+    "60",
+    "30"
+   ],
+   "found": true,
+   "file": "shapes.s4.png"
+  },
+  {
+   "step": "snap",
+   "args": [
+    "R:A:",
+    "s5",
+    "80",
+    "60",
+    "30",
+    "60"
+   ],
+   "found": true,
+   "file": "shapes.s5.png"
+  },
+  {
+   "step": "snap",
+   "args": [
+    "R:A:",
+    "s6",
+    "150",
+    "60",
+    "60",
+    "30"
+   ],
+   "found": true,
+   "file": "shapes.s6.png"
+  },
+  {
+   "step": "snap",
+   "args": [
+    "R:A:",
+    "s7",
+    "10",
+    "130",
+    "60",
+    "30"
+   ],
+   "found": true,
+   "file": "shapes.s7.png"
+  },
+  {
+   "step": "snap",
+   "args": [
+    "R:A:",
+    "s8",
+    "80",
+    "130",
+    "60",
+    "30"
+   ],
+   "found": true,
+   "file": "shapes.s8.png"
+  }
+ ]
+}

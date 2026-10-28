@@ -1,0 +1,38 @@
+; Probe for tests/tools/Record16MenuGolden.py: EasyUO 1.6 MENU golden values.
+; "menu reforge mode 1.6" makes Reforged run it under the 1.6 logic; 1.6 ignores the line.
+; Names are case-insensitive and stored lower-case; a name that clashes with
+; another control (form0 included) is a duplicate; any word can be a name.
+;@wait W1
+;@click BtnX
+;@wait A
+menu reforge mode 1.6
+menu window size 300 200
+menu text ABC 10 10 upper
+set #menures Q
+menu getprop abc left
+set %r LOWER= , #menures
+menu getprop ABC left
+set %r %r , _UPPER= , #menures
+menu text abc 50 50 dup
+menu getprop Abc left
+set %r %r , _DUP= , #menures
+menu text 123 20 20 digits
+menu getprop 123 left
+set %r %r , _DIGITS= , #menures
+menu text form0 30 30 clash
+menu getprop form0 left
+set %r %r , _FORM0= , #menures
+menu panel FORM0 1 1 10 10
+menu getdef parent
+set %r %r , _DPAFTERCLASH= , #menures
+menu setdef parent form0
+menu button BtnX 10 100 60 20 BtnX
+menu show
+set #menubutton n/a
+menu window title R:W1:click
+set %t #scnt + 5
+while #menubutton = n/a && #scnt < %t
+  wait 1
+set %r %r , _CLICK= , #menubutton
+menu window title R:A: , %r
+halt

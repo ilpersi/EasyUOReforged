@@ -1,0 +1,299 @@
+{
+ "probe": "props_set",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "FORM0"
+   ],
+   "report": "ALIGNMENT=Q_CHECKED=Q_COLOR=255_ENABLED=0_FONTCOLOR=Q_FONTNAME=Q_FONTSIZE=Q_FONTSTYLE=Q_HEIGHT=33_WIDTH=130_LEFT=5_TOP=6_TEXT=Hello World_TOOLTIP=Tip Text_VISIBLE=0_PARENT=Q",
+   "values": [
+    "ALIGNMENT=Q",
+    "CHECKED=Q",
+    "COLOR=255",
+    "ENABLED=0",
+    "FONTCOLOR=Q",
+    "FONTNAME=Q",
+    "FONTSIZE=Q",
+    "FONTSTYLE=Q",
+    "HEIGHT=33",
+    "WIDTH=130",
+    "LEFT=5",
+    "TOP=6",
+    "TEXT=Hello World",
+    "TOOLTIP=Tip Text",
+    "VISIBLE=0",
+    "PARENT=Q"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "FM"
+   ],
+   "report": "ALIGNMENT=Q_CHECKED=Q_COLOR=255_ENABLED=0_FONTCOLOR=Q_FONTNAME=Q_FONTSIZE=Q_FONTSTYLE=Q_HEIGHT=33_WIDTH=130_LEFT=5_TOP=6_TEXT=Hello World_TOOLTIP=Tip Text_VISIBLE=0_PARENT=Q",
+   "values": [
+    "ALIGNMENT=Q",
+    "CHECKED=Q",
+    "COLOR=255",
+    "ENABLED=0",
+    "FONTCOLOR=Q",
+    "FONTNAME=Q",
+    "FONTSIZE=Q",
+    "FONTSTYLE=Q",
+    "HEIGHT=33",
+    "WIDTH=130",
+    "LEFT=5",
+    "TOP=6",
+    "TEXT=Hello World",
+    "TOOLTIP=Tip Text",
+    "VISIBLE=0",
+    "PARENT=Q"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "PN"
+   ],
+   "report": "ALIGNMENT=Q_CHECKED=Q_COLOR=255_ENABLED=0_FONTCOLOR=Q_FONTNAME=Q_FONTSIZE=Q_FONTSTYLE=Q_HEIGHT=33_WIDTH=44_LEFT=5_TOP=6_TEXT=Q_TOOLTIP=Tip Text_VISIBLE=0_PARENT=fm",
+   "values": [
+    "ALIGNMENT=Q",
+    "CHECKED=Q",
+    "COLOR=255",
+    "ENABLED=0",
+    "FONTCOLOR=Q",
+    "FONTNAME=Q",
+    "FONTSIZE=Q",
+    "FONTSTYLE=Q",
+    "HEIGHT=33",
+    "WIDTH=44",
+    "LEFT=5",
+    "TOP=6",
+    "TEXT=Q",
+    "TOOLTIP=Tip Text",
+    "VISIBLE=0",
+    "PARENT=fm"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "TX"
+   ],
+   "report": "ALIGNMENT=1_CHECKED=Q_COLOR=255_ENABLED=0_FONTCOLOR=65280_FONTNAME=Courier New_FONTSIZE=14_FONTSTYLE=5_HEIGHT=33_WIDTH=44_LEFT=5_TOP=6_TEXT=Hello World_TOOLTIP=Tip Text_VISIBLE=0_PARENT=pn",
+   "values": [
+    "ALIGNMENT=1",
+    "CHECKED=Q",
+    "COLOR=255",
+    "ENABLED=0",
+    "FONTCOLOR=65280",
+    "FONTNAME=Courier New",
+    "FONTSIZE=14",
+    "FONTSTYLE=5",
+    "HEIGHT=33",
+    "WIDTH=44",
+    "LEFT=5",
+    "TOP=6",
+    "TEXT=Hello World",
+    "TOOLTIP=Tip Text",
+    "VISIBLE=0",
+    "PARENT=pn"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "BT"
+   ],
+   "report": "ALIGNMENT=Q_CHECKED=Q_COLOR=255_ENABLED=0_FONTCOLOR=65280_FONTNAME=Courier New_FONTSIZE=14_FONTSTYLE=5_HEIGHT=33_WIDTH=44_LEFT=5_TOP=6_TEXT=Hello World_TOOLTIP=Tip Text_VISIBLE=0_PARENT=pn",
+   "values": [
+    "ALIGNMENT=Q",
+    "CHECKED=Q",
+    "COLOR=255",
+    "ENABLED=0",
+    "FONTCOLOR=65280",
+    "FONTNAME=Courier New",
+    "FONTSIZE=14",
+    "FONTSTYLE=5",
+    "HEIGHT=33",
+    "WIDTH=44",
+    "LEFT=5",
+    "TOP=6",
+    "TEXT=Hello World",
+    "TOOLTIP=Tip Text",
+    "VISIBLE=0",
+    "PARENT=pn"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "ED"
+   ],
+   "report": "ALIGNMENT=Q_CHECKED=Q_COLOR=255_ENABLED=0_FONTCOLOR=65280_FONTNAME=Courier New_FONTSIZE=14_FONTSTYLE=5_HEIGHT=33_WIDTH=44_LEFT=5_TOP=6_TEXT=Hello World_TOOLTIP=Tip Text_VISIBLE=0_PARENT=pn",
+   "values": [
+    "ALIGNMENT=Q",
+    "CHECKED=Q",
+    "COLOR=255",
+    "ENABLED=0",
+    "FONTCOLOR=65280",
+    "FONTNAME=Courier New",
+    "FONTSIZE=14",
+    "FONTSTYLE=5",
+    "HEIGHT=33",
+    "WIDTH=44",
+    "LEFT=5",
+    "TOP=6",
+    "TEXT=Hello World",
+    "TOOLTIP=Tip Text",
+    "VISIBLE=0",
+    "PARENT=pn"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "CK"
+   ],
+   "report": "ALIGNMENT=1_CHECKED=-1_COLOR=255_ENABLED=0_FONTCOLOR=65280_FONTNAME=Courier New_FONTSIZE=14_FONTSTYLE=5_HEIGHT=33_WIDTH=44_LEFT=5_TOP=6_TEXT=Hello World_TOOLTIP=Tip Text_VISIBLE=0_PARENT=pn",
+   "values": [
+    "ALIGNMENT=1",
+    "CHECKED=-1",
+    "COLOR=255",
+    "ENABLED=0",
+    "FONTCOLOR=65280",
+    "FONTNAME=Courier New",
+    "FONTSIZE=14",
+    "FONTSTYLE=5",
+    "HEIGHT=33",
+    "WIDTH=44",
+    "LEFT=5",
+    "TOP=6",
+    "TEXT=Hello World",
+    "TOOLTIP=Tip Text",
+    "VISIBLE=0",
+    "PARENT=pn"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "RD"
+   ],
+   "report": "ALIGNMENT=1_CHECKED=-1_COLOR=255_ENABLED=0_FONTCOLOR=65280_FONTNAME=Courier New_FONTSIZE=14_FONTSTYLE=5_HEIGHT=33_WIDTH=44_LEFT=5_TOP=6_TEXT=Hello World_TOOLTIP=Tip Text_VISIBLE=0_PARENT=pn",
+   "values": [
+    "ALIGNMENT=1",
+    "CHECKED=-1",
+    "COLOR=255",
+    "ENABLED=0",
+    "FONTCOLOR=65280",
+    "FONTNAME=Courier New",
+    "FONTSIZE=14",
+    "FONTSTYLE=5",
+    "HEIGHT=33",
+    "WIDTH=44",
+    "LEFT=5",
+    "TOP=6",
+    "TEXT=Hello World",
+    "TOOLTIP=Tip Text",
+    "VISIBLE=0",
+    "PARENT=pn"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "CB"
+   ],
+   "report": "ALIGNMENT=Q_CHECKED=Q_COLOR=255_ENABLED=0_FONTCOLOR=65280_FONTNAME=Courier New_FONTSIZE=14_FONTSTYLE=5_HEIGHT=33_WIDTH=44_LEFT=5_TOP=6_TEXT=Q_TOOLTIP=Tip Text_VISIBLE=0_PARENT=pn",
+   "values": [
+    "ALIGNMENT=Q",
+    "CHECKED=Q",
+    "COLOR=255",
+    "ENABLED=0",
+    "FONTCOLOR=65280",
+    "FONTNAME=Courier New",
+    "FONTSIZE=14",
+    "FONTSTYLE=5",
+    "HEIGHT=33",
+    "WIDTH=44",
+    "LEFT=5",
+    "TOP=6",
+    "TEXT=Q",
+    "TOOLTIP=Tip Text",
+    "VISIBLE=0",
+    "PARENT=pn"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "LS"
+   ],
+   "report": "ALIGNMENT=Q_CHECKED=Q_COLOR=255_ENABLED=0_FONTCOLOR=65280_FONTNAME=Courier New_FONTSIZE=14_FONTSTYLE=5_HEIGHT=33_WIDTH=44_LEFT=5_TOP=6_TEXT=Q_TOOLTIP=Tip Text_VISIBLE=0_PARENT=pn",
+   "values": [
+    "ALIGNMENT=Q",
+    "CHECKED=Q",
+    "COLOR=255",
+    "ENABLED=0",
+    "FONTCOLOR=65280",
+    "FONTNAME=Courier New",
+    "FONTSIZE=14",
+    "FONTSTYLE=5",
+    "HEIGHT=33",
+    "WIDTH=44",
+    "LEFT=5",
+    "TOP=6",
+    "TEXT=Q",
+    "TOOLTIP=Tip Text",
+    "VISIBLE=0",
+    "PARENT=pn"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "IM"
+   ],
+   "report": "ALIGNMENT=Q_CHECKED=Q_COLOR=Q_ENABLED=0_FONTCOLOR=Q_FONTNAME=Q_FONTSIZE=Q_FONTSTYLE=Q_HEIGHT=33_WIDTH=44_LEFT=5_TOP=6_TEXT=Q_TOOLTIP=Tip Text_VISIBLE=0_PARENT=pn",
+   "values": [
+    "ALIGNMENT=Q",
+    "CHECKED=Q",
+    "COLOR=Q",
+    "ENABLED=0",
+    "FONTCOLOR=Q",
+    "FONTNAME=Q",
+    "FONTSIZE=Q",
+    "FONTSTYLE=Q",
+    "HEIGHT=33",
+    "WIDTH=44",
+    "LEFT=5",
+    "TOP=6",
+    "TEXT=Q",
+    "TOOLTIP=Tip Text",
+    "VISIBLE=0",
+    "PARENT=pn"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "DEF"
+   ],
+   "report": "ALIGNMENT=2_COLOR=255_FONTCOLOR=65280_FONTNAME=Courier New_FONTSIZE=14_FONTSTYLE=5_PARENT=pn_CHECKED=Q_WIDTH=Q_TEXT=Q",
+   "values": [
+    "ALIGNMENT=2",
+    "COLOR=255",
+    "FONTCOLOR=65280",
+    "FONTNAME=Courier New",
+    "FONTSIZE=14",
+    "FONTSTYLE=5",
+    "PARENT=pn",
+    "CHECKED=Q",
+    "WIDTH=Q",
+    "TEXT=Q"
+   ]
+  }
+ ]
+}

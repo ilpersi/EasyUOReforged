@@ -1,0 +1,79 @@
+{
+ "probe": "popup",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "A"
+   ],
+   "report": "MSG=First_message_POPL=100",
+   "values": [
+    "MSG=First_message",
+    "POPL=100"
+   ]
+  },
+  {
+   "step": "forms",
+   "forms": [
+    {
+     "caption": "Popup",
+     "visible": true,
+     "left": 100,
+     "top": 100,
+     "width": 316,
+     "height": 119,
+     "client": [
+      310,
+      90
+     ],
+     "style": "16CA0000",
+     "exstyle": "00010108",
+     "children": [
+      {
+       "class": "TBitBtnWithColor",
+       "text": "OK",
+       "visible": true,
+       "rect": [
+        10,
+        40,
+        60,
+        20
+       ],
+       "style": "5401000B"
+      }
+     ]
+    },
+    {
+     "caption": "Popup",
+     "visible": false,
+     "left": 450,
+     "top": 100,
+     "width": 316,
+     "height": 119,
+     "client": [
+      310,
+      90
+     ],
+     "style": "06CA0000",
+     "exstyle": "00010108",
+     "children": []
+    },
+    {
+     "caption": "R:A:MSG=First_message_POPL=100",
+     "visible": false,
+     "left": 100,
+     "top": 100,
+     "width": 311,
+     "height": 209,
+     "client": [
+      305,
+      180
+     ],
+     "style": "06CA0000",
+     "exstyle": "00010108",
+     "children": []
+    }
+   ]
+  }
+ ]
+}

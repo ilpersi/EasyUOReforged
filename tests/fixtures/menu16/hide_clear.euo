@@ -1,0 +1,46 @@
+; Probe for tests/tools/Record16MenuGolden.py: EasyUO 1.6 MENU golden values.
+; "menu reforge mode 1.6" makes Reforged run it under the 1.6 logic; 1.6 ignores the line.
+; "menu hide" leaves #MenuButton; "menu clear" empties it, frees the controls,
+; resets the defaults and keeps form0's size, visibility and caption; "window
+; title" with no text empties the caption.
+;@wait A
+menu reforge mode 1.6
+menu window size 250 150
+menu window title start
+set #menubutton XX
+menu show
+wait 10
+menu hide
+wait 10
+set %r HIDE= , #menubutton
+menu getprop form0 visible
+set %r %r , _VHIDE= , #menures
+menu show
+wait 5
+set #menubutton YY
+menu text t9 10 10 hello
+menu font size 20
+menu panel p9 10 40 50 50
+menu clear
+set %r %r , _CLEAR= , #menubutton , _
+menu getprop form0 width
+set %r %r , _W= , #menures
+menu getprop form0 visible
+set %r %r , _V= , #menures
+menu getprop form0 text
+set %r %r , _CAP= , #menures
+set #menures Q
+menu getprop t9 left
+set %r %r , _T9= , #menures
+set #menures Q
+menu getprop p9 left
+set %r %r , _P9= , #menures
+menu getdef fontsize
+set %r %r , _FS= , #menures
+menu getdef parent
+set %r %r , _DP= , #menures
+menu window title
+menu getprop form0 text
+set %r %r , _EMPTYTITLE= , #menures
+menu window title R:A: , %r
+halt

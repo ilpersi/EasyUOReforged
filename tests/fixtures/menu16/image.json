@@ -1,0 +1,72 @@
+{
+ "probe": "image",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "A"
+   ],
+   "report": "W=60_H=40_POSL=20_POSW=60_POS4W=80_POS4H=50",
+   "values": [
+    "W=60",
+    "H=40",
+    "POSL=20",
+    "POSW=60",
+    "POS4W=80",
+    "POS4H=50"
+   ]
+  },
+  {
+   "step": "snap",
+   "args": [
+    "R:A:",
+    "im",
+    "10",
+    "10",
+    "60",
+    "40"
+   ],
+   "found": true,
+   "file": "image.im.png"
+  },
+  {
+   "step": "snap",
+   "args": [
+    "R:A:",
+    "im2",
+    "80",
+    "10",
+    "40",
+    "40"
+   ],
+   "found": true,
+   "file": "image.im2.png"
+  },
+  {
+   "step": "snap",
+   "args": [
+    "R:A:",
+    "im3",
+    "130",
+    "10",
+    "40",
+    "20"
+   ],
+   "found": true,
+   "file": "image.im3.png"
+  },
+  {
+   "step": "snap",
+   "args": [
+    "R:A:",
+    "im4",
+    "180",
+    "10",
+    "32",
+    "16"
+   ],
+   "found": true,
+   "file": "image.im4.png"
+  }
+ ]
+}

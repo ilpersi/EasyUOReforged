@@ -1,0 +1,263 @@
+{
+ "probe": "restart",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "A"
+   ],
+   "report": "L=100_V=0_W=305_MB=_MR=_STALE=_",
+   "values": [
+    "L=100",
+    "V=0",
+    "W=305",
+    "MB=",
+    "MR=",
+    "STALE=_"
+   ]
+  },
+  {
+   "step": "forms",
+   "forms": [
+    {
+     "caption": "R:A:L=100_V=0_W=305_MB=_MR=_STALE=_",
+     "visible": true,
+     "left": 300,
+     "top": 300,
+     "width": 228,
+     "height": 140,
+     "client": [
+      222,
+      111
+     ],
+     "style": "16CA0000",
+     "exstyle": "00010108",
+     "children": []
+    },
+    {
+     "caption": "keep",
+     "visible": true,
+     "left": 600,
+     "top": 300,
+     "width": 136,
+     "height": 89,
+     "client": [
+      130,
+      60
+     ],
+     "style": "16CA0000",
+     "exstyle": "00010108",
+     "children": []
+    },
+    {
+     "caption": "ox",
+     "visible": false,
+     "left": 0,
+     "top": 0,
+     "width": 136,
+     "height": 49,
+     "client": [
+      130,
+      20
+     ],
+     "style": "06CA0000",
+     "exstyle": "00010108",
+     "children": []
+    },
+    {
+     "caption": "ox2",
+     "visible": false,
+     "left": 0,
+     "top": 0,
+     "width": 136,
+     "height": 49,
+     "client": [
+      130,
+      20
+     ],
+     "style": "06CA0000",
+     "exstyle": "00010108",
+     "children": []
+    }
+   ]
+  },
+  {
+   "step": "sleep",
+   "args": [
+    "1"
+   ]
+  },
+  {
+   "step": "stop"
+  },
+  {
+   "step": "sleep",
+   "args": [
+    "1"
+   ]
+  },
+  {
+   "step": "forms",
+   "forms": [
+    {
+     "caption": "R:A:L=100_V=0_W=305_MB=_MR=_STALE=_",
+     "visible": true,
+     "left": 300,
+     "top": 300,
+     "width": 228,
+     "height": 140,
+     "client": [
+      222,
+      111
+     ],
+     "style": "16CA0000",
+     "exstyle": "00010108",
+     "children": []
+    },
+    {
+     "caption": "keep",
+     "visible": true,
+     "left": 600,
+     "top": 300,
+     "width": 136,
+     "height": 89,
+     "client": [
+      130,
+      60
+     ],
+     "style": "16CA0000",
+     "exstyle": "00010108",
+     "children": []
+    },
+    {
+     "caption": "ox",
+     "visible": false,
+     "left": 0,
+     "top": 0,
+     "width": 136,
+     "height": 49,
+     "client": [
+      130,
+      20
+     ],
+     "style": "06CA0000",
+     "exstyle": "00010108",
+     "children": []
+    },
+    {
+     "caption": "ox2",
+     "visible": false,
+     "left": 0,
+     "top": 0,
+     "width": 136,
+     "height": 49,
+     "client": [
+      130,
+      20
+     ],
+     "style": "06CA0000",
+     "exstyle": "00010108",
+     "children": []
+    }
+   ]
+  },
+  {
+   "step": "start"
+  },
+  {
+   "step": "rewait",
+   "args": [
+    "A"
+   ],
+   "report": "L=100_V=0_W=305_MB=_MR=_STALE=_",
+   "values": [
+    "L=100",
+    "V=0",
+    "W=305",
+    "MB=",
+    "MR=",
+    "STALE=_"
+   ]
+  },
+  {
+   "step": "forms",
+   "forms": [
+    {
+     "caption": "R:A:L=100_V=0_W=305_MB=_MR=_STALE=_",
+     "visible": true,
+     "left": 300,
+     "top": 300,
+     "width": 228,
+     "height": 140,
+     "client": [
+      222,
+      111
+     ],
+     "style": "16CA0000",
+     "exstyle": "00010108",
+     "children": []
+    },
+    {
+     "caption": "keep",
+     "visible": true,
+     "left": 600,
+     "top": 300,
+     "width": 136,
+     "height": 89,
+     "client": [
+      130,
+      60
+     ],
+     "style": "16CA0000",
+     "exstyle": "00010108",
+     "children": []
+    },
+    {
+     "caption": "ox",
+     "visible": false,
+     "left": 0,
+     "top": 0,
+     "width": 136,
+     "height": 49,
+     "client": [
+      130,
+      20
+     ],
+     "style": "06CA0000",
+     "exstyle": "00010108",
+     "children": []
+    },
+    {
+     "caption": "ox2",
+     "visible": false,
+     "left": 0,
+     "top": 0,
+     "width": 136,
+     "height": 49,
+     "client": [
+      130,
+      20
+     ],
+     "style": "06CA0000",
+     "exstyle": "00010108",
+     "children": []
+    },
+    {
+     "caption": "ox2",
+     "visible": false,
+     "left": 0,
+     "top": 0,
+     "width": 136,
+     "height": 49,
+     "client": [
+      130,
+      20
+     ],
+     "style": "06CA0000",
+     "exstyle": "00010108",
+     "children": []
+    }
+   ]
+  }
+ ]
+}

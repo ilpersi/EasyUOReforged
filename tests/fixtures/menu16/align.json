@@ -1,0 +1,116 @@
+{
+ "probe": "align",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "A"
+   ],
+   "report": "C1=0_R1=1_T1=0_C2=1_R2=0_T2=1_C3=0_R3=0_C3TWO=2",
+   "values": [
+    "C1=0",
+    "R1=1",
+    "T1=0",
+    "C2=1",
+    "R2=0",
+    "T2=1",
+    "C3=0",
+    "R3=0",
+    "C3TWO=2"
+   ]
+  },
+  {
+   "step": "forms",
+   "forms": [
+    {
+     "caption": "R:A:C1=0_R1=1_T1=0_C2=1_R2=0_T2=1_C3=0_R3=0_C3TWO=2",
+     "visible": true,
+     "left": 100,
+     "top": 100,
+     "width": 306,
+     "height": 229,
+     "client": [
+      300,
+      200
+     ],
+     "style": "16CA0000",
+     "exstyle": "00010108",
+     "children": [
+      {
+       "class": "TRadioButton",
+       "text": "RadioS",
+       "visible": true,
+       "rect": [
+        150,
+        100,
+        100,
+        20
+       ],
+       "style": "54012024"
+      },
+      {
+       "class": "TCheckBox",
+       "text": "CheckS",
+       "visible": true,
+       "rect": [
+        10,
+        100,
+        100,
+        20
+       ],
+       "style": "54012005"
+      },
+      {
+       "class": "TRadioButton",
+       "text": "RadioR",
+       "visible": true,
+       "rect": [
+        150,
+        40,
+        100,
+        20
+       ],
+       "style": "54002024"
+      },
+      {
+       "class": "TCheckBox",
+       "text": "CheckR",
+       "visible": true,
+       "rect": [
+        150,
+        10,
+        100,
+        20
+       ],
+       "style": "54012025"
+      },
+      {
+       "class": "TRadioButton",
+       "text": "RadioL",
+       "visible": true,
+       "rect": [
+        10,
+        40,
+        100,
+        20
+       ],
+       "style": "54002004"
+      },
+      {
+       "class": "TCheckBox",
+       "text": "CheckL",
+       "visible": true,
+       "rect": [
+        10,
+        10,
+        100,
+        20
+       ],
+       "style": "54012005"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "probe": "delete",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "A"
+   ],
+   "report": "T1=Q_B1=Q_P2=Q_T2=Q_T3=120_T3STILL=120_T3GONE=Q_T3AGAIN=130_DP=form0",
+   "values": [
+    "T1=Q",
+    "B1=Q",
+    "P2=Q",
+    "T2=Q",
+    "T3=120",
+    "T3STILL=120",
+    "T3GONE=Q",
+    "T3AGAIN=130",
+    "DP=form0"
+   ]
+  }
+ ]
+}

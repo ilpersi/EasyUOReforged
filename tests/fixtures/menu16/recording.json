@@ -1,0 +1,36 @@
+{
+ "recorder": 1,
+ "exe": {
+  "name": "easyuo.exe",
+  "size": 972800,
+  "sha256": "8921e689eeefa3f066b37d4a849dcba6fa662d6f5bd78fbd40872dd3feaf04df"
+ },
+ "windows": "10.0.26300",
+ "dpi": 96,
+ "date": "2026-10-28",
+ "probes": [
+  "align",
+  "close",
+  "defaults",
+  "defaults_stack",
+  "delete",
+  "delete_form0",
+  "duplicates",
+  "font",
+  "forms",
+  "get_set",
+  "hide_clear",
+  "image",
+  "names",
+  "panels_radio",
+  "parent",
+  "popup",
+  "props_get",
+  "props_set",
+  "restart",
+  "shapes",
+  "stale",
+  "validation",
+  "window"
+ ]
+}

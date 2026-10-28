@@ -1,0 +1,95 @@
+{
+ "probe": "window",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "W1"
+   ],
+   "report": "RED=255_NUM=65280_LTGRAY=65280_BTNFACE=-16777201_NONE=-16777201_W=250_H=120_WNEG=250_WONE=250_TITLE=Hello Big World_SHOWL=300_SHOWT=200_SHOWAB=300_VIS=-1",
+   "values": [
+    "RED=255",
+    "NUM=65280",
+    "LTGRAY=65280",
+    "BTNFACE=-16777201",
+    "NONE=-16777201",
+    "W=250",
+    "H=120",
+    "WNEG=250",
+    "WONE=250",
+    "TITLE=Hello Big World",
+    "SHOWL=300",
+    "SHOWT=200",
+    "SHOWAB=300",
+    "VIS=-1"
+   ]
+  },
+  {
+   "step": "alpha",
+   "args": [
+    "R:W1:"
+   ],
+   "found": true,
+   "layered": true,
+   "alpha": 137
+  },
+  {
+   "step": "wait",
+   "args": [
+    "W2"
+   ],
+   "report": "",
+   "values": [
+    ""
+   ]
+  },
+  {
+   "step": "alpha",
+   "args": [
+    "R:W2:"
+   ],
+   "found": true,
+   "layered": true,
+   "alpha": 20
+  },
+  {
+   "step": "wait",
+   "args": [
+    "W3"
+   ],
+   "report": "",
+   "values": [
+    ""
+   ]
+  },
+  {
+   "step": "alpha",
+   "args": [
+    "R:W3:"
+   ],
+   "found": true,
+   "layered": true,
+   "alpha": 255
+  },
+  {
+   "step": "forms",
+   "forms": [
+    {
+     "caption": "R:W3:",
+     "visible": true,
+     "left": 300,
+     "top": 200,
+     "width": 256,
+     "height": 149,
+     "client": [
+      250,
+      120
+     ],
+     "style": "16CA0000",
+     "exstyle": "00090108",
+     "children": []
+    }
+   ]
+  }
+ ]
+}

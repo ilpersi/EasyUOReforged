@@ -1,0 +1,54 @@
+; Probe for tests/tools/Record16MenuGolden.py: EasyUO 1.6 MENU golden values.
+; "menu reforge mode 1.6" makes Reforged run it under the 1.6 logic; 1.6 ignores the line.
+; "menu form": hidden, client 10 px larger than asked, becomes the default
+; parent; a duplicate name gives a hidden orphan form that still takes the next
+; controls; panels inside forms; names are lower-cased.
+;@wait A
+;@forms
+menu reforge mode 1.6
+set #menures Q
+menu form f1 50 60 200 100 Form One
+menu getprop f1 left
+set %r L= , #menures
+menu getprop f1 top
+set %r %r , _T= , #menures
+menu getprop f1 width
+set %r %r , _W= , #menures
+menu getprop f1 height
+set %r %r , _H= , #menures
+menu getprop f1 text
+set %r %r , _C= , #menures
+menu getprop f1 visible
+set %r %r , _V= , #menures
+menu getdef parent
+set %r %r , _DP1= , #menures
+menu button fb 10 10 60 20 FB
+menu getprop fb parent
+set %r %r , _FBP= , #menures
+menu form f1 400 60 200 100 Form Dup
+set #menures Q2
+menu getdef parent
+set %r %r , _DP2= , #menures
+menu edit e1 10 10 100 inDup
+set #menures Q3
+menu getprop e1 parent
+set %r %r , _E1P= , #menures
+menu setprop f1 visible #true
+menu panel p1 10 40 150 50
+menu getdef parent
+set %r %r , _DP3= , #menures
+set #menures Q4
+menu getprop p1 parent
+set %r %r , _P1P= , #menures
+menu getprop f1 left
+set %r %r , _F1L= , #menures
+menu form F2 600 60 150 80 Two
+menu setprop f2 visible #true
+menu getprop F2 text
+set %r %r , _F2C= , #menures
+menu setprop f2 width 150
+menu getprop f2 width
+set %r %r , _F2W= , #menures
+menu window title R:A: , %r
+wait 40
+halt

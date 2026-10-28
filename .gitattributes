@@ -31,3 +31,5 @@
 *.uop   binary
 *.exe   binary
 *.dll   binary
+*.png   binary
+*.bmp   binary

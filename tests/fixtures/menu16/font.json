@@ -1,0 +1,42 @@
+{
+ "probe": "font",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "A"
+   ],
+   "report": "FN=Courier New_FNEMPTY=Courier New_FS14=14_FSNEG=14_FSABC=14_FCRED=255_FCNUM=65280_FCLTGRAY=65280_FCCLRED=65280_FCHEX=255_BGBTNFACE=-16777201_BGBLUE=16711680_ALRIGHT=1_ALCENTER=2_ALMIDDLE=2_ALLEFT=0_STBIUS=15_STNONE=0_STXB=1_TFFN=Courier New_TFFS=14_TFFC=255_TFFST=1_TFCOL=16711680_TFAL=2_BFFN=Courier New_BFCOL=16711680_PFCOL=16711680",
+   "values": [
+    "FN=Courier New",
+    "FNEMPTY=Courier New",
+    "FS14=14",
+    "FSNEG=14",
+    "FSABC=14",
+    "FCRED=255",
+    "FCNUM=65280",
+    "FCLTGRAY=65280",
+    "FCCLRED=65280",
+    "FCHEX=255",
+    "BGBTNFACE=-16777201",
+    "BGBLUE=16711680",
+    "ALRIGHT=1",
+    "ALCENTER=2",
+    "ALMIDDLE=2",
+    "ALLEFT=0",
+    "STBIUS=15",
+    "STNONE=0",
+    "STXB=1",
+    "TFFN=Courier New",
+    "TFFS=14",
+    "TFFC=255",
+    "TFFST=1",
+    "TFCOL=16711680",
+    "TFAL=2",
+    "BFFN=Courier New",
+    "BFCOL=16711680",
+    "PFCOL=16711680"
+   ]
+  }
+ ]
+}

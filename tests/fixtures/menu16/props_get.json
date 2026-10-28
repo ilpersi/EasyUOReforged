@@ -1,0 +1,338 @@
+{
+ "probe": "props_get",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "FORM0"
+   ],
+   "report": "ALIGNMENT=Q_CHECKED=Q_COLOR=-16777201_ENABLED=-1_FONTCOLOR=Q_FONTNAME=Q_FONTSIZE=Q_FONTSTYLE=Q_HEIGHT=200_LEFT=100_PARENT=Q_TEXT=EUO Menu_TOOLTIP=_TOP=100_VISIBLE=0_WIDTH=300_CASELEFT=100_NONSENSE=Q",
+   "values": [
+    "ALIGNMENT=Q",
+    "CHECKED=Q",
+    "COLOR=-16777201",
+    "ENABLED=-1",
+    "FONTCOLOR=Q",
+    "FONTNAME=Q",
+    "FONTSIZE=Q",
+    "FONTSTYLE=Q",
+    "HEIGHT=200",
+    "LEFT=100",
+    "PARENT=Q",
+    "TEXT=EUO Menu",
+    "TOOLTIP=",
+    "TOP=100",
+    "VISIBLE=0",
+    "WIDTH=300",
+    "CASELEFT=100",
+    "NONSENSE=Q"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "FM"
+   ],
+   "report": "ALIGNMENT=Q_CHECKED=Q_COLOR=-16777201_ENABLED=-1_FONTCOLOR=Q_FONTNAME=Q_FONTSIZE=Q_FONTSTYLE=Q_HEIGHT=70_LEFT=500_PARENT=Q_TEXT=FormText_TOOLTIP=_TOP=100_VISIBLE=0_WIDTH=130_CASELEFT=500_NONSENSE=Q",
+   "values": [
+    "ALIGNMENT=Q",
+    "CHECKED=Q",
+    "COLOR=-16777201",
+    "ENABLED=-1",
+    "FONTCOLOR=Q",
+    "FONTNAME=Q",
+    "FONTSIZE=Q",
+    "FONTSTYLE=Q",
+    "HEIGHT=70",
+    "LEFT=500",
+    "PARENT=Q",
+    "TEXT=FormText",
+    "TOOLTIP=",
+    "TOP=100",
+    "VISIBLE=0",
+    "WIDTH=130",
+    "CASELEFT=500",
+    "NONSENSE=Q"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "PN"
+   ],
+   "report": "ALIGNMENT=Q_CHECKED=Q_COLOR=-16777201_ENABLED=-1_FONTCOLOR=Q_FONTNAME=Q_FONTSIZE=Q_FONTSTYLE=Q_HEIGHT=40_LEFT=10_PARENT=form0_TEXT=Q_TOOLTIP=_TOP=10_VISIBLE=-1_WIDTH=80_CASELEFT=10_NONSENSE=Q",
+   "values": [
+    "ALIGNMENT=Q",
+    "CHECKED=Q",
+    "COLOR=-16777201",
+    "ENABLED=-1",
+    "FONTCOLOR=Q",
+    "FONTNAME=Q",
+    "FONTSIZE=Q",
+    "FONTSTYLE=Q",
+    "HEIGHT=40",
+    "LEFT=10",
+    "PARENT=form0",
+    "TEXT=Q",
+    "TOOLTIP=",
+    "TOP=10",
+    "VISIBLE=-1",
+    "WIDTH=80",
+    "CASELEFT=10",
+    "NONSENSE=Q"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "TX"
+   ],
+   "report": "ALIGNMENT=0_CHECKED=Q_COLOR=-16777201_ENABLED=-1_FONTCOLOR=0_FONTNAME=Arial_FONTSIZE=10_FONTSTYLE=0_HEIGHT=16_LEFT=10_PARENT=form0_TEXT=TextText_TOOLTIP=_TOP=60_VISIBLE=-1_WIDTH=48_CASELEFT=10_NONSENSE=Q",
+   "values": [
+    "ALIGNMENT=0",
+    "CHECKED=Q",
+    "COLOR=-16777201",
+    "ENABLED=-1",
+    "FONTCOLOR=0",
+    "FONTNAME=Arial",
+    "FONTSIZE=10",
+    "FONTSTYLE=0",
+    "HEIGHT=16",
+    "LEFT=10",
+    "PARENT=form0",
+    "TEXT=TextText",
+    "TOOLTIP=",
+    "TOP=60",
+    "VISIBLE=-1",
+    "WIDTH=48",
+    "CASELEFT=10",
+    "NONSENSE=Q"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "BT"
+   ],
+   "report": "ALIGNMENT=Q_CHECKED=Q_COLOR=-16777201_ENABLED=-1_FONTCOLOR=0_FONTNAME=Arial_FONTSIZE=10_FONTSTYLE=0_HEIGHT=20_LEFT=10_PARENT=form0_TEXT=ButtonText_TOOLTIP=_TOP=80_VISIBLE=-1_WIDTH=70_CASELEFT=10_NONSENSE=Q",
+   "values": [
+    "ALIGNMENT=Q",
+    "CHECKED=Q",
+    "COLOR=-16777201",
+    "ENABLED=-1",
+    "FONTCOLOR=0",
+    "FONTNAME=Arial",
+    "FONTSIZE=10",
+    "FONTSTYLE=0",
+    "HEIGHT=20",
+    "LEFT=10",
+    "PARENT=form0",
+    "TEXT=ButtonText",
+    "TOOLTIP=",
+    "TOP=80",
+    "VISIBLE=-1",
+    "WIDTH=70",
+    "CASELEFT=10",
+    "NONSENSE=Q"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "ED"
+   ],
+   "report": "ALIGNMENT=Q_CHECKED=Q_COLOR=-16777201_ENABLED=-1_FONTCOLOR=0_FONTNAME=Arial_FONTSIZE=10_FONTSTYLE=0_HEIGHT=24_LEFT=10_PARENT=form0_TEXT=EditText_TOOLTIP=_TOP=110_VISIBLE=-1_WIDTH=70_CASELEFT=10_NONSENSE=Q",
+   "values": [
+    "ALIGNMENT=Q",
+    "CHECKED=Q",
+    "COLOR=-16777201",
+    "ENABLED=-1",
+    "FONTCOLOR=0",
+    "FONTNAME=Arial",
+    "FONTSIZE=10",
+    "FONTSTYLE=0",
+    "HEIGHT=24",
+    "LEFT=10",
+    "PARENT=form0",
+    "TEXT=EditText",
+    "TOOLTIP=",
+    "TOP=110",
+    "VISIBLE=-1",
+    "WIDTH=70",
+    "CASELEFT=10",
+    "NONSENSE=Q"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "CK"
+   ],
+   "report": "ALIGNMENT=0_CHECKED=-1_COLOR=-16777201_ENABLED=-1_FONTCOLOR=0_FONTNAME=Arial_FONTSIZE=10_FONTSTYLE=0_HEIGHT=20_LEFT=10_PARENT=form0_TEXT=CheckText_TOOLTIP=_TOP=140_VISIBLE=-1_WIDTH=70_CASELEFT=10_NONSENSE=Q",
+   "values": [
+    "ALIGNMENT=0",
+    "CHECKED=-1",
+    "COLOR=-16777201",
+    "ENABLED=-1",
+    "FONTCOLOR=0",
+    "FONTNAME=Arial",
+    "FONTSIZE=10",
+    "FONTSTYLE=0",
+    "HEIGHT=20",
+    "LEFT=10",
+    "PARENT=form0",
+    "TEXT=CheckText",
+    "TOOLTIP=",
+    "TOP=140",
+    "VISIBLE=-1",
+    "WIDTH=70",
+    "CASELEFT=10",
+    "NONSENSE=Q"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "RD"
+   ],
+   "report": "ALIGNMENT=1_CHECKED=-1_COLOR=-16777201_ENABLED=-1_FONTCOLOR=0_FONTNAME=Arial_FONTSIZE=10_FONTSTYLE=0_HEIGHT=20_LEFT=90_PARENT=form0_TEXT=RadioText_TOOLTIP=_TOP=140_VISIBLE=-1_WIDTH=70_CASELEFT=90_NONSENSE=Q",
+   "values": [
+    "ALIGNMENT=1",
+    "CHECKED=-1",
+    "COLOR=-16777201",
+    "ENABLED=-1",
+    "FONTCOLOR=0",
+    "FONTNAME=Arial",
+    "FONTSIZE=10",
+    "FONTSTYLE=0",
+    "HEIGHT=20",
+    "LEFT=90",
+    "PARENT=form0",
+    "TEXT=RadioText",
+    "TOOLTIP=",
+    "TOP=140",
+    "VISIBLE=-1",
+    "WIDTH=70",
+    "CASELEFT=90",
+    "NONSENSE=Q"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "CB"
+   ],
+   "report": "ALIGNMENT=Q_CHECKED=Q_COLOR=-16777201_ENABLED=-1_FONTCOLOR=0_FONTNAME=Arial_FONTSIZE=10_FONTSTYLE=0_HEIGHT=25_LEFT=100_PARENT=form0_TEXT=Q_TOOLTIP=_TOP=10_VISIBLE=-1_WIDTH=80_CASELEFT=100_NONSENSE=Q",
+   "values": [
+    "ALIGNMENT=Q",
+    "CHECKED=Q",
+    "COLOR=-16777201",
+    "ENABLED=-1",
+    "FONTCOLOR=0",
+    "FONTNAME=Arial",
+    "FONTSIZE=10",
+    "FONTSTYLE=0",
+    "HEIGHT=25",
+    "LEFT=100",
+    "PARENT=form0",
+    "TEXT=Q",
+    "TOOLTIP=",
+    "TOP=10",
+    "VISIBLE=-1",
+    "WIDTH=80",
+    "CASELEFT=100",
+    "NONSENSE=Q"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "LS"
+   ],
+   "report": "ALIGNMENT=Q_CHECKED=Q_COLOR=-16777201_ENABLED=-1_FONTCOLOR=0_FONTNAME=Arial_FONTSIZE=10_FONTSTYLE=0_HEIGHT=50_LEFT=100_PARENT=form0_TEXT=Q_TOOLTIP=_TOP=40_VISIBLE=-1_WIDTH=80_CASELEFT=100_NONSENSE=Q",
+   "values": [
+    "ALIGNMENT=Q",
+    "CHECKED=Q",
+    "COLOR=-16777201",
+    "ENABLED=-1",
+    "FONTCOLOR=0",
+    "FONTNAME=Arial",
+    "FONTSIZE=10",
+    "FONTSTYLE=0",
+    "HEIGHT=50",
+    "LEFT=100",
+    "PARENT=form0",
+    "TEXT=Q",
+    "TOOLTIP=",
+    "TOP=40",
+    "VISIBLE=-1",
+    "WIDTH=80",
+    "CASELEFT=100",
+    "NONSENSE=Q"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "IM"
+   ],
+   "report": "ALIGNMENT=Q_CHECKED=Q_COLOR=Q_ENABLED=-1_FONTCOLOR=Q_FONTNAME=Q_FONTSIZE=Q_FONTSTYLE=Q_HEIGHT=40_LEFT=200_PARENT=form0_TEXT=Q_TOOLTIP=_TOP=10_VISIBLE=-1_WIDTH=40_CASELEFT=200_NONSENSE=Q",
+   "values": [
+    "ALIGNMENT=Q",
+    "CHECKED=Q",
+    "COLOR=Q",
+    "ENABLED=-1",
+    "FONTCOLOR=Q",
+    "FONTNAME=Q",
+    "FONTSIZE=Q",
+    "FONTSTYLE=Q",
+    "HEIGHT=40",
+    "LEFT=200",
+    "PARENT=form0",
+    "TEXT=Q",
+    "TOOLTIP=",
+    "TOP=10",
+    "VISIBLE=-1",
+    "WIDTH=40",
+    "CASELEFT=200",
+    "NONSENSE=Q"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "DEF"
+   ],
+   "report": "ALIGNMENT=0_CHECKED=Q_COLOR=-16777201_ENABLED=Q_FONTCOLOR=0_FONTNAME=Arial_FONTSIZE=10_FONTSTYLE=0_HEIGHT=Q_LEFT=Q_PARENT=rim_TEXT=Q_TOOLTIP=Q_TOP=Q_VISIBLE=Q_WIDTH=Q_NONSENSE=Q",
+   "values": [
+    "ALIGNMENT=0",
+    "CHECKED=Q",
+    "COLOR=-16777201",
+    "ENABLED=Q",
+    "FONTCOLOR=0",
+    "FONTNAME=Arial",
+    "FONTSIZE=10",
+    "FONTSTYLE=0",
+    "HEIGHT=Q",
+    "LEFT=Q",
+    "PARENT=rim",
+    "TEXT=Q",
+    "TOOLTIP=Q",
+    "TOP=Q",
+    "VISIBLE=Q",
+    "WIDTH=Q",
+    "NONSENSE=Q"
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "END"
+   ],
+   "report": "Q",
+   "values": [
+    "Q"
+   ]
+  }
+ ]
+}

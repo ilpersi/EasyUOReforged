@@ -121,9 +121,9 @@ order below; this changes nothing observable.
 | `clear` | – | form0 is protected; everything else (other forms, panels, controls) is freed; defaults reset; form0 re-registered; default parent := form0. form0 keeps its position, size, caption and colour. `#MenuButton` becomes empty. |
 | `delete n` | count>2 | Removes `n` and, recursively, its registered children. `delete form0` is allowed and destroys form0 until the next script start (`clear` cannot bring it back). |
 | `activate n` | count>2, `n` registered | A form: `SetForegroundWindow`. Any other control: walks up to its form, `SetForegroundWindow`, `ActiveControl:=n`. |
-| `get n` | count>2 | `#MenuRes:='N/A'`, then Edit `Text`; Combo `Tag+1`; List `ItemIndex+1`; Check and **Radio** `-1`/`0`. |
+| `get n` | count>2 | `#MenuRes:='N/A'`, then Edit `Text`; Combo `Tag+1`; List `ItemIndex+1`; Check and **Radio** `-1`/`0`. Any other type: `N/A`. |
 | `getnum n d` | count≥3 | `get`; if the result is not a number and count>3, `#MenuRes:=d`. |
-| `set n v...` | count>2 | Edit `Text`, Text and Button `Caption`, Check and **Radio** `Checked:=StrToIntDef(v,0)<>0`. Only the registered control. |
+| `set n v...` | count>2 | Edit `Text`, Text and Button `Caption`, Check and **Radio** `Checked:=StrToIntDef(v,0)<>0`. Only the registered control. `$` is not converted. |
 | `window size w h` | form0; count≥5; Card | form0 `ClientWidth`/`ClientHeight`. |
 | `window color c` | form0; count≥4 | Colour by name or number. |
 | `window title t...` | form0; count≥3 | Caption (empty when no text is given, as before). |
@@ -138,13 +138,13 @@ order below; this changes nothing observable.
 | `panel n x y w h` | count≥7; Int 3–6 | `TPanel`, `BevelOuter=bvNone`, colour = default colour, parent = default parent. Becomes the default parent. |
 | `text n x y t...` | count≥5; Int 3–4 | `TLabel`; `$` → CR LF; font, colour, alignment, parent from the default; `Width:=0` (autosize). |
 | `button n x y w h t...` | count≥7; Int 3–4; Card 5–6 | `TBitBtnWithColor`; a click records `n`. |
-| `edit n x y w t...` | count≥6; Int 3–4; Card 5 | `TEdit` (width only, no height). |
+| `edit n x y w t...` | count≥6; Int 3–4; Card 5 | `TEdit` (width only, no height); `$` is not converted. |
 | `check n x y w h c t...` | count≥8; Int 3–4; Card 5–6; Int 7 | `TCheckBox`, `WordWrap`, alignment inverted as before. |
 | `radio n x y w h c t...` | as `check` | `TRadioButton`; `Checked` set after parenting, so it unchecks the other radios **with the same parent**. |
 | `list create n x y w h` | count≥8; Int 4–5; Card 6–7 | `TListBox`. |
 | `combo create n x y w` | count≥7; Int 4–5; Card 6 | `TComboBox`, `csDropDownList`, `Tag=-1`. |
-| `combo\|list add n t...` / `clear n` / `select n i` | count≥4 (select: count>4, Int 4) | As before, but on the registered control only. |
-| `shape n x y w h st lt lw lc ft fc` | count≥13; Int 3–4; **Card 5–9, 11**; colours valid | **Emulated with an image** (parser `0x4c10ac`): circle/square types squeeze the box to a square, centred; a filled ellipse or rectangle in `fc` if `ft=7`; an outline in `lc`, width `lw`, if `lt<>1`. Dashed lines, hatch fills and rounded corners are gone; any `ft` other than 7 means no fill (old: everything except 1–6 and 8 was solid). The shape is an `image` and can be drawn on and changed with `setprop`. |
+| `combo\|list add n t...` / `clear n` / `select n i` | count≥4 (select: count>4, Int 4) | As before, but on the registered control only. `combo select` stores `i-1` in `Tag` without a range check, so `menu get` reads back `i` even past the last item; `list select` out of range leaves nothing selected. |
+| `shape n x y w h st lt lw lc ft fc` | count≥13; Int 3–4; **Card 5–9, 11**; colours valid | **Emulated with an image** (parser `0x4c10ac`): types 1 (circle), 5 (square) and 6 (nothing drawn) squeeze the box to a square, centred; 0, 3 and 4 draw a rectangle, 2 an ellipse; a filled ellipse or rectangle in `fc` if `ft=7`; an outline in `lc`, width `lw`, if `lt<>1`. Dashed lines, hatch fills and rounded corners are gone; any `ft` other than 7 means no fill (old: everything except 1–6 and 8 was solid). The shape is an `image` and can be drawn on and changed with `setprop`. |
 | `image create n x y w h` | count≥8; Int 4–5; **Card 6–7** | `TImage`, transparent colour key `$FEEEED`, 32 bpp. |
 | `image pos n x y [w h]` | count≥6; Int 4–5; `n` registered | `Left/Top`; with `w h` (count≥8, Card) also `Width/Height` and `Stretch:=True`. (Old: `Stretch` also for the 2-argument form.) |
 | `image pix\|floodfill n x y c` | count≥7; colour valid | As before. |
@@ -175,8 +175,11 @@ wins. Names are case-insensitive.
 | `visible` | `Visible` | bool | all ten types |
 
 `getdef`/`setdef` keys are therefore `alignment`, `color`, `fontcolor`, `fontname`, `fontsize`,
-`fontstyle`, `parent`. `getprop x parent` on a control whose parent is not registered leaves
-`#MenuRes` holding the previous string result.
+`fontstyle`, `parent`. `getprop x parent` (or `getdef parent`) when the parent is not registered
+sets `#MenuRes` to the last string result of a `getprop`/`getdef`, not to `#MenuRes`'s current
+value. Only string properties (`text`, `fontname`, `parent`, `tooltip`) set that last result;
+integer and boolean results, `menu get` and unknown properties leave it; `menu clear` and the
+script start empty it.
 
 ### 3.5 `#MenuButton` and `#MenuRes`
 
@@ -467,11 +470,23 @@ This table is the source for the documentation's comparison page (§6.8). Eviden
   - the choice fixed for the whole run;
   - windows destroyed when the logic changes between runs;
   - the notice for a 1.6 command in 1.5 logic.
-- **1.6 logic against golden values:**
-  - Add `tests/tools/Record16MenuGolden.py`: the probe harness used in §9.1, which needs the
-    closed `easyuo.exe` passed explicitly (`-Exe`), like `VerifyCstDbData.ps1 -OrigFile`.
-  - It writes the observed values to `tests/fixtures/menu16/`.
-  - The FPCUnit tests assert Reforged's 1.6 logic against that fixture without needing the binary.
+- **1.6 logic against golden values** (recorded 2026-10-28):
+  - `tests/tools/Record16MenuGolden.py` is the probe harness of §9.1. It needs the closed
+    `easyuo.exe` passed explicitly (`-Exe`), like `VerifyCstDbData.ps1 -OrigFile`, and only the
+    Python standard library.
+  - The probes are `tests/fixtures/menu16/*.euo`: 23 scripts covering §3.2–§3.8, among them
+    every property on every control type (`props_get`, `props_set`) and every creation check
+    (`validation`). Each reports through form captions (`R:<tag>:<data>`); its `;@` comment lines
+    tell the recorder when to read a report, click, close a form, stop or start the script, and
+    capture window geometry, layered alpha or the pixels of an image.
+  - Results: `<probe>.json` per probe, `<probe>.<name>.png` for image pixels, and
+    `recording.json` with the binary's SHA-256, the Windows build and the DPI. The values hold
+    for that environment: frame sizes, minimum window widths and font-dependent sizes (label
+    autosize, edit and combo heights) can differ on another Windows build or DPI.
+  - The FPCUnit tests run the same probes under Reforged's 1.6 logic (the probes start with
+    `menu reforge mode 1.6`, which 1.6 ignores) and compare the reports, without the binary.
+  - Not recorded: `menu activate`, whose effect depends on which window Windows lets come to
+    the foreground.
 - **Hand tests** (`.euo`, each ending with `halt`):
   - Cheffe's alpha demo adapted to 1.6;
   - Gaderian's tutorial examples;
@@ -634,6 +649,12 @@ invalid line width → 1; a popup sub called twice shows only the first popup.
 
 Corrected by it: forms are 10 px larger than asked (§3.2), and `window title` with no text clears the
 title as before.
+
+Settled when the golden values were recorded (§6.7): the last-string-result rule for unregistered
+parents (§3.4); `$` converted by `menu text` only; `combo select` unchecked; which shape types squeeze
+to a square (§3.3); a click records the lower-cased name; `#MenuButton` and `#MenuRes` empty at
+start; `font color clRed` is not a colour name, `$FF` is a number; `panel` accepts a negative size
+and reads it back; a form asked for a negative or small width gets Windows' minimum width.
 
 ### 9.2 Real scripts
 

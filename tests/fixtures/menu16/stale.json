@@ -1,0 +1,23 @@
+{
+ "probe": "stale",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "A"
+   ],
+   "report": "NONE=_TEXT=Named_AFTERINT=Named_AFTERDEF=Arial_AFTERGET=Arial_AFTERUNKNOWN=Arial_AFTERPARENT=form0_ORPHANTEXT=orphan_AFTERCLEAR=",
+   "values": [
+    "NONE=",
+    "TEXT=Named",
+    "AFTERINT=Named",
+    "AFTERDEF=Arial",
+    "AFTERGET=Arial",
+    "AFTERUNKNOWN=Arial",
+    "AFTERPARENT=form0",
+    "ORPHANTEXT=orphan",
+    "AFTERCLEAR="
+   ]
+  }
+ ]
+}

@@ -1,0 +1,98 @@
+{
+ "probe": "duplicates",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "W1"
+   ],
+   "report": "T1TOP=10_B1LEFT=10_T1AFTERDEL=Q_T1NEW=150",
+   "values": [
+    "T1TOP=10",
+    "B1LEFT=10",
+    "T1AFTERDEL=Q",
+    "T1NEW=150"
+   ]
+  },
+  {
+   "step": "forms",
+   "forms": [
+    {
+     "caption": "R:W1:T1TOP=10_B1LEFT=10_T1AFTERDEL=Q_T1NEW=150",
+     "visible": true,
+     "left": 100,
+     "top": 100,
+     "width": 306,
+     "height": 229,
+     "client": [
+      300,
+      200
+     ],
+     "style": "16CA0000",
+     "exstyle": "00010108",
+     "children": [
+      {
+       "class": "TBitBtnWithColor",
+       "text": "Two",
+       "visible": true,
+       "rect": [
+        80,
+        70,
+        60,
+        20
+       ],
+       "style": "5401000B"
+      },
+      {
+       "class": "TBitBtnWithColor",
+       "text": "Changed",
+       "visible": true,
+       "rect": [
+        10,
+        70,
+        60,
+        20
+       ],
+       "style": "5401000B"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "step": "click",
+   "args": [
+    "Two"
+   ],
+   "found": true
+  },
+  {
+   "step": "wait",
+   "args": [
+    "W2"
+   ],
+   "report": "ORPHANCLICK=n/a",
+   "values": [
+    "ORPHANCLICK=n/a"
+   ]
+  },
+  {
+   "step": "click",
+   "args": [
+    "Changed"
+   ],
+   "found": true
+  },
+  {
+   "step": "wait",
+   "args": [
+    "S2"
+   ],
+   "report": "ORPHANCLICK=n/a_REALCLICK=b1",
+   "values": [
+    "ORPHANCLICK=n/a",
+    "REALCLICK=b1"
+   ]
+  }
+ ]
+}

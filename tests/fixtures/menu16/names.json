@@ -1,0 +1,38 @@
+{
+ "probe": "names",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "W1"
+   ],
+   "report": "click",
+   "values": [
+    "click"
+   ]
+  },
+  {
+   "step": "click",
+   "args": [
+    "BtnX"
+   ],
+   "found": true
+  },
+  {
+   "step": "wait",
+   "args": [
+    "A"
+   ],
+   "report": "LOWER=10_UPPER=10_DUP=10_DIGITS=20_FORM0=100_DPAFTERCLASH=_CLICK=btnx",
+   "values": [
+    "LOWER=10",
+    "UPPER=10",
+    "DUP=10",
+    "DIGITS=20",
+    "FORM0=100",
+    "DPAFTERCLASH=",
+    "CLICK=btnx"
+   ]
+  }
+ ]
+}

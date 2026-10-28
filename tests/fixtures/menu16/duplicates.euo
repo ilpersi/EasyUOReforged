@@ -1,0 +1,44 @@
+; Probe for tests/tools/Record16MenuGolden.py: EasyUO 1.6 MENU golden values.
+; "menu reforge mode 1.6" makes Reforged run it under the 1.6 logic; 1.6 ignores the line.
+; Duplicate names: the first control with a name is the registered one; the
+; second stays on screen but cannot be reached; after a delete the name is free.
+; A click on the unreachable button records nothing, one on the real one its name.
+;@wait W1
+;@forms
+;@click Two
+;@wait W2
+;@click Changed
+;@wait S2
+menu reforge mode 1.6
+menu window size 300 200
+menu text t1 10 10 FIRST
+menu text t1 10 40 SECOND
+menu button b1 10 70 60 20 One
+menu button b1 80 70 60 20 Two
+menu getprop t1 top
+set %r T1TOP= , #menures
+menu getprop b1 left
+set %r %r , _B1LEFT= , #menures
+menu set b1 Changed
+menu delete t1
+set #menures Q
+menu getprop t1 top
+set %r %r , _T1AFTERDEL= , #menures
+menu text t1 150 10 THIRD
+menu getprop t1 left
+set %r %r , _T1NEW= , #menures
+menu show
+set #menubutton n/a
+menu window title R:W1: , %r
+set %t #scnt + 3
+while #menubutton = n/a && #scnt < %t
+  wait 1
+set %r ORPHANCLICK= , #menubutton
+set #menubutton n/a
+menu window title R:W2: , %r
+set %t #scnt + 5
+while #menubutton = n/a && #scnt < %t
+  wait 1
+set %r %r , _REALCLICK= , #menubutton
+menu window title R:S2: , %r
+halt

@@ -1,0 +1,164 @@
+; Probe for tests/tools/Record16MenuGolden.py: EasyUO 1.6 MENU golden values.
+; "menu reforge mode 1.6" makes Reforged run it under the 1.6 logic; 1.6 ignores the line.
+; Which lines create a control: too few words, a non-number where an integer is
+; needed, a negative where 1.6 wants a cardinal, an invalid colour. A control that
+; exists answers "getprop left"; one that does not leaves Q.
+;@wait A
+menu reforge mode 1.6
+set #lpc 1000
+menu window size 400 300
+menu text v01 a 1 hi
+menu text v02 1 1
+menu text v03 -5 -6 hi
+menu button v04 1 1 -1 20 x
+menu button v05 a 1 10 10 x
+menu button v06 1 1 10 10
+menu button v07 1 1 10 a x
+menu edit v08 1 1 -1 x
+menu edit v09 1 1 10
+menu edit v10 1 b 10 x
+menu check v11 1 1 10 10 a x
+menu check v12 1 1 10 10 1
+menu check v13 1 1 -10 10 1 x
+menu radio v14 1 1 10 10 a x
+menu radio v15 1 1 10 10 1
+menu list create v16 1 1 -10 10
+menu list create v17 1 1 10
+menu combo create v18 1 1 -10
+menu combo create v19 1 1
+menu image create v20 1 1 -10 10
+menu image create v21 1 1 10
+menu form v22 a 1 10 10
+menu setdef parent form0
+menu form v23 1 1 10
+menu setdef parent form0
+menu panel v24 1 1 -10 -10
+menu setdef parent form0
+menu panel v25 1 1 10
+menu setdef parent form0
+menu shape v26 1 1 -10 10 3 1 1 0 7 255
+menu shape v27 1 1 10 10 3 1 1 red 7 255
+menu shape v28 1 1 10 10 3 1 1 0 7
+menu shape v29 1 1 10 10 3 1 -1 0 7 255
+menu shape v30 1 1 10 10 3 1 1 0 -7 255
+menu text v31 1.5 1 hi
+menu text v32 +3 4 hi
+menu form v33 1 1 -10 -10 neg
+menu setdef parent form0
+menu image create v34 1 1 0 0
+menu button v35 1 1 0 0 x
+set #menures Q
+menu getprop v01 left
+set %r V01= , #menures
+set #menures Q
+menu getprop v02 left
+set %r %r , _V02= , #menures
+set #menures Q
+menu getprop v03 left
+set %r %r , _V03= , #menures
+set #menures Q
+menu getprop v04 left
+set %r %r , _V04= , #menures
+set #menures Q
+menu getprop v05 left
+set %r %r , _V05= , #menures
+set #menures Q
+menu getprop v06 left
+set %r %r , _V06= , #menures
+set #menures Q
+menu getprop v07 left
+set %r %r , _V07= , #menures
+set #menures Q
+menu getprop v08 left
+set %r %r , _V08= , #menures
+set #menures Q
+menu getprop v09 left
+set %r %r , _V09= , #menures
+set #menures Q
+menu getprop v10 left
+set %r %r , _V10= , #menures
+set #menures Q
+menu getprop v11 left
+set %r %r , _V11= , #menures
+set #menures Q
+menu getprop v12 left
+set %r %r , _V12= , #menures
+set #menures Q
+menu getprop v13 left
+set %r %r , _V13= , #menures
+set #menures Q
+menu getprop v14 left
+set %r %r , _V14= , #menures
+set #menures Q
+menu getprop v15 left
+set %r %r , _V15= , #menures
+set #menures Q
+menu getprop v16 left
+set %r %r , _V16= , #menures
+set #menures Q
+menu getprop v17 left
+set %r %r , _V17= , #menures
+set #menures Q
+menu getprop v18 left
+set %r %r , _V18= , #menures
+set #menures Q
+menu getprop v19 left
+set %r %r , _V19= , #menures
+set #menures Q
+menu getprop v20 left
+set %r %r , _V20= , #menures
+set #menures Q
+menu getprop v21 left
+set %r %r , _V21= , #menures
+set #menures Q
+menu getprop v22 left
+set %r %r , _V22= , #menures
+set #menures Q
+menu getprop v23 left
+set %r %r , _V23= , #menures
+set #menures Q
+menu getprop v24 left
+set %r %r , _V24= , #menures
+set #menures Q
+menu getprop v25 left
+set %r %r , _V25= , #menures
+set #menures Q
+menu getprop v26 left
+set %r %r , _V26= , #menures
+set #menures Q
+menu getprop v27 left
+set %r %r , _V27= , #menures
+set #menures Q
+menu getprop v28 left
+set %r %r , _V28= , #menures
+set #menures Q
+menu getprop v29 left
+set %r %r , _V29= , #menures
+set #menures Q
+menu getprop v30 left
+set %r %r , _V30= , #menures
+set #menures Q
+menu getprop v31 left
+set %r %r , _V31= , #menures
+set #menures Q
+menu getprop v32 left
+set %r %r , _V32= , #menures
+set #menures Q
+menu getprop v33 left
+set %r %r , _V33= , #menures
+set #menures Q
+menu getprop v34 left
+set %r %r , _V34= , #menures
+set #menures Q
+menu getprop v35 left
+set %r %r , _V35= , #menures
+menu getprop v03 top
+set %r %r , _V03TOP= , #menures
+menu getprop v24 width
+set %r %r , _V24W= , #menures
+menu getprop v33 width
+set %r %r , _V33W= , #menures
+menu getprop v34 width
+set %r %r , _V34W= , #menures
+menu window title R:A: , %r
+halt

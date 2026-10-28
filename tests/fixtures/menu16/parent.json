@@ -1,0 +1,77 @@
+{
+ "probe": "parent",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "A"
+   ],
+   "report": "B1P=form0_B1P1=p1_B1L=120_B1NOTHERE=p1_B1LBL=p1_LBLP=form0_STALE=B1_DEFP1=p1_INP1=p1_DEFAFTERDEL=p1_B1AFTERDEL=Q2_DEFNOTHERE=form0_FORM0P=Q3",
+   "values": [
+    "B1P=form0",
+    "B1P1=p1",
+    "B1L=120",
+    "B1NOTHERE=p1",
+    "B1LBL=p1",
+    "LBLP=form0",
+    "STALE=B1",
+    "DEFP1=p1",
+    "INP1=p1",
+    "DEFAFTERDEL=p1",
+    "B1AFTERDEL=Q2",
+    "DEFNOTHERE=form0",
+    "FORM0P=Q3"
+   ]
+  },
+  {
+   "step": "forms",
+   "forms": [
+    {
+     "caption": "R:A:B1P=form0_B1P1=p1_B1L=120_B1NOTHERE=p1_B1LBL=p1_LBLP=form0_STALE=B1_DEFP1=p1_INP1=p1_DEFAFTERDEL=p1_B1AFTERDEL=Q2_DEFNOTHERE=form0_FORM0P=Q3",
+     "visible": true,
+     "left": 100,
+     "top": 100,
+     "width": 306,
+     "height": 229,
+     "client": [
+      300,
+      200
+     ],
+     "style": "16CA0000",
+     "exstyle": "00010108",
+     "children": []
+    },
+    {
+     "caption": "fx",
+     "visible": false,
+     "left": 400,
+     "top": 100,
+     "width": 136,
+     "height": 89,
+     "client": [
+      130,
+      60
+     ],
+     "style": "06CA0000",
+     "exstyle": "00010108",
+     "children": []
+    },
+    {
+     "caption": "fx2",
+     "visible": false,
+     "left": 500,
+     "top": 100,
+     "width": 136,
+     "height": 89,
+     "client": [
+      130,
+      60
+     ],
+     "style": "06CA0000",
+     "exstyle": "00010108",
+     "children": []
+    }
+   ]
+  }
+ ]
+}
