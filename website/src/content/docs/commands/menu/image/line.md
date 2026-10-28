@@ -3,6 +3,9 @@ title: "menu Image Line"
 description: "Draws a line in an image."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
+menuDiffers: true
+credits: ['scriptuo']
 syntax: "menu Image Line {name} {x1} {y1} {x2} {y2} {colour} [width]"
 related: ["menu Image Rectangle", "menu Image Create"]
 source: wiki
@@ -24,3 +27,8 @@ source: wiki
 ```euo
 menu Image Line pic 0 0 63 63 red 2
 ```
+
+## 1.5 and 1.6
+
+- **1.6:** a negative second corner (`x2`, `y2`) is refused.
+- An invalid line width draws a 1-pixel line in 1.6 and nothing in 1.5.

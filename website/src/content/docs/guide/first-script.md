@@ -14,6 +14,12 @@ sidebar:
   script's own `%variables`. The values refresh a few times a second while a script runs.
 - **Title bar**: shows the version (`YY.MM.DD.<commit>`), also under *Help → About* and in
   [`#ReforgedVer`](/variables/reforgedver/).
+- **Status bar** (bottom), from left to right: the cursor's line and column in the editor; your character's
+  position ([`#CharPosX`](/variables/charposx/) / [`#CharPosY`](/variables/charposy/)) and where it is
+  within its 8 × 8 map block; the mouse position ([`#CursorX`](/variables/cursorx/) /
+  [`#CursorY`](/variables/cursory/)); the selected client and how many there are; and which
+  [`menu` system](/commands/menu/versions/) the tab's script runs, or ran last: `MENU 1.5`, `MENU 1.6`, with
+  `(forced)` when the script set it with [`menu Reforge Mode`](/commands/menu/reforge/mode/).
 
 ## Run a script
 
@@ -32,6 +38,11 @@ sidebar:
 
 If you get *"No supported UO client found!"*, the client isn't running, isn't logged in, or is a version
 this build doesn't recognize yet.
+
+A message saying a `menu` sub-command *needs the EasyUO 1.6 MENU logic* means the script uses EasyUO 1.6's
+`menu` in a way Reforged could not tell before it started. It comes once per run and the script goes on, but
+that menu line does nothing. Add the line the message names, usually `menu Reforge Mode 1.6`, at the top of
+the script; see [MENU: EasyUO 1.5 and 1.6](/commands/menu/versions/).
 
 New to the language itself? The [introduction](/guides/introduction/) and the
 [beginner's tutorial](/guides/beginners-tutorial/) start from zero; the [Language](/language/variables/)

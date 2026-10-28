@@ -3,6 +3,9 @@ title: "menu Check"
 description: "Places a check box in the menu window."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
+menuDiffers: true
+credits: ['scriptuo']
 syntax: "menu Check {name} {x} {y} {width} {height} {checked} {text}"
 related: ["menu Get", "menu Set"]
 aliases: ["checkbox"]
@@ -33,3 +36,10 @@ menu Get loot
 if #MenuRes = #true
   gosub loot
 ```
+
+## 1.5 and 1.6
+
+- **1.6:** the check box goes into the current [default parent](/commands/menu/setdef/), and its name must be
+  free: a second one with a taken name appears but cannot be read or changed. Its properties can be read and
+  changed with [`menu GetProp`](/commands/menu/getprop/) and [`menu SetProp`](/commands/menu/setprop/).
+  [`menu Radio`](/commands/menu/radio/) makes radio buttons.

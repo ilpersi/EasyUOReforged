@@ -3,6 +3,7 @@ title: "menu Image FloodFill"
 description: "Fills an area of one colour in an image with another, like a paint bucket."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
 syntax: "menu Image FloodFill {name} {x} {y} {colour}"
 related: ["menu Image Ellipse", "menu Image Rectangle"]
 aliases: ["paint bucket", "fill"]

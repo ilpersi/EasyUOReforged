@@ -3,6 +3,7 @@ title: "menu Image Pix"
 description: "Paints one pixel of an image."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
 syntax: "menu Image Pix {name} {x} {y} {colour}"
 related: ["menu Image PixLine", "menu Image Create"]
 source: wiki

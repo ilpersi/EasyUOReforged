@@ -3,6 +3,9 @@ title: "menu Image Ellipse"
 description: "Draws an ellipse or circle in an image, outlined or filled."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
+menuDiffers: true
+credits: ['scriptuo']
 syntax: "menu Image Ellipse {name} {x1} {y1} {x2} {y2} {colour} {fill} [width]"
 related: ["menu Image Rectangle", "menu Image Create"]
 aliases: ["circle"]
@@ -29,3 +32,7 @@ square gives a circle. Positions are inside the image, `0, 0` being its top-left
 ```euo
 menu Image Ellipse pic 8 8 56 56 yellow #true
 ```
+
+## 1.5 and 1.6
+
+- **1.6:** a negative second corner (`x2`, `y2`) is refused.

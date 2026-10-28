@@ -3,6 +3,7 @@ title: "menu Font BGColor"
 description: "Sets the background colour of the controls created after it."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
 syntax: "menu Font BGColor {colour}"
 related: ["menu Font Color", "menu Font Transparent"]
 source: wiki

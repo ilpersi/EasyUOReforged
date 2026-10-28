@@ -3,6 +3,9 @@ title: "menu Edit"
 description: "Places a one-line text field in the menu window."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
+menuDiffers: true
+credits: ['scriptuo']
 syntax: "menu Edit {name} {x} {y} {width} {text}"
 related: ["menu Get", "menu GetNum", "menu Memo", "menu Set"]
 aliases: ["text field", "input"]
@@ -32,3 +35,9 @@ menu Edit pet 10 10 150 Fluffy
 menu Get pet
 set %petname #MenuRes
 ```
+
+## 1.5 and 1.6
+
+- **1.6:** the field goes into the current [default parent](/commands/menu/setdef/), and its name must be
+  free: a second field with a taken name appears but cannot be read or changed. `$` stays as written in
+  both.

@@ -637,10 +637,11 @@ Settled while implementing (steps 4 and 5):
 - The notice for a 1.6 command in 1.5 logic: a message box, once per run (§6.2).
 - Where the editor shows the logic in use: the status bar (§6.2).
 - `setprop … parent` into a button or a radio button: kept, LCL handles it as 1.6 did.
+- The documentation's frontmatter names (`menuLogic`, `menuDiffers`, `credits`) and the ScriptUO
+  acknowledgement: as proposed in §6.8 (step 6). The site's comparison page is
+  `commands/menu/versions.md`.
 
-Still open, each with a recommendation:
-1. **Frontmatter names for the docs** (`menuLogic`, `menuDiffers`, `credits`): as proposed in §6.8.
-2. **Exact wording of the ScriptUO acknowledgement:** a draft is in §6.8 item 5.
+Nothing is left open.
 
 ## 9. Deep review of the superset (2026-10-28)
 

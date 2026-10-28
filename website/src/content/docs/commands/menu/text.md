@@ -3,6 +3,9 @@ title: "menu Text"
 description: "Places a label in the menu window; $ starts a new line."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
+menuDiffers: true
+credits: ['scriptuo']
 syntax: "menu Text {name} {x} {y} {text}"
 related: ["menu Set", "menu Font Name"]
 aliases: ["label"]
@@ -32,3 +35,10 @@ menu Text status 10 10 Waiting...
 ; later
 menu Set status Done
 ```
+
+## 1.5 and 1.6
+
+- **1.6:** labels always have a background, in the colour set by
+  [`menu Font BgColor`](/commands/menu/font/bgcolor/): [`menu Font Transparent`](/commands/menu/font/transparent/)
+  is ignored. The label goes into the current [default parent](/commands/menu/setdef/), and its name must
+  be free: a second label with a taken name stays on screen but cannot be changed or deleted.

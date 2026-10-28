@@ -10,7 +10,10 @@
 #   Commands    script commands, from the CmdRegistry.Register(...) calls
 #   Events      'event <type>' types, from the ParList[1].StrU='...' tests in EventProc
 #   ExEvents    'exevent <type>' types, the same in ExEventProc
-#   Menu        'menu <element>' first words, the same in MenuProcSync ('menu font align' -> FONT)
+#   Menu        'menu <element>' first words of either MENU logic ('menu font align' -> FONT):
+#   Menu15        the 1.5 logic's, the same tests in MenuProcSync
+#   Menu16        the 1.6 logic's, from the Sub='...' tests in TMenu16.Run (parser\EuoMenu16.pas)
+#   MenuShared    the ones MenuProc handles for both logics before either runs (REFORGE)
 #   NameSpace   'namespace <action>' actions, the same in NameSpaceProc
 #   Str         'str <operation>' operations, the same in StrProc
 #   Sql         'sql <command>' sub-commands, from the Sub='...' tests in SqlProc
@@ -40,7 +43,9 @@ function Get-EuoNames {
   $wrapFile   = Join-Path $EuoRoot 'uo\uowrap.pas'
   $synFile    = Join-Path $EuoRoot 'easyuo\eusyntax.pas'
   $complFile  = Join-Path $EuoRoot 'easyuo\eucomplete.pas'
+  $menu16File = Join-Path $EuoRoot 'parser\EuoMenu16.pas'
   $interp = Get-Content $interpFile -Raw
+  $menu16 = Get-Content $menu16File -Raw
   $wrap   = Get-Content $wrapFile -Raw
   $syn    = Get-Content $synFile -Raw
   $compl  = (Get-Content $complFile -Raw) -replace "'\s*\+\s*'", ''   # join 'a ' + 'b' literals
@@ -60,6 +65,12 @@ function Get-EuoNames {
   if (-not $uoTbl.Success -or -not $calls.Success) { throw "Could not find UOTbl / Commands in $wrapFile" }
   $itemNames = { param($m) [regex]::Matches($m.Groups[1].Value, "N:\s*'([^']+)'") | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique }
 
+  $run16 = [regex]::Match($menu16, "procedure TMenu16\.Run\(Pars : TParList\);(.*?)\r?\nend;", 'Singleline')
+  if (-not $run16.Success) { throw "Could not find TMenu16.Run in $menu16File" }
+  $menu15Names = @(& $subTypes (Get-EuoProcBody $interp 'MenuProcSync' $interpFile))
+  $menu16Names = @(& $subTypes $run16.Groups[1].Value "Sub='([A-Z]+)'")
+  $menuShared  = @(& $subTypes (Get-EuoProcBody $interp 'MenuProc' $interpFile) | Where-Object { $menu15Names -notcontains $_ })
+
   $rw = @(Get-EuoPascalArray $interp 'VarNamesRW' $interpFile)
   [pscustomobject]@{
     Variables   = @(Get-EuoPascalArray $interp 'VarNamesR' $interpFile) + $rw
@@ -67,7 +78,10 @@ function Get-EuoNames {
     Commands    = @([regex]::Matches($interp, "CmdRegistry\.Register\('([^']+)'") | ForEach-Object { $_.Groups[1].Value })
     Events      = @(& $subTypes (Get-EuoProcBody $interp 'EventProc' $interpFile))
     ExEvents    = @(& $subTypes (Get-EuoProcBody $interp 'ExEventProc' $interpFile))
-    Menu        = @(& $subTypes (Get-EuoProcBody $interp 'MenuProcSync' $interpFile))
+    Menu        = @(@($menu15Names) + @($menu16Names) + @($menuShared) | Sort-Object -Unique)
+    Menu15      = $menu15Names
+    Menu16      = $menu16Names
+    MenuShared  = $menuShared
     NameSpace   = @(& $subTypes (Get-EuoProcBody $interp 'NameSpaceProc' $interpFile))
     Str         = @(& $subTypes (Get-EuoProcBody $interp 'StrProc' $interpFile))
     Sql         = @(& $subTypes (Get-EuoProcBody $interp 'SqlProc' $interpFile) "Sub\s*(?:=|<>)\s*'([A-Z]+)'")

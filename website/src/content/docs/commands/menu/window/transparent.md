@@ -3,6 +3,7 @@ title: "menu Window Transparent"
 description: "Makes the whole menu window see-through, from 0 to 100 percent opaque."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
 syntax: "menu Window Transparent {opacity}"
 related: ["menu Window Color"]
 source: wiki

@@ -15,8 +15,16 @@ const reference = z.object({
 	category: z.enum(ALL_CATEGORY_KEYS as [string, ...string[]]).optional(),
 	// one-line usage, shown highlighted under the title
 	syntax: z.string().optional(),
-	// 'reforged' = added by this port; 'original' = existed in EasyUO 1.5
+	// 'reforged' = added by this port; 'original' = existed in EasyUO: in 1.5, or, for the MENU
+	// sub-commands only EasyUO 1.6 has, in 1.6 (`menuLogic` says which)
 	origin: z.enum(['original', 'reforged']).default('original'),
+	// MENU pages: which MENU logic has it, EasyUO 1.5's or 1.6's (Reforged runs a script under one of
+	// them, see commands/menu/versions.md). Required on every MENU page (refdata.ts).
+	menuLogic: z.array(z.enum(['1.5', '1.6'])).optional(),
+	// MENU pages in both logics that behave differently in each; the page needs a "1.5 and 1.6" section
+	menuDiffers: z.boolean().default(false),
+	// acknowledgements shown at the foot of the page: 'scriptuo' = researched with the ScriptUO community
+	credits: z.array(z.enum(['scriptuo'])).default([]),
 	// true when Reforged behaves differently from EasyUO 1.5; the page then needs a "Reforged notes" section
 	changed: z.boolean().default(false),
 	obsolete: z.boolean().default(false),

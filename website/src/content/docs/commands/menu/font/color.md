@@ -3,6 +3,7 @@ title: "menu Font Color"
 description: "Sets the text colour of the controls created after it."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
 syntax: "menu Font Color {colour}"
 related: ["menu Font BGColor", "menu Window Color"]
 source: wiki

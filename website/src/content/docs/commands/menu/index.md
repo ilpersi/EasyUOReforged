@@ -3,6 +3,9 @@ title: "Menu"
 description: "Builds a window of buttons, text, fields, lists and images that a script can show and read."
 kind: command
 category: menu
+menuLogic: ['1.5', '1.6']
+menuDiffers: true
+credits: ['scriptuo']
 syntax: "menu {element} [parameters...]"
 related: ["#MenuButton", "#MenuRes", "#LPC"]
 aliases: ["gui", "window", "dialog", "form"]
@@ -11,6 +14,13 @@ source: wiki
 
 `menu` builds a small window of your own, the *menu window*, with text, buttons, edit fields, check boxes,
 lists and images. The script shows it, reacts to clicks, and reads what the user typed or chose.
+
+:::note[Two MENU systems]
+EasyUO 1.5 and EasyUO 1.6 have different `menu` systems, and Reforged runs both: each script runs under one
+of them, picked from what the script uses, or set with [`menu Reforge Mode`](/commands/menu/reforge/mode/).
+This page describes what they share; every sub-command page says which has it. See
+[MENU: EasyUO 1.5 and 1.6](/commands/menu/versions/).
+:::
 
 ```euo
 menu Clear
@@ -88,3 +98,25 @@ hundred controls takes about half a second to appear. Put `set #LPC 1000` before
 | [menu Get](/commands/menu/get/) / [menu GetNum](/commands/menu/getnum/) | Reads a control's value into `#MenuRes`. |
 | [menu Set](/commands/menu/set/) | Changes a control's text or state. |
 | [menu Activate](/commands/menu/activate/) | Gives a control the keyboard focus. |
+
+| EasyUO 1.6 only | |
+|---|---|
+| [menu Form](/commands/menu/form/) | Another window. |
+| [menu Panel](/commands/menu/panel/) | An area that holds controls. |
+| [menu Radio](/commands/menu/radio/) | A radio button. |
+| [menu GetProp](/commands/menu/getprop/) / [menu SetProp](/commands/menu/setprop/) | Reads or changes any property of a control or window. |
+| [menu GetDef](/commands/menu/getdef/) / [menu SetDef](/commands/menu/setdef/) | Reads or changes what new controls are created with, and where they go. |
+| [menu PushDef](/commands/menu/pushdef/) / [menu PopDef](/commands/menu/popdef/) | Saves and brings back those defaults. |
+
+| Reforged settings | |
+|---|---|
+| [menu Reforge Mode](/commands/menu/reforge/mode/) | Chooses the 1.5 or the 1.6 MENU system for the script. |
+| [menu Reforge IncludeCall](/commands/menu/reforge/includecall/) | Makes the automatic choice read called files too. |
+
+## 1.5 and 1.6
+
+What this page describes holds for both MENU systems, except where it speaks of names, `CLOSED` and the
+start of a script, which follow the 1.5 rules. In the 1.6 logic a name belongs to one control, a click gives
+the button's name in lower case, [`menu Hide`](/commands/menu/hide/) does not set `CLOSED`, and starting a
+script destroys every menu window and creates a new, hidden one. The details, and a table of which
+sub-command each system has, are on [MENU: EasyUO 1.5 and 1.6](/commands/menu/versions/).

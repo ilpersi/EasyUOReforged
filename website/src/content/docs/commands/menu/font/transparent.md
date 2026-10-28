@@ -3,6 +3,8 @@ title: "menu Font Transparent"
 description: "Draws the labels created after it without a background."
 kind: subcommand
 category: menu
+menuLogic: ['1.5']
+credits: ['scriptuo']
 syntax: "menu Font Transparent {#true|#false}"
 related: ["menu Text", "menu Font BGColor"]
 source: wiki
@@ -20,3 +22,8 @@ menu Font Transparent #true
 menu Font Color white
 menu Text title 10 10 On a blue band
 ```
+
+## 1.5 and 1.6
+
+EasyUO 1.6 dropped `menu Font Transparent`: under the 1.6 logic the line does nothing and labels always have
+a background, in the colour set by [`menu Font BgColor`](/commands/menu/font/bgcolor/).

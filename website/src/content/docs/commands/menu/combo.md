@@ -3,6 +3,9 @@ title: "menu Combo"
 description: "Places a drop-down list in the menu window, and fills or selects its entries."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
+menuDiffers: true
+credits: ['scriptuo']
 syntax: "menu Combo Create {name} {x} {y} {width}\nmenu Combo Add {name} {text}\nmenu Combo Select {name} {number}\nmenu Combo Clear {name}"
 related: ["menu List", "menu Get"]
 aliases: ["combobox", "drop-down", "dropdown"]
@@ -33,3 +36,9 @@ menu Combo Select town 1
 menu Get town
 display ok You chose town number #MenuRes
 ```
+
+## 1.5 and 1.6
+
+- **1.5:** `Add`, `Select` and `Clear` act on every combo box with that name.
+- **1.6:** they act on the one combo box the name belongs to; a second one created with the same name is
+  out of reach. The combo box goes into the current [default parent](/commands/menu/setdef/).

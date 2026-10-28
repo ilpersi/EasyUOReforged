@@ -3,6 +3,7 @@ title: "menu Font Name"
 description: "Sets the font of the controls created after it."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
 syntax: "menu Font Name {font}"
 related: ["menu Font Size", "menu Font Style", "menu Clear"]
 source: wiki

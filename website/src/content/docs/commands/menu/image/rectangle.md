@@ -3,6 +3,9 @@ title: "menu Image Rectangle"
 description: "Draws a rectangle in an image, outlined or filled."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
+menuDiffers: true
+credits: ['scriptuo']
 syntax: "menu Image Rectangle {name} {x1} {y1} {x2} {y2} {colour} {fill} [width]"
 related: ["menu Image Ellipse", "menu Image Create"]
 source: wiki
@@ -28,3 +31,7 @@ source: wiki
 menu Image Rectangle pic 0 0 64 64 white #true
 menu Image Rectangle pic 4 4 60 60 black #false 2
 ```
+
+## 1.5 and 1.6
+
+- **1.6:** a negative second corner (`x2`, `y2`) is refused.

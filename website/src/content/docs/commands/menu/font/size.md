@@ -3,6 +3,7 @@ title: "menu Font Size"
 description: "Sets the font size of the controls created after it."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
 syntax: "menu Font Size {points}"
 related: ["menu Font Name"]
 source: wiki

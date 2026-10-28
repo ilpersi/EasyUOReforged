@@ -3,6 +3,7 @@ title: "menu Image File"
 description: "Draws a picture file into an image."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
 syntax: "menu Image File {name} {x} {y} {file}"
 related: ["menu Image Create", "#CurPath"]
 aliases: ["load picture", "png", "bmp"]

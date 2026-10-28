@@ -3,6 +3,9 @@ title: "menu Get"
 description: "Reads the value of a control into #MenuRes."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
+menuDiffers: true
+credits: ['scriptuo']
 syntax: "menu Get {name}"
 sets: ["#MenuRes"]
 related: ["menu GetNum", "menu Set", "#MenuRes", "#MenuButton"]
@@ -29,3 +32,9 @@ Clicks need no `menu Get`: they go to [`#MenuButton`](/variables/menubutton/) by
 menu Get pet
 set %petname #MenuRes
 ```
+
+## 1.5 and 1.6
+
+- **1.6:** also reads [radio buttons](/commands/menu/radio/): `-1` when checked, `0` when not. It reads the
+  control the name belongs to; in 1.5, the first control with that name. Labels, buttons and images give
+  `N/A` in both.

@@ -3,6 +3,8 @@ title: "menu Image PixLine"
 description: "Paints a row of pixels of an image from a compact text code."
 kind: subcommand
 category: menu
+menuLogic: ['1.5']
+credits: ['scriptuo']
 syntax: "menu Image PixLine {name} {x} {y} {data}"
 related: ["menu Image Pix", "menu Image File"]
 aliases: ["sprite"]
@@ -38,3 +40,8 @@ Keep pictures painted this way small. For anything bigger, load a file with
 ; a 4-pixel black, grey, white, navy row
 menu Image PixLine pic 0 0 AAAPPP666AAP
 ```
+
+## 1.5 and 1.6
+
+EasyUO 1.6 dropped `menu Image PixLine`: under the 1.6 logic the line does nothing. Draw with
+[`menu Image Pix`](/commands/menu/image/pix/) or [`menu Image Line`](/commands/menu/image/line/).

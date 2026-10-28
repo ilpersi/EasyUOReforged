@@ -10,7 +10,9 @@
 #   #Name               variables\name.md
 #   Command             commands\command.md (or a page whose `aliases:` lists it: Until -> repeat.md)
 #   event / exevent X   commands\event\x.md, commands\exevent\x.md
-#   menu X              commands\menu\x.md, or any page under commands\menu\x\ (menu font align)
+#   menu X              commands\menu\x.md, or any page under commands\menu\x\ (menu font align); X is a
+#                       sub-command of either MENU logic, 1.5's or 1.6's, and every MENU page's menuLogic
+#                       must say which logics have it (see "MENU: which logic has it" below)
 #   namespace / sql X   commands\namespace\x.md, commands\sql\x.md
 #   path X              commands\path\x.md
 #   str X               mentioned on commands\str.md (one page documents every str operation)
@@ -104,6 +106,39 @@ foreach ($p in $pages.Values | Where-Object { $_.Kind } | Sort-Object Slug) {
   if (-not $ok) { $orphans.Add("$($p.Slug) (kind: $($p.Kind))") }
 }
 
+# ---- MENU: which logic has it ----------------------------------------------------------------------------
+# Every MENU page says which MENU logic has it (menuLogic: ['1.5', '1.6'], docs/menu-1.6-analysis.md). For a
+# first-level page (menu text) that must be what the two dispatchers say; a deeper page (menu font transparent)
+# may have fewer, as long as its element has them. A page marked menuDiffers needs a "## 1.5 and 1.6" section.
+$menuProblems = New-Object System.Collections.Generic.List[string]
+foreach ($p in $pages.Values | Where-Object { $_.Kind -and $_.Slug -like 'commands/menu*' } | Sort-Object Slug) {
+  $fm = [regex]::Match($p.Text, '^---\r?\n(.*?)\r?\n---', 'Singleline').Groups[1].Value
+  $logicLine = [regex]::Match($fm, '(?m)^menuLogic:\s*\[(.*)\]')
+  if (-not $logicLine.Success) { $menuProblems.Add("$($p.Slug): no menuLogic"); continue }
+  $have = @([regex]::Matches($logicLine.Groups[1].Value, '["'']([^"'']+)["'']') | ForEach-Object { $_.Groups[1].Value } | Sort-Object)
+  $parts = $p.Slug.Split('/')
+  if ($parts.Count -lt 3) { $want = @('1.5', '1.6') }
+  else {
+    $e = $parts[2].ToUpper()
+    $want = @()
+    if ($names.Menu15 -contains $e -or $names.MenuShared -contains $e) { $want += '1.5' }
+    if ($names.Menu16 -contains $e -or $names.MenuShared -contains $e) { $want += '1.6' }
+  }
+  if ($parts.Count -le 3) {
+    if (($have -join ',') -ne ($want -join ',')) {
+      $menuProblems.Add("$($p.Slug): menuLogic [$($have -join ', ')], the interpreter has it in [$($want -join ', ')]")
+    }
+  }
+  elseif ($have.Count -eq 0 -or @($have | Where-Object { $want -notcontains $_ }).Count -gt 0) {
+    $menuProblems.Add("$($p.Slug): menuLogic [$($have -join ', ')] is not within its element's [$($want -join ', ')]")
+  }
+}
+foreach ($p in $pages.Values | Sort-Object Slug) {
+  if ($p.Text -match '(?m)^menuDiffers:\s*true' -and $p.Text -notmatch '(?m)^## 1\.5 and 1\.6\s*$') {
+    $menuProblems.Add("$($p.Slug): menuDiffers is set but there is no '## 1.5 and 1.6' section")
+  }
+}
+
 # ---- highlighter / autocomplete drift (warnings) ---------------------------------------------------------
 $hlVars = & $lower $names.Highlighted.Variables
 $hlCmds = & $lower $names.Highlighted.Commands
@@ -142,6 +177,12 @@ if ($orphans.Count -gt 0) {
   Write-Host "Docs coverage: $($orphans.Count) reference pages match no name in the interpreter:" -ForegroundColor Red
   $orphans | ForEach-Object { Write-Host "  $_" }
   Write-Host "Rename or remove the page, or list it in `$PageWithoutName with a reason."
+  $failed = $true
+}
+if ($menuProblems.Count -gt 0) {
+  Write-Host "Docs coverage: $($menuProblems.Count) MENU pages disagree with the two MENU logics:" -ForegroundColor Red
+  $menuProblems | ForEach-Object { Write-Host "  $_" }
+  Write-Host "Set menuLogic to the logics that have the sub-command, and give a menuDiffers page its '## 1.5 and 1.6' section."
   $failed = $true
 }
 if ($failed) { exit 1 }

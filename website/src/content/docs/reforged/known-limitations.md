@@ -18,7 +18,8 @@ testing has reached. Confirmed against a live client so far:
 - Script execution: the interpreter, variables, flow control.
 - [`FindItem`](/commands/finditem/) and the related item commands.
 - The variable inspector and VarDump.
-- [`menu`](/commands/menu/) windows: text, buttons, checkboxes, edit fields and images.
+- [`menu`](/commands/menu/) windows of the EasyUO 1.5 MENU system: text, buttons, checkboxes, edit fields
+  and images.
 - The editor.
 
 **Treat anything not listed as unverified**, and keep the original EasyUO next to it if you rely on
@@ -55,6 +56,23 @@ EasyUO for anything important, until you have checked that the scripts and featu
   another font, as the original did.
 - **[`menu Image File`](/commands/menu/image/file/)** reliably loads BMP, PNG, JPEG and GIF. Older formats
   the original accepted (WMF, EMF, ICO) may not work.
+- **EasyUO 1.6's `menu`.** The [1.6 MENU logic](/commands/menu/versions/) is checked automatically against
+  what EasyUO 1.6.0.337 did in 23 recorded test scripts, but has not yet been tried by hand with real 1.6
+  scripts.
+  - A script runs under one MENU system from start to end, with the files it calls. Reforged picks it from the
+    script's text when it starts: a 1.6 sub-command that only a variable or a called file supplies is not
+    seen, unless the script sets [`menu Reforge Mode`](/commands/menu/reforge/mode/) (or, for called files,
+    [`menu Reforge IncludeCall`](/commands/menu/reforge/includecall/)).
+  - Where EasyUO 1.6 crashed or wrote into the wrong control, Reforged does nothing instead: `menu Image`
+    drawing commands on a control that is not an image, and [`menu Show`](/commands/menu/show/),
+    [`menu Hide`](/commands/menu/hide/) or `menu Window` after the name `form0` was given to another control.
+    It also never moves a control into itself or into one of its own children, and
+    [`menu Activate`](/commands/menu/activate/) skips a control that cannot take the focus.
+  - A [`menu Panel`](/commands/menu/panel/) created with a negative size reads back 0, not the number given.
+  - [`menu Image File`](/commands/menu/image/file/) draws the whole picture; EasyUO 1.6 lost a bitmap's last
+    column.
+  - While a script rebuilds a menu window that is shown, the 1.5 logic holds back repainting until it is done;
+    the 1.6 logic does not, so the window may flicker.
 - **64-bit Windows only.** EasyUO Reforged itself is 64-bit; it still drives the usual 32-bit UO client.
 - **`uo.dll`**, the API for external programs, has only been tested by a small Python script (ctypes) on
   `client.exe` 7.0.117.1. It selected the client, read variables, and planned and checked with the

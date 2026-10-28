@@ -40,6 +40,17 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
   [`#BuffCliloc`](/variables/buffcliloc/), [`#BuffName`](/variables/buffname/),
   [`#BuffDesc`](/variables/buffdesc/), [`#BuffTime`](/variables/bufftime/) and
   [`#BuffBarOpen`](/variables/buffbaropen/).
+- **[EasyUO 1.6's `menu`](/commands/menu/versions/)**: besides the `menu` of EasyUO 1.5, Reforged runs the
+  rewritten one of EasyUO 1.6, so scripts written for 1.6 show their windows. Each script runs under one or
+  the other, picked from the sub-commands it uses.
+  - The sub-commands only 1.6 has: [`menu Form`](/commands/menu/form/), [`menu Panel`](/commands/menu/panel/),
+    [`menu Radio`](/commands/menu/radio/), [`menu GetProp`](/commands/menu/getprop/),
+    [`menu SetProp`](/commands/menu/setprop/), [`menu GetDef`](/commands/menu/getdef/),
+    [`menu SetDef`](/commands/menu/setdef/), [`menu PushDef`](/commands/menu/pushdef/) and
+    [`menu PopDef`](/commands/menu/popdef/).
+  - [`menu Reforge Mode`](/commands/menu/reforge/mode/) sets the system for a script;
+    [`menu Reforge IncludeCall`](/commands/menu/reforge/includecall/) makes the automatic choice read the
+    files the script calls.
 - **[`menu Memo`](/commands/menu/memo/)**: a multi-line, scrollable text field for menu windows.
 - **[`#ReforgedVer`](/variables/reforgedver/)**: the build version of EasyUO Reforged.
   [`#EUOVer`](/variables/euover/) still returns `1_50_00`, so existing version checks keep working.
@@ -68,7 +79,9 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 ## The editor
 
 - Line numbers and **Ctrl+Space** autocomplete (it knows the sub-commands of `menu`, `sql`, `event` and the
-  others).
+  others, and the property names of [`menu GetProp`](/commands/menu/getprop/)).
+- The status bar shows which [`menu` system](/commands/menu/versions/) a script runs, and a message tells you
+  when a script needs the other one.
 - A Find and Replace window with regular expressions, wrap-around, a match count, every match highlighted,
   search in a selection or in all open scripts, search history, and **F3** / **Shift+F3**.
 - Code folding for subs, `{ }` blocks and `repeat`, with Fold All / Unfold All.

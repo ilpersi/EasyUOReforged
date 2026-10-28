@@ -3,6 +3,9 @@ title: "menu Memo"
 description: "Creates a multi-line, scrollable text field in the EasyUO menu window."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
+menuDiffers: true
+credits: ['scriptuo']
 syntax: "menu Memo {name} {x} {y} {width} {height} {text}"
 origin: reforged
 related: ["menu Edit", "menu Get", "#MenuRes"]
@@ -44,3 +47,10 @@ display ok #MenuRes
 ## Reforged notes
 
 `menu Memo` is new in EasyUO Reforged.
+
+## 1.5 and 1.6
+
+`menu Memo` is a Reforged addition and works in both, with the same syntax. In the 1.6 logic it follows the
+1.6 rules: it goes into the current [default parent](/commands/menu/setdef/), its name must be free, and
+[`menu GetProp`](/commands/menu/getprop/) / [`menu SetProp`](/commands/menu/setprop/) work on it like on
+an edit field, `text` turning `$` into line breaks and back.
