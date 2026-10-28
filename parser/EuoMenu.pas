@@ -63,6 +63,13 @@ unit EuoMenu;
     window count as hidden for every burst -- its taskbar button blinked off and
     on with each update, and clicks went through it to the window below (the UO
     client). Held on a child window it does neither. See TMenuObj.BurstBegin.
+  - ComboListSelect on a list box only sets an index that is in the list or is
+    -1 (MENU LIST SELECT 0). VCL's ItemIndex sent LB_SETCURSEL, which clears the
+    selection for -1 and ignores any other index outside the list, leaving the
+    selection as it was; LCL's raises for an index past the end, which stopped
+    the script with an error, and clears the selection for one below -1. The
+    combo box needs no guard: LCL's TComboBox already ignores an index outside
+    its list, as CB_SETCURSEL did.
 
   Everything else -- every method name/signature, the Ctrls TStringList of
   UPPERCASE(name)->control pairs, the ClassName-string dispatch in Get/_Set/
@@ -582,7 +589,12 @@ begin
   begin
     Obj:=Ctrls.Objects[Cnt];
     if Obj.ClassName='TListBox' then
-      TListBox(Obj).ItemIndex:=Ind-1
+    begin
+      // LB_SETCURSEL (what VCL sent) clears the selection for -1 and leaves it
+      // as it is for any other index outside the list; LCL raises instead.
+      if (Ind-1>=-1) and (Ind-1<TListBox(Obj).Items.Count) then
+        TListBox(Obj).ItemIndex:=Ind-1;
+    end
     else if Obj.ClassName='TComboBox' then
     begin
       TComboBox(Obj).ItemIndex:=Ind-1;
