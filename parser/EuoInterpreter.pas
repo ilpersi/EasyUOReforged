@@ -65,7 +65,8 @@ unit EuoInterpreter;
   EuoMenuSelect from the script's text. #MenuButton/#MenuRes (527/528) are read and written
   through the chosen logic. MENU REFORGE only carries the selection's settings and does nothing
   at runtime. A 1.6-only MENU line reached under a 1.5 logic that was chosen automatically
-  leaves MenuNotice for the GUI, once per run; the 1.5 path itself runs as before. Under the 1.6
+  leaves a notice the GUI takes with TakeMenuNotice, once per run; the 1.5 path itself runs as
+  before. Under the 1.6
   logic MENU must do what EasyUO 1.6 did as recorded in tests/fixtures/menu16, which
   EuoMenu16GoldenTests replays.
 }
@@ -108,6 +109,7 @@ type
     Menu16       : TMenu16;       // port addition (MENU 1.6): set whenever FMenuLogic=mlMenu16
     FMenuLogic   : TMenuLogic;
     FMenuForced  : Boolean;       // the logic came from "menu reforge mode", not detection
+    FMenuChosen  : Boolean;       // a script's text chose it (not the empty tab's Clear)
     FMenuNotice  : String;
     MenuNoticed  : Boolean;       // the notice was raised in this run
     CommObj      : TCommObj;
@@ -271,10 +273,12 @@ type
     function     Delay(ms : Cardinal) : Boolean;
     // Port addition (MENU 1.5/1.6): the MENU logic of the current run, chosen in Clear.
     property     MenuLogic : TMenuLogic read FMenuLogic;
-    // Set when a 1.6-only MENU line ran under an automatically chosen 1.5 logic (once per
-    // run); the GUI shows it and clears it, the same poll-and-consume idiom as
-    // TExecutor.LastError.
-    property     MenuNotice : String read FMenuNotice write FMenuNotice;
+    property     MenuForced : Boolean read FMenuForced;
+    property     MenuChosen : Boolean read FMenuChosen;
+    // The notice left when a 1.6-only MENU line ran under an automatically chosen 1.5 logic
+    // (once per run), or ''; taking it clears it -- the poll-and-consume idiom of
+    // TExecutor.LastError, under the lock PlayLine holds while the script thread writes it.
+    function     TakeMenuNotice : String;
   end;
 
 implementation
@@ -1871,6 +1875,7 @@ var
   NewLogic : TMenuLogic;
 begin
   NewLogic:=ChooseMenuLogic(ScrList.Scrs[0],ResolveCallFile,FMenuForced);
+  FMenuChosen:=ScrList.Scrs[0].Count>0;
   MenuNoticed:=False;
   FMenuNotice:='';
 
@@ -1918,6 +1923,20 @@ begin
   until True;
 
   Result:=sBuf;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (MENU 1.5/1.6): for the GUI thread. NoteMenu16Needed writes the notice on
+// the script thread inside PlayLine's lock, so it is read and cleared under the same lock.
+function TEuoInterpreter.TakeMenuNotice : String;
+begin
+  CS.BeginWrite;
+  try
+    Result:=FMenuNotice;
+    FMenuNotice:='';
+  finally
+    CS.EndWrite;
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

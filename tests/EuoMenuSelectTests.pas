@@ -380,12 +380,16 @@ end;
 procedure TEuoMenuLogicTests.TestClearChoosesTheLogic;
 begin
   AssertTrue('a new interpreter starts on 1.5', Interp.MenuLogic=mlMenu15);
+  AssertFalse('no script has chosen it yet', Interp.MenuChosen);
   Start('menu text t 1 1 hi'+CRLF+'menu setprop t visible #true'+CRLF+'HALT');
   AssertTrue(Interp.MenuLogic=mlMenu16);
+  AssertTrue(Interp.MenuChosen);
+  AssertFalse('detected', Interp.MenuForced);
   Start('menu text t 1 1 hi'+CRLF+'HALT');
   AssertTrue(Interp.MenuLogic=mlMenu15);
   Start('menu reforge mode 1.6'+CRLF+'HALT');
   AssertTrue(Interp.MenuLogic=mlMenu16);
+  AssertTrue('set by menu reforge mode', Interp.MenuForced);
   // the text changing during a run does not change the logic: only Clear chooses
   Interp.ScrList.Scr.Text:='menu text t 1 1 hi'+CRLF+'HALT';
   PlayToHalt;
@@ -399,7 +403,7 @@ begin
   PlayToHalt;
   AssertEquals('yes', Interp.GetVar('%done'));
   AssertTrue(Interp.MenuLogic=mlMenu15);
-  AssertEquals('', Interp.MenuNotice);
+  AssertEquals('', Interp.TakeMenuNotice);
 end;
 
 procedure TEuoMenuLogicTests.TestIncludeCallResolvesNamesLikeCall;
@@ -445,19 +449,22 @@ begin
 end;
 
 procedure TEuoMenuLogicTests.TestNoticeForOneSixLineUnderAutomaticOneFive;
+var
+  Notice : String;
 begin
   // A sub-command taken from a variable is invisible to the scan, so this runs under 1.5.
   Start('set %sub setprop'+CRLF+'menu %sub t visible #true'+CRLF+'menu %sub t visible #false'+CRLF+'HALT');
   AssertTrue(Interp.MenuLogic=mlMenu15);
   Play(2);
-  AssertTrue('names the command', Pos('MENU SETPROP', Interp.MenuNotice)>0);
-  AssertTrue('says how to fix it', Pos('menu reforge mode 1.6', Interp.MenuNotice)>0);
-  Interp.MenuNotice:='';   // the GUI consumed it
+  Notice:=Interp.TakeMenuNotice;
+  AssertTrue('names the command', Pos('MENU SETPROP', Notice)>0);
+  AssertTrue('says how to fix it', Pos('menu reforge mode 1.6', Notice)>0);
+  AssertEquals('taking it clears it', '', Interp.TakeMenuNotice);
   Play(1);
-  AssertEquals('once per run', '', Interp.MenuNotice);
+  AssertEquals('once per run', '', Interp.TakeMenuNotice);
   Start('set %sub setprop'+CRLF+'menu %sub t visible #true'+CRLF+'HALT');
   Play(2);
-  AssertTrue('again in the next run', Interp.MenuNotice<>'');
+  AssertTrue('again in the next run', Interp.TakeMenuNotice<>'');
 end;
 
 procedure TEuoMenuLogicTests.TestNoNoticeWhenOneFiveIsForced;
@@ -465,10 +472,12 @@ begin
   Start('menu reforge mode 1.5'+CRLF+'menu form f 1 1 10 10'+CRLF+'menu setprop f visible #true'+CRLF+'HALT');
   PlayToHalt;
   AssertTrue(Interp.MenuLogic=mlMenu15);
-  AssertEquals('', Interp.MenuNotice);
+  AssertEquals('', Interp.TakeMenuNotice);
 end;
 
 procedure TEuoMenuLogicTests.TestNoticeNamesTheCalledFile;
+var
+  Notice : String;
 begin
   Dir:=MakeTempDir('EuoMenuLogicTests');
   if Pos(' ', Dir)>0 then
@@ -480,8 +489,9 @@ begin
   Start('call '+Dir+'lib16.txt'+CRLF+'HALT');
   AssertTrue('called files are not scanned by default', Interp.MenuLogic=mlMenu15);
   PlayToHalt;
-  AssertTrue('names the file', Pos('lib16.txt', Interp.MenuNotice)>0);
-  AssertTrue('suggests includecall', Pos('menu reforge includecall #true', Interp.MenuNotice)>0);
+  Notice:=Interp.TakeMenuNotice;
+  AssertTrue('names the file', Pos('lib16.txt', Notice)>0);
+  AssertTrue('suggests includecall', Pos('menu reforge includecall #true', Notice)>0);
 end;
 
 procedure TEuoMenuLogicTests.TestChangingLogicTakesTheOneFiveWindowDown;

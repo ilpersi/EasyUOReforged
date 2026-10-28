@@ -351,8 +351,11 @@ The price:
 - **Cost:** one pass over the script text at start (the largest scanned script has about 5,000
   lines), plus reading the called files when `includecall` is on, plus one indirect call per MENU
   command. Every MENU command already pays a hop to the main thread, which costs far more.
-- **Visible to the user:** the editor shows the logic in use for the running script, e.g. in the
-  status bar (exact place to be chosen when implementing).
+- **Visible to the user:** the editor's status bar shows the logic of the tab's running or last
+  run ("MENU 1.5", "MENU 1.6", with "(forced)" when `menu reforge mode` chose it; blank before the
+  tab's first run), and the notice above appears in a message box, once per run, while the script
+  goes on. (The status bar had shown none of its panels in Reforged: LCL's `SimplePanel` defaults
+  to True, VCL's to False. Setting it brought back the original's panels too.)
 
 ### 6.3 Script settings: `menu reforge`
 
@@ -630,14 +633,14 @@ Settled by the owner on 2026-10-28:
 - `menu memo` is part of the 1.6 logic.
 - ScriptUO is credited in the documentation (§6.8 item 5).
 
-Still open, each with a recommendation; none blocks starting at step 1 of §6.10:
-1. **The notice for a 1.6 command in 1.5 logic:** recommended once per run, in the editor's
-   output/status area. The exact channel is chosen when implementing.
-2. **Where the editor shows the logic in use:** status bar (recommended) or tab caption.
-3. **Frontmatter names for the docs** (`menuLogic`, `menuDiffers`, `credits`): as proposed in §6.8.
-4. **`setprop … parent` into non-container controls:** keep 1.6's permissive behaviour if LCL
-   handles it, otherwise restrict it and list it as a deviation.
-5. **Exact wording of the ScriptUO acknowledgement:** a draft is in §6.8 item 5.
+Settled while implementing (steps 4 and 5):
+- The notice for a 1.6 command in 1.5 logic: a message box, once per run (§6.2).
+- Where the editor shows the logic in use: the status bar (§6.2).
+- `setprop … parent` into a button or a radio button: kept, LCL handles it as 1.6 did.
+
+Still open, each with a recommendation:
+1. **Frontmatter names for the docs** (`menuLogic`, `menuDiffers`, `credits`): as proposed in §6.8.
+2. **Exact wording of the ScriptUO acknowledgement:** a draft is in §6.8 item 5.
 
 ## 9. Deep review of the superset (2026-10-28)
 

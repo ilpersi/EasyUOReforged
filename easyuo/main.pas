@@ -136,7 +136,7 @@ var
   UpdateCnt  : Cardinal = 0;
 
 implementation
-uses text, uoselector;
+uses text, uoselector, EuoMenuSelect;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Port addition: a client running elevated can't be opened by a non-elevated
@@ -392,6 +392,9 @@ begin
   StatusBar := TStatusBar.Create(Self);
   StatusBar.Parent := Self;
   StatusBar.Align := alBottom;
+  // LCL's TStatusBar starts as a single simple panel (SimplePanel defaults to True; VCL's to
+  // False), which showed none of the panels below: the bar stayed blank.
+  StatusBar.SimplePanel := False;
   with StatusBar.Panels do
   begin
     Add.Width := 70; Items[0].Alignment := taCenter;
@@ -399,7 +402,7 @@ begin
     Add.Width := 40; Items[2].Alignment := taCenter;
     Add.Width := 70; Items[3].Alignment := taCenter;
     Add.Width := 40; Items[4].Alignment := taCenter;
-    Add.Width := 50;
+    Add.Width := 110;   // port addition: the MENU logic of the tab's run (UpdateTimerTimer)
   end;
 
   ////////////////////////////////////////////////////////////////////////////
@@ -983,6 +986,15 @@ begin
       LastError:='';
       ShowMessage('Script tab '+IntToStr(Cnt+1)+' stopped: '+ErrMsg);
     end;
+
+    // Port addition (MENU 1.5/1.6): a 1.6-only MENU command ran under the 1.5 logic the
+    // detection chose, once per run (docs/menu-1.6-analysis.md, section 6.2). Taken --
+    // and so cleared -- before the message box, for the same re-entrancy reason as
+    // LastError. The script keeps running meanwhile: the box's message loop still serves
+    // the MENU commands it hands to this thread.
+    ErrMsg:=Parser.TakeMenuNotice;
+    if ErrMsg<>'' then
+      ShowMessage('Script tab '+IntToStr(Cnt+1)+': '+ErrMsg);
   end;
 
   {***Update VarList***}
@@ -1149,6 +1161,14 @@ begin
   StatusBar.Panels[2].Text:=IntToStr(i1 mod 8)+','+IntToStr(i2 mod 8);
   StatusBar.Panels[3].Text:=CExec.GetVar('#cursorx')+'/'+CExec.GetVar('#cursory');
   StatusBar.Panels[4].Text:=IntToStr(CExec.Parser.UOSel.Nr)+'|'+IntToStr(CExec.Parser.UOSel.Cnt);
+
+  // Port addition (MENU 1.5/1.6): which MENU logic the tab's script runs, or ran last;
+  // blank until a script has been started in the tab.
+  with CExec.Parser do
+    if not MenuChosen then StatusBar.Panels[5].Text:=''
+    else if MenuForced then
+      StatusBar.Panels[5].Text:='MENU '+MenuLogicName[MenuLogic]+' (forced)'
+    else StatusBar.Panels[5].Text:='MENU '+MenuLogicName[MenuLogic];
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
