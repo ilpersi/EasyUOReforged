@@ -40,7 +40,9 @@ common/   OS-facing primitives  ── package: uocommon
   tokeniser/expression evaluator (`EuoTokens`, `EuoExpression`), value
   conversion (`EuoConversion`), thread-safe script variables (`EuoVariables`),
   the loaded-script / call-return model (`EuoScriptStack`), the `MENU` command
-  driving real LCL controls (`EuoMenu`), `Send` (`EuoComm`), the `SQL`
+  driving real LCL controls in two logics, EasyUO 1.5's (`EuoMenu`) and
+  EasyUO 1.6's (`EuoMenu16`), chosen per script (`EuoMenuSelect`; see
+  [Two MENU logics](#two-menu-logics) below), `Send` (`EuoComm`), the `SQL`
   command's SQLite engine (`EuoSql`, a port addition that loads Windows'
   `winsqlite3.dll` lazily through FPC's `sqlite3dyn`; see
   [`sql.md`](sql.md)), and the background execution state machine with
@@ -155,6 +157,30 @@ The GUI creates one `TExecutor` per open script tab (`easyuo/insthandler.pas`).
 Script variables (`EuoVariables`) are guarded by a critical section because the
 GUI thread polls them for the inspector while the script thread mutates them.
 
+### Two MENU logics
+
+EasyUO 1.5, the published source this port starts from, and EasyUO 1.6, closed builds from
+about 2017, have different `menu` systems, and scripts depend on either. They conflict (how names
+work, what `#MenuButton` says, what starting a script does to the windows), so Reforged keeps them
+as two separate implementations and runs a script under one of them:
+
+- `parser/EuoMenu.pas` (`TMenuObj`, dispatched by `TEuoInterpreter.MenuProcSync`) is the 1.5
+  port, unchanged by the split.
+- `parser/EuoMenu16.pas` (`TMenu16`, with its own dispatcher, `TMenu16.Run`) ports what EasyUO
+  1.6.0.337 does, read from the binary. Golden values recorded from the real program pin it:
+  `tests/tools/Record16MenuGolden.py` runs the probes in `tests/fixtures/menu16` and writes what
+  1.6 showed next to them, and `EuoMenu16GoldenTests` replays them against the port.
+- `parser/EuoMenuCommon.pas` holds what both need because of LCL and Windows: the window and
+  button classes, Symbol-font remapping, the image primitives, colour conversion.
+- `parser/EuoMenuSelect.pas` chooses one when a stopped script starts (`TEuoInterpreter.Clear`):
+  `menu reforge mode` in the script, otherwise any of the nine 1.6-only sub-commands, otherwise
+  1.5. `TExecutor.LoadScript` puts the new text in place before that `Clear`, since Play does not
+  reliably run a second one.
+
+Both logics run on the main thread through `TThread.Synchronize`, like any LCL work. The editor's
+status bar shows the logic of each tab's run. The analysis of 1.6, the plan, the design decisions
+and the evidence are in [menu-1.6-analysis.md](menu-1.6-analysis.md).
+
 ### Preserved quirks
 
 The porting rule is: the outward contract does not change. Tick timing (50 ms
@@ -191,6 +217,10 @@ gated in CI):
   `tests/fixtures/uoclidata_golden.json`, which is extracted straight from the
   *original* Delphi source by `tests/tools/VerifyCstDbData.ps1` — an independent
   implementation, so a bug in the port is unlikely to be mirrored in the fixture.
+- **Golden values from EasyUO 1.6**: `EuoMenu16GoldenTests` runs each probe script in
+  `tests/fixtures/menu16` under the 1.6 MENU logic and compares its reports, window geometry and
+  image pixels with what the closed EasyUO 1.6.0.337 showed when
+  `tests/tools/Record16MenuGolden.py -Exe <easyuo.exe>` recorded them.
 - **`LiveClientTests.pas`** exercises a real running client if one is detected and
   reports its tests as *ignored* otherwise. Nothing that needs a live client has
   automated coverage beyond this; that layer is hand-verified.

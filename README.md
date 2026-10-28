@@ -23,7 +23,7 @@ Everything is on the documentation site: **<https://ilpersi.github.io/EasyUORefo
 | [Get started](https://ilpersi.github.io/EasyUOReforged/guide/install/) | Install, a first script, the editor and its debugger. |
 | [Commands](https://ilpersi.github.io/EasyUOReforged/commands/) and [variables](https://ilpersi.github.io/EasyUOReforged/variables/) | Every command and `#variable`, searchable. |
 | [uo.dll API](https://ilpersi.github.io/EasyUOReforged/dll/) | The client engine as a DLL, for other programs. |
-| [What's new in Reforged](https://ilpersi.github.io/EasyUOReforged/reforged/whats-new/) | What this port adds: `SQL`, `ScanBuffs`, UOP map files, breakpoints and a call stack in the editor. |
+| [What's new in Reforged](https://ilpersi.github.io/EasyUOReforged/reforged/whats-new/) | What this port adds: `SQL`, `ScanBuffs`, EasyUO 1.6's `menu`, UOP map files, breakpoints and a call stack in the editor. |
 | [Known limitations](https://ilpersi.github.io/EasyUOReforged/reforged/known-limitations/) | What is verified, what is not, and which clients are supported. |
 | [Developer guide](https://ilpersi.github.io/EasyUOReforged/developers/) | Building from source, adding a new client, EUOMigrate. |
 
@@ -75,7 +75,8 @@ Step by step, with the Lazarus IDE and the usual build errors:
 ## License and disclaimer
 
 BSD 2-Clause, the same license as the original (see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE)). The
-documentation text that comes from the old EasyUO wiki stays under the GFDL 1.2.
+documentation text that comes from the old EasyUO wiki stays under the GFDL 1.2. The EasyUO 1.6 `menu`
+support was researched with help from the [ScriptUO](https://www.scriptuo.com/) community.
 
 EasyUO Reforged is an independent community port, not affiliated with the original author and not an
 official replacement for EasyUO. It comes with no warranty of any kind. If you rely on EasyUO for anything

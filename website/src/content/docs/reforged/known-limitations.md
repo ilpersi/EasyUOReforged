@@ -57,8 +57,9 @@ EasyUO for anything important, until you have checked that the scripts and featu
 - **[`menu Image File`](/commands/menu/image/file/)** reliably loads BMP, PNG, JPEG and GIF. Older formats
   the original accepted (WMF, EMF, ICO) may not work.
 - **EasyUO 1.6's `menu`.** The [1.6 MENU logic](/commands/menu/versions/) is checked automatically against
-  what EasyUO 1.6.0.337 did in 23 recorded test scripts, but has not yet been tried by hand with real 1.6
-  scripts.
+  what EasyUO 1.6.0.337 did in 23 recorded test scripts, and by hand in the editor with test scripts and an
+  example from the ScriptUO tutorial on the 1.6 menu. It has not yet been tried with real 1.6 scripts that
+  play the game.
   - A script runs under one MENU system from start to end, with the files it calls. Reforged picks it from the
     script's text when it starts: a 1.6 sub-command that only a variable or a called file supplies is not
     seen, unless the script sets [`menu Reforge Mode`](/commands/menu/reforge/mode/) (or, for called files,

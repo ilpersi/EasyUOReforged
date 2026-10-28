@@ -604,6 +604,23 @@ reference for the 1.6 logic and for later reviews.
 7. Hand tests with real scripts in both logics.
 8. `docs/architecture.md`, `CLAUDE.md` notes, `NOTICE`/`README.md` acknowledgements, memory.
 
+**Status (2026-10-28):** all eight steps are done, on the branch `feature/menu-v16`. The hand tests
+(step 7) ran in the editor with a client attached: a 1.6 tour, closing windows, Gaderian's tutorial
+example with radio groups in panels, the 1.5 logic, switching logic within a tab, two tabs side by
+side, and `call` with and without `includecall`. All behaved as described here. Scripts that play the
+game (Mining Radar F002, the BOD Filler) were not run as tests; Mining Radar's MENU pattern was tested
+on its own.
+
+Found along the way, outside the plan:
+- Play reached `TEuoInterpreter.Clear` before the new text was loaded, so the logic was chosen from
+  the previous text; `TExecutor.LoadScript` now loads the text first (step 4).
+- Reforged's status bar had never shown its panels (LCL's `TStatusBar.SimplePanel` defaults to
+  True); fixed with the logic indicator (step 5).
+- In the 1.5 logic, `menu list select` past the last item raised and stopped the script; it now does
+  nothing, as `LB_SETCURSEL` did in the original.
+- Not changed: in the 1.5 logic, a thick rectangle outline drawn with `menu image` has round corners
+  where the original's were square (LCL's default pen join); the 1.6 logic draws them square.
+
 ## 7. Why separate implementations, and is the detection reliable?
 
 A global setting was rejected first: users run old and new scripts side by side, so a single
