@@ -15,7 +15,7 @@
         <CompilerPath Value="$(CompPath)"/>
       </Other>
     </CompilerOptions>
-    <Files Count="15">
+    <Files Count="16">
       <Item1>
         <Filename Value="EuoConversion.pas"/>
         <UnitName Value="EuoConversion"/>
@@ -49,33 +49,37 @@
         <UnitName Value="EuoComm"/>
       </Item8>
       <Item9>
-        <Filename Value="EuoMenu.pas"/>
-        <UnitName Value="EuoMenu"/>
+        <Filename Value="EuoMenuCommon.pas"/>
+        <UnitName Value="EuoMenuCommon"/>
       </Item9>
       <Item10>
-        <Filename Value="EuoInterpreter.pas"/>
-        <UnitName Value="EuoInterpreter"/>
+        <Filename Value="EuoMenu.pas"/>
+        <UnitName Value="EuoMenu"/>
       </Item10>
       <Item11>
-        <Filename Value="EuoBreakCondition.pas"/>
-        <UnitName Value="EuoBreakCondition"/>
+        <Filename Value="EuoInterpreter.pas"/>
+        <UnitName Value="EuoInterpreter"/>
       </Item11>
       <Item12>
-        <Filename Value="EuoCallStackFormat.pas"/>
-        <UnitName Value="EuoCallStackFormat"/>
+        <Filename Value="EuoBreakCondition.pas"/>
+        <UnitName Value="EuoBreakCondition"/>
       </Item12>
       <Item13>
-        <Filename Value="EuoExecutor.pas"/>
-        <UnitName Value="EuoExecutor"/>
+        <Filename Value="EuoCallStackFormat.pas"/>
+        <UnitName Value="EuoCallStackFormat"/>
       </Item13>
       <Item14>
-        <Filename Value="EuoSql.pas"/>
-        <UnitName Value="EuoSql"/>
+        <Filename Value="EuoExecutor.pas"/>
+        <UnitName Value="EuoExecutor"/>
       </Item14>
       <Item15>
+        <Filename Value="EuoSql.pas"/>
+        <UnitName Value="EuoSql"/>
+      </Item15>
+      <Item16>
         <Filename Value="EuoBlocks.pas"/>
         <UnitName Value="EuoBlocks"/>
-      </Item15>
+      </Item16>
     </Files>
     <i18n>
       <EnableI18N LFM="False"/>

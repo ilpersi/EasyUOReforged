@@ -9,7 +9,8 @@ interface
 
 uses
   EuoConversion, EuoTokens, EuoExpression, EuoVariables, EuoScriptStack,
-  EuoCommandRegistry, EuoStdCommands, EuoComm, EuoMenu, EuoInterpreter,
+  EuoCommandRegistry, EuoStdCommands, EuoComm, EuoMenuCommon, EuoMenu,
+  EuoInterpreter,
   EuoBreakCondition, EuoCallStackFormat, EuoExecutor, EuoSql, EuoBlocks;
 
 implementation

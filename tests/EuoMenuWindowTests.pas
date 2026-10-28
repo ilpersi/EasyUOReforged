@@ -8,6 +8,10 @@ unit EuoMenuWindowTests;
   through it to the window below. The hold now sits on TEuoMenuForm.Surface (a
   child panel), and MENU SET no longer starts one. These show a real MENU form, so
   they need a window station; they report themselves ignored if it cannot be shown.
+
+  Closing the window (its [X] or MENU HIDE) must set #MenuButton to CLOSED and only
+  hide the form. The handler that does it moved from the form class to TMenuObj
+  when the window classes went to EuoMenuCommon, so it is pinned here.
 }
 
 {$mode delphi}{$H+}
@@ -22,6 +26,7 @@ type
   published
     procedure TestRepaintHoldLeavesWindowVisible;
     procedure TestSetDoesNotStartRepaintHold;
+    procedure TestClosingTheWindowSetsClosed;
   end;
 
 implementation
@@ -114,6 +119,40 @@ begin
     AssertTrue('SHOW ends the hold', IsWindowVisible(Panel));
   finally
     Interp.Free;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoMenuWindowTests.TestClosingTheWindowSetsClosed;
+var
+  M : TMenuObj;
+begin
+  Application.Initialize;
+  M := TMenuObj.Create;
+  try
+    M.Form.Show;
+    Application.ProcessMessages;
+    if not M.Form.Showing then
+    begin
+      Ignore('MENU form could not be shown in this session');
+      Exit;
+    end;
+
+    M.MenuButton := 'N/A';
+    SendMessage(M.Form.Handle, WM_CLOSE, 0, 0);   // the window's [X]
+    Application.ProcessMessages;
+    AssertEquals('[X] sets #MenuButton', 'CLOSED', M.MenuButton);
+    AssertFalse('[X] hides the window', M.Form.Visible);
+
+    M.Form.Show;
+    Application.ProcessMessages;
+    M.MenuButton := 'N/A';
+    M.Form.Close;                                  // what MENU HIDE does
+    AssertEquals('MENU HIDE sets #MenuButton', 'CLOSED', M.MenuButton);
+    AssertFalse('MENU HIDE hides the window', M.Form.Visible);
+    AssertTrue('the window survives being closed', M.Form.HandleAllocated);
+  finally
+    M.Free;
   end;
 end;
 
