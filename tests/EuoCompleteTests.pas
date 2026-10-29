@@ -59,8 +59,10 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 procedure TEuoCompleteTests.TestMenuSubCommands;
 begin
-  AssertEquals('ACTIVATE,BUTTON,CHECK,CLEAR,COMBO,DELETE,EDIT,FONT,GET,GETNUM,HIDE,'+
-    'HIDEEUO,IMAGE,LIST,MEMO,SET,SHAPE,SHOW,TEXT,WINDOW',Words('menu '));
+  // both MENU logics' sub-commands (the 1.6 ones and REFORGE included)
+  AssertEquals('ACTIVATE,BUTTON,CHECK,CLEAR,COMBO,DELETE,EDIT,FONT,FORM,GET,GETDEF,GETNUM,'+
+    'GETPROP,HIDE,HIDEEUO,IMAGE,LIST,MEMO,PANEL,POPDEF,PUSHDEF,RADIO,REFORGE,SET,SETDEF,'+
+    'SETPROP,SHAPE,SHOW,TEXT,WINDOW',Words('menu '));
   AssertEquals('CLOSE,DELETE,EXEC,LOAD,OPEN,QUERY,ROW,SAVE',Words('SQL '));
   AssertEquals('CONTTOP,DRAG,EXMSG,MACRO,PATHFIND,PROPERTY,SKILLLOCK,STATBAR,SYSMESSAGE',
     Words('Event '));
@@ -85,6 +87,9 @@ begin
   AssertEquals('ADD,CLEAR,CREATE,SELECT',Words('menu combo '));
   AssertEquals('ADD,CLEAR,CREATE,SELECT',Words('menu list '));
   AssertEquals('CREATE,ELLIPSE,FILE,FLOODFILL,LINE,PIX,PIXLINE,POS,RECTANGLE',Words('menu image '));
+  AssertEquals('INCLUDECALL,MODE',Words('menu reforge '));
+  AssertEquals('ALIGNMENT,COLOR,FONTCOLOR,FONTNAME,FONTSIZE,FONTSTYLE,PARENT',Words('menu getdef '));
+  AssertEquals(Words('menu getdef '),Words('menu setdef '));
   AssertEquals('NOOVERRIDES',Words('tile init '));
   AssertEquals('DEX,INT,STR',Words('exevent statlock '));
 end;
@@ -99,6 +104,9 @@ begin
   AssertEquals('GLOBAL,LOCAL',Words('namespace copy * from '));
   AssertEquals('GLOBAL,LOCAL',Words('namespace copy * to '));
   AssertEquals('only FROM/TO lead on','',Words('namespace copy * into '));
+  AssertEquals('ALIGNMENT,CHECKED,COLOR,ENABLED,FONTCOLOR,FONTNAME,FONTSIZE,FONTSTYLE,HEIGHT,'+
+    'LEFT,PARENT,TEXT,TOOLTIP,TOP,VISIBLE,WIDTH',Words('menu getprop ok '));
+  AssertEquals(Words('menu getprop ok '),Words('menu SetProp %btn '));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

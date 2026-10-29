@@ -24,6 +24,13 @@ const setters: RefLink[] = d.kind === 'variable' ? setBy(entry, entries) : [];
 const dll: RefLink | undefined = d.dll ? resolveRef(`dll:${d.dll}`, entries) : undefined;
 const categoryHref = slugHref(d.kind === 'variable' ? 'variables' : d.kind?.startsWith('dll-') ? 'dll' : 'commands');
 
+// MENU pages: which of the two MENU logics has the sub-command; both badges link to the page that
+// explains them.
+const menuLogic = d.menuLogic ?? [];
+const menuLabel =
+	menuLogic.length === 2 ? 'MENU 1.5 and 1.6' : menuLogic.length === 1 ? `MENU ${menuLogic[0]} only` : '';
+const versionsHref = slugHref('commands/menu/versions');
+
 // The sigil-less and spaced spellings, so "findid", "#FindID" and "find id" all find the page.
 const searchTerms = [...new Set([d.title, d.title.replace(/^#/, ''), ...d.aliases])].join(' · ');
 ---
@@ -41,6 +48,20 @@ const searchTerms = [...new Set([d.title, d.title.replace(/^#/, ''), ...d.aliase
 		{d.origin === 'reforged' && <Badge text="New in Reforged" variant="success" />}
 		{d.changed && <Badge text="Changed in Reforged" variant="caution" />}
 		{d.obsolete && <Badge text="Obsolete" variant="danger" />}
+		{
+			menuLabel && (
+				<a href={versionsHref} class="ref-badge-link">
+					<Badge text={menuLabel} variant="note" />
+				</a>
+			)
+		}
+		{
+			d.menuDiffers && (
+				<a href="#15-and-16" class="ref-badge-link">
+					<Badge text="Differs in 1.5 and 1.6" variant="caution" />
+				</a>
+			)
+		}
 	</div>
 
 	{d.syntax && <Code code={d.syntax} lang="euo" frame="none" wrap class="ref-syntax" />}

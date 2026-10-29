@@ -14,13 +14,11 @@ source: wiki
 `%0`.
 
 ```euo
-mainloop:
-  gosub say hi
-  wait 1s
-goto mainloop
+gosub say hello world
+halt
 
 sub say
-  event macro 1 0 %1
+  display ok %0 words: %1 %2
 return
 ```
 
@@ -41,6 +39,11 @@ sub check
     return 0
   return 1
 }
+
+set %x 0
+gosub check
+display ok #Result         ; 0
+halt
 ```
 
 ## Details

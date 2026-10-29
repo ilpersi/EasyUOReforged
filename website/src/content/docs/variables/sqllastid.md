@@ -16,7 +16,13 @@ link a new row to others, for example in a second table.
 ## Example
 
 ```euo
+sql open :memory:
+sql exec CREATE TABLE trips(started INTEGER)
+sql exec CREATE TABLE loot(trip INTEGER, item TEXT)
 sql exec INSERT INTO trips(started) VALUES(#SysTime)
 set %trip #SqlLastID
+set %item gold
 sql exec INSERT INTO loot(trip, item) VALUES(%trip, %item)
+display ok Trip %trip found %item
+halt
 ```

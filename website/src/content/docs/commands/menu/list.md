@@ -3,6 +3,9 @@ title: "menu List"
 description: "Places a list box in the menu window, and fills or selects its entries."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
+menuDiffers: true
+credits: ['scriptuo']
 syntax: "menu List Create {name} {x} {y} {width} {height}\nmenu List Add {name} {text}\nmenu List Select {name} {number}\nmenu List Clear {name}"
 related: ["menu Combo", "menu Get"]
 aliases: ["listbox"]
@@ -34,4 +37,11 @@ menu List Select lst 2
 menu Window Title List example
 menu Window Size 200 140
 menu Show
+halt
 ```
+
+## 1.5 and 1.6
+
+- **1.5:** `Add`, `Select` and `Clear` act on every list with that name.
+- **1.6:** they act on the one list the name belongs to; a second one created with the same name is out of
+  reach. The list goes into the current [default parent](/commands/menu/setdef/).

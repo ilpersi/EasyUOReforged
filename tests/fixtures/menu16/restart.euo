@@ -1,0 +1,39 @@
+; Probe for tests/tools/Record16MenuGolden.py: EasyUO 1.6 MENU golden values.
+; "menu reforge mode 1.6" makes Reforged run it under the 1.6 logic; 1.6 ignores the line.
+; Stop keeps every window as it is; Start destroys them all, builds a new hidden
+; form0 and empties #MenuButton and #MenuRes.
+;@wait A
+;@forms
+;@sleep 1
+;@stop
+;@sleep 1
+;@forms
+;@start
+;@rewait A
+;@forms
+menu reforge mode 1.6
+set %m #menubutton
+set %n #menures
+menu getprop form0 left
+set %a #menures
+menu getprop form0 visible
+set %b #menures
+menu getprop form0 width
+set %c #menures
+menu form ox 0 0 10 10 ox
+menu form ox 0 0 10 10 ox2
+menu text orphan 1 1 orphan
+menu setdef parent form0
+set #menures Q
+menu getprop orphan parent
+set %d #menures
+set %r L= , %a , _V= , %b , _W= , %c , _MB= , %m , _MR= , %n , _STALE= , %d , _
+menu window size 222 111
+menu show 300 300
+menu form keep 600 300 100 50 keep
+menu setprop keep visible #true
+menu getprop keep text
+set #menubutton zz
+set #menures yy
+menu window title R:A: , %r
+halt

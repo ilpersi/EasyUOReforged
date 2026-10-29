@@ -24,5 +24,9 @@ thread.
 ## Example
 
 ```euo
+set %start #SysTime
 sleep 25
+set %took #SysTime - %start
+display ok Slept %took ms
+halt
 ```

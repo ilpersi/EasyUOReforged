@@ -18,5 +18,6 @@ source: wiki
 ```euo
 set %usemagery #True
 if %usemagery
-  gosub castheal
+  display ok Healing with Magery.
+halt
 ```

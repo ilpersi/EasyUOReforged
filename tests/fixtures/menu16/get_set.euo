@@ -1,0 +1,108 @@
+; Probe for tests/tools/Record16MenuGolden.py: EasyUO 1.6 MENU golden values.
+; "menu reforge mode 1.6" makes Reforged run it under the 1.6 logic; 1.6 ignores the line.
+; menu get / getnum / set on every control type, combo and list add / select /
+; clear, and "$" in texts.
+;@wait A
+menu reforge mode 1.6
+set #lpc 1000
+menu window size 400 300
+menu edit ed 10 10 100 Start$Text
+menu combo create cb 10 40 100
+menu combo add cb Alpha
+menu combo add cb Beta Gamma
+menu list create ls 10 70 100 60
+menu list add ls One
+menu list add ls Two
+menu check ck 10 140 80 20 #true Check
+menu radio r1 10 170 80 20 #true R1
+menu radio r2 100 170 80 20 #false R2
+menu text tx 200 10 Label$Two
+menu button bt 200 40 80 20 Btn
+menu image create im 200 80 20 20
+menu get ed
+set %r ED= , #menures
+menu getprop tx text
+set %r %r , _TXTEXT= , #menures
+menu get cb
+set %r %r , _CB0= , #menures
+menu combo select cb 2
+menu get cb
+set %r %r , _CB2= , #menures
+menu combo select cb 5
+menu get cb
+set %r %r , _CB5= , #menures
+menu combo select cb 0
+menu get cb
+set %r %r , _CBZERO= , #menures
+menu get ls
+set %r %r , _LS0= , #menures
+menu list select ls 1
+menu get ls
+set %r %r , _LS1= , #menures
+menu get ck
+set %r %r , _CK= , #menures
+menu get r1
+set %r %r , _R1= , #menures
+menu get r2
+set %r %r , _R2= , #menures
+menu get tx
+set %r %r , _TX= , #menures
+menu get bt
+set %r %r , _BT= , #menures
+menu get im
+set %r %r , _IM= , #menures
+menu get nothere
+set %r %r , _NOTHERE= , #menures
+menu getnum ed 42
+set %r %r , _NUMDEF= , #menures
+menu set ed 123
+menu getnum ed 42
+set %r %r , _NUM= , #menures
+menu set ed abc
+menu getnum ed
+set %r %r , _NUMNODEF= , #menures
+menu set ed Hello World
+menu get ed
+set %r %r , _EDSET= , #menures
+menu set ed A$B
+menu get ed
+set %r %r , _EDDOLLAR= , #menures
+menu getprop ed text
+set %r %r , _EDTEXT= , #menures
+menu set tx New$Line
+menu getprop tx text
+set %r %r , _TXSET= , #menures
+menu set bt New Cap
+menu getprop bt text
+set %r %r , _BTSET= , #menures
+menu set ck 0
+menu get ck
+set %r %r , _CK0= , #menures
+menu set ck abc
+menu get ck
+set %r %r , _CKABC= , #menures
+menu set ck 5
+menu get ck
+set %r %r , _CK5= , #menures
+menu set r2 1
+menu get r1
+set %r %r , _R1AFTER= , #menures
+menu get r2
+set %r %r , _R2AFTER= , #menures
+menu set cb Beta
+menu get cb
+set %r %r , _CBSET= , #menures
+menu combo clear cb
+menu get cb
+set %r %r , _CBCLEAR= , #menures
+menu list clear ls
+menu get ls
+set %r %r , _LSCLEAR= , #menures
+menu list select ls 1
+menu get ls
+set %r %r , _LSSELEMPTY= , #menures
+menu set nothere x
+menu getprop ck text
+set %r %r , _CKTEXT= , #menures
+menu window title R:A: , %r
+halt

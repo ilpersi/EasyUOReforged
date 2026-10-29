@@ -3,6 +3,9 @@ title: "menu Set"
 description: "Changes the text or state of a control."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
+menuDiffers: true
+credits: ['scriptuo']
 syntax: "menu Set {name} {value}"
 related: ["menu Get", "menu Combo", "menu List"]
 source: wiki
@@ -24,6 +27,19 @@ Drop-down lists and list boxes are changed with [`menu Combo`](/commands/menu/co
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 180 70
+menu Text status 10 10 Waiting...
+menu Check loot 10 35 150 20 #true Loot corpses
+menu Show
+wait 40
 menu Set status Looting...
 menu Set loot #false
+halt
 ```
+
+## 1.5 and 1.6
+
+- **1.5:** changes every control with that name.
+- **1.6:** changes the one control the name belongs to, and also sets [radio buttons](/commands/menu/radio/):
+  `1` checks one. `$` stays as written in both.

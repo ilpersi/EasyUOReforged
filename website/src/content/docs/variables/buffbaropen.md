@@ -23,4 +23,5 @@ with no buffs (`#BuffBarOpen` 1, `#BuffCnt` 0) apart from a closed one.
 ```euo
 if #BuffBarOpen = 0
   display ok Open the buff bar so the script can see your buffs.
+halt
 ```

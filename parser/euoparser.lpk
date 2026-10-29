@@ -4,7 +4,7 @@
     <PathDelim Value="\"/>
     <Name Value="euoparser"/>
     <Type Value="RunTime"/>
-    <Description Value="EasyUO's own scripting language: the tokenizer/expression evaluator (EuoTokens, EuoExpression), value conversion (EuoConversion), thread-safe script variables (EuoVariables), the loaded-script/call-return model (EuoScriptStack), the command registry and no-live-client commands (EuoCommandRegistry, EuoStdCommands), Send (EuoComm), the MENU command driving real LCL controls (EuoMenu), the interpreter itself (EuoInterpreter) and the background execution engine with breakpoints/stepping (EuoExecutor, EuoBreakCondition, EuoCallStackFormat), the script block structure behind the editor's code folding and Format Script (EuoBlocks, a port addition), plus the SQL command's SQLite engine (EuoSql, a port addition). Ported from the original Delphi 7 parser\ folder."/>
+    <Description Value="EasyUO's own scripting language: the tokenizer/expression evaluator (EuoTokens, EuoExpression), value conversion (EuoConversion), thread-safe script variables (EuoVariables), the loaded-script/call-return model (EuoScriptStack), the command registry and no-live-client commands (EuoCommandRegistry, EuoStdCommands), Send (EuoComm), the MENU command driving real LCL controls (EuoMenu for EasyUO 1.5&apos;s logic, EuoMenu16 for 1.6&apos;s, chosen per script by EuoMenuSelect, sharing the window classes in EuoMenuCommon), the interpreter itself (EuoInterpreter) and the background execution engine with breakpoints/stepping (EuoExecutor, EuoBreakCondition, EuoCallStackFormat), the script block structure behind the editor's code folding and Format Script (EuoBlocks, a port addition), plus the SQL command's SQLite engine (EuoSql, a port addition). Ported from the original Delphi 7 parser\ folder."/>
     <CompilerOptions>
       <Version Value="11"/>
       <PathDelim Value="\"/>
@@ -15,7 +15,7 @@
         <CompilerPath Value="$(CompPath)"/>
       </Other>
     </CompilerOptions>
-    <Files Count="15">
+    <Files Count="18">
       <Item1>
         <Filename Value="EuoConversion.pas"/>
         <UnitName Value="EuoConversion"/>
@@ -49,33 +49,45 @@
         <UnitName Value="EuoComm"/>
       </Item8>
       <Item9>
-        <Filename Value="EuoMenu.pas"/>
-        <UnitName Value="EuoMenu"/>
+        <Filename Value="EuoMenuCommon.pas"/>
+        <UnitName Value="EuoMenuCommon"/>
       </Item9>
       <Item10>
-        <Filename Value="EuoInterpreter.pas"/>
-        <UnitName Value="EuoInterpreter"/>
+        <Filename Value="EuoMenu.pas"/>
+        <UnitName Value="EuoMenu"/>
       </Item10>
       <Item11>
-        <Filename Value="EuoBreakCondition.pas"/>
-        <UnitName Value="EuoBreakCondition"/>
+        <Filename Value="EuoMenu16.pas"/>
+        <UnitName Value="EuoMenu16"/>
       </Item11>
       <Item12>
-        <Filename Value="EuoCallStackFormat.pas"/>
-        <UnitName Value="EuoCallStackFormat"/>
+        <Filename Value="EuoMenuSelect.pas"/>
+        <UnitName Value="EuoMenuSelect"/>
       </Item12>
       <Item13>
-        <Filename Value="EuoExecutor.pas"/>
-        <UnitName Value="EuoExecutor"/>
+        <Filename Value="EuoInterpreter.pas"/>
+        <UnitName Value="EuoInterpreter"/>
       </Item13>
       <Item14>
-        <Filename Value="EuoSql.pas"/>
-        <UnitName Value="EuoSql"/>
+        <Filename Value="EuoBreakCondition.pas"/>
+        <UnitName Value="EuoBreakCondition"/>
       </Item14>
       <Item15>
+        <Filename Value="EuoCallStackFormat.pas"/>
+        <UnitName Value="EuoCallStackFormat"/>
+      </Item15>
+      <Item16>
+        <Filename Value="EuoExecutor.pas"/>
+        <UnitName Value="EuoExecutor"/>
+      </Item16>
+      <Item17>
+        <Filename Value="EuoSql.pas"/>
+        <UnitName Value="EuoSql"/>
+      </Item17>
+      <Item18>
         <Filename Value="EuoBlocks.pas"/>
         <UnitName Value="EuoBlocks"/>
-      </Item15>
+      </Item18>
     </Files>
     <i18n>
       <EnableI18N LFM="False"/>

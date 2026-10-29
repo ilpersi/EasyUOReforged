@@ -23,10 +23,11 @@ if #PathState <> ok
 repeat
   path step
   if #HITS < 40
-    gosub heal
+    event SysMessage Low on hits!
   wait 1
 until #PathState <> walking
-event SysMessage Walk over: #PathState
+display ok Walk over: #PathState
+halt
 ```
 
 ## Details

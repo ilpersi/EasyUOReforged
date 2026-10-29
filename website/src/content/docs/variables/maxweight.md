@@ -24,4 +24,5 @@ If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2
 ```euo
 if #Weight > #MaxWeight
   display ok You are overweight!
+halt
 ```

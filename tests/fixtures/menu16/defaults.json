@@ -1,0 +1,53 @@
+{
+ "probe": "defaults",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "A"
+   ],
+   "report": "L=100_T=100_W=305_H=180_C=EUO Menu_V=0_COL=-16777201_EN=-1_FN=Arial_FS=10_FC=0_FST=0_DC=-16777201_AL=0_P=form0_MB=_MR=__WS=200_HS=100",
+   "values": [
+    "L=100",
+    "T=100",
+    "W=305",
+    "H=180",
+    "C=EUO Menu",
+    "V=0",
+    "COL=-16777201",
+    "EN=-1",
+    "FN=Arial",
+    "FS=10",
+    "FC=0",
+    "FST=0",
+    "DC=-16777201",
+    "AL=0",
+    "P=form0",
+    "MB=",
+    "MR=_",
+    "WS=200",
+    "HS=100"
+   ]
+  },
+  {
+   "step": "forms",
+   "forms": [
+    {
+     "caption": "R:A:L=100_T=100_W=305_H=180_C=EUO Menu_V=0_COL=-16777201_EN=-1_FN=Arial_FS=10_FC=0_FST=0_DC=-16777201_AL=0_P=form0_MB=_MR=__WS=200_HS=100",
+     "visible": false,
+     "left": 100,
+     "top": 100,
+     "width": 206,
+     "height": 129,
+     "client": [
+      200,
+      100
+     ],
+     "style": "06CA0000",
+     "exstyle": "00010108",
+     "children": []
+    }
+   ]
+  }
+ ]
+}

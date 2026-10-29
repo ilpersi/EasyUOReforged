@@ -1,0 +1,78 @@
+{
+ "probe": "close",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "W1"
+   ],
+   "report": "ready",
+   "values": [
+    "ready"
+   ]
+  },
+  {
+   "step": "close",
+   "args": [
+    "Closer"
+   ],
+   "found": true
+  },
+  {
+   "step": "wait",
+   "args": [
+    "W2"
+   ],
+   "report": "F2CLOSE=f2_V=0",
+   "values": [
+    "F2CLOSE=f2",
+    "V=0"
+   ]
+  },
+  {
+   "step": "close",
+   "args": [
+    "R:W2:"
+   ],
+   "found": true
+  },
+  {
+   "step": "wait",
+   "args": [
+    "W3"
+   ],
+   "report": "F2CLOSE=f2_V=0_FORM0CLOSE=CLOSED_V0=0_DP=f2",
+   "values": [
+    "F2CLOSE=f2",
+    "V=0",
+    "FORM0CLOSE=CLOSED",
+    "V0=0",
+    "DP=f2"
+   ]
+  },
+  {
+   "step": "click",
+   "args": [
+    "MyBtn"
+   ],
+   "found": true
+  },
+  {
+   "step": "wait",
+   "args": [
+    "S3"
+   ],
+   "report": "F2CLOSE=f2_V=0_FORM0CLOSE=CLOSED_V0=0_DP=f2_CLICK=mybtn_SETFORM0=CLOSED_SETFORM0U=FORM0",
+   "values": [
+    "F2CLOSE=f2",
+    "V=0",
+    "FORM0CLOSE=CLOSED",
+    "V0=0",
+    "DP=f2",
+    "CLICK=mybtn",
+    "SETFORM0=CLOSED",
+    "SETFORM0U=FORM0"
+   ]
+  }
+ ]
+}

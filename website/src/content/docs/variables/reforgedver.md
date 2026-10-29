@@ -22,4 +22,5 @@ working. Use `#ReforgedVer` when a script needs to know it runs on Reforged, or 
 ```euo
 if #ReforgedVer = N/A
   display ok This script needs EasyUO Reforged.
+halt
 ```

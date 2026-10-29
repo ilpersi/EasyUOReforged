@@ -1,0 +1,803 @@
+; Probe for tests/tools/Record16MenuGolden.py: EasyUO 1.6 MENU golden values.
+; "menu reforge mode 1.6" makes Reforged run it under the 1.6 logic; 1.6 ignores the line.
+; setprop of every property on every control type, read back with getprop, then
+; setdef/getdef of every key. A property that does not apply leaves Q. Parent goes
+; last: every control is moved into the panel pn (pn itself into the form fm).
+;@wait FORM0
+;@wait FM
+;@wait PN
+;@wait TX
+;@wait BT
+;@wait ED
+;@wait CK
+;@wait RD
+;@wait CB
+;@wait LS
+;@wait IM
+;@wait DEF
+menu reforge mode 1.6
+set #lpc 1000
+menu window size 300 200
+menu form fm 500 100 120 60 FormText
+menu setdef parent form0
+menu panel pn 10 10 80 40
+menu setdef parent form0
+menu text tx 10 60 TextText
+menu button bt 10 80 70 20 ButtonText
+menu edit ed 10 110 70 EditText
+menu check ck 10 140 70 20 #true CheckText
+menu radio rd 90 140 70 20 #true RadioText
+menu combo create cb 100 10 80
+menu list create ls 100 40 80 50
+menu image create im 200 10 40 40
+menu setprop form0 alignment 1
+set #menures Q
+menu getprop form0 alignment
+set %r ALIGNMENT= , #menures
+menu setprop form0 checked #true
+set #menures Q
+menu getprop form0 checked
+set %r %r , _CHECKED= , #menures
+menu setprop form0 color 255
+set #menures Q
+menu getprop form0 color
+set %r %r , _COLOR= , #menures
+menu setprop form0 enabled #false
+set #menures Q
+menu getprop form0 enabled
+set %r %r , _ENABLED= , #menures
+menu setprop form0 fontcolor 65280
+set #menures Q
+menu getprop form0 fontcolor
+set %r %r , _FONTCOLOR= , #menures
+menu setprop form0 fontname Courier New
+set #menures Q
+menu getprop form0 fontname
+set %r %r , _FONTNAME= , #menures
+menu setprop form0 fontsize 14
+set #menures Q
+menu getprop form0 fontsize
+set %r %r , _FONTSIZE= , #menures
+menu setprop form0 fontstyle 5
+set #menures Q
+menu getprop form0 fontstyle
+set %r %r , _FONTSTYLE= , #menures
+menu setprop form0 height 33
+set #menures Q
+menu getprop form0 height
+set %r %r , _HEIGHT= , #menures
+menu setprop form0 width 44
+set #menures Q
+menu getprop form0 width
+set %r %r , _WIDTH= , #menures
+menu setprop form0 left 5
+set #menures Q
+menu getprop form0 left
+set %r %r , _LEFT= , #menures
+menu setprop form0 top 6
+set #menures Q
+menu getprop form0 top
+set %r %r , _TOP= , #menures
+menu setprop form0 text Hello World
+set #menures Q
+menu getprop form0 text
+set %r %r , _TEXT= , #menures
+menu setprop form0 tooltip Tip Text
+set #menures Q
+menu getprop form0 tooltip
+set %r %r , _TOOLTIP= , #menures
+menu setprop form0 visible #false
+set #menures Q
+menu getprop form0 visible
+set %r %r , _VISIBLE= , #menures
+menu setprop form0 parent pn
+set #menures Q
+menu getprop form0 parent
+set %r %r , _PARENT= , #menures
+menu form rform0 0 0 10 10 r
+menu setprop rform0 text R:FORM0: , %r
+menu setprop fm alignment 1
+set #menures Q
+menu getprop fm alignment
+set %r ALIGNMENT= , #menures
+menu setprop fm checked #true
+set #menures Q
+menu getprop fm checked
+set %r %r , _CHECKED= , #menures
+menu setprop fm color 255
+set #menures Q
+menu getprop fm color
+set %r %r , _COLOR= , #menures
+menu setprop fm enabled #false
+set #menures Q
+menu getprop fm enabled
+set %r %r , _ENABLED= , #menures
+menu setprop fm fontcolor 65280
+set #menures Q
+menu getprop fm fontcolor
+set %r %r , _FONTCOLOR= , #menures
+menu setprop fm fontname Courier New
+set #menures Q
+menu getprop fm fontname
+set %r %r , _FONTNAME= , #menures
+menu setprop fm fontsize 14
+set #menures Q
+menu getprop fm fontsize
+set %r %r , _FONTSIZE= , #menures
+menu setprop fm fontstyle 5
+set #menures Q
+menu getprop fm fontstyle
+set %r %r , _FONTSTYLE= , #menures
+menu setprop fm height 33
+set #menures Q
+menu getprop fm height
+set %r %r , _HEIGHT= , #menures
+menu setprop fm width 44
+set #menures Q
+menu getprop fm width
+set %r %r , _WIDTH= , #menures
+menu setprop fm left 5
+set #menures Q
+menu getprop fm left
+set %r %r , _LEFT= , #menures
+menu setprop fm top 6
+set #menures Q
+menu getprop fm top
+set %r %r , _TOP= , #menures
+menu setprop fm text Hello World
+set #menures Q
+menu getprop fm text
+set %r %r , _TEXT= , #menures
+menu setprop fm tooltip Tip Text
+set #menures Q
+menu getprop fm tooltip
+set %r %r , _TOOLTIP= , #menures
+menu setprop fm visible #false
+set #menures Q
+menu getprop fm visible
+set %r %r , _VISIBLE= , #menures
+menu setprop fm parent pn
+set #menures Q
+menu getprop fm parent
+set %r %r , _PARENT= , #menures
+menu form rfm 0 0 10 10 r
+menu setprop rfm text R:FM: , %r
+menu setprop pn alignment 1
+set #menures Q
+menu getprop pn alignment
+set %r ALIGNMENT= , #menures
+menu setprop pn checked #true
+set #menures Q
+menu getprop pn checked
+set %r %r , _CHECKED= , #menures
+menu setprop pn color 255
+set #menures Q
+menu getprop pn color
+set %r %r , _COLOR= , #menures
+menu setprop pn enabled #false
+set #menures Q
+menu getprop pn enabled
+set %r %r , _ENABLED= , #menures
+menu setprop pn fontcolor 65280
+set #menures Q
+menu getprop pn fontcolor
+set %r %r , _FONTCOLOR= , #menures
+menu setprop pn fontname Courier New
+set #menures Q
+menu getprop pn fontname
+set %r %r , _FONTNAME= , #menures
+menu setprop pn fontsize 14
+set #menures Q
+menu getprop pn fontsize
+set %r %r , _FONTSIZE= , #menures
+menu setprop pn fontstyle 5
+set #menures Q
+menu getprop pn fontstyle
+set %r %r , _FONTSTYLE= , #menures
+menu setprop pn height 33
+set #menures Q
+menu getprop pn height
+set %r %r , _HEIGHT= , #menures
+menu setprop pn width 44
+set #menures Q
+menu getprop pn width
+set %r %r , _WIDTH= , #menures
+menu setprop pn left 5
+set #menures Q
+menu getprop pn left
+set %r %r , _LEFT= , #menures
+menu setprop pn top 6
+set #menures Q
+menu getprop pn top
+set %r %r , _TOP= , #menures
+menu setprop pn text Hello World
+set #menures Q
+menu getprop pn text
+set %r %r , _TEXT= , #menures
+menu setprop pn tooltip Tip Text
+set #menures Q
+menu getprop pn tooltip
+set %r %r , _TOOLTIP= , #menures
+menu setprop pn visible #false
+set #menures Q
+menu getprop pn visible
+set %r %r , _VISIBLE= , #menures
+menu setprop pn parent fm
+set #menures Q
+menu getprop pn parent
+set %r %r , _PARENT= , #menures
+menu form rpn 0 0 10 10 r
+menu setprop rpn text R:PN: , %r
+menu setprop tx alignment 1
+set #menures Q
+menu getprop tx alignment
+set %r ALIGNMENT= , #menures
+menu setprop tx checked #true
+set #menures Q
+menu getprop tx checked
+set %r %r , _CHECKED= , #menures
+menu setprop tx color 255
+set #menures Q
+menu getprop tx color
+set %r %r , _COLOR= , #menures
+menu setprop tx enabled #false
+set #menures Q
+menu getprop tx enabled
+set %r %r , _ENABLED= , #menures
+menu setprop tx fontcolor 65280
+set #menures Q
+menu getprop tx fontcolor
+set %r %r , _FONTCOLOR= , #menures
+menu setprop tx fontname Courier New
+set #menures Q
+menu getprop tx fontname
+set %r %r , _FONTNAME= , #menures
+menu setprop tx fontsize 14
+set #menures Q
+menu getprop tx fontsize
+set %r %r , _FONTSIZE= , #menures
+menu setprop tx fontstyle 5
+set #menures Q
+menu getprop tx fontstyle
+set %r %r , _FONTSTYLE= , #menures
+menu setprop tx height 33
+set #menures Q
+menu getprop tx height
+set %r %r , _HEIGHT= , #menures
+menu setprop tx width 44
+set #menures Q
+menu getprop tx width
+set %r %r , _WIDTH= , #menures
+menu setprop tx left 5
+set #menures Q
+menu getprop tx left
+set %r %r , _LEFT= , #menures
+menu setprop tx top 6
+set #menures Q
+menu getprop tx top
+set %r %r , _TOP= , #menures
+menu setprop tx text Hello World
+set #menures Q
+menu getprop tx text
+set %r %r , _TEXT= , #menures
+menu setprop tx tooltip Tip Text
+set #menures Q
+menu getprop tx tooltip
+set %r %r , _TOOLTIP= , #menures
+menu setprop tx visible #false
+set #menures Q
+menu getprop tx visible
+set %r %r , _VISIBLE= , #menures
+menu setprop tx parent pn
+set #menures Q
+menu getprop tx parent
+set %r %r , _PARENT= , #menures
+menu form rtx 0 0 10 10 r
+menu setprop rtx text R:TX: , %r
+menu setprop bt alignment 1
+set #menures Q
+menu getprop bt alignment
+set %r ALIGNMENT= , #menures
+menu setprop bt checked #true
+set #menures Q
+menu getprop bt checked
+set %r %r , _CHECKED= , #menures
+menu setprop bt color 255
+set #menures Q
+menu getprop bt color
+set %r %r , _COLOR= , #menures
+menu setprop bt enabled #false
+set #menures Q
+menu getprop bt enabled
+set %r %r , _ENABLED= , #menures
+menu setprop bt fontcolor 65280
+set #menures Q
+menu getprop bt fontcolor
+set %r %r , _FONTCOLOR= , #menures
+menu setprop bt fontname Courier New
+set #menures Q
+menu getprop bt fontname
+set %r %r , _FONTNAME= , #menures
+menu setprop bt fontsize 14
+set #menures Q
+menu getprop bt fontsize
+set %r %r , _FONTSIZE= , #menures
+menu setprop bt fontstyle 5
+set #menures Q
+menu getprop bt fontstyle
+set %r %r , _FONTSTYLE= , #menures
+menu setprop bt height 33
+set #menures Q
+menu getprop bt height
+set %r %r , _HEIGHT= , #menures
+menu setprop bt width 44
+set #menures Q
+menu getprop bt width
+set %r %r , _WIDTH= , #menures
+menu setprop bt left 5
+set #menures Q
+menu getprop bt left
+set %r %r , _LEFT= , #menures
+menu setprop bt top 6
+set #menures Q
+menu getprop bt top
+set %r %r , _TOP= , #menures
+menu setprop bt text Hello World
+set #menures Q
+menu getprop bt text
+set %r %r , _TEXT= , #menures
+menu setprop bt tooltip Tip Text
+set #menures Q
+menu getprop bt tooltip
+set %r %r , _TOOLTIP= , #menures
+menu setprop bt visible #false
+set #menures Q
+menu getprop bt visible
+set %r %r , _VISIBLE= , #menures
+menu setprop bt parent pn
+set #menures Q
+menu getprop bt parent
+set %r %r , _PARENT= , #menures
+menu form rbt 0 0 10 10 r
+menu setprop rbt text R:BT: , %r
+menu setprop ed alignment 1
+set #menures Q
+menu getprop ed alignment
+set %r ALIGNMENT= , #menures
+menu setprop ed checked #true
+set #menures Q
+menu getprop ed checked
+set %r %r , _CHECKED= , #menures
+menu setprop ed color 255
+set #menures Q
+menu getprop ed color
+set %r %r , _COLOR= , #menures
+menu setprop ed enabled #false
+set #menures Q
+menu getprop ed enabled
+set %r %r , _ENABLED= , #menures
+menu setprop ed fontcolor 65280
+set #menures Q
+menu getprop ed fontcolor
+set %r %r , _FONTCOLOR= , #menures
+menu setprop ed fontname Courier New
+set #menures Q
+menu getprop ed fontname
+set %r %r , _FONTNAME= , #menures
+menu setprop ed fontsize 14
+set #menures Q
+menu getprop ed fontsize
+set %r %r , _FONTSIZE= , #menures
+menu setprop ed fontstyle 5
+set #menures Q
+menu getprop ed fontstyle
+set %r %r , _FONTSTYLE= , #menures
+menu setprop ed height 33
+set #menures Q
+menu getprop ed height
+set %r %r , _HEIGHT= , #menures
+menu setprop ed width 44
+set #menures Q
+menu getprop ed width
+set %r %r , _WIDTH= , #menures
+menu setprop ed left 5
+set #menures Q
+menu getprop ed left
+set %r %r , _LEFT= , #menures
+menu setprop ed top 6
+set #menures Q
+menu getprop ed top
+set %r %r , _TOP= , #menures
+menu setprop ed text Hello World
+set #menures Q
+menu getprop ed text
+set %r %r , _TEXT= , #menures
+menu setprop ed tooltip Tip Text
+set #menures Q
+menu getprop ed tooltip
+set %r %r , _TOOLTIP= , #menures
+menu setprop ed visible #false
+set #menures Q
+menu getprop ed visible
+set %r %r , _VISIBLE= , #menures
+menu setprop ed parent pn
+set #menures Q
+menu getprop ed parent
+set %r %r , _PARENT= , #menures
+menu form red 0 0 10 10 r
+menu setprop red text R:ED: , %r
+menu setprop ck alignment 1
+set #menures Q
+menu getprop ck alignment
+set %r ALIGNMENT= , #menures
+menu setprop ck checked #true
+set #menures Q
+menu getprop ck checked
+set %r %r , _CHECKED= , #menures
+menu setprop ck color 255
+set #menures Q
+menu getprop ck color
+set %r %r , _COLOR= , #menures
+menu setprop ck enabled #false
+set #menures Q
+menu getprop ck enabled
+set %r %r , _ENABLED= , #menures
+menu setprop ck fontcolor 65280
+set #menures Q
+menu getprop ck fontcolor
+set %r %r , _FONTCOLOR= , #menures
+menu setprop ck fontname Courier New
+set #menures Q
+menu getprop ck fontname
+set %r %r , _FONTNAME= , #menures
+menu setprop ck fontsize 14
+set #menures Q
+menu getprop ck fontsize
+set %r %r , _FONTSIZE= , #menures
+menu setprop ck fontstyle 5
+set #menures Q
+menu getprop ck fontstyle
+set %r %r , _FONTSTYLE= , #menures
+menu setprop ck height 33
+set #menures Q
+menu getprop ck height
+set %r %r , _HEIGHT= , #menures
+menu setprop ck width 44
+set #menures Q
+menu getprop ck width
+set %r %r , _WIDTH= , #menures
+menu setprop ck left 5
+set #menures Q
+menu getprop ck left
+set %r %r , _LEFT= , #menures
+menu setprop ck top 6
+set #menures Q
+menu getprop ck top
+set %r %r , _TOP= , #menures
+menu setprop ck text Hello World
+set #menures Q
+menu getprop ck text
+set %r %r , _TEXT= , #menures
+menu setprop ck tooltip Tip Text
+set #menures Q
+menu getprop ck tooltip
+set %r %r , _TOOLTIP= , #menures
+menu setprop ck visible #false
+set #menures Q
+menu getprop ck visible
+set %r %r , _VISIBLE= , #menures
+menu setprop ck parent pn
+set #menures Q
+menu getprop ck parent
+set %r %r , _PARENT= , #menures
+menu form rck 0 0 10 10 r
+menu setprop rck text R:CK: , %r
+menu setprop rd alignment 1
+set #menures Q
+menu getprop rd alignment
+set %r ALIGNMENT= , #menures
+menu setprop rd checked #true
+set #menures Q
+menu getprop rd checked
+set %r %r , _CHECKED= , #menures
+menu setprop rd color 255
+set #menures Q
+menu getprop rd color
+set %r %r , _COLOR= , #menures
+menu setprop rd enabled #false
+set #menures Q
+menu getprop rd enabled
+set %r %r , _ENABLED= , #menures
+menu setprop rd fontcolor 65280
+set #menures Q
+menu getprop rd fontcolor
+set %r %r , _FONTCOLOR= , #menures
+menu setprop rd fontname Courier New
+set #menures Q
+menu getprop rd fontname
+set %r %r , _FONTNAME= , #menures
+menu setprop rd fontsize 14
+set #menures Q
+menu getprop rd fontsize
+set %r %r , _FONTSIZE= , #menures
+menu setprop rd fontstyle 5
+set #menures Q
+menu getprop rd fontstyle
+set %r %r , _FONTSTYLE= , #menures
+menu setprop rd height 33
+set #menures Q
+menu getprop rd height
+set %r %r , _HEIGHT= , #menures
+menu setprop rd width 44
+set #menures Q
+menu getprop rd width
+set %r %r , _WIDTH= , #menures
+menu setprop rd left 5
+set #menures Q
+menu getprop rd left
+set %r %r , _LEFT= , #menures
+menu setprop rd top 6
+set #menures Q
+menu getprop rd top
+set %r %r , _TOP= , #menures
+menu setprop rd text Hello World
+set #menures Q
+menu getprop rd text
+set %r %r , _TEXT= , #menures
+menu setprop rd tooltip Tip Text
+set #menures Q
+menu getprop rd tooltip
+set %r %r , _TOOLTIP= , #menures
+menu setprop rd visible #false
+set #menures Q
+menu getprop rd visible
+set %r %r , _VISIBLE= , #menures
+menu setprop rd parent pn
+set #menures Q
+menu getprop rd parent
+set %r %r , _PARENT= , #menures
+menu form rrd 0 0 10 10 r
+menu setprop rrd text R:RD: , %r
+menu setprop cb alignment 1
+set #menures Q
+menu getprop cb alignment
+set %r ALIGNMENT= , #menures
+menu setprop cb checked #true
+set #menures Q
+menu getprop cb checked
+set %r %r , _CHECKED= , #menures
+menu setprop cb color 255
+set #menures Q
+menu getprop cb color
+set %r %r , _COLOR= , #menures
+menu setprop cb enabled #false
+set #menures Q
+menu getprop cb enabled
+set %r %r , _ENABLED= , #menures
+menu setprop cb fontcolor 65280
+set #menures Q
+menu getprop cb fontcolor
+set %r %r , _FONTCOLOR= , #menures
+menu setprop cb fontname Courier New
+set #menures Q
+menu getprop cb fontname
+set %r %r , _FONTNAME= , #menures
+menu setprop cb fontsize 14
+set #menures Q
+menu getprop cb fontsize
+set %r %r , _FONTSIZE= , #menures
+menu setprop cb fontstyle 5
+set #menures Q
+menu getprop cb fontstyle
+set %r %r , _FONTSTYLE= , #menures
+menu setprop cb height 33
+set #menures Q
+menu getprop cb height
+set %r %r , _HEIGHT= , #menures
+menu setprop cb width 44
+set #menures Q
+menu getprop cb width
+set %r %r , _WIDTH= , #menures
+menu setprop cb left 5
+set #menures Q
+menu getprop cb left
+set %r %r , _LEFT= , #menures
+menu setprop cb top 6
+set #menures Q
+menu getprop cb top
+set %r %r , _TOP= , #menures
+menu setprop cb text Hello World
+set #menures Q
+menu getprop cb text
+set %r %r , _TEXT= , #menures
+menu setprop cb tooltip Tip Text
+set #menures Q
+menu getprop cb tooltip
+set %r %r , _TOOLTIP= , #menures
+menu setprop cb visible #false
+set #menures Q
+menu getprop cb visible
+set %r %r , _VISIBLE= , #menures
+menu setprop cb parent pn
+set #menures Q
+menu getprop cb parent
+set %r %r , _PARENT= , #menures
+menu form rcb 0 0 10 10 r
+menu setprop rcb text R:CB: , %r
+menu setprop ls alignment 1
+set #menures Q
+menu getprop ls alignment
+set %r ALIGNMENT= , #menures
+menu setprop ls checked #true
+set #menures Q
+menu getprop ls checked
+set %r %r , _CHECKED= , #menures
+menu setprop ls color 255
+set #menures Q
+menu getprop ls color
+set %r %r , _COLOR= , #menures
+menu setprop ls enabled #false
+set #menures Q
+menu getprop ls enabled
+set %r %r , _ENABLED= , #menures
+menu setprop ls fontcolor 65280
+set #menures Q
+menu getprop ls fontcolor
+set %r %r , _FONTCOLOR= , #menures
+menu setprop ls fontname Courier New
+set #menures Q
+menu getprop ls fontname
+set %r %r , _FONTNAME= , #menures
+menu setprop ls fontsize 14
+set #menures Q
+menu getprop ls fontsize
+set %r %r , _FONTSIZE= , #menures
+menu setprop ls fontstyle 5
+set #menures Q
+menu getprop ls fontstyle
+set %r %r , _FONTSTYLE= , #menures
+menu setprop ls height 33
+set #menures Q
+menu getprop ls height
+set %r %r , _HEIGHT= , #menures
+menu setprop ls width 44
+set #menures Q
+menu getprop ls width
+set %r %r , _WIDTH= , #menures
+menu setprop ls left 5
+set #menures Q
+menu getprop ls left
+set %r %r , _LEFT= , #menures
+menu setprop ls top 6
+set #menures Q
+menu getprop ls top
+set %r %r , _TOP= , #menures
+menu setprop ls text Hello World
+set #menures Q
+menu getprop ls text
+set %r %r , _TEXT= , #menures
+menu setprop ls tooltip Tip Text
+set #menures Q
+menu getprop ls tooltip
+set %r %r , _TOOLTIP= , #menures
+menu setprop ls visible #false
+set #menures Q
+menu getprop ls visible
+set %r %r , _VISIBLE= , #menures
+menu setprop ls parent pn
+set #menures Q
+menu getprop ls parent
+set %r %r , _PARENT= , #menures
+menu form rls 0 0 10 10 r
+menu setprop rls text R:LS: , %r
+menu setprop im alignment 1
+set #menures Q
+menu getprop im alignment
+set %r ALIGNMENT= , #menures
+menu setprop im checked #true
+set #menures Q
+menu getprop im checked
+set %r %r , _CHECKED= , #menures
+menu setprop im color 255
+set #menures Q
+menu getprop im color
+set %r %r , _COLOR= , #menures
+menu setprop im enabled #false
+set #menures Q
+menu getprop im enabled
+set %r %r , _ENABLED= , #menures
+menu setprop im fontcolor 65280
+set #menures Q
+menu getprop im fontcolor
+set %r %r , _FONTCOLOR= , #menures
+menu setprop im fontname Courier New
+set #menures Q
+menu getprop im fontname
+set %r %r , _FONTNAME= , #menures
+menu setprop im fontsize 14
+set #menures Q
+menu getprop im fontsize
+set %r %r , _FONTSIZE= , #menures
+menu setprop im fontstyle 5
+set #menures Q
+menu getprop im fontstyle
+set %r %r , _FONTSTYLE= , #menures
+menu setprop im height 33
+set #menures Q
+menu getprop im height
+set %r %r , _HEIGHT= , #menures
+menu setprop im width 44
+set #menures Q
+menu getprop im width
+set %r %r , _WIDTH= , #menures
+menu setprop im left 5
+set #menures Q
+menu getprop im left
+set %r %r , _LEFT= , #menures
+menu setprop im top 6
+set #menures Q
+menu getprop im top
+set %r %r , _TOP= , #menures
+menu setprop im text Hello World
+set #menures Q
+menu getprop im text
+set %r %r , _TEXT= , #menures
+menu setprop im tooltip Tip Text
+set #menures Q
+menu getprop im tooltip
+set %r %r , _TOOLTIP= , #menures
+menu setprop im visible #false
+set #menures Q
+menu getprop im visible
+set %r %r , _VISIBLE= , #menures
+menu setprop im parent pn
+set #menures Q
+menu getprop im parent
+set %r %r , _PARENT= , #menures
+menu form rim 0 0 10 10 r
+menu setprop rim text R:IM: , %r
+menu setdef parent form0
+menu setdef alignment 2
+set #menures Q
+menu getdef alignment
+set %r ALIGNMENT= , #menures
+menu setdef color 255
+set #menures Q
+menu getdef color
+set %r %r , _COLOR= , #menures
+menu setdef fontcolor 65280
+set #menures Q
+menu getdef fontcolor
+set %r %r , _FONTCOLOR= , #menures
+menu setdef fontname Courier New
+set #menures Q
+menu getdef fontname
+set %r %r , _FONTNAME= , #menures
+menu setdef fontsize 14
+set #menures Q
+menu getdef fontsize
+set %r %r , _FONTSIZE= , #menures
+menu setdef fontstyle 5
+set #menures Q
+menu getdef fontstyle
+set %r %r , _FONTSTYLE= , #menures
+menu setdef parent pn
+set #menures Q
+menu getdef parent
+set %r %r , _PARENT= , #menures
+menu setdef checked #true
+set #menures Q
+menu getdef checked
+set %r %r , _CHECKED= , #menures
+menu setdef width 44
+set #menures Q
+menu getdef width
+set %r %r , _WIDTH= , #menures
+menu setdef text Hello
+set #menures Q
+menu getdef text
+set %r %r , _TEXT= , #menures
+menu setdef parent form0
+menu form rdef 0 0 10 10 r
+menu setprop rdef text R:DEF: , %r
+halt

@@ -29,10 +29,13 @@ There is no setting to turn this command off: any script you run can use it.
 ```euo
 execute notepad.exe C:\EasyUO\notes.txt
 execute https://github.com/ilpersi/EasyUOReforged
+halt
 ```
 
 Append a line to a text file with the command prompt:
 
 ```euo
+set %task mining
 execute cmd.exe /c echo %task #CharPosX #CharPosY >> C:\EasyUO\log.txt
+halt
 ```

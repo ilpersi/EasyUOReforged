@@ -25,5 +25,6 @@ source: wiki
 
 ```euo
 if #CharDir = 0
-  event SysMessage Looking north.
+  display ok Looking north.
+halt
 ```

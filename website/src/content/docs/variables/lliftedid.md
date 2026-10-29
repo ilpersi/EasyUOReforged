@@ -19,7 +19,9 @@ the cursor.
 ## Example
 
 ```euo
+set %item ABCDEFG            ; the ID of an item in your backpack
 event Drag %item
 wait 20
-event SysMessage You picked up #LLiftedID
+display ok You picked up #LLiftedID
+halt
 ```

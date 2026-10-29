@@ -17,6 +17,7 @@ the value you set, which turns it into a stopwatch. [`#SCnt2`](/variables/scnt2/
 
 ```euo
 set #SCnt 0
-gosub work
-event SysMessage That took #SCnt seconds
+wait 3s
+display ok That took #SCnt seconds
+halt
 ```

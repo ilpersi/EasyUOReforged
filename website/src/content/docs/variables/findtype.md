@@ -21,4 +21,5 @@ for gold). It describes the object [`FindItem`](/commands/finditem/) selected, a
 finditem * C_ , #BackpackID
 for #FindIndex 1 #FindCnt
   event SysMessage #FindID is of type #FindType
+halt
 ```

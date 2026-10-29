@@ -23,4 +23,5 @@ It reads `N/A` for an object in a container, and when nothing was found.
 finditem POF G_15
 if #FindCnt > 0
   display ok Gold #FindDist tiles away.
+halt
 ```

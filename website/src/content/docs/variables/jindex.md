@@ -28,4 +28,5 @@ for %n %from #JIndex
   if TestB in #Journal
     event SysMessage Found it.
 }
+halt
 ```

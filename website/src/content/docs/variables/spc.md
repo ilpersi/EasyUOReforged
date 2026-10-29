@@ -17,4 +17,5 @@ source: wiki
 ```euo
 set %name Sir , #SPC , Robin
 display ok Hello , #SPC , %name
+halt
 ```

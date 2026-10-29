@@ -19,7 +19,9 @@ body, so it recognises the human and elf ghost bodies. Comparisons ignore case: 
 ```euo
 if #CharGhost = yes
 {
-  gosub logout
+  display ok You are dead: the script stops here.
   halt
 }
+display ok You are alive.
+halt
 ```

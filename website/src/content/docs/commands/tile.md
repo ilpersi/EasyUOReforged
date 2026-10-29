@@ -39,6 +39,7 @@ for %n 1 #TileCnt
   tile get #CharPosX #CharPosY %n
   event sysmessage #TileName at height #TileZ
 }
+halt
 ```
 
 ## Reforged notes

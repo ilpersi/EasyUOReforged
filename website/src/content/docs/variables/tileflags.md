@@ -19,7 +19,11 @@ The possible names are: `Background`, `Weapon`, `Transparent`, `Translucent`, `W
 ## Example
 
 ```euo
+set %x #CharPosX
+set %y #CharPosY - 1           ; the tile north of you
+tile init
 tile get %x %y 1
 if Impassable in #TileFlags
-  event SysMessage Cannot walk there.
+  display ok Cannot walk there.
+halt
 ```

@@ -19,6 +19,7 @@ does not follow the gump: after scrolling, run `getshopinfo` again.
 
 ```euo
 getshopinfo
-if #ShopItemType = %bandagetype
+if #ShopItemType = ZLF        ; bandages
   setshopitem #ShopItemID 50
+halt
 ```

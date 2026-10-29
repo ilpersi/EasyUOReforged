@@ -21,10 +21,12 @@ ends with `halt`, and why a script without one runs again and again.
 ## Example
 
 ```euo
-event macro 1 0 %pet %command
-if %pet = all
+set %round %round + 1
+display ok Round %round
+if %round < 3
   exit                       ; back to the top of the script
-event macro 1 0 %pet follow me
+display ok Done after %round rounds.
+halt
 ```
 
 ## Returning a value from a called script
@@ -40,8 +42,7 @@ display ok a = %a
 halt
 ```
 
-```euo
-; a.euo
+```euo title="a.euo"
 set %a set_by_a.euo
 exit
 ```

@@ -1,0 +1,53 @@
+; Probe for tests/tools/Record16MenuGolden.py: EasyUO 1.6 MENU golden values.
+; "menu reforge mode 1.6" makes Reforged run it under the 1.6 logic; 1.6 ignores the line.
+; getprop of a parent that is not registered (a control inside a duplicate,
+; unregistered form) puts in #MenuRes the last string result MENU produced, empty
+; before the first one -- not #MenuRes's current value. Which results count, and
+; whether "menu clear" resets it.
+;@wait A
+menu reforge mode 1.6
+menu form fx 400 100 100 50 fx
+menu form fx 500 100 100 50 fx2
+menu text orphan 1 1 orphan
+menu setdef parent form0
+menu text named 10 10 Named
+set #menures Q
+menu getprop orphan parent
+set %r NONE= , #menures
+menu getprop named text
+set #menures Q
+menu getprop orphan parent
+set %r %r , _TEXT= , #menures
+menu getprop named left
+set #menures Q
+menu getprop orphan parent
+set %r %r , _AFTERINT= , #menures
+menu getdef fontname
+set #menures Q
+menu getprop orphan parent
+set %r %r , _AFTERDEF= , #menures
+menu get named
+set #menures Q
+menu getprop orphan parent
+set %r %r , _AFTERGET= , #menures
+menu getprop named nonsense
+set #menures Q
+menu getprop orphan parent
+set %r %r , _AFTERUNKNOWN= , #menures
+menu getprop named parent
+set #menures Q
+menu getprop orphan parent
+set %r %r , _AFTERPARENT= , #menures
+set #menures Q
+menu getprop orphan text
+set %r %r , _ORPHANTEXT= , #menures
+menu clear
+menu form fy 400 100 100 50 fy
+menu form fy 500 100 100 50 fy2
+menu text orphan2 1 1 orphan2
+menu setdef parent form0
+set #menures Q
+menu getprop orphan2 parent
+set %r %r , _AFTERCLEAR= , #menures
+menu window title R:A: , %r
+halt

@@ -1,0 +1,181 @@
+{
+ "probe": "panels_radio",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "W1"
+   ],
+   "report": "R1=0_R2=-1_R3=-1_R3B=0_PBP=p1",
+   "values": [
+    "R1=0",
+    "R2=-1",
+    "R3=-1",
+    "R3B=0",
+    "PBP=p1"
+   ]
+  },
+  {
+   "step": "forms",
+   "forms": [
+    {
+     "caption": "R:W1:R1=0_R2=-1_R3=-1_R3B=0_PBP=p1",
+     "visible": true,
+     "left": 200,
+     "top": 200,
+     "width": 306,
+     "height": 249,
+     "client": [
+      300,
+      220
+     ],
+     "style": "16CA0000",
+     "exstyle": "00010108",
+     "children": [
+      {
+       "class": "TRadioButton",
+       "text": "R4",
+       "visible": true,
+       "rect": [
+        80,
+        150,
+        60,
+        20
+       ],
+       "style": "54012004"
+      },
+      {
+       "class": "TRadioButton",
+       "text": "R3",
+       "visible": true,
+       "rect": [
+        10,
+        150,
+        60,
+        20
+       ],
+       "style": "54002004"
+      },
+      {
+       "class": "TPanel",
+       "text": "",
+       "visible": true,
+       "rect": [
+        20,
+        30,
+        200,
+        100
+       ],
+       "style": "56000000",
+       "children": [
+        {
+         "class": "TRadioButton",
+         "text": "R2",
+         "visible": true,
+         "rect": [
+          80,
+          40,
+          60,
+          20
+         ],
+         "style": "54012004"
+        },
+        {
+         "class": "TRadioButton",
+         "text": "R1",
+         "visible": true,
+         "rect": [
+          10,
+          40,
+          60,
+          20
+         ],
+         "style": "54002004"
+        },
+        {
+         "class": "TBitBtnWithColor",
+         "text": "PB",
+         "visible": true,
+         "rect": [
+          10,
+          10,
+          60,
+          20
+         ],
+         "style": "5401000B"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "step": "wait",
+   "args": [
+    "W2"
+   ],
+   "report": "R1=0_R2=-1_R3=-1_R3B=0_PBP=p1_PBL=10_PBP2=form0_PBINRADIO=r1_PBAFTER=Q_R1AFTER=Q_DPAFTERDEL=r1_ORPHP=r1_ORPHV=-1",
+   "values": [
+    "R1=0",
+    "R2=-1",
+    "R3=-1",
+    "R3B=0",
+    "PBP=p1",
+    "PBL=10",
+    "PBP2=form0",
+    "PBINRADIO=r1",
+    "PBAFTER=Q",
+    "R1AFTER=Q",
+    "DPAFTERDEL=r1",
+    "ORPHP=r1",
+    "ORPHV=-1"
+   ]
+  },
+  {
+   "step": "forms",
+   "forms": [
+    {
+     "caption": "R:W2:R1=0_R2=-1_R3=-1_R3B=0_PBP=p1_PBL=10_PBP2=form0_PBINRADIO=r1_PBAFTER=Q_R1AFTER=Q_DPAFTERDEL=r1_ORPHP=r1_ORPHV=-1",
+     "visible": true,
+     "left": 200,
+     "top": 200,
+     "width": 306,
+     "height": 249,
+     "client": [
+      300,
+      220
+     ],
+     "style": "16CA0000",
+     "exstyle": "00010108",
+     "children": [
+      {
+       "class": "TRadioButton",
+       "text": "R4",
+       "visible": true,
+       "rect": [
+        80,
+        150,
+        60,
+        20
+       ],
+       "style": "54012004"
+      },
+      {
+       "class": "TRadioButton",
+       "text": "R3",
+       "visible": true,
+       "rect": [
+        10,
+        150,
+        60,
+        20
+       ],
+       "style": "54002004"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

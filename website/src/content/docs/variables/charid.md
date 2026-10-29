@@ -23,4 +23,5 @@ character is wearing.
 finditem * C_ , #CharID
 for #FindIndex 1 #FindCnt
   event ExMsg #FindID 3 0 worn
+halt
 ```

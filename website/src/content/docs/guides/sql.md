@@ -32,8 +32,15 @@ as a separate value, never pasted into the statement text. A value containing `'
 therefore stored exactly as it is and cannot break the statement.
 
 ```euo
+sql open :memory:
+sql exec CREATE TABLE kills(mob TEXT, at INTEGER, who TEXT)
+set %mob orc
+set !owner Bob
 sql exec INSERT INTO kills(mob, at, who) VALUES(%mob, #SysTime, !owner)
-sql query SELECT * FROM pets WHERE id = %petid AND hp < %limit
+set %since #SysTime - 60000
+sql query SELECT who FROM kills WHERE mob = %mob AND at > %since
+display ok %who killed an %mob in the last minute.
+halt
 ```
 
 How the variables are found:
@@ -75,13 +82,16 @@ needed). It works like the `*` variables, but in a file of your choice instead o
 [SQL or * variables?](/guides/sql-or-persistent-variables/) helps you choose between the two.
 
 ```euo
-sql open C:\EasyUO\mychar.db
-sql load %kills %lastloot !settings      ; what was saved last time
-...
-sql save %kills %lastloot !settings      ; save for next time
+sql open mychar.db
+sql load %runs !lastloot         ; what was saved last time
+set %runs %runs + 1
+display ok Run %runs - last loot: !lastloot
+set !lastloot gold
+sql save %runs !lastloot         ; save for next time
+halt
 ```
 
-- Write the variables as you normally would (`%kills`, not its value). Only `%` and `!` variables can
+- Write the variables as you normally would (`%runs`, not its value). Only `%` and `!` variables can
   be saved.
 - Names do not depend on case. A `!` variable is saved under its plain name: `!x` saved in one
   namespace loads into `!x` of whatever namespace is current.

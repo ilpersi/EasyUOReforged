@@ -36,4 +36,6 @@ set %d %a * ( %b + 1 )          ; 22
 set %name Sir , #spc , Robin    ; "Sir Robin"
 set %empty
 set #LPC 100
+display ok %c %d %name
+halt
 ```

@@ -19,4 +19,5 @@ source: wiki
 ```euo
 getuotitle
 display ok The window is called #StrRes
+halt
 ```

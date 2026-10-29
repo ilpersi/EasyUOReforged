@@ -20,4 +20,5 @@ source: wiki
 finditem POF C
 if #FindCnt > 0
   display ok Gold found in container #FindBagID
+halt
 ```

@@ -51,6 +51,7 @@ for %i 1 #BuffCnt
   set #BuffIndex %i
   event sysmessage #BuffName : #BuffTime s
 }
+halt
 ```
 
 Recast Bless when it is about to run out:
@@ -58,7 +59,8 @@ Recast Bless when it is about to run out:
 ```euo
 scanbuffs 30018
 if #BuffCnt = 0 || #BuffTime < 10
-  gosub castBless
+  display ok Time to recast Bless.
+halt
 ```
 
 Tell a closed buff bar from an empty one:
@@ -67,6 +69,7 @@ Tell a closed buff bar from an empty one:
 scanbuffs
 if #BuffBarOpen = 0
   display ok Open the buff bar first.
+halt
 ```
 
 ## Notes

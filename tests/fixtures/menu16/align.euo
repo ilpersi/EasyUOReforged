@@ -1,0 +1,45 @@
+; Probe for tests/tools/Record16MenuGolden.py: EasyUO 1.6 MENU golden values.
+; "menu reforge mode 1.6" makes Reforged run it under the 1.6 logic; 1.6 ignores the line.
+; Alignment of check boxes and radio buttons: created from the default
+; alignment, read and written with getprop/setprop, and the BS_LEFTTEXT style the
+; window really gets.
+;@wait A
+;@forms
+menu reforge mode 1.6
+menu window size 300 200
+menu font align left
+menu check c1 10 10 100 20 #true CheckL
+menu radio r1 10 40 100 20 #true RadioL
+menu text t1 10 70 TextL
+menu font align right
+menu check c2 150 10 100 20 #true CheckR
+menu setdef parent form0
+menu radio r2 150 40 100 20 #true RadioR
+menu text t2 150 70 TextR
+menu getprop c1 alignment
+set %r C1= , #menures
+menu getprop r1 alignment
+set %r %r , _R1= , #menures
+menu getprop t1 alignment
+set %r %r , _T1= , #menures
+menu getprop c2 alignment
+set %r %r , _C2= , #menures
+menu getprop r2 alignment
+set %r %r , _R2= , #menures
+menu getprop t2 alignment
+set %r %r , _T2= , #menures
+menu check c3 10 100 100 20 #true CheckS
+menu radio r3 150 100 100 20 #true RadioS
+menu setprop c3 alignment 0
+menu setprop r3 alignment 0
+menu getprop c3 alignment
+set %r %r , _C3= , #menures
+menu getprop r3 alignment
+set %r %r , _R3= , #menures
+menu setprop c3 alignment 2
+menu getprop c3 alignment
+set %r %r , _C3TWO= , #menures
+menu show
+menu window title R:A: , %r
+wait 20
+halt

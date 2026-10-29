@@ -17,6 +17,7 @@ it, then on from the value you set.
 
 ```euo
 set #SCnt2 0
-gosub work
-event SysMessage That took #SCnt2 tenths of a second
+wait 3s
+display ok That took #SCnt2 tenths of a second
+halt
 ```

@@ -21,5 +21,6 @@ related: ["#PathY", "#PathZ", "#PathDir", "path get"]
 ```euo
 path set accuracy 2
 path find 1434 1699
-event SysMessage The route ends at #PathX #PathY
+display ok The route ends at #PathX #PathY
+halt
 ```

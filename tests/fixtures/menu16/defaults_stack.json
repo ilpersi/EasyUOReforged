@@ -1,0 +1,32 @@
+{
+ "probe": "defaults_stack",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "A"
+   ],
+   "report": "POP1=11_POP2=12_POP3=12_ALAFTERPOP=0_COLRED=0_COL255=255_FONTBG=16711680_FONTALR=1_SETDEFRIGHT=0_FST=5_FNAME=Courier New_BBFN=Courier New_BBFST=5_BBRED=0_LEFTABC=0_VIS7=-1_TT=hello world_NONS=hello world",
+   "values": [
+    "POP1=11",
+    "POP2=12",
+    "POP3=12",
+    "ALAFTERPOP=0",
+    "COLRED=0",
+    "COL255=255",
+    "FONTBG=16711680",
+    "FONTALR=1",
+    "SETDEFRIGHT=0",
+    "FST=5",
+    "FNAME=Courier New",
+    "BBFN=Courier New",
+    "BBFST=5",
+    "BBRED=0",
+    "LEFTABC=0",
+    "VIS7=-1",
+    "TT=hello world",
+    "NONS=hello world"
+   ]
+  }
+ ]
+}

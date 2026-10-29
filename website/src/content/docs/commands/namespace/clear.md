@@ -17,6 +17,8 @@ namespace, switch to it first.
 namespace push
 namespace local temp
 namespace clear          ; start temp empty
-; ...
+set !x 1
+display ok !x
 namespace pop
+halt
 ```

@@ -212,6 +212,11 @@ begin
   with Parser do
     if (Stat=Stop)and Paused then
   begin
+    // Port addition (MENU 1.5/1.6): the text goes in before Clear too, because Clear
+    // chooses the MENU logic from it, and Play does not reliably run SetState's own
+    // Clear afterwards (that one waits for the thread to be Paused again). ScrList.Clear
+    // leaves the main script's text alone.
+    ScrList.Scrs[0].Text:=Scr;
     Clear;
     ScrList.Scr.Text:=Scr;
   end;

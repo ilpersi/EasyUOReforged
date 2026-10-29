@@ -27,6 +27,7 @@ the `exevent Drop…` commands can leave a ghost item on the cursor.
 
 ```euo
 ; drop a piece of trash at your feet
+set %trash ABCDEFG           ; the ID of what to drop
 finditem %trash C_ , #BackpackID
 if #FindCnt > 0
 {
@@ -35,4 +36,5 @@ if #FindCnt > 0
   exevent DropG #CharPosX #CharPosY
   wait 10
 }
+halt
 ```

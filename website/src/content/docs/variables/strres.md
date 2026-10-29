@@ -17,5 +17,6 @@ parameters. [`getuotitle`](/commands/getuotitle/) also puts the client window's 
 
 ```euo
 str len #CharName
-event SysMessage My name has #StrRes letters
+display ok My name has #StrRes letters
+halt
 ```

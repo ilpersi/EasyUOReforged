@@ -30,4 +30,5 @@ source: wiki
 finditem HS_IS G_10
 if #FindRep = 6
   display ok A murderer is near!
+halt
 ```

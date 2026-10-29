@@ -8,6 +8,14 @@ unit EuoMenuWindowTests;
   through it to the window below. The hold now sits on TEuoMenuForm.Surface (a
   child panel), and MENU SET no longer starts one. These show a real MENU form, so
   they need a window station; they report themselves ignored if it cannot be shown.
+
+  Closing the window (its [X] or MENU HIDE) must set #MenuButton to CLOSED and only
+  hide the form. The handler that does it moved from the form class to TMenuObj
+  when the window classes went to EuoMenuCommon, so it is pinned here.
+
+  MENU LIST SELECT under the 1.5 logic: an index outside the list must leave the
+  selection as it was (LB_SETCURSEL), not stop the script with LCL's out-of-bounds
+  error; 0 clears it. These need no shown window.
 }
 
 {$mode delphi}{$H+}
@@ -15,13 +23,20 @@ unit EuoMenuWindowTests;
 interface
 
 uses
-  Windows, Classes, SysUtils, Forms, fpcunit, testregistry, EuoMenu, EuoInterpreter;
+  Windows, Classes, SysUtils, Forms, fpcunit, testregistry, EuoMenu, EuoMenuSelect,
+  EuoInterpreter;
 
 type
   TEuoMenuWindowTests = class(TTestCase)
+  private
+    function  ListSelect(const Ind : String) : String;
   published
     procedure TestRepaintHoldLeavesWindowVisible;
     procedure TestSetDoesNotStartRepaintHold;
+    procedure TestClosingTheWindowSetsClosed;
+    procedure TestListSelectPastTheEndKeepsSelection;
+    procedure TestListSelectZeroClears;
+    procedure TestListSelectBelowZeroKeepsSelection;
   end;
 
 implementation
@@ -115,6 +130,97 @@ begin
   finally
     Interp.Free;
   end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoMenuWindowTests.TestClosingTheWindowSetsClosed;
+var
+  M : TMenuObj;
+begin
+  Application.Initialize;
+  M := TMenuObj.Create;
+  try
+    M.Form.Show;
+    Application.ProcessMessages;
+    if not M.Form.Showing then
+    begin
+      Ignore('MENU form could not be shown in this session');
+      Exit;
+    end;
+
+    M.MenuButton := 'N/A';
+    SendMessage(M.Form.Handle, WM_CLOSE, 0, 0);   // the window's [X]
+    Application.ProcessMessages;
+    AssertEquals('[X] sets #MenuButton', 'CLOSED', M.MenuButton);
+    AssertFalse('[X] hides the window', M.Form.Visible);
+
+    M.Form.Show;
+    Application.ProcessMessages;
+    M.MenuButton := 'N/A';
+    M.Form.Close;                                  // what MENU HIDE does
+    AssertEquals('MENU HIDE sets #MenuButton', 'CLOSED', M.MenuButton);
+    AssertFalse('MENU HIDE hides the window', M.Form.Visible);
+    AssertTrue('the window survives being closed', M.Form.HandleAllocated);
+  finally
+    M.Free;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Runs a 1.5 script that selects item 1 of a one-item list, then index Ind, and
+// returns the selection MENU GET reads back.
+function TEuoMenuWindowTests.ListSelect(const Ind : String) : String;
+var
+  Interp : TEuoInterpreter;
+  Cnt    : Integer;
+begin
+  Application.Initialize;
+  Interp := TEuoInterpreter.Create(0);
+  try
+    Interp.ScrList.Scr.Text :=
+      'menu List Create l 0 0 100 100' + #13#10 +
+      'menu List Add l one' + #13#10 +
+      'menu List Select l 1' + #13#10 +
+      'menu List Select l ' + Ind + #13#10 +
+      'menu Get l' + #13#10 +
+      'set %sel #menures' + #13#10 +
+      'set %x reached' + #13#10 +
+      'HALT';
+    Interp.Clear;
+    Interp.NextLine := 0;
+    AssertTrue('the script runs under the 1.5 logic', Interp.MenuLogic = mlMenu15);
+
+    Cnt := 0;
+    while (Interp.ResInt <> RES_STOP) and (Interp.ResInt <> RES_CLOSE) and (Cnt < 100) do
+    begin
+      try
+        Interp.PlayLine;
+      except
+        on E : Exception do
+          Fail('menu List Select l ' + Ind + ' stopped the script: ' + E.Message);
+      end;
+      Inc(Cnt);
+    end;
+    AssertEquals('the script reaches its end', 'reached', Interp.GetVar('%x'));
+    Result := Interp.GetVar('%sel');
+  finally
+    Interp.Free;
+  end;
+end;
+
+procedure TEuoMenuWindowTests.TestListSelectPastTheEndKeepsSelection;
+begin
+  AssertEquals('index past the end is ignored', '1', ListSelect('5'));
+end;
+
+procedure TEuoMenuWindowTests.TestListSelectZeroClears;
+begin
+  AssertEquals('0 clears the selection', '0', ListSelect('0'));
+end;
+
+procedure TEuoMenuWindowTests.TestListSelectBelowZeroKeepsSelection;
+begin
+  AssertEquals('index below 0 is ignored', '1', ListSelect('-1'));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

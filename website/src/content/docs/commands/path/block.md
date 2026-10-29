@@ -25,4 +25,6 @@ script is started again. [`#PathState`](/variables/pathstate/) is `ok`, or `erro
 ```euo
 path block 1450 1680 1460 1690   ; a house on the way
 path find 1500 1690
+display ok #PathState - #PathCnt steps
+halt
 ```

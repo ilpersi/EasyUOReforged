@@ -20,5 +20,6 @@ size often tells gumps apart that share a name. [`#ContSizeX`](/variables/contsi
 
 ```euo
 if #ContSize = 230_204
-  gosub handlebank
+  display ok The gump on top is 230 by 204 pixels.
+halt
 ```

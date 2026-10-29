@@ -72,4 +72,6 @@ if #Skill < 700
   display ok You need at least 70 Magery for this script.
   halt
 }
+display ok Enough Magery: let's go.
+halt
 ```

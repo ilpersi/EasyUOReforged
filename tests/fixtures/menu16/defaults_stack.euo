@@ -1,0 +1,68 @@
+; Probe for tests/tools/Record16MenuGolden.py: EasyUO 1.6 MENU golden values.
+; "menu reforge mode 1.6" makes Reforged run it under the 1.6 logic; 1.6 ignores the line.
+; pushdef/popdef (first in, first out; alignment not kept), setdef/setprop
+; value conversion (colour names give 0, non-numbers 0, any non-zero is true),
+; and "menu font" writing the defaults.
+;@wait A
+menu reforge mode 1.6
+menu setdef fontsize 11
+menu pushdef
+menu setdef fontsize 12
+menu pushdef
+menu setdef fontsize 13
+menu popdef
+menu getdef fontsize
+set %r POP1= , #menures
+menu popdef
+menu getdef fontsize
+set %r %r , _POP2= , #menures
+menu popdef
+menu getdef fontsize
+set %r %r , _POP3= , #menures
+menu setdef alignment 2
+menu pushdef
+menu popdef
+menu getdef alignment
+set %r %r , _ALAFTERPOP= , #menures
+menu setdef color red
+menu getdef color
+set %r %r , _COLRED= , #menures
+menu setdef color 255
+menu getdef color
+set %r %r , _COL255= , #menures
+menu font bgcolor blue
+menu getdef color
+set %r %r , _FONTBG= , #menures
+menu font align right
+menu getdef alignment
+set %r %r , _FONTALR= , #menures
+menu setdef alignment right
+menu getdef alignment
+set %r %r , _SETDEFRIGHT= , #menures
+menu setdef fontstyle 5
+menu getdef fontstyle
+set %r %r , _FST= , #menures
+menu setdef fontname Courier New
+menu getdef fontname
+set %r %r , _FNAME= , #menures
+menu button bb 1 1 50 20 x
+menu getprop bb fontname
+set %r %r , _BBFN= , #menures
+menu getprop bb fontstyle
+set %r %r , _BBFST= , #menures
+menu setprop bb color red
+menu getprop bb color
+set %r %r , _BBRED= , #menures
+menu setprop bb left abc
+menu getprop bb left
+set %r %r , _LEFTABC= , #menures
+menu setprop bb visible 7
+menu getprop bb visible
+set %r %r , _VIS7= , #menures
+menu setprop bb tooltip hello world
+menu getprop bb tooltip
+set %r %r , _TT= , #menures
+menu getprop bb nonsense
+set %r %r , _NONS= , #menures
+menu window title R:A: , %r
+halt

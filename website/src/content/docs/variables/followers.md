@@ -22,5 +22,6 @@ extended status of Age of Shadows and later; on older clients it reads `N/A`.
 
 ```euo
 if #Followers < #MaxFol
-  gosub tame
+  display ok Room for another pet.
+halt
 ```

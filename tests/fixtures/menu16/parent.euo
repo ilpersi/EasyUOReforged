@@ -1,0 +1,59 @@
+; Probe for tests/tools/Record16MenuGolden.py: EasyUO 1.6 MENU golden values.
+; "menu reforge mode 1.6" makes Reforged run it under the 1.6 logic; 1.6 ignores the line.
+; Moving controls with "setprop parent": into a panel, into an unknown name, into
+; a label; reading the parent of a control whose parent is not registered (a stale
+; #MenuRes); "setdef parent"; deleting the default parent.
+;@wait A
+;@forms
+menu reforge mode 1.6
+menu window size 300 200
+menu panel p1 10 10 100 80
+menu setdef parent form0
+menu button b1 120 10 50 20 B1
+menu getprop b1 parent
+set %r B1P= , #menures
+menu setprop b1 parent p1
+menu getprop b1 parent
+set %r %r , _B1P1= , #menures
+menu getprop b1 left
+set %r %r , _B1L= , #menures
+menu setprop b1 parent nothere
+menu getprop b1 parent
+set %r %r , _B1NOTHERE= , #menures
+menu text lbl 150 50 label
+menu setprop b1 parent lbl
+menu getprop b1 parent
+set %r %r , _B1LBL= , #menures
+menu getprop lbl parent
+set %r %r , _LBLP= , #menures
+menu form fx 400 100 100 50 fx
+menu form fx 500 100 100 50 fx2
+menu text orphan 1 1 orphan
+menu getprop b1 text
+menu getprop orphan parent
+set %r %r , _STALE= , #menures
+menu setdef parent p1
+menu getdef parent
+set %r %r , _DEFP1= , #menures
+menu text inp1 5 50 inp1
+menu getprop inp1 parent
+set %r %r , _INP1= , #menures
+menu delete p1
+set #menures Q
+menu getdef parent
+set %r %r , _DEFAFTERDEL= , #menures
+set #menures Q2
+menu getprop b1 left
+set %r %r , _B1AFTERDEL= , #menures
+menu setdef parent form0
+menu setdef parent nothere
+menu getdef parent
+set %r %r , _DEFNOTHERE= , #menures
+menu setprop form0 parent fx
+set #menures Q3
+menu getprop form0 parent
+set %r %r , _FORM0P= , #menures
+menu show
+menu window title R:A: , %r
+wait 20
+halt

@@ -19,7 +19,8 @@ turn into a ghost.
 
 ```euo
 set %normal #CharType
-; ... later
+wait 10s                     ; change form in the meantime
 if #CharType <> %normal
   display ok Your body changed.
+halt
 ```

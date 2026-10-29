@@ -27,5 +27,6 @@ To test whether something was found, [`#FindCnt`](/variables/findcnt/) is cleare
 ```euo
 finditem POF
 if #FindKind = 1
-  event SysMessage There is gold on the ground.
+  display ok There is gold on the ground.
+halt
 ```

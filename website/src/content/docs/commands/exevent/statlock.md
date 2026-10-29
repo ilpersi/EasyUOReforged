@@ -25,4 +25,5 @@ source: wiki
 ```euo
 exevent StatLock dex down
 exevent StatLock str locked
+halt
 ```

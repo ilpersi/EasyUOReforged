@@ -21,5 +21,6 @@ extended status of Age of Shadows and later; on older clients it reads `N/A`.
 ## Example
 
 ```euo
-event SysMessage I have #TP tithing points
+display ok I have #TP tithing points
+halt
 ```

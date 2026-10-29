@@ -50,6 +50,8 @@ export function validateRef(entry: DocsEntry): void {
 		if (!d.title.startsWith('#')) problems.push("variable titles start with '#'");
 	}
 	if ((d.kind === 'command' || d.kind === 'subcommand') && !d.syntax) problems.push('commands need `syntax`');
+	if (d.category === 'menu' && !d.menuLogic?.length)
+		problems.push("MENU pages need `menuLogic: ['1.5', '1.6']` (or just one of them)");
 	if (!d.description) problems.push('`description` (the one-line summary) is required');
 	if (problems.length) throw new Error(`Reference page '${entry.id}': ${problems.join('; ')}`);
 }

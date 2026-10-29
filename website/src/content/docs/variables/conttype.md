@@ -19,6 +19,7 @@ source: wiki
 ## Example
 
 ```euo
-if #ContType <> %trashbarrel
-  gosub opentrash
+if #ContType = ZJF            ; a backpack
+  display ok A backpack is on top.
+halt
 ```

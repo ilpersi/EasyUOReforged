@@ -59,6 +59,16 @@ unit EuoInterpreter;
   through Delay, as MOVE does, and drives the client through TEuoWalkClient below. PATH
   CHECK, and the walker before it walks on, ask the client's own step check (the tile query
   BlockInfo calls) through TUOEvent.StepInfo.
+  Likewise the MENU 1.5/1.6 split (docs/menu-1.6-analysis.md): MENU runs under EasyUO 1.5's
+  logic (TMenuObj, EuoMenu.pas, unchanged) or EasyUO 1.6's (TMenu16, EuoMenu16.pas, with its own
+  dispatcher, run on the main thread like MenuProcSync), chosen once per run in Clear by
+  EuoMenuSelect from the script's text. #MenuButton/#MenuRes (527/528) are read and written
+  through the chosen logic. MENU REFORGE only carries the selection's settings and does nothing
+  at runtime. A 1.6-only MENU line reached under a 1.5 logic that was chosen automatically
+  leaves a notice the GUI takes with TakeMenuNotice, once per run; the 1.5 path itself runs as
+  before. Under the 1.6
+  logic MENU must do what EasyUO 1.6 did as recorded in tests/fixtures/menu16, which
+  EuoMenu16GoldenTests replays.
 }
 
 {$mode delphi}{$H+}
@@ -67,7 +77,7 @@ interface
 uses
   Windows, SysUtils, Classes, Graphics,
   EuoTokens, EuoConversion, EuoExpression, EuoVariables, EuoScriptStack,
-  EuoSortedList, EuoCommandRegistry, EuoStdCommands, EuoComm, EuoMenu,
+  EuoSortedList, EuoCommandRegistry, EuoStdCommands, EuoComm, EuoMenu, EuoMenu16, EuoMenuSelect,
   uotypes, access, ReforgedVersion, uoselector, uovariables, uocommands, uoevents, EuoLock,
   EuoSql, walkrules, walkmap, pathplan, walklive, pathwalk;
 
@@ -96,6 +106,12 @@ type
     StdCmd       : TStdCmd;
     Vars         : TVars;
     MenuObj      : TMenuObj;
+    Menu16       : TMenu16;       // port addition (MENU 1.6): set whenever FMenuLogic=mlMenu16
+    FMenuLogic   : TMenuLogic;
+    FMenuForced  : Boolean;       // the logic came from "menu reforge mode", not detection
+    FMenuChosen  : Boolean;       // a script's text chose it (not the empty tab's Clear)
+    FMenuNotice  : String;
+    MenuNoticed  : Boolean;       // the notice was raised in this run
     CommObj      : TCommObj;
     EventObj     : TUOEvent;
     ParWnd       : Cardinal;
@@ -174,6 +190,10 @@ type
     procedure    MenuProc;
     procedure    MenuProcSync;
     procedure    MenuFontProc;
+    procedure    Menu16ProcSync;
+    procedure    MenuStart;
+    function     ResolveCallFile(const Name : String) : String;
+    procedure    NoteMenu16Needed(const Sub : String);
     procedure    NameSpaceProc;
     procedure    StrProc;
     procedure    SoundProc;
@@ -251,6 +271,14 @@ type
     procedure    SetVar(Name, Value : String);
     function     GetVarDump : String;
     function     Delay(ms : Cardinal) : Boolean;
+    // Port addition (MENU 1.5/1.6): the MENU logic of the current run, chosen in Clear.
+    property     MenuLogic : TMenuLogic read FMenuLogic;
+    property     MenuForced : Boolean read FMenuForced;
+    property     MenuChosen : Boolean read FMenuChosen;
+    // The notice left when a 1.6-only MENU line ran under an automatically chosen 1.5 logic
+    // (once per run), or ''; taking it clears it -- the poll-and-consume idiom of
+    // TExecutor.LastError, under the lock PlayLine holds while the script thread writes it.
+    function     TakeMenuNotice : String;
   end;
 
 implementation
@@ -445,6 +473,8 @@ begin
   Vars:=TVars.Create;
   ScrList:=TScriptList.Create;
   MenuObj:=TMenuObj.Create;
+  Menu16:=nil;
+  FMenuLogic:=mlMenu15;
   CommObj:=TCommObj.Create;
   ParWnd:=Wnd;
 
@@ -511,6 +541,7 @@ begin
   Vars.Free;
   ScrList.Free;
   MenuObj.Free;
+  Menu16.Free;
   CommObj.Free;
   Sql.Free;
   PathCli.Free;
@@ -543,7 +574,7 @@ begin
   Vars.NSType:=local;
 
   UOCmd.IgnoreItemReset;
-  MenuObj.Clear;
+  MenuStart;   // port addition (MENU 1.5/1.6): was MenuObj.Clear, which the 1.5 logic still does
   NSStack.Clear;
 
   Sql.Close;   // port addition (SQL): rolls back a transaction a stopped script left open
@@ -937,8 +968,10 @@ begin
     501: Result:=IntToStr   (GetTickCount div 100 - SCnt2Base);
     525: Result:=            _Result       ;
     526: Result:=            StrRes        ;
-    527: Result:=            MenuObj.MenuButton;
-    528: Result:=            MenuObj.MenuRes;
+    527: if FMenuLogic=mlMenu16 then Result:=Menu16.GetMenuButton
+         else Result:=       MenuObj.MenuButton;
+    528: if FMenuLogic=mlMenu16 then Result:=Menu16.MenuRes
+         else Result:=       MenuObj.MenuRes;
     529: Result:=IntToStr   (LPC          );
     530: Result:=            CommObj.SendHeader;
   end;
@@ -1249,8 +1282,10 @@ begin
          end;
     525: _Result    :=Value;
     526: StrRes     :=Value;
-    527: MenuObj.MenuButton:=Value;
-    528: MenuObj.MenuRes:=Value;
+    527: if FMenuLogic=mlMenu16 then Menu16.SetMenuButton(Value)
+         else MenuObj.MenuButton:=Value;
+    528: if FMenuLogic=mlMenu16 then Menu16.MenuRes:=Value
+         else MenuObj.MenuRes:=Value;
     529: if i>0 then
            LPC      :=i;
     530: CommObj.SendHeader:=Value;
@@ -1789,6 +1824,26 @@ begin
   // runs right here with no thread hop. This is safe because the script thread
   // is blocked for the whole of every Synchronize call above, so the main
   // thread never reads those fields while this thread writes them.
+  //
+  // Port addition (MENU 1.5/1.6): MENU REFORGE's settings were read from the script
+  // text before the run (EuoMenuSelect), so the line itself does nothing. Under the 1.6
+  // logic the whole line, MENU FONT included, runs on the main thread in TMenu16.Run.
+  // Under the 1.5 logic a 1.6-only line runs exactly as it always did (it matches
+  // nothing), and leaves a notice.
+  if (ParList.Count>1) and (ParList[1].StrU='REFORGE') then Exit;
+  if FMenuLogic=mlMenu16 then
+  begin
+    CS.EndWrite;
+    try
+      TThread.Synchronize(TThread.CurrentThread, Menu16ProcSync);
+    finally
+      CS.BeginWrite;
+    end;
+    Exit;
+  end;
+  if (ParList.Count>1) and IsMenu16Only(ParList[1].StrU) then
+    NoteMenu16Needed(ParList[1].StrU);
+
   if (ParList.Count>1) and (ParList[1].StrU='FONT') then
   begin
     MenuFontProc;
@@ -1801,6 +1856,104 @@ begin
   finally
     CS.BeginWrite;
   end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (MENU 1.5/1.6): pick the MENU logic for the run that is starting (see
+// EuoMenuSelect) and reset it the way that logic resets at a script's start. Switching
+// logic between runs first takes down the other logic's windows: the 1.5 window is
+// hidden (Hide, not Close, so #MenuButton is left alone) and emptied, the 1.6 object
+// is freed. Called by Clear, so it runs on the main thread like MenuObj.Clear always did.
+procedure TEuoInterpreter.Menu16ProcSync;
+begin
+  Menu16.Run(ParList);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoInterpreter.MenuStart;
+var
+  NewLogic : TMenuLogic;
+begin
+  NewLogic:=ChooseMenuLogic(ScrList.Scrs[0],ResolveCallFile,FMenuForced);
+  FMenuChosen:=ScrList.Scrs[0].Count>0;
+  MenuNoticed:=False;
+  FMenuNotice:='';
+
+  if NewLogic<>FMenuLogic then
+    if FMenuLogic=mlMenu15 then
+    begin
+      MenuObj.Form.Hide;
+      MenuObj.Clear;
+    end
+    else FreeAndNil(Menu16);
+  FMenuLogic:=NewLogic;
+
+  case FMenuLogic of
+    mlMenu15: MenuObj.Clear;
+    mlMenu16:
+      begin
+        if Menu16=nil then Menu16:=TMenu16.Create;
+        Menu16.ScriptStart;
+      end;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (MENU 1.5/1.6): the file a CALL line naming Name would load, or '' --
+// for the "menu reforge includecall" scan. The lookup must stay identical to CallProc's:
+// a relative name is taken from #CurPath, then .txt and .euo are tried.
+function TEuoInterpreter.ResolveCallFile(const Name : String) : String;
+var
+  sBuf  : String;
+  sBuf2 : String;
+begin
+  Result:='';
+  sBuf:=Name;
+  if not IsAbsolutePath(sBuf) then
+    sBuf:=GetVar('#curpath')+sBuf;
+
+  if not FileExists(sBuf) then
+  repeat
+    sBuf2:=sBuf;
+    sBuf:=sBuf2+'.txt';
+    if FileExists(sBuf) then Break;
+    sBuf:=sBuf2+'.euo';
+    if FileExists(sBuf) then Break;
+    Exit;
+  until True;
+
+  Result:=sBuf;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (MENU 1.5/1.6): for the GUI thread. NoteMenu16Needed writes the notice on
+// the script thread inside PlayLine's lock, so it is read and cleared under the same lock.
+function TEuoInterpreter.TakeMenuNotice : String;
+begin
+  CS.BeginWrite;
+  try
+    Result:=FMenuNotice;
+    FMenuNotice:='';
+  finally
+    CS.EndWrite;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (MENU 1.5/1.6): a 1.6-only MENU line ran under the 1.5 logic. Only when
+// the logic was chosen automatically -- a script that says "menu reforge mode 1.5"
+// asked for exactly this -- and only once per run.
+procedure TEuoInterpreter.NoteMenu16Needed(const Sub : String);
+begin
+  if FMenuForced or MenuNoticed then Exit;
+  MenuNoticed:=True;
+  if ScrList.CallLevel>0 then
+    FMenuNotice:='MENU '+Sub+' needs the EasyUO 1.6 MENU logic, but this script runs the 1.5 '+
+      'one. The line is in the called file '+ScrList.ScrName+': add "menu reforge '+
+      'includecall #true" (or "menu reforge mode 1.6") to the main script.'
+  else
+    FMenuNotice:='MENU '+Sub+' needs the EasyUO 1.6 MENU logic, but this script runs the 1.5 '+
+      'one. Add "menu reforge mode 1.6" to the script.';
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -48,4 +48,5 @@ while #CharPosX <> %x || #CharPosY <> %y
     break
   wait 5
 }
+halt
 ```

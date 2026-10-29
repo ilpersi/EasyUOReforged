@@ -20,8 +20,9 @@ The script waits until the walk is over, as for [`path go`](/commands/path/go/),
 path find 1434 1699
 if #PathState <> ok
   halt
-event SysMessage #PathCnt steps to the bank
+display ok #PathCnt steps to the bank
 path walk
+halt
 ```
 
 ## Parameters

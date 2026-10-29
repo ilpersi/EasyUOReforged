@@ -18,4 +18,6 @@ bring it into a range.
 ```euo
 set %a #Random % 100          ; 0 to 99
 set %b #Random % 8 + 3        ; 3 to 10
+display ok %a and %b
+halt
 ```

@@ -36,5 +36,6 @@ check `#PathState` after the commands that matter.
 ```euo
 path find 1434 1699
 if #PathState <> ok
-  event SysMessage No route: #PathState
+  display ok No route: #PathState
+halt
 ```

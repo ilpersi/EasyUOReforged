@@ -1,0 +1,89 @@
+; Probe for tests/tools/Record16MenuGolden.py: EasyUO 1.6 MENU golden values.
+; "menu reforge mode 1.6" makes Reforged run it under the 1.6 logic; 1.6 ignores the line.
+; "menu font" sub-commands and their checks, read back with getdef and from the
+; controls created afterwards.
+;@wait A
+menu reforge mode 1.6
+set #lpc 1000
+menu font name Courier New
+menu getdef fontname
+set %r FN= , #menures
+menu font name
+menu getdef fontname
+set %r %r , _FNEMPTY= , #menures
+menu font size 14
+menu getdef fontsize
+set %r %r , _FS14= , #menures
+menu font size -3
+menu getdef fontsize
+set %r %r , _FSNEG= , #menures
+menu font size abc
+menu getdef fontsize
+set %r %r , _FSABC= , #menures
+menu font color red
+menu getdef fontcolor
+set %r %r , _FCRED= , #menures
+menu font color 65280
+menu getdef fontcolor
+set %r %r , _FCNUM= , #menures
+menu font color ltgray
+menu getdef fontcolor
+set %r %r , _FCLTGRAY= , #menures
+menu font color clRed
+menu getdef fontcolor
+set %r %r , _FCCLRED= , #menures
+menu font color $FF
+menu getdef fontcolor
+set %r %r , _FCHEX= , #menures
+menu font bgcolor btnface
+menu getdef color
+set %r %r , _BGBTNFACE= , #menures
+menu font bgcolor blue
+menu getdef color
+set %r %r , _BGBLUE= , #menures
+menu font align right
+menu getdef alignment
+set %r %r , _ALRIGHT= , #menures
+menu font align center
+menu getdef alignment
+set %r %r , _ALCENTER= , #menures
+menu font align middle
+menu getdef alignment
+set %r %r , _ALMIDDLE= , #menures
+menu font align LEFT
+menu getdef alignment
+set %r %r , _ALLEFT= , #menures
+menu font style bius
+menu getdef fontstyle
+set %r %r , _STBIUS= , #menures
+menu font style
+menu getdef fontstyle
+set %r %r , _STNONE= , #menures
+menu font style xb
+menu getdef fontstyle
+set %r %r , _STXB= , #menures
+menu font transparent #true
+menu font align center
+menu text tf 10 10 Font
+menu getprop tf fontname
+set %r %r , _TFFN= , #menures
+menu getprop tf fontsize
+set %r %r , _TFFS= , #menures
+menu getprop tf fontcolor
+set %r %r , _TFFC= , #menures
+menu getprop tf fontstyle
+set %r %r , _TFFST= , #menures
+menu getprop tf color
+set %r %r , _TFCOL= , #menures
+menu getprop tf alignment
+set %r %r , _TFAL= , #menures
+menu button bf 10 40 60 20 Font
+menu getprop bf fontname
+set %r %r , _BFFN= , #menures
+menu getprop bf color
+set %r %r , _BFCOL= , #menures
+menu panel pf 10 70 60 20
+menu getprop pf color
+set %r %r , _PFCOL= , #menures
+menu window title R:A: , %r
+halt

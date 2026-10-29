@@ -26,4 +26,5 @@ event Macro 9 1
 wait 20
 nextcpos 0 0
 event Macro 8 1
+halt
 ```

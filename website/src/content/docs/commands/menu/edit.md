@@ -3,6 +3,9 @@ title: "menu Edit"
 description: "Places a one-line text field in the menu window."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
+menuDiffers: true
+credits: ['scriptuo']
 syntax: "menu Edit {name} {x} {y} {width} {text}"
 related: ["menu Get", "menu GetNum", "menu Memo", "menu Set"]
 aliases: ["text field", "input"]
@@ -27,8 +30,21 @@ It uses the current [font settings](/commands/menu/#fonts). Read what the user t
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 180 80
 menu Edit pet 10 10 150 Fluffy
-; later
+menu Button ok 10 45 60 25 OK
+menu Show
+set #MenuButton N/A
+while #MenuButton = N/A
+  wait 1
 menu Get pet
-set %petname #MenuRes
+display ok Your pet is called #MenuRes
+halt
 ```
+
+## 1.5 and 1.6
+
+- **1.6:** the field goes into the current [default parent](/commands/menu/setdef/), and its name must be
+  free: a second field with a taken name appears but cannot be read or changed. `$` stays as written in
+  both.

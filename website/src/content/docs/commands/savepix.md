@@ -32,4 +32,5 @@ Pixels are read from the screen, so the client window has to be visible, not cov
 ; remember the colour under the mouse in slot 1
 savepix #CursorX #CursorY 1
 display ok Colour #PixCol saved
+halt
 ```

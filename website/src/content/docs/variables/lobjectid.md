@@ -22,9 +22,12 @@ rely on it.
 ## Example
 
 ```euo
+finditem ZLF C_ , #BackpackID   ; bandages
+set %bandages #FindID
 set %old #LObjectID
 set #LObjectID %bandages
 event Macro 17 0
 target 2s
 set #LObjectID %old
+halt
 ```

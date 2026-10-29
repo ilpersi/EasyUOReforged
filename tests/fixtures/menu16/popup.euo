@@ -1,0 +1,23 @@
+; Probe for tests/tools/Record16MenuGolden.py: EasyUO 1.6 MENU golden values.
+; "menu reforge mode 1.6" makes Reforged run it under the 1.6 logic; 1.6 ignores the line.
+; A sub that builds a form called twice: the second "menu form pop" is a
+; duplicate, so only the first popup is ever shown.
+;@wait A
+;@forms
+menu reforge mode 1.6
+gosub popup 100 100 First_message
+wait 5
+gosub popup 450 100 Second_message
+menu getprop msg text
+set %r MSG= , #menures
+menu getprop pop left
+set %r %r , _POPL= , #menures
+menu window title R:A: , %r
+wait 40
+halt
+sub popup
+  menu form pop %1 %2 300 80 Popup
+  menu text msg 10 10 %3
+  menu button ok 10 40 60 20 OK
+  menu setprop pop visible #true
+return

@@ -1,0 +1,107 @@
+{
+ "probe": "forms",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "A"
+   ],
+   "report": "L=50_T=60_W=210_H=110_C=Form One_V=0_DP1=f1_FBP=f1_DP2=f1_E1P=f1_DP3=p1_P1P=p1_F1L=50_F2C=Two_F2W=150",
+   "values": [
+    "L=50",
+    "T=60",
+    "W=210",
+    "H=110",
+    "C=Form One",
+    "V=0",
+    "DP1=f1",
+    "FBP=f1",
+    "DP2=f1",
+    "E1P=f1",
+    "DP3=p1",
+    "P1P=p1",
+    "F1L=50",
+    "F2C=Two",
+    "F2W=150"
+   ]
+  },
+  {
+   "step": "forms",
+   "forms": [
+    {
+     "caption": "Form Dup",
+     "visible": false,
+     "left": 400,
+     "top": 60,
+     "width": 216,
+     "height": 139,
+     "client": [
+      210,
+      110
+     ],
+     "style": "06CA0000",
+     "exstyle": "00010108",
+     "children": []
+    },
+    {
+     "caption": "Form One",
+     "visible": true,
+     "left": 50,
+     "top": 60,
+     "width": 216,
+     "height": 139,
+     "client": [
+      210,
+      110
+     ],
+     "style": "16CA0000",
+     "exstyle": "00010108",
+     "children": [
+      {
+       "class": "TBitBtnWithColor",
+       "text": "FB",
+       "visible": true,
+       "rect": [
+        10,
+        10,
+        60,
+        20
+       ],
+       "style": "5401000B"
+      }
+     ]
+    },
+    {
+     "caption": "R:A:L=50_T=60_W=210_H=110_C=Form One_V=0_DP1=f1_FBP=f1_DP2=f1_E1P=f1_DP3=p1_P1P=p1_F1L=50_F2C=Two_F2W=150",
+     "visible": false,
+     "left": 100,
+     "top": 100,
+     "width": 311,
+     "height": 209,
+     "client": [
+      305,
+      180
+     ],
+     "style": "06CA0000",
+     "exstyle": "00010108",
+     "children": []
+    },
+    {
+     "caption": "Two",
+     "visible": true,
+     "left": 600,
+     "top": 60,
+     "width": 156,
+     "height": 119,
+     "client": [
+      150,
+      90
+     ],
+     "style": "16CA0000",
+     "exstyle": "00010108",
+     "children": []
+    }
+   ]
+  }
+ ]
+}

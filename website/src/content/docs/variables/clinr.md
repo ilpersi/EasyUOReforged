@@ -18,5 +18,6 @@ cannot be set.
 ## Example
 
 ```euo
-event SysMessage This is client #CliNr of #CliCnt
+display ok This is client #CliNr of #CliCnt
+halt
 ```

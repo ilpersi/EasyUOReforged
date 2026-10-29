@@ -39,4 +39,5 @@ set #LTargetY 1000
 set #LTargetZ 0
 set #LTargetKind 2
 event Macro 22 0
+halt
 ```

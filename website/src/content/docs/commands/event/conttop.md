@@ -23,6 +23,7 @@ After it, the `#Cont…` variables describe the gump you brought forward.
 event ContTop 1
 wait 5
 display ok Now on top: #ContName
+halt
 ```
 
 ## Notes

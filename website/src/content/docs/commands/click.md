@@ -48,4 +48,5 @@ click 150 150 r
 click 100 100 g
 wait 5
 click 200 300 p
+halt
 ```

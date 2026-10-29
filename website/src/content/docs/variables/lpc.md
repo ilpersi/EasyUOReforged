@@ -20,6 +20,10 @@ for the client take the time they need regardless.
 
 ```euo
 set #LPC 1000
-gosub buildmenu
+set %sum 0
+for %i 1 1000                ; a lot of quick work
+  set %sum %sum + %i
 set #LPC 10
+display ok The sum is %sum
+halt
 ```

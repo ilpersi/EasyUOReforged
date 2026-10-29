@@ -24,4 +24,5 @@ Without a parameter, `terminate` does nothing.
 ```euo
 if #CharGhost = yes
   terminate uo
+halt
 ```

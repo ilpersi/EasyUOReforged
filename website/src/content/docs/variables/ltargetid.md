@@ -24,10 +24,15 @@ rely on it.
 
 ```euo
 ; carve a corpse with a dagger
+finditem TSF C_ , #BackpackID    ; a dagger
+set %dagger #FindID
+finditem YFM G_2                 ; a corpse next to you
+set %corpse #FindID
 set #LObjectID %dagger
 event Macro 17 0
 target 5s
 set #LTargetID %corpse
 set #LTargetKind 1
 event Macro 22 0
+halt
 ```

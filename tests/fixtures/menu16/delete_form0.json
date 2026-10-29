@@ -1,0 +1,37 @@
+{
+ "probe": "delete_form0",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "A"
+   ],
+   "report": "VIS0=Q_AFTERCLEAR=Q2_DP=",
+   "values": [
+    "VIS0=Q",
+    "AFTERCLEAR=Q2",
+    "DP="
+   ]
+  },
+  {
+   "step": "forms",
+   "forms": [
+    {
+     "caption": "R:A:VIS0=Q_AFTERCLEAR=Q2_DP=",
+     "visible": false,
+     "left": 10,
+     "top": 10,
+     "width": 316,
+     "height": 89,
+     "client": [
+      310,
+      60
+     ],
+     "style": "06CA0000",
+     "exstyle": "00010108",
+     "children": []
+    }
+   ]
+  }
+ ]
+}

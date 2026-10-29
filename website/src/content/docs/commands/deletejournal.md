@@ -37,4 +37,5 @@ for %i 10 1
     deletejournal
   }
 }
+halt
 ```

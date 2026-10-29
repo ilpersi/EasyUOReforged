@@ -28,5 +28,6 @@ supported, or the selected buff has left the bar since the last [`ScanBuffs`](/c
 ```euo
 scanbuffs 30018
 if #BuffCnt = 0 || #BuffTime < 10
-  gosub recastBless
+  display ok Time to recast Bless.
+halt
 ```

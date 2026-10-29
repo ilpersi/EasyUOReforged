@@ -16,9 +16,10 @@ when it is false. Only `#true` (`-1`) counts as true.
 
 ```euo
 if #Hits < 50
-  gosub heal
+  display ok Heal first.
 else
-  gosub fight
+  display ok Ready to fight.
+halt
 ```
 
 ## Repeating
@@ -32,10 +33,13 @@ else
 [`break`](/commands/break/) leaves a loop; [`continue`](/commands/continue/) skips to its next round.
 
 ```euo
-for %i 1 10
-  event SysMessage %i
-while #Weight > #MaxWeight
-  gosub dropsomething
+for %i 1 3
+  display ok Round %i
+set %n 1
+while %n < 100
+  set %n %n * 2
+display ok %n                ; 128
+halt
 ```
 
 ## Jumping: labels and `goto`
@@ -44,10 +48,14 @@ A [label](/commands/label/) is a name followed by a colon, on a line of its own.
 to it. It is the simplest way to build the main loop of a script:
 
 ```euo
+set %rounds 0
 mainloop:
-  gosub work
+  set %rounds %rounds + 1
   wait 5
-goto mainloop
+  if %rounds < 3
+    goto mainloop
+display ok %rounds rounds done.
+halt
 ```
 
 Use `goto` within a part of the script, but never to leave a sub: that leaves the sub open.

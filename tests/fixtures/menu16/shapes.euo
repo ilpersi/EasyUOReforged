@@ -1,0 +1,54 @@
+; Probe for tests/tools/Record16MenuGolden.py: EasyUO 1.6 MENU golden values.
+; "menu reforge mode 1.6" makes Reforged run it under the 1.6 logic; 1.6 ignores the line.
+; "menu shape" drawn as an image: dashed lines become solid, fill types other
+; than 7 do not fill, circle/square types are squeezed to a square; a shape is an
+; image that can be drawn on; "font transparent" is ignored.
+;@wait A
+;@snap R:A: s1 10 10 60 30
+;@snap R:A: s2 80 10 60 30
+;@snap R:A: s3 150 10 40 40
+;@snap R:A: s4 10 60 60 30
+;@snap R:A: s5 80 60 30 60
+;@snap R:A: s6 150 60 60 30
+;@snap R:A: s7 10 130 60 30
+;@snap R:A: s8 80 130 60 30
+menu reforge mode 1.6
+menu window size 300 200
+menu window color 16777215
+menu shape s1 10 10 60 30 3 2 3 255 1 65280
+menu shape s2 80 10 60 30 4 1 1 255 7 65280
+menu shape s3 150 10 40 40 1 7 1 0 0 16711680
+menu image line s1 0 0 60 30 0
+menu shape s4 10 60 60 30 2 0 2 255 7 65280
+menu shape s5 80 60 30 60 1 0 1 0 7 255
+menu shape s6 150 60 60 30 5 0 4 16711680 7 65535
+menu shape s7 10 130 60 30 0 0 1 0 7 65535
+menu shape s8 80 130 60 30 6 0 1 0 7 65535
+menu getprop s1 width
+set %r S1W= , #menures
+menu getprop s5 width
+set %r %r , _S5W= , #menures
+menu getprop s5 height
+set %r %r , _S5H= , #menures
+menu getprop s5 left
+set %r %r , _S5L= , #menures
+menu getprop s5 top
+set %r %r , _S5T= , #menures
+menu getprop s4 width
+set %r %r , _S4W= , #menures
+menu getprop s6 width
+set %r %r , _S6W= , #menures
+menu getprop s6 left
+set %r %r , _S6L= , #menures
+menu getprop s7 width
+set %r %r , _S7W= , #menures
+menu getprop s8 width
+set %r %r , _S8W= , #menures
+menu font transparent #true
+menu text tt 205 20 TRANSP
+menu getprop tt color
+set %r %r , _TTCOL= , #menures
+menu show 100 100
+menu window title R:A: , %r
+wait 200
+halt

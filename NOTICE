@@ -72,3 +72,16 @@ the wiki, under the GNU Free Documentation License, Version 1.2; the full
 license text is in website/LICENSE-GFDL-1.2.txt. Pages derived from the wiki
 say so at the bottom. Original authorship and page history are on the source
 wiki.
+
+Acknowledgements
+----------------
+
+The EasyUO 1.6 MENU logic (parser/EuoMenu16.pas) and its documentation were
+researched with help from the ScriptUO community (https://www.scriptuo.com/):
+Gaderian's tutorial "New Menu Code and how to adapt old scripts"
+(https://www.scriptuo.com/index.php?topic=15596.0), and the scripts its members
+share there, whose authors' use of EasyUO 1.6's menu was studied. Thanks also to
+the EasyUO forum's menu-enhancement discussion (http://www.easyuo.com/), where
+Cheffe described the new menu while building it. No text or code from these
+sources is included in EasyUO Reforged; this is an acknowledgement, not a
+licence notice.

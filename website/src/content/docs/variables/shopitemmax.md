@@ -19,4 +19,5 @@ does not follow the gump: after scrolling, run `getshopinfo` again.
 ```euo
 getshopinfo
 setshopitem #ShopItemID #ShopItemMax       ; buy them all
+halt
 ```

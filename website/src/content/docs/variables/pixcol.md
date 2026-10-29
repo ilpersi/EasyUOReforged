@@ -23,5 +23,6 @@ different values on different computers.
 ```euo
 savepix 100 100 1
 if #PixCol = $000000
-  event SysMessage Black.
+  display ok Black.
+halt
 ```

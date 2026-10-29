@@ -20,5 +20,6 @@ If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2
 ## Example
 
 ```euo
-event SysMessage My dexterity is #Dex
+display ok My dexterity is #Dex
+halt
 ```

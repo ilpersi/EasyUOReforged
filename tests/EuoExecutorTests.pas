@@ -17,7 +17,7 @@ unit EuoExecutorTests;
 interface
 
 uses
-  Classes, SysUtils, fpcunit, testregistry, EuoExecutor, EuoInterpreter;
+  Classes, SysUtils, fpcunit, testregistry, EuoExecutor, EuoInterpreter, EuoMenuSelect;
 
 type
   TEuoExecutorTests = class(TTestCase)
@@ -35,6 +35,7 @@ type
     procedure TestBreakpointPausesBeforeItsLineRuns;
     procedure TestRunToCursorIsOneShotAndConsumedOnHit;
     procedure TestConditionalBreakpointOnlyPausesWhenTrue;
+    procedure TestPlayChoosesMenuLogicFromTheLoadedScript;
   end;
 
 implementation
@@ -198,6 +199,29 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// The MENU logic (1.5 or 1.6) is chosen in Parser.Clear, which Play reaches through
+// LoadScript -- SetState's own Clear only runs when the thread has gone back to Paused
+// in between, which pressing Play does not wait for. The choice must come from the
+// script being loaded, not from the one loaded before it.
+procedure TEuoExecutorTests.TestPlayChoosesMenuLogicFromTheLoadedScript;
+var
+  StartTick : Cardinal;
+begin
+  Exec.LoadScript('menu reforge mode 1.6' + #13#10 + 'SET %x one' + #13#10 + 'HALT');
+  Exec.State := PLAY;
+  AssertTrue('a tab''s first script', Exec.Parser.MenuLogic = mlMenu16);
+  AssertTrue(WaitForVar('%x', 'one'));
+
+  StartTick := GetTickCount;
+  while (not Exec.Paused) and (GetTickCount - StartTick < 2000) do
+    Sleep(5);
+  Exec.LoadScript('menu reforge mode 1.5' + #13#10 + 'SET %x two' + #13#10 + 'HALT');
+  Exec.State := PLAY;
+  AssertTrue('the next script', Exec.Parser.MenuLogic = mlMenu15);
+  AssertTrue(WaitForVar('%x', 'two'));
+end;
+
 initialization
   RegisterTest(TEuoExecutorTests);
 end.

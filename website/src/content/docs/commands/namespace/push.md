@@ -17,10 +17,14 @@ Use the pair around code that switches namespaces, so it leaves the caller where
 ## Example
 
 ```euo
+gosub work
+display ok Back in #NSName
+halt
+
 sub work
   namespace push
   namespace local work
-  ; ... uses its own !variables
+  set !x 1               ; uses its own !variables
   namespace pop
 return
 ```

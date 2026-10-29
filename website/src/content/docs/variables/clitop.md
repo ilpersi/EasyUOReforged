@@ -20,4 +20,5 @@ in pixels. Setting it moves the game area. The value lives in the client: settin
 ```euo
 set #CliLeft 0
 set #CliTop 0                ; game area in the top-left corner
+halt
 ```

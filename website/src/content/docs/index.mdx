@@ -50,7 +50,10 @@ if #Hits < #MaxHits / 2
 {
   finditem UUF C_ , #BackpackID     ; yellow potion
   if #FindCnt > 0
-    event macro 17 0                 ; use last object...
+  {
+    set #LObjectID #FindID
+    event macro 17 0                 ; use it
+  }
 }
 wait 10
 goto loop

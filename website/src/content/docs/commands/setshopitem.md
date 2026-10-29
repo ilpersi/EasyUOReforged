@@ -23,4 +23,5 @@ from [`#ShopItemID`](/variables/shopitemid/) after [`getshopinfo`](/commands/get
 ```euo
 getshopinfo
 setshopitem #ShopItemID #ShopItemMax
+halt
 ```

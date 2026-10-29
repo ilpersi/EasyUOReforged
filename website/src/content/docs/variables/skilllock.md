@@ -21,4 +21,5 @@ time you use it. Change it with
 chooseskill taming
 if #SkillLock = locked
   exevent SkillLock taming up
+halt
 ```

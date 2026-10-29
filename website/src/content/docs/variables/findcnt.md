@@ -20,4 +20,5 @@ way to check whether a search found anything, and the upper bound for [`#FindInd
 finditem * C_ , #BackpackID
 if #FindCnt > 0
   display ok There are #FindCnt items in your backpack.
+halt
 ```

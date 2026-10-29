@@ -1,6 +1,7 @@
 ---
 // Starlight MarkdownContent override: the page body, then on reference pages the generated
-// "See also" list and, on pages whose text comes from the EasyUO wiki, the GFDL notice.
+// "See also" list and, on pages whose text comes from the EasyUO wiki, the GFDL notice. Pages
+// listing `credits` end with that acknowledgement (no text is copied, so it carries no licence).
 import Default from '@astrojs/starlight/components/MarkdownContent.astro';
 import { referenceEntries, resolveRef } from './refdata';
 
@@ -30,6 +31,16 @@ const related = entries.length ? d.related.map((r) => resolveRef(r, entries)) : 
 				Based on the <a href="https://github.com/ilpersi/easyuo-wiki-archive">EasyUO wiki</a>, edited for
 				EasyUO Reforged. This text is available under the{' '}
 				<a href="https://www.gnu.org/licenses/old-licenses/fdl-1.2.html">GNU Free Documentation License 1.2</a>.
+			</p>
+		)
+	}
+	{
+		d.credits.includes('scriptuo') && (
+			<p class="ref-licence">
+				The EasyUO 1.6 behaviour on this page was researched with help from the{' '}
+				<a href="https://www.scriptuo.com/">ScriptUO</a> community: Gaderian's tutorial{' '}
+				<a href="https://www.scriptuo.com/index.php?topic=15596.0">New Menu Code and how to adapt old scripts</a>{' '}
+				and the scripts its members share at scriptuo.com.
 			</p>
 		)
 	}

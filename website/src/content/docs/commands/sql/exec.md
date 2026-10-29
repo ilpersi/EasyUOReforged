@@ -19,8 +19,12 @@ goes are passed to SQLite as values, never pasted into the text.
 ## Example
 
 ```euo
+sql open mychar.db
+sql exec CREATE TABLE IF NOT EXISTS kills(mob TEXT, at INTEGER)
+set %mob orc
 sql exec INSERT INTO kills(mob, at) VALUES(%mob, #SysTime)
 display ok Row #SqlLastID added
+halt
 ```
 
 Each `sql exec` that changes data is its own transaction, which is slow for many rows. Wrap a batch in

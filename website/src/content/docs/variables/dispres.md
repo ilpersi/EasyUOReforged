@@ -19,4 +19,6 @@ source: wiki
 display yesno Continue?
 if #DispRes = no
   halt
+display ok Going on.
+halt
 ```

@@ -18,7 +18,8 @@ it knows the whole facet, not only what is on screen.
 ```euo
 path go 1823 2821            ; from here to Trinsic, on foot
 if #PathState <> arrived
-  event SysMessage Did not get there: #PathState
+  display ok Did not get there: #PathState
+halt
 ```
 
 To look at the route first, plan it with [`path find`](/commands/path/find/), then walk it:
@@ -27,7 +28,7 @@ To look at the route first, plan it with [`path find`](/commands/path/find/), th
 path find 1823 2821
 if #PathState <> ok
 {
-  event SysMessage No route: #PathState
+  display ok No route: #PathState
   halt
 }
 for %i 1 #PathCnt
@@ -36,6 +37,7 @@ for %i 1 #PathCnt
   ; #PathX #PathY #PathZ is where step %i ends, #PathDir its direction
 }
 path walk
+halt
 ```
 
 ## Sub-commands

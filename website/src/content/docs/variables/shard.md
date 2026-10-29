@@ -18,5 +18,6 @@ source: wiki
 
 ```euo
 if Atlantic in #Shard
-  event SysMessage Welcome to Atlantic.
+  display ok Welcome to Atlantic.
+halt
 ```

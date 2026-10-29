@@ -21,5 +21,6 @@ If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2
 
 ```euo
 if #Sex = 1
-  event SysMessage Lady #CharName
+  display ok Lady #CharName
+halt
 ```

@@ -22,4 +22,5 @@ Gumps on the [`IgnoreCont`](/commands/ignorecont/) list are skipped when finding
 msg bank$
 wait 20
 contpos 10 10
+halt
 ```

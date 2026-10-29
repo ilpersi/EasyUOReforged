@@ -36,4 +36,5 @@ ignorecont status_gump
 
 ; or ignore whatever kind of gump is on top right now
 ignorecont #ContKind
+halt
 ```

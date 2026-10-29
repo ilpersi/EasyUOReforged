@@ -21,12 +21,17 @@ Load the other rows with [`sql row`](/commands/sql/row/).
 ## Example
 
 ```euo
+sql open :memory:
+sql exec CREATE TABLE pets(name TEXT, hp INTEGER)
+sql exec INSERT INTO pets VALUES('Rex', 80), ('Buttercup', 45), ('Fluffy', 20)
+set %limit 50
 sql query SELECT name, hp FROM pets WHERE hp < %limit ORDER BY hp
 for %i 1 #SqlCnt
 {
   sql row %i
   display ok %name has %hp hp
 }
+halt
 ```
 
 See [Using SQL](/guides/sql/) for how statements are written and how variables go in and out.

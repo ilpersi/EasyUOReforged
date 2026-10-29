@@ -19,5 +19,6 @@ On older clients the value moves in steps of 4. It reads `N/A` when the client s
 
 ```euo
 if #EnemyHits < 20
-  event SysMessage Almost dead!
+  display ok Almost dead!
+halt
 ```

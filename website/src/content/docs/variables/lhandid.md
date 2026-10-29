@@ -25,6 +25,8 @@ The value lives in the client: setting it changes it for every script attached t
 ## Example
 
 ```euo
+set %shield ABCDEFG          ; your shield's ID
 set #LHandID %shield
 event Macro 24 1
+halt
 ```

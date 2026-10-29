@@ -1,0 +1,50 @@
+; Probe for tests/tools/Record16MenuGolden.py: EasyUO 1.6 MENU golden values.
+; "menu reforge mode 1.6" makes Reforged run it under the 1.6 logic; 1.6 ignores the line.
+; Image drawing: pos with and without a size, pix, floodfill, lines with a
+; width and an invalid one, ellipse and rectangle by corners, a negative corner,
+; a picture loaded from a file, and the removed pixline.
+;@wait A
+;@snap R:A: im 10 10 60 40
+;@snap R:A: im2 80 10 40 40
+;@snap R:A: im3 130 10 40 20
+;@snap R:A: im4 180 10 32 16
+menu reforge mode 1.6
+menu window size 300 200
+menu window color 16777215
+menu image create im 10 10 60 40
+menu getprop im width
+set %r W= , #menures
+menu getprop im height
+set %r %r , _H= , #menures
+menu image pos im 20 15
+menu getprop im left
+set %r %r , _POSL= , #menures
+menu getprop im width
+set %r %r , _POSW= , #menures
+menu image pos im 20 15 80 50
+menu getprop im width
+set %r %r , _POS4W= , #menures
+menu getprop im height
+set %r %r , _POS4H= , #menures
+menu image pos im 10 10 60 40
+menu image pix im 1 1 255
+menu image floodfill im 30 20 65280
+menu image line im 0 0 59 39 0 3
+menu image line im 0 39 59 0 255 abc
+menu image ellipse im 5 5 25 25 16711680 1 2
+menu image rectangle im 30 5 55 30 0 0 1
+menu image rectangle im 2 2 -5 30 255 1
+menu image pixline im 0 20 59 20 255
+menu image create im2 80 10 40 40
+menu image rectangle im2 0 0 40 40 255 1
+menu image ellipse im2 4 4 36 36 65280 0 3
+menu image line im2 0 0 40 40 16711680 1
+set %f #curpath , golden.bmp
+menu image create im3 130 10 40 20
+menu image file im3 0 0 %f
+menu image create im4 180 10 32 16
+menu image file im4 8 4 %f
+menu show 100 100
+menu window title R:A: , %r
+wait 200
+halt

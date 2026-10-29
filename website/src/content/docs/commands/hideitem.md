@@ -22,4 +22,5 @@ Only items lying on the ground can be hidden; static map art cannot.
 ```euo
 finditem * G_12
 hideitem #FindID
+halt
 ```

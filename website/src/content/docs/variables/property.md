@@ -18,8 +18,9 @@ name first, then its properties, each line ending with `$`. For a blessed runebo
 ## Example
 
 ```euo
-finditem %item
+finditem ZBN C_ , #BackpackID     ; a runebook
 event Property #FindID
 if Blessed in #Property
-  event SysMessage It is blessed.
+  display ok It is blessed.
+halt
 ```

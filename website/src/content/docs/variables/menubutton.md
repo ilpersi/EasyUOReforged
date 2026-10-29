@@ -3,6 +3,8 @@ title: "#MenuButton"
 description: "Name of the last menu button clicked, in capitals; CLOSED when the menu window was closed."
 kind: variable
 category: result
+menuDiffers: true
+credits: ['scriptuo']
 access: rw
 type: string
 related: ["menu Button", "menu Hide", "#MenuRes"]
@@ -19,10 +21,29 @@ Comparisons ignore case.
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 160 45
+menu Button ok 10 10 60 25 OK
 menu Show
 set #MenuButton N/A
 while #MenuButton = N/A
   wait 1
 if #MenuButton = closed
-  halt
+  display ok You closed the window.
+else
+  display ok You clicked #MenuButton
+halt
 ```
+
+## 1.5 and 1.6
+
+| | 1.5 | 1.6 |
+|---|---|---|
+| A button click | the name in capitals | the name in lower case |
+| The window's × | `CLOSED` | `CLOSED` for the main window; another [`menu Form`](/commands/menu/form/) gives its own name |
+| [`menu Hide`](/commands/menu/hide/) | `CLOSED` | unchanged |
+| [`menu Clear`](/commands/menu/clear/) | unchanged | emptied |
+| A script starting | unchanged | emptied |
+
+In 1.6, setting it to `form0` reads back as `CLOSED`. See
+[MENU: EasyUO 1.5 and 1.6](/commands/menu/versions/).

@@ -3,6 +3,7 @@ title: "menu Window Size"
 description: "Sets the size of the menu window."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
 syntax: "menu Window Size {width} {height}"
 related: ["menu Show", "menu Window Title"]
 source: wiki
@@ -14,5 +15,9 @@ without the title bar and borders.
 ## Example
 
 ```euo
+menu Clear
 menu Window Size 300 200
+menu Text t 10 10 This window is 300 x 200 inside.
+menu Show
+halt
 ```

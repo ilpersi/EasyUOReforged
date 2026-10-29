@@ -41,6 +41,8 @@ str upper hello     ; HELLO
 str ins %s I 3      ; HEILLO
 str del %s 3 2      ; HEO
 str count %s L      ; 2
+display ok #StrRes
+halt
 ```
 
 Split a text at `_`, using `count` and the occurrence parameter of `pos`:
@@ -59,4 +61,5 @@ for %n 1 %parts
   str mid %test %from %len
   display ok #StrRes
 }
+halt
 ```

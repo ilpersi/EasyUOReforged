@@ -15,6 +15,8 @@ set %temp %var                          ; a variable
 set %next %var + 1                      ; an operator
 set %calc ( 2 + 2 ) * ( 3 - 1 )         ; parentheses: 8
 set %flag ! #true                       ; an operator before a value: 0
+display ok %next %calc %flag
+halt
 ```
 
 ## Which commands calculate
@@ -25,8 +27,10 @@ takes its parameters as they are: `wait %a + 1` waits `%a` ticks and ignores the
 value to another command, calculate it with `set` first:
 
 ```euo
+set %a 19
 set %delay %a + 1
-wait %delay
+wait %delay                             ; 20 ticks: one second
+halt
 ```
 
 ## Spaces matter
@@ -34,10 +38,15 @@ wait %delay
 A line is split into words at spaces, and **every operator and parenthesis has to be a word of its own**:
 
 ```euo
-set %a %b + 1          ; right
-set %a %b+1            ; wrong: "%b+1" is one word, so nothing is added
-if ( %a > 2 )          ; right
-if (%a > 2)            ; wrong: "(%a" and "2)" are not understood
+set %b 1
+set %a %b + 1          ; right: 2
+set %c %b+1            ; wrong: "%b+1" is one word, so nothing is added
+display ok %a %c
+if ( %a > 1 )          ; right
+  display ok %a is bigger than 1
+if (%a > 1)            ; wrong: "(%a" and "1)" are not understood
+  display ok never shown
+halt
 ```
 
 Calculations use whole numbers only. A value that is not a number counts as `0` in arithmetic. See
@@ -56,6 +65,7 @@ the end of the line or to a `;`, which starts a comment.
   right after the command it belongs to.
 
 ```euo
+set %a 3
 if %a > 2
 {
   set %b %a * 2
@@ -63,4 +73,5 @@ if %a > 2
 }
 display ok This is a long message that
 + goes on over two lines.
+halt
 ```

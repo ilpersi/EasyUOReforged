@@ -16,4 +16,8 @@ pressing Play starts the script again from the first line.
 ```euo
 gosub work
 stop
+
+sub work
+  display ok Working...
+return
 ```

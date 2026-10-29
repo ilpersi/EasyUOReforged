@@ -18,7 +18,9 @@ of the same type that differ only in colour, such as dyed cloth or coloured ore.
 ## Example
 
 ```euo
+set %ore DWJ_EWJ_GWJ_TVJ
 finditem %ore C_ , #BackpackID
 if #FindCol = 0
-  event SysMessage Plain iron ore.
+  display ok Plain iron ore.
+halt
 ```

@@ -42,8 +42,11 @@ Comparisons give `-1` ([`#true`](/variables/true/)) or `0` ([`#false`](/variable
 `hello < 33`. That makes a quick test for "is this a number?":
 
 ```euo
+set %cnt hello
 if ! ( %cnt > 0 || %cnt < 1 )
   set %cnt 0                     ; %cnt was not a number
+display ok %cnt
+halt
 ```
 
 ## Logical
@@ -81,14 +84,20 @@ set %a 3
 set %item3 sword
 set %x %item . %a          ; %item . 3  ->  %item3  ->  sword
 set %y %item , %a          ; "%item" has no value, so N/A , 3  ->  N/A3
+display ok %x %y
+halt
 ```
 
 ```euo
+set %slot1 sword
+set %slot2 shield
+set %slot3 helmet
 for %i 1 3
 {
   set %name %slot . %i     ; %slot1, %slot2, %slot3
   display ok %name
 }
+halt
 ```
 
 A `.` or `,` only works as a separate word. To put a full stop or a comma into text, use [`#DOT`](/variables/dot/)
@@ -115,6 +124,11 @@ applied, and variables have been replaced by their values.
 set %r 5 + 3 * 2               ; 5 + ( 3 * 2 ) = 11
 set %r 8 - 3 - 2               ; ( 8 - 3 ) - 2 = 3
 set %r ( 1 + 2 ) * 2 * 4       ; 24
+set %a 1
+set %b 2
 if %a = 1 && %b = 2            ; ( %a = 1 ) && ( %b = 2 )
+  display ok Both are true.
 if ! ( %a = 1 )                ; parentheses needed: ! %a = 1 means ( ! %a ) = 1
+  display ok Not shown: %a is 1.
+halt
 ```

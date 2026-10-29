@@ -26,7 +26,10 @@ known, it does nothing.
 ## Example
 
 ```euo
+finditem DWJ_EWJ_GWJ_TVJ C_ , #BackpackID   ; ore
+set %ore #FindID
 event Drag %ore
 wait 20
 click 100 100 p
+halt
 ```

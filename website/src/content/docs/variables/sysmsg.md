@@ -19,5 +19,6 @@ read as `_`. For a full history, use the journal with [`scanjournal`](/commands/
 
 ```euo
 if too_far_away in #SysMsg
-  gosub moveCloser
+  display ok Move closer.
+halt
 ```

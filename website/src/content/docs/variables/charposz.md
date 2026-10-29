@@ -19,5 +19,6 @@ upper floors and hills are higher.
 
 ```euo
 if #CharPosZ > 20
-  event SysMessage You are upstairs.
+  display ok You are upstairs.
+halt
 ```

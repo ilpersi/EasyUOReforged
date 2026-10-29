@@ -1,0 +1,47 @@
+{
+ "probe": "get_set",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "A"
+   ],
+   "report": "ED=Start$Text_TXTEXT=Label\r\nTwo_CB0=0_CB2=2_CB5=5_CBZERO=0_LS0=0_LS1=1_CK=-1_R1=-1_R2=0_TX=N/A_BT=N/A_IM=N/A_NOTHERE=N/A_NUMDEF=42_NUM=123_NUMNODEF=abc_EDSET=Hello World_EDDOLLAR=A$B_EDTEXT=A$B_TXSET=New$Line_BTSET=New Cap_CK0=0_CKABC=0_CK5=-1_R1AFTER=0_R2AFTER=-1_CBSET=0_CBCLEAR=0_LSCLEAR=0_LSSELEMPTY=0_CKTEXT=Check",
+   "values": [
+    "ED=Start$Text",
+    "TXTEXT=Label\r\nTwo",
+    "CB0=0",
+    "CB2=2",
+    "CB5=5",
+    "CBZERO=0",
+    "LS0=0",
+    "LS1=1",
+    "CK=-1",
+    "R1=-1",
+    "R2=0",
+    "TX=N/A",
+    "BT=N/A",
+    "IM=N/A",
+    "NOTHERE=N/A",
+    "NUMDEF=42",
+    "NUM=123",
+    "NUMNODEF=abc",
+    "EDSET=Hello World",
+    "EDDOLLAR=A$B",
+    "EDTEXT=A$B",
+    "TXSET=New$Line",
+    "BTSET=New Cap",
+    "CK0=0",
+    "CKABC=0",
+    "CK5=-1",
+    "R1AFTER=0",
+    "R2AFTER=-1",
+    "CBSET=0",
+    "CBCLEAR=0",
+    "LSCLEAR=0",
+    "LSSELEMPTY=0",
+    "CKTEXT=Check"
+   ]
+  }
+ ]
+}

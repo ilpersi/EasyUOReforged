@@ -17,7 +17,8 @@ script waits until the walk is over; [`#PathState`](/variables/pathstate/) then 
 ```euo
 path go 1434 1699
 if #PathState <> arrived
-  event SysMessage Did not get there: #PathState
+  display ok Did not get there: #PathState
+halt
 ```
 
 ## Parameters

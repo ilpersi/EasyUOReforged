@@ -25,7 +25,8 @@ A variable is a name that holds a value. Its first character says what kind it i
 ```euo
 set %var Bob
 set %Var Joe
-event SysMessage %var        ; Joe: %var and %Var are the same variable
+display ok %var              ; Joe: %var and %Var are the same variable
+halt
 ```
 
 ## Values
@@ -61,6 +62,7 @@ if *runs = N/A
   set *runs 0
 set *runs *runs + 1
 display ok This script has run *runs times.
+halt
 ```
 
 For more data, or data you want to keep in a file of your own, there is also [`SQL`](/commands/sql/).

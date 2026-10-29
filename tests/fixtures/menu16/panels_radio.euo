@@ -1,0 +1,64 @@
+; Probe for tests/tools/Record16MenuGolden.py: EasyUO 1.6 MENU golden values.
+; "menu reforge mode 1.6" makes Reforged run it under the 1.6 logic; 1.6 ignores the line.
+; Panels as parents, radio groups per parent, get/set on radio buttons,
+; "setprop parent" (also into a radio button), deleting a panel deletes its
+; children, deleting the default-parent panel leaves later controls parentless.
+;@wait W1
+;@forms
+;@wait W2
+;@forms
+menu reforge mode 1.6
+menu window size 300 220
+menu show 200 200
+menu panel p1 20 30 200 100
+menu setprop p1 color 255
+menu button pb 10 10 60 20 PB
+menu radio r1 10 40 60 20 #true R1
+menu radio r2 80 40 60 20 #false R2
+menu setdef parent form0
+menu radio r3 10 150 60 20 #true R3
+menu radio r4 80 150 60 20 #false R4
+menu setprop r2 checked #true
+menu get r1
+set %r R1= , #menures
+menu get r2
+set %r %r , _R2= , #menures
+menu get r3
+set %r %r , _R3= , #menures
+menu set r4 1
+menu get r3
+set %r %r , _R3B= , #menures
+menu getprop pb parent
+set %r %r , _PBP= , #menures
+menu window title R:W1: , %r
+wait 20
+menu setprop pb parent form0
+menu getprop pb left
+set %r %r , _PBL= , #menures
+menu getprop pb parent
+set %r %r , _PBP2= , #menures
+menu setprop pb parent p1
+menu setprop pb parent r1
+menu getprop pb parent
+set %r %r , _PBINRADIO= , #menures
+menu setprop pb parent p1
+menu delete p1
+set #menures Q
+menu getprop pb left
+set %r %r , _PBAFTER= , #menures
+menu getprop r1 left
+set %r %r , _R1AFTER= , #menures
+menu panel p2 10 10 50 50
+menu delete p2
+set #menures Q2
+menu getdef parent
+set %r %r , _DPAFTERDEL= , #menures
+menu button orph 1 1 10 10 X
+set #menures Q3
+menu getprop orph parent
+set %r %r , _ORPHP= , #menures
+menu getprop orph visible
+set %r %r , _ORPHV= , #menures
+menu window title R:W2: , %r
+wait 20
+halt

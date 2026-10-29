@@ -17,6 +17,10 @@ A main script that reaches its last line without `halt` starts over from the top
 ## Example
 
 ```euo
+set %amountNeeded 3
+finditem TSF C_ , #BackpackID      ; daggers
 if #FindCnt < %amountNeeded
   halt
+display ok #FindCnt daggers: enough to go on.
+halt
 ```

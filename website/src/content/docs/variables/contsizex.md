@@ -24,4 +24,5 @@ Gumps on the ignore list (see [`IgnoreCont`](/commands/ignorecont/)) are skipped
 set %x #ContPosX + #ContSizeX - 10
 set %y #ContPosY + #ContSizeY - 10
 click %x %y
+halt
 ```

@@ -27,4 +27,5 @@ rely on it.
 ```euo
 set #LSkill 21               ; Hiding
 event Macro 14 0
+halt
 ```

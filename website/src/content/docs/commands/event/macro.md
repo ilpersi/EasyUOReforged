@@ -515,11 +515,14 @@ Magery counts from `1` there (Clumsy is `1`, Water Elemental `64`), Bushido from
 event Macro 1 0 Hello everyone        ; say
 event Macro 8 7                        ; open the backpack
 event Macro 15 50                      ; cast Flame Strike
+halt
 ```
 
 Dig with a shovel at a spot on the ground:
 
 ```euo
+finditem TWF_WWF C_ , #BackpackID      ; a shovel
+set %shovel #FindID
 set #LObjectID %shovel
 event Macro 17 0                       ; use the last object: the shovel
 target 5s
@@ -528,6 +531,7 @@ set #LTargetY 1000
 set #LTargetZ #CharPosZ
 set #LTargetKind 2
 event Macro 22 0                       ; target the last target: the ground at 1000,1000
+halt
 ```
 
 Swap to a saved set of clothes and back, and drink a heal potion:
@@ -538,4 +542,5 @@ event Macro 62 0                       ; undress
 wait 2s
 event Macro 63 1                       ; dress set 1 again
 event Macro 67 1                       ; drink the best heal potion in the backpack
+halt
 ```

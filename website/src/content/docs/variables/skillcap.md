@@ -19,5 +19,7 @@ time you use it.
 ```euo
 chooseskill mage
 if #Skill >= #SkillCap
-  halt
+  halt                       ; nothing left to train
+display ok Magery #Skill of #SkillCap - keep training.
+halt
 ```

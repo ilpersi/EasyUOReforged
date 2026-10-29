@@ -1,0 +1,25 @@
+{
+ "probe": "hide_clear",
+ "events": [
+  {
+   "step": "wait",
+   "args": [
+    "A"
+   ],
+   "report": "HIDE=XX_VHIDE=0_CLEAR=__W=250_V=-1_CAP=start_T9=Q_P9=Q_FS=10_DP=form0_EMPTYTITLE=",
+   "values": [
+    "HIDE=XX",
+    "VHIDE=0",
+    "CLEAR=_",
+    "W=250",
+    "V=-1",
+    "CAP=start",
+    "T9=Q",
+    "P9=Q",
+    "FS=10",
+    "DP=form0",
+    "EMPTYTITLE="
+   ]
+  }
+ ]
+}

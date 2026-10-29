@@ -25,6 +25,8 @@ The value lives in the client: setting it changes it for every script attached t
 ## Example
 
 ```euo
+set %sword ABCDEFG           ; your sword's ID
 set #RHandID %sword
 event Macro 24 2
+halt
 ```

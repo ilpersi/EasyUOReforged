@@ -26,6 +26,7 @@ supported, or the selected buff has left the bar since the last [`ScanBuffs`](/c
 scanbuffs
 for #BuffIndex 1 #BuffCnt
   event sysmessage #BuffName
+halt
 ```
 
 Positions can shift while you loop if a buff ends meanwhile. Run `ScanBuffs` again when you need a fixed

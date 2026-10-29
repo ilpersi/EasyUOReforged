@@ -30,6 +30,7 @@ source: wiki
 ```euo
 ignoreitem POF 1      ; all gold is ignored
 ignoreitem POF        ; gold is found again, although it was added to list 1
+halt
 ```
 
 ## Examples
@@ -39,8 +40,10 @@ ignoreitem POF        ; gold is found again, although it was added to list 1
 ignoreitem BWVOKMS
 ignoreitem BWVOKMS_RFTDQWE_POF
 
-; ignore every item found so far, then start again
+; ignore every item on the ground nearby, then start again
+finditem * G_2
 for #FindIndex 1 #FindCnt
   ignoreitem #FindID tmp
 ignoreitem reset tmp
+halt
 ```

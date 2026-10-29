@@ -29,4 +29,5 @@ for %i 1 #BuffCnt
   if #BuffID = 30018
     display ok Blessed: #BuffTime s left
 }
+halt
 ```

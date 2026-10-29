@@ -24,10 +24,12 @@ Two scripts, in two tabs:
 namespace global shared
 set !status mining
 pause
+halt
 ```
 
 ```euo
 ; second script
 namespace global shared
 display ok The first script is !status
+halt
 ```

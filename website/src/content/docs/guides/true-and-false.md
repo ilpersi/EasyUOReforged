@@ -15,9 +15,10 @@ Without them, a setting is usually written as text:
 set %usemagery yes
 
 if %usemagery = yes
-  gosub healwithmagery
+  display ok Heal with Magery.
 if %usemagery = no
-  gosub healwithbandages
+  display ok Heal with bandages.
+halt
 ```
 
 With them, the condition reads like a sentence:
@@ -26,9 +27,10 @@ With them, the condition reads like a sentence:
 set %usemagery #True
 
 if %usemagery
-  gosub healwithmagery
+  display ok Heal with Magery.
 if ! %usemagery
-  gosub healwithbandages
+  display ok Heal with bandages.
+halt
 ```
 
 `if %usemagery` runs the next line when `%usemagery` is true; `if ! %usemagery` turns the test around and runs it

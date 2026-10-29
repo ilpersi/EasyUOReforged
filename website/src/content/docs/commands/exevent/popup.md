@@ -23,7 +23,9 @@ passes `0, 0`.
 ## Example
 
 ```euo
+set %vendor ABCDEFG          ; the vendor's ID
 finditem %vendor G_10
 if #FindCnt > 0
   exevent PopUp #FindID
+halt
 ```

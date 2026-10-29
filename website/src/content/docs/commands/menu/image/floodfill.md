@@ -3,6 +3,7 @@ title: "menu Image FloodFill"
 description: "Fills an area of one colour in an image with another, like a paint bucket."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
 syntax: "menu Image FloodFill {name} {x} {y} {colour}"
 related: ["menu Image Ellipse", "menu Image Rectangle"]
 aliases: ["paint bucket", "fill"]
@@ -17,6 +18,11 @@ A colour, see [Colours](/commands/menu/#colours): a name such as `red` or `btnfa
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 84 84
+menu Image Create pic 10 10 64 64
 menu Image Ellipse pic 8 8 56 56 black #false
 menu Image FloodFill pic 32 32 green      ; fill the inside of the circle
+menu Show
+halt
 ```

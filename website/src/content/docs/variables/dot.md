@@ -17,4 +17,6 @@ the text needs a separate full stop.
 
 ```euo
 set %file mylog , #DOT , txt         ; mylog.txt
+display ok %file
+halt
 ```

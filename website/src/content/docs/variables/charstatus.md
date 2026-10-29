@@ -32,7 +32,8 @@ female read `GB`.
 
 ```euo
 if C in #CharStatus
-  gosub cureme
+  display ok You are poisoned.
 if H notin #CharStatus
   event macro 13 21          ; use Hiding
+halt
 ```

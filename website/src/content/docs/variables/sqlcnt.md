@@ -18,10 +18,14 @@ Only `sql query`, `sql open` and `sql close` change it, so you can run `sql exec
 ## Example
 
 ```euo
+sql open :memory:
+sql exec CREATE TABLE pets(name TEXT, hp INTEGER)
+sql exec INSERT INTO pets VALUES('Rex', 80), ('Buttercup', 45)
 sql query SELECT name, hp FROM pets ORDER BY hp
 for %i 1 #SqlCnt
 {
   sql row %i
   display ok %name has %hp hp
 }
+halt
 ```

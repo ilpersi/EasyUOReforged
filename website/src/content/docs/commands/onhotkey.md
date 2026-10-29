@@ -35,7 +35,7 @@ many lines instead.
 set #LPC 1000
 loop:
   onhotkey F1
-    gosub heal
+    display ok You pressed F1.
   onhotkey F2 ctrl
   {
     display ok Script stopped with Ctrl+F2.

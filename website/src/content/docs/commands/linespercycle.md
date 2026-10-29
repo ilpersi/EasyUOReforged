@@ -22,7 +22,11 @@ commands, take the time they need regardless.
 ## Example
 
 ```euo
-linespercycle 1000       ; build the menu quickly
-gosub buildmenu
+linespercycle 1000       ; add up 1 to 1000 quickly
+set %sum 0
+for %i 1 1000
+  set %sum %sum + %i
 linespercycle 10
+display ok The sum is %sum
+halt
 ```

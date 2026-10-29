@@ -3,6 +3,7 @@ title: "menu Image File"
 description: "Draws a picture file into an image."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
 syntax: "menu Image File {name} {x} {y} {file}"
 related: ["menu Image Create", "#CurPath"]
 aliases: ["load picture", "png", "bmp"]
@@ -29,6 +30,11 @@ Older formats the original accepted, such as WMF, EMF and ICO, may not load.
 ## Example
 
 ```euo
-menu Image Create logo 10 10 100 50
-menu Image File logo 0 0 #CurPath , images\logo.png
+menu Clear
+menu Window Size 220 140
+menu Image Create pic 10 10 200 120
+; a corner of the wallpaper Windows 10 and 11 come with
+menu Image File pic 0 0 C:\Windows\Web\Wallpaper\Windows\img0.jpg
+menu Show
+halt
 ```

@@ -26,4 +26,5 @@ sql open mychar.db
 sql exec CREATE TABLE IF NOT EXISTS pets(id TEXT PRIMARY KEY, name TEXT)
 if #SqlRes <> OK
   display ok SQL error: #SqlRes
+halt
 ```

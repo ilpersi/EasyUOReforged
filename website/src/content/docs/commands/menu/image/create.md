@@ -3,6 +3,9 @@ title: "menu Image Create"
 description: "Places an empty, transparent image in the menu window to draw in."
 kind: subcommand
 category: menu
+menuLogic: ['1.5', '1.6']
+menuDiffers: true
+credits: ['scriptuo']
 syntax: "menu Image Create {name} {x} {y} {width} {height}"
 related: ["menu Image File", "menu Image Rectangle", "menu Image Pos"]
 aliases: ["picture", "canvas"]
@@ -25,7 +28,16 @@ with the other `menu Image` commands. It starts completely transparent.
 ## Example
 
 ```euo
+menu Clear
+menu Window Size 84 84
 menu Image Create pic 10 10 64 64
 menu Image Rectangle pic 0 0 64 64 navy 1
 menu Image Ellipse pic 8 8 56 56 yellow 1
+menu Show
+halt
 ```
+
+## 1.5 and 1.6
+
+- **1.6:** a negative width or height is refused. The image goes into the current
+  [default parent](/commands/menu/setdef/).
