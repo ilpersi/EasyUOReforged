@@ -16,6 +16,8 @@ when it is shared with every running script.
 ## Example
 
 ```euo
+namespace global shared
 if #NSType = global
-  event SysMessage Writing to a shared namespace.
+  display ok Writing to a shared namespace.
+halt
 ```

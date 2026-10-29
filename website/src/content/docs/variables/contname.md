@@ -36,5 +36,6 @@ Some names seen so far (shards can add their own):
 
 ```euo
 if #ContName = container_gump
-  event SysMessage A container is on top.
+  display ok A container is on top.
+halt
 ```

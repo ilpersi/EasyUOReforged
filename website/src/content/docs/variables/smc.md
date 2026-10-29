@@ -16,4 +16,6 @@ source: wiki
 
 ```euo
 set %text one , #SMC , two      ; one;two
+display ok %text
+halt
 ```

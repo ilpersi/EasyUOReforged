@@ -34,8 +34,12 @@ Raise `#LPC` where a script does a lot of quick work, and lower it again afterwa
 
 ```euo
 set #LPC 1000
-gosub buildmenu          ; hundreds of quick lines
+set %sum 0
+for %i 1 1000            ; a lot of quick lines
+  set %sum %sum + %i
 set #LPC 10
+display ok The sum is %sum
+halt
 ```
 
 A high `#LPC` lets the script take more of the computer's time. That is fine for bursts of calculation, menu

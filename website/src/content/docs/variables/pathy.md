@@ -15,6 +15,8 @@ step it is after each `path` command.
 ## Example
 
 ```euo
+path find 1434 1699
 path get 1
-event SysMessage First step: #PathX #PathY
+display ok First step: #PathX #PathY
+halt
 ```

@@ -42,6 +42,8 @@ halt
 To control several lines, put them in a block:
 
 ```euo
+set %a 100
+set %b #random
 if %a > %b
 {
   display ok a is bigger than b
@@ -52,6 +54,7 @@ else
   display ok b is equal to or bigger than a
   set %a %b
 }
+halt
 ```
 
 A block is a `{` line, the lines to run, and a matching `}` line. The `{` has to be **the very next line**:
@@ -62,12 +65,15 @@ The older form gives the number of lines instead of a block. Every script line c
 comments included:
 
 ```euo
+set %a 100
+set %b #random
 if %a > %b 2
   display ok a is bigger than b
   set %b %a
 else 2
   display ok b is equal to or bigger than a
   set %a %b
+halt
 ```
 
 ## Negating a condition

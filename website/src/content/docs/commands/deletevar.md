@@ -19,6 +19,9 @@ It is kept for older scripts: `set %name` with no value empties a variable just 
 ```euo
 set %test TEST
 deletevar test           ; no % in front
-; the same, the usual way:
-set %test
+display ok %test         ; N/A: the variable is gone
+set %test TEST
+set %test                ; the same, the usual way
+display ok %test         ; N/A again
+halt
 ```

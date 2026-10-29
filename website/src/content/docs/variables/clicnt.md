@@ -23,4 +23,5 @@ for %i 1 #CliCnt
   msg hello$
   uoxl swap
 }
+halt
 ```

@@ -19,6 +19,8 @@ Give it to [`event PathFind`](/commands/event/pathfind/), which needs the right 
 ## Example
 
 ```euo
+path find 1434 1699
 path get 10
 event PathFind #PathX #PathY #PathZ
+halt
 ```

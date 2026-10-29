@@ -17,7 +17,11 @@ the SQLite that ships with Windows.
 ```euo
 sql open mychar.db
 sql exec CREATE TABLE IF NOT EXISTS pets(id TEXT PRIMARY KEY, name TEXT, hp INTEGER)
+set %petid ABCDEFG
+set %petname Buttercup
+set %pethp 45
 sql exec INSERT OR REPLACE INTO pets VALUES(%petid, %petname, %pethp)
+set %limit 50
 sql query SELECT name, hp FROM pets WHERE hp < %limit ORDER BY hp
 for %i 1 #SqlCnt
 {
@@ -27,9 +31,11 @@ for %i 1 #SqlCnt
 if #SqlRes <> OK
   display ok SQL error: #SqlRes
 
-sql load %kills                 ; restore last session's value
-...
-sql save %kills                 ; and keep it for the next one
+sql load %runs                  ; restore last session's value
+set %runs %runs + 1
+display ok Run number %runs
+sql save %runs                  ; and keep it for the next one
+halt
 ```
 
 ## Sub-commands

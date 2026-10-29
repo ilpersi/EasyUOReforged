@@ -25,6 +25,7 @@ database is closed first.
 sql open C:\EasyUO\mychar.db
 if #SqlRes <> OK
   display ok Could not open the database: #SqlRes
+halt
 ```
 
 To use several files at once, attach them: `sql exec ATTACH 'C:\data\other.db' AS other`, then write

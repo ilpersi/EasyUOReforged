@@ -19,4 +19,6 @@ left the value is negative. [`#CursorY`](/variables/cursory/) is the vertical po
 
 ```euo
 savepix #CursorX #CursorY 1
+display ok The mouse is at #CursorX #CursorY
+halt
 ```

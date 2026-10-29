@@ -17,5 +17,14 @@ Relative paths in [`call`](/commands/call/) and [`sql open`](/commands/sql/open/
 ## Example
 
 ```euo
-call #CurPath , lib\healing.euo
+display ok EasyUO Reforged was started from #CurPath
+call #CurPath , healing.euo
+halt
+```
+
+`healing.euo`, in that folder:
+
+```euo title="healing.euo"
+display ok healing.euo runs.
+exit
 ```

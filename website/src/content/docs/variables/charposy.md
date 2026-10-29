@@ -19,5 +19,6 @@ same coordinates as map tools such as UO Auto Map use. [`#CharPosZ`](/variables/
 
 ```euo
 if #CharPosY = 4515
-  event SysMessage X marks the spot!
+  display ok X marks the spot!
+halt
 ```

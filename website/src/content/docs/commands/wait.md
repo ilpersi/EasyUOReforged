@@ -28,4 +28,5 @@ a `wait` at once.
 wait 20          ; 1 second
 wait 5s          ; 5 seconds
 wait 2s 1s       ; between 2 and 3 seconds
+halt
 ```

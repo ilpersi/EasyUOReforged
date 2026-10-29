@@ -21,4 +21,5 @@ the rectangle.
 ```euo
 path block 1450 1680 1460 1690
 path unblock 1455 1685           ; removes the whole block above
+halt
 ```

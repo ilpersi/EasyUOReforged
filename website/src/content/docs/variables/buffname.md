@@ -29,4 +29,5 @@ for %i 1 #BuffCnt
   set #BuffIndex %i
   event sysmessage #BuffName : #BuffDesc
 }
+halt
 ```

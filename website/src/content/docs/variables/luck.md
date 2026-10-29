@@ -20,5 +20,6 @@ extended status of Age of Shadows and later; on older clients it reads `N/A`.
 ## Example
 
 ```euo
-event SysMessage My luck is #Luck
+display ok My luck is #Luck
+halt
 ```

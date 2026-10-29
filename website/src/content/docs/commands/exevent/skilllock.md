@@ -30,4 +30,5 @@ Read a skill's current lock with [`chooseskill`](/commands/chooseskill/) and
 exevent SkillLock mage down
 exevent SkillLock arms locked
 exevent SkillLock all up
+halt
 ```

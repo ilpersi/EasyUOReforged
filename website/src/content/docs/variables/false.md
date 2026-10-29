@@ -16,6 +16,13 @@ source: wiki
 
 ```euo
 set %done #False
+set %round 0
 while %done = #False
-  gosub work
+{
+  set %round %round + 1
+  if %round = 3
+    set %done #True
+}
+display ok Done after %round rounds.
+halt
 ```

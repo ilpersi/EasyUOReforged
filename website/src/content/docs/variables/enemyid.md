@@ -21,4 +21,5 @@ change from moment to moment.
 ```euo
 if #EnemyID <> N/A
   display ok You are fighting! The enemy has #EnemyHits percent health.
+halt
 ```

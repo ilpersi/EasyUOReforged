@@ -19,5 +19,6 @@ source: wiki
 tile init
 tile cnt #CharPosX #CharPosY
 tile get #CharPosX #CharPosY 1
-event SysMessage You stand on #TileName
+display ok You stand on #TileName
+halt
 ```

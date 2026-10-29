@@ -21,5 +21,6 @@ If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2
 
 ```euo
 if #Weight > #MaxWeight - 20
-  gosub gotobank
+  display ok Nearly full: time to unload.
+halt
 ```

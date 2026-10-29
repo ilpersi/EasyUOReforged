@@ -31,6 +31,8 @@ See [`#PathX`](/variables/pathx/) for which step it is after each `path` command
 ## Example
 
 ```euo
+path find 1823 2821
 path get 1
-event SysMessage First step goes #PathDir
+display ok The first step goes #PathDir
+halt
 ```

@@ -17,5 +17,6 @@ source: wiki
 
 ```euo
 if #Time >= 120000 && #Time < 130000
-  event SysMessage Lunch time.
+  display ok Lunch time.
+halt
 ```

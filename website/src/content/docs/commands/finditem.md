@@ -61,6 +61,7 @@ if #FindCnt > 0
   wait 20
   click 200 300 p
 }
+halt
 ```
 
 Move a stack of black pearl out of a known bag. The comma glues `C_` and the bag ID into a single
@@ -75,6 +76,7 @@ if #FindCnt > 0
   wait 20
   click 200 300 p
 }
+halt
 ```
 
 Count the gold stacks in the backpack and list each one:
@@ -86,6 +88,7 @@ for %i 1 #FindCnt
   set #FindIndex %i
   display ok Stack %i : #FindStack gold
 }
+halt
 ```
 
 ## Notes

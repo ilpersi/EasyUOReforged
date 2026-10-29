@@ -67,6 +67,7 @@ path find 1434 1699
 if #PathState <> ok
   halt
 path walk
+halt
 ```
 
 [`path walk`](/commands/path/walk/) does all the work. By hand, a script can walk the route a stretch at a time
@@ -92,4 +93,5 @@ while %i < #PathCnt
     wait 5
   }
 }
+halt
 ```

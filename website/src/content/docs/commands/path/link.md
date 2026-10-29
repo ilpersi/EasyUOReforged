@@ -37,4 +37,5 @@ for %i 1 #PathCnt
   if #PathDir = 8
     event SysMessage Step %i uses the teleporter
 }
+halt
 ```

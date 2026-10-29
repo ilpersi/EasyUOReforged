@@ -25,5 +25,6 @@ gump.
 ```euo
 set %craftmenu GHCE          ; the crafting menu's #ContKind on your client
 if #ContKind <> %craftmenu
-  gosub usetool
+  display ok Open the crafting menu first.
+halt
 ```

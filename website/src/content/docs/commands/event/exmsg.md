@@ -43,4 +43,5 @@ known, it does nothing.
 
 ```euo
 event ExMsg #CharID 3 0 Welcome to my world!
+halt
 ```

@@ -22,6 +22,7 @@ A client must still be attached: the map is read from its files.
 ```euo
 path from 1434 1699 0          ; the Britain bank
 path find 1823 2821            ; to Trinsic
-event SysMessage Britain to Trinsic: #PathCnt steps
+display ok Britain to Trinsic: #PathCnt steps
 path from
+halt
 ```

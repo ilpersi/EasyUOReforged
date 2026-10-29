@@ -35,4 +35,5 @@ source: wiki
 ```euo
 key F4 alt        ; Alt+F4
 key ENTER
+halt
 ```

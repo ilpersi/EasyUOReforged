@@ -22,7 +22,9 @@ source: wiki
 ## Example
 
 ```euo
+set %target POF              ; gold
 finditem %target G_10
 if #FindCnt > 0
   event PathFind #FindX #FindY #FindZ
+halt
 ```

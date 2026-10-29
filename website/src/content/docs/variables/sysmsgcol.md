@@ -19,4 +19,5 @@ setting, not a client value: change it before `event SysMessage` to colour the m
 set #SysMsgCol 33
 event SysMessage Low on reagents!
 set #SysMsgCol 0
+halt
 ```

@@ -23,6 +23,7 @@ It reads `N/A` when the line does not exist, is too old, or was hidden by
 scanjournal 1
 if is_attacking_you in #Journal
   event macro 1 0 Guards!
+halt
 ```
 
 See [`scanjournal`](/commands/scanjournal/) for a loop that never misses a line.

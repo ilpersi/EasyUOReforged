@@ -21,4 +21,5 @@ tell them from items.
 finditem POF C_ , #BackpackID
 if #FindCnt > 0
   display ok That pile holds #FindStack gold.
+halt
 ```

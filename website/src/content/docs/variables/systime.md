@@ -17,7 +17,8 @@ it is the most precise way to time something: read it before and after, and subt
 
 ```euo
 set %start #SysTime
-gosub work
+wait 2s
 set %took #SysTime - %start
-event SysMessage That took %took ms
+display ok That took %took ms
+halt
 ```

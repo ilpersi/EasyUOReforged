@@ -29,5 +29,6 @@ source: wiki
 
 ```euo
 if #CursKind = 0
-  event SysMessage Careful - this is Felucca.
+  display ok Careful - this is Felucca.
+halt
 ```

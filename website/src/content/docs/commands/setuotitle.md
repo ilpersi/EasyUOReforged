@@ -22,4 +22,5 @@ for display") if they overwrite your title.
 
 ```euo
 setuotitle Mule - #CharName
+halt
 ```

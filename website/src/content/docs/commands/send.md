@@ -34,5 +34,9 @@ There is no setting to turn `send` off.
 ## Example
 
 ```euo
-send httppost www.example.com /euo/chat.php nick=%nick&text=%text
+set %nick Bob
+set %text Hello
+set %data nick= , %nick , &text= , %text
+send httppost www.example.com /euo/chat.php %data
+halt
 ```

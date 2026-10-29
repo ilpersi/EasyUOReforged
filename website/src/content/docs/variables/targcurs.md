@@ -27,4 +27,6 @@ set #TargCurs 1
 while #TargCurs = 1
   wait 1
 set %item #LTargetID
+display ok You chose %item
+halt
 ```

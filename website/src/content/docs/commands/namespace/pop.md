@@ -18,4 +18,6 @@ namespace push
 namespace local temp
 set !x 1
 namespace pop            ; back to where we were
+display ok Back in #NSName
+halt
 ```

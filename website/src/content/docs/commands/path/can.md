@@ -27,5 +27,6 @@ reached.
 ```euo
 path can 1434 1699
 if #PathState = ok
-  event SysMessage You can stand there, at height #PathZ
+  display ok You can stand there, at height #PathZ
+halt
 ```

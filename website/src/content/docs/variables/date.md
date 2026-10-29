@@ -17,5 +17,6 @@ source: wiki
 ```euo
 str right #Date 4
 if #StrRes = 1225
-  event SysMessage Merry Christmas!
+  display ok Merry Christmas!
+halt
 ```

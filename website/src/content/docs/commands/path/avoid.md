@@ -23,4 +23,6 @@ that overlap add up. They last until [`path clear`](/commands/path/clear/) or th
 ```euo
 path avoid 1380 1500 1420 1560 1000   ; keep away from a monster spawn
 path find 1434 1699
+display ok #PathState - #PathCnt steps
+halt
 ```

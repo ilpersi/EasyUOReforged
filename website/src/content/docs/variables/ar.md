@@ -20,5 +20,6 @@ If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2
 ## Example
 
 ```euo
-event SysMessage My physical resist is #AR
+display ok My physical resist is #AR
+halt
 ```

@@ -24,8 +24,9 @@ source: wiki
 ## Example
 
 ```euo
-event macro 15 %spell        ; cast a spell that needs a target
+event macro 15 28            ; cast Greater Heal, which needs a target
 target 3s
 if #TargCurs = 1
   event macro 22 0           ; target the last target
+halt
 ```

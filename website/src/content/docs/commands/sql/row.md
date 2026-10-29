@@ -16,12 +16,16 @@ the variables alone and sets `#SqlRes` to `row … out of range`.
 ## Example
 
 ```euo
+sql open :memory:
+sql exec CREATE TABLE wanted(item TEXT, price INTEGER)
+sql exec INSERT INTO wanted VALUES('bandage', 5), ('arrow', 2)
 sql query SELECT item, price FROM wanted
 for %i 1 #SqlCnt
 {
   sql row %i
-  gosub buy %item %price
+  display ok Buy %item for up to %price gold
 }
+halt
 ```
 
 See [Using SQL](/guides/sql/) for how statements are written and how variables go in and out.

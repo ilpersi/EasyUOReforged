@@ -37,9 +37,11 @@ the A–Z lists, so the body only needs prose and examples:
 
 - **Parameters** (table) · **Description** · **Examples** · **Notes** · **Reforged notes** (only
   when `changed: true` or `origin: reforged`).
-- Code blocks use ```` ```euo ````. On the `menu` pages every example is a whole script that runs as it
-  is pasted: it builds what it uses, shows it and ends with `halt` (`CheckDocsCoverage.ps1` checks the
-  `halt`). A file meant to be called gets a `title="..."` and ends with `exit`.
+- Code blocks use ```` ```euo ````. Every example is a whole script that runs as it is pasted: it sets up
+  what it uses, shows the result and ends with `halt` (subs go after the `halt`; a script built around an
+  endless main loop may end with its `goto`). `CheckDocsCoverage.ps1` checks the ending. An ID only the
+  reader knows is set at the top with a comment (`set %petid ABCDEFG ; your pet's ID`). A file meant to be
+  called gets a `title="..."` and ends with `exit`.
 - Link to other pages root-relative, without the `/EasyUOReforged` base: `[#FindID](/variables/findid/)`.
   The build adds the base. (Hero `link:` and `LinkCard href` in `.mdx` files are the exception:
   they need the base written out.)

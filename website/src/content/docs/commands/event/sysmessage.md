@@ -24,4 +24,5 @@ known, it does nothing.
 
 ```euo
 event SysMessage Your character name is #CharName
+halt
 ```

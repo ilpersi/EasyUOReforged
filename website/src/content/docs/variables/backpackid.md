@@ -22,4 +22,5 @@ It reads `N/A` while the client does not know the backpack yet, for example righ
 ```euo
 finditem * C_ , #BackpackID
 display ok There are #FindCnt items in your backpack.
+halt
 ```

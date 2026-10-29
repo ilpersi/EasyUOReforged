@@ -18,9 +18,11 @@ relative to an item, such as the backpack icon on a paperdoll.
 ## Example
 
 ```euo
+set %something ABCDEFG       ; the ID of the item to put away
 set #FindMod 140_220         ; from the paperdoll to its backpack icon
 finditem #BackpackID C_ , #CharID
 event Drag %something
 wait 2s
 click #FindX #FindY p        ; drop it on the backpack icon
+halt
 ```

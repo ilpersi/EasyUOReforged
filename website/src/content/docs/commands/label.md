@@ -13,9 +13,13 @@ A label is a word followed by a colon, on a line of its own. [`goto`](/commands/
 after it.
 
 ```euo
+set %n 0
 mainloop:
-  gosub dostuff
-goto mainloop
+  set %n %n + 1
+  if %n < 3
+    goto mainloop
+display ok Went round %n times.
+halt
 ```
 
 - **Names:** case does not matter, and `goto` can leave out the colon: `goto mainloop`.

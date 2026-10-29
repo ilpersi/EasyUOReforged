@@ -21,4 +21,5 @@ To tell EasyUO Reforged apart, or one build from another, use [`#ReforgedVer`](/
 str left #EUOVer 4
 if #StrRes <> 1_50
   display ok This script needs EasyUO 1.5.
+halt
 ```

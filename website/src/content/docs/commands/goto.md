@@ -39,7 +39,14 @@ loop:
 goto loop
 
 finished:
+display ok Done after %rounds rounds.
 halt
+
+sub work
+  set %rounds %rounds + 1
+  if %rounds = 3
+    set %done #true
+return
 ```
 
 A `switch` built from labels. The comma glues `case` and the number into one label name:

@@ -21,6 +21,7 @@ the same text as [`GetUOTitle`](/commands/getuotitle/) without a separate comman
 
 ```euo
 set #CliTitle #CharName
+halt
 ```
 
 The value is used as it is: an `_` stays an `_` in the title.

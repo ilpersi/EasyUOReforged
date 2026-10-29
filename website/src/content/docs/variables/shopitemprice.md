@@ -18,5 +18,6 @@ does not follow the gump: after scrolling, run `getshopinfo` again.
 
 ```euo
 getshopinfo
-event SysMessage #ShopItemName costs #ShopItemPrice gold - #ShopItemMax available
+display ok #ShopItemName costs #ShopItemPrice gold - #ShopItemMax available
+halt
 ```

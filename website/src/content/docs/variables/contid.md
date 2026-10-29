@@ -23,4 +23,5 @@ crafting menu, it reads `YC`, the code for 0. Like all `#Cont…` variables, it 
 ; search whatever container was opened last
 finditem * C_ , #ContID
 display ok #FindCnt items in it
+halt
 ```

@@ -21,4 +21,7 @@ if #NSName <> test
   namespace push
   namespace local test
 }
+display ok Now in #NSName
+namespace pop
+halt
 ```

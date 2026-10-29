@@ -35,6 +35,12 @@ A script starts in the local namespace `std`. [`#NSName`](/variables/nsname/) an
 A sub that works in its own namespace, so it cannot overwrite the caller's `!` variables:
 
 ```euo
+set !count 10
+gosub work
+gosub work
+display ok !count            ; still 10
+halt
+
 sub work
   namespace push
   namespace local work

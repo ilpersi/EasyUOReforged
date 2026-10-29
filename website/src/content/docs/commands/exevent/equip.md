@@ -20,5 +20,8 @@ it only works on servers that support that packet.
 
 ```euo
 ; put the weapon and shield back on
+set %weaponid ABCDEFG        ; your weapon's ID
+set %shieldid HIJKLMN        ; your shield's ID
 exevent Equip %weaponid %shieldid
+halt
 ```

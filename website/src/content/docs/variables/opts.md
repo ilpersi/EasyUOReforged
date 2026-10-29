@@ -27,4 +27,5 @@ Cursor* on (the default) and `SYS_EXEC_SEND` with it off.
 ```euo
 if DMC notin #Opts
   display ok This script works best with Don't Move Cursor turned on.
+halt
 ```

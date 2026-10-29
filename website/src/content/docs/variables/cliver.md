@@ -18,5 +18,6 @@ source: wiki
 
 ```euo
 if #CliVer <> 7.0.117.1
-  event SysMessage This script was written for 7.0.117.1.
+  display ok This script was written for 7.0.117.1.
+halt
 ```

@@ -18,6 +18,8 @@
 #   str X               mentioned on commands\str.md (one page documents every str operation)
 #   uo.dll members      dll\name.md - checked only once the dll\ section exists
 #
+# Every ```euo example on the site must be a whole script that runs as pasted: see "The examples" below.
+#
 # It also reports, as warnings that do not fail the run, names the interpreter and the editor's highlighter /
 # autocomplete lists (easyuo\eusyntax.pas, and the sub-commands in easyuo\eucomplete.pas) disagree on.
 #
@@ -36,6 +38,9 @@ $PageWithoutName = @{
   'commands/event/sleep' = 'documented EasyUO command the interpreter does not implement; the page says so'
   'commands/initevents'  = 'obsolete; unknown to the interpreter, so the line is ignored; the page says so'
   'commands/label'       = 'labels (name:) are syntax, not a registered command'
+}
+# 'page#n' (the n-th euo block on the page) -> why that example stays a fragment
+$ExampleFragments = @{
 }
 
 $names = Get-EuoNames
@@ -138,20 +143,34 @@ foreach ($p in $pages.Values | Sort-Object Slug) {
     $menuProblems.Add("$($p.Slug): menuDiffers is set but there is no '## 1.5 and 1.6' section")
   }
 }
-# The examples on the MENU pages are whole scripts a reader can paste and run: each ends with halt
-# (reaching the end of a script would restart it), or, for a file meant to be called (a block with a
-# title="..."), with exit.
-$menuExamplePages = @($pages.Values | Where-Object {
-  $_.Slug -like 'commands/menu*' -or $_.Slug -in @('variables/menubutton', 'variables/menures') })
-foreach ($p in $menuExamplePages | Sort-Object Slug) {
+
+# ---- the examples ----------------------------------------------------------------------------------------
+# Every example is a whole script a reader can paste and run. It ends with halt or stop, because reaching the
+# end of a script would restart it; or with a plain goto back into an endless main loop, which never reaches
+# the end. Subs may follow that line. A file meant to be called (a block with a title="...") may end with
+# exit instead. A last line that an if (or a loop) controls does not count: when it is skipped, the script
+# runs off its end. Exceptions are in $ExampleFragments.
+$conditional = @('if', 'else', 'while', 'for', 'onhotkey', 'cmppix')
+function Test-Ending([string[]]$words, [int]$i, [string[]]$want) {
+  if ($i -lt 0) { return $false }
+  ($want -contains $words[$i] -or $words[$i] -eq 'goto') -and ($i -eq 0 -or $conditional -notcontains $words[$i - 1])
+}
+$exampleProblems = New-Object System.Collections.Generic.List[string]
+foreach ($p in $pages.Values | Sort-Object Slug) {
+  $page = if ($p.Slug) { $p.Slug } else { 'index' }
   $n = 0
   foreach ($m in [regex]::Matches($p.Text, '```euo([^\r\n]*)\r?\n(.*?)```', 'Singleline')) {
     $n++
-    $code = @($m.Groups[2].Value -split '\r?\n' | ForEach-Object { ($_ -split ';')[0].Trim() } | Where-Object { $_ })
-    $last = if ($code.Count) { $code[-1].ToLower() } else { '' }
-    $want = if ($m.Groups[1].Value -match 'title=') { @('halt', 'exit') } else { @('halt') }
-    if ($want -notcontains $last) {
-      $menuProblems.Add("$($p.Slug): example $n does not end with $($want -join ' or ')")
+    if ($ExampleFragments.ContainsKey("${page}#${n}")) { continue }
+    $words = @($m.Groups[2].Value -split '\r?\n' | ForEach-Object { ($_ -split ';')[0].Trim() } | Where-Object { $_ } |
+               ForEach-Object { ($_ -split '\s+')[0].ToLower() })
+    $want = if ($m.Groups[1].Value -match 'title=') { @('halt', 'stop', 'exit') } else { @('halt', 'stop') }
+    $ok = Test-Ending $words ($words.Count - 1) $want
+    for ($i = 1; -not $ok -and $i -lt $words.Count; $i++) {
+      if ($words[$i] -eq 'sub') { $ok = Test-Ending $words ($i - 1) $want }
+    }
+    if (-not $ok) {
+      $exampleProblems.Add("${page}#${n}: does not end with $($want -join ' or ') (or an endless goto loop)")
     }
   }
 }
@@ -199,7 +218,13 @@ if ($orphans.Count -gt 0) {
 if ($menuProblems.Count -gt 0) {
   Write-Host "Docs coverage: $($menuProblems.Count) problems on the MENU pages:" -ForegroundColor Red
   $menuProblems | ForEach-Object { Write-Host "  $_" }
-  Write-Host "Set menuLogic to the logics that have the sub-command, give a menuDiffers page its '## 1.5 and 1.6' section, and end every example with halt."
+  Write-Host "Set menuLogic to the logics that have the sub-command, and give a menuDiffers page its '## 1.5 and 1.6' section."
+  $failed = $true
+}
+if ($exampleProblems.Count -gt 0) {
+  Write-Host "Docs coverage: $($exampleProblems.Count) examples are not whole scripts:" -ForegroundColor Red
+  $exampleProblems | ForEach-Object { Write-Host "  $_" }
+  Write-Host "End the example with halt so it runs as pasted (see website\README.md), or list it in `$ExampleFragments with a reason."
   $failed = $true
 }
 if ($failed) { exit 1 }

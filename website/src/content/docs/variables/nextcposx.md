@@ -26,4 +26,5 @@ It only works when the client option *Offset interface windows rather than perfe
 set #NextCPosX 10
 set #NextCPosY 10
 msg bank$                    ; the bank box opens at 10,10
+halt
 ```

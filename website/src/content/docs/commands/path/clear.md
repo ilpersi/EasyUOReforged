@@ -21,5 +21,7 @@ an unknown word.
 ## Example
 
 ```euo
-path clear links
+path link 1500 1600 0 1700 1600 0
+path clear links                 ; forget the link again
+halt
 ```

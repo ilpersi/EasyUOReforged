@@ -21,5 +21,6 @@ If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2
 
 ```euo
 if #Stamina = #MaxStam
-  gosub run
+  display ok Rested: ready to run.
+halt
 ```

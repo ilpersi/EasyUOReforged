@@ -17,6 +17,11 @@ breakpoint. EasyUO Reforged also has real breakpoints: see [Editing and debuggin
 ## Example
 
 ```euo
+set %debug #true
+gosub somesub 5
+display ok #Result
+halt
+
 sub somesub
   if %debug = #true
     pause                ; check the variables here

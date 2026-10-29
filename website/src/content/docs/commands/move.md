@@ -36,4 +36,5 @@ assigned to something else, the character won't walk.
 ```euo
 ; get within 2 tiles of 1234,1234, giving up after 3 seconds
 move 1234 1234 2 3s
+halt
 ```

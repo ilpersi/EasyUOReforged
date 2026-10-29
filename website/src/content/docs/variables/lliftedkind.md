@@ -18,8 +18,10 @@ source: wiki
 ## Example
 
 ```euo
+set %item ABCDEFG            ; the ID of an item in your backpack
 event Drag %item
 wait 10
 if #LLiftedKind = 0
-  event SysMessage The pick-up failed.
+  display ok The pick-up failed.
+halt
 ```

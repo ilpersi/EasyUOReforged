@@ -30,4 +30,6 @@ The script waits while the box is open, but the rest of EasyUO Reforged keeps wo
 display yesno You have run out of ingots.$Stop the script?
 if #DispRes = yes
   halt
+display ok Going on without ingots.
+halt
 ```

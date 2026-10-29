@@ -24,8 +24,10 @@ known, it does nothing.
 ## Example
 
 ```euo
+set %sword NMH                         ; katanas
 finditem %sword C_ , #BackpackID
 event Property #FindID
 if Vanquishing in #Property
   display ok This sword is of Vanquishing.
+halt
 ```

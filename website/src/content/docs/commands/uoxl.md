@@ -30,4 +30,5 @@ for %i 1 #CliCnt
   uoxl swap
   wait 10
 }
+halt
 ```

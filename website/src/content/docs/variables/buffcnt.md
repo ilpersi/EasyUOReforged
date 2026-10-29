@@ -23,4 +23,5 @@ closed bar from an open one with no buffs.
 scanbuffs
 if #BuffCnt = 0
   display ok No buffs right now.
+halt
 ```

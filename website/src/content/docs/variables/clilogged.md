@@ -18,5 +18,6 @@ source: wiki
 
 ```euo
 if #CliLogged = 0
-  gosub login
+  display ok Log in first.
+halt
 ```

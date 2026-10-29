@@ -26,4 +26,5 @@ source: wiki
 ```euo
 event SkillLock mage down
 event SkillLock all locked
+halt
 ```

@@ -21,5 +21,6 @@ If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2
 
 ```euo
 if #Hits < #MaxHits / 2
-  gosub heal
+  display ok Below half health: heal!
+halt
 ```

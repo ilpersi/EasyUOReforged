@@ -18,5 +18,6 @@ steps [`path get`](/commands/path/get/) can load, from `1` to `#PathCnt`. It is 
 
 ```euo
 path find 1823 2821
-event SysMessage Trinsic is #PathCnt steps away
+display ok Trinsic is #PathCnt steps away
+halt
 ```

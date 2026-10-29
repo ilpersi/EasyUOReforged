@@ -20,4 +20,5 @@ area. The value lives in the client: setting it changes it for every script atta
 ```euo
 set #CliXRes 800
 set #CliYRes 600
+halt
 ```

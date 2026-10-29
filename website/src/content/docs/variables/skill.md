@@ -20,7 +20,8 @@ value, without bonuses.
 ```euo
 chooseskill anim
 if #Skill < 1000
-  event SysMessage Tame bulls.
+  display ok Tame bulls.
 else
-  event SysMessage Tame ridgebacks.
+  display ok Tame ridgebacks.
+halt
 ```

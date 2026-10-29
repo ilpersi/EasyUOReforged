@@ -19,4 +19,5 @@ health as a percentage, `0` to `100`. For any other gump it is `0`.
 ; drag a pet's health bar out first, then click it so it is on top
 if #ContName = status_gump && #ContHP < 50
   display ok Your pet is below half health.
+halt
 ```

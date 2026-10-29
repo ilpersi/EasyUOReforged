@@ -23,5 +23,6 @@ extended status of Age of Shadows and later; on older clients it reads `N/A`.
 ```euo
 set %total #Str + #Dex + #Int
 if %total >= #MaxStats
-  event SysMessage Stats are capped.
+  display ok Stats are capped.
+halt
 ```

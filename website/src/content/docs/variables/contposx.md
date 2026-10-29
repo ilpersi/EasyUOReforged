@@ -22,4 +22,5 @@ Like all `#Cont…` variables, it describes the gump on top: the one opened, cli
 ```euo
 set #ContPosX 10
 set #ContPosY 10       ; move the gump to the top-left corner
+halt
 ```

@@ -27,4 +27,5 @@ for %i 1 #PathCnt
   if #PathZ > 10
     event SysMessage Step %i goes up to #PathZ
 }
+halt
 ```

@@ -22,4 +22,5 @@ can check it before comparing text.
 ```euo
 if #CliLang <> ENU
   display ok This script expects an English client.
+halt
 ```

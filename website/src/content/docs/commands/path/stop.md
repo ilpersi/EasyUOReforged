@@ -20,16 +20,20 @@ The goal is kept: [`path walk`](/commands/path/walk/) or [`path step`](/commands
 ## Example
 
 ```euo
+path find 1434 1699
+if #PathState <> ok
+  halt
 repeat
   path step
   if #HITS < 20
   {
     path stop
-    gosub flee
+    display ok Low on hits: the walk is stopped.
     break
   }
   wait 1
 until #PathState <> walking
+halt
 ```
 
 ## Reforged notes

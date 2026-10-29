@@ -32,4 +32,5 @@ set #LSpell 29               ; Greater Heal (event Macro 15 28)
 event Macro 16 0
 target 3s
 event Macro 23 0             ; target self
+halt
 ```

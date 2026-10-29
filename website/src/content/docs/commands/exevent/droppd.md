@@ -23,6 +23,7 @@ To put on several items at once, [`exevent Equip`](/commands/exevent/equip/) is 
 ## Example
 
 ```euo
+set %weapon TSF              ; a dagger
 finditem %weapon C_ , #BackpackID
 if #FindCnt > 0
 {
@@ -31,4 +32,5 @@ if #FindCnt > 0
   exevent DropPD
   wait 10
 }
+halt
 ```

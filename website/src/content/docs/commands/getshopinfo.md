@@ -27,4 +27,5 @@ after scrolling to another entry, run `getshopinfo` again.
 ; buy as many of the top item as the vendor has
 getshopinfo
 setshopitem #ShopItemID #ShopItemMax
+halt
 ```

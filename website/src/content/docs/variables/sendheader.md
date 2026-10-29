@@ -16,6 +16,8 @@ source: wiki
 ## Example
 
 ```euo
+set %name Bob
 set #SendHeader User-Agent: , #spc , EasyUO$
 send httppost www.example.com /euo/action.php name=%name
+halt
 ```

@@ -22,5 +22,6 @@ extended status of Age of Shadows and later; on older clients it reads `N/A`.
 
 ```euo
 set %free #MaxFol - #Followers
-event SysMessage Free slots: %free
+display ok Free slots: %free
+halt
 ```

@@ -27,4 +27,5 @@ depend on what has the keyboard focus inside the client.
 msg I wish to lock this down$
 target 5s
 event Macro 22 0
+halt
 ```

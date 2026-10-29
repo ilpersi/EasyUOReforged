@@ -30,6 +30,13 @@ calling script goes on with the line after the `call`.
 ## Example
 
 ```euo
-call subs.euo recall %runebookid %runenum
+call greet.euo Jim Bob
 halt
+```
+
+`greet.euo`, in the folder of `EasyUOReforged.exe`:
+
+```euo title="greet.euo"
+display ok Hello %1 and %2
+exit
 ```

@@ -22,4 +22,6 @@ if #CharGhost = yes
   sound C:\Windows\Media\chimes.wav
   halt
 }
+display ok Still alive.
+halt
 ```

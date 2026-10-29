@@ -35,4 +35,5 @@ if #FindCnt > 0
   exevent DropC #BackpackID
   wait 10
 }
+halt
 ```

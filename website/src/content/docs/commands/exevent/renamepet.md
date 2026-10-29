@@ -17,7 +17,9 @@ screen. Keep the name to 30 characters at most: the rename request has room for 
 ## Example
 
 ```euo
+set %horse ABCDEFG           ; your horse's ID
 finditem %horse G_2
 if #FindCnt > 0
   exevent RenamePet #FindID Buttercup
+halt
 ```

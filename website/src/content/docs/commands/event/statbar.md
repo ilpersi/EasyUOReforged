@@ -17,9 +17,11 @@ the character with the mouse. The character has to be known to the client, which
 
 ```euo
 ; open your pet's health bar and read its health
+set %petid ABCDEFG           ; your pet's ID
 event StatBar %petid
 wait 10
 display ok Pet health: #ContHP percent
+halt
 ```
 
 ## Notes

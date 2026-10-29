@@ -21,4 +21,5 @@ There is no setting to turn this command off: any script you run can use it.
 ```euo
 if #CharGhost = yes
   shutdown
+halt
 ```

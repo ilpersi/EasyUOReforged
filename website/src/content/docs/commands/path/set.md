@@ -46,4 +46,5 @@ path set accuracy 1        ; next to the goal is close enough
 path set timeout 10s       ; long trips across the facet
 path set mobiles ignore    ; push through crowds
 path go 2505 552
+halt
 ```
