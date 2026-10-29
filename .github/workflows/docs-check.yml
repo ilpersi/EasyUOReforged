@@ -1,0 +1,45 @@
+name: Docs build check
+
+# Builds the documentation site (website/) without publishing it: the build fails on a broken
+# internal link or a reference page that breaks the frontmatter rules, so mistakes show up before a
+# release publishes them. Publishing is docs.yml's job ("Publish docs site").
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - 'easyuo/eusyntax.pas'        # the euo code highlighting reads its keyword list
+      - '.github/workflows/docs-check.yml'
+  pull_request:
+    paths:
+      - 'website/**'
+      - 'easyuo/eusyntax.pas'
+      - '.github/workflows/docs-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build site
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0               # "Last updated" dates come from git history
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build site
+        run: npm run build

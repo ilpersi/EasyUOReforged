@@ -2,7 +2,10 @@
 
 The source of <https://ilpersi.github.io/EasyUOReforged/>, built with
 [Astro Starlight](https://starlight.astro.build) and published to GitHub Pages by
-[`.github/workflows/docs.yml`](../.github/workflows/docs.yml) on every push to `main`.
+[`.github/workflows/docs.yml`](../.github/workflows/docs.yml) (*Publish docs site*) from the latest
+release, each time a release is cut or when the workflow is run by hand. Pushes to `main` and pull
+requests only build it, with [`.github/workflows/docs-check.yml`](../.github/workflows/docs-check.yml),
+so a change to the site goes live with the next release.
 
 ## Preview locally
 

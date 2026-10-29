@@ -1,37 +1,54 @@
-name: Docs
+name: Publish docs site
+run-name: Publish docs site (${{ inputs.ref || 'latest release' }})
 
-# Builds the documentation site (website/, Astro Starlight) and publishes it to GitHub Pages.
-# Pull requests only build it: the build fails on a broken internal link or a reference page that
-# breaks the frontmatter rules, so mistakes show up before merge. Pushes to main also deploy.
+# Builds the documentation site (website/, Astro Starlight) and publishes it to GitHub Pages, so the
+# site describes a released version, not unreleased work on main. It runs:
+#   - after the Release workflow succeeds, and publishes the latest release;
+#   - by hand (Actions -> Publish docs site -> Run workflow), and publishes the latest release, or the
+#     tag, branch or commit typed in "ref" (e.g. main, to put out a docs-only fix before a release).
+# Building the site for pushes and pull requests, without publishing it, is docs-check.yml's job.
+#
+# Both triggers use the copy of this file on main. Run it by hand from main: the github-pages
+# environment only accepts deployments from main.
 #
 # One-time repo setup: Settings -> Pages -> Source: GitHub Actions.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'website/**'
-      - 'easyuo/eusyntax.pas'        # the euo code highlighting reads its keyword list
-      - '.github/workflows/docs.yml'
-  pull_request:
-    paths:
-      - 'website/**'
-      - 'easyuo/eusyntax.pas'
-      - '.github/workflows/docs.yml'
+  workflow_run:
+    workflows: [Release]               # the name: of release.yml
+    types: [completed]
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag, branch or commit to publish (empty = the latest release)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
 
 jobs:
   build:
+    name: Build site
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: website
     steps:
+      - name: Pick the version to publish
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          ref="$INPUT_REF"
+          if [ -z "$ref" ]; then
+            ref=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          fi
+          echo "Site built from \`$ref\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v4
         with:
+          ref: ${{ steps.pick.outputs.ref }}
           fetch-depth: 0               # "Last updated" dates come from git history
 
       - uses: actions/setup-node@v4
@@ -41,19 +58,20 @@ jobs:
           cache-dependency-path: website/package-lock.json
 
       - name: Install dependencies
+        working-directory: website
         run: npm ci
 
       - name: Build site
+        working-directory: website
         run: npm run build
 
       - name: Upload Pages artifact
-        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v4
         with:
           path: website/dist
 
   deploy:
-    if: github.event_name != 'pull_request'
+    name: Deploy to GitHub Pages
     needs: build
     runs-on: ubuntu-latest
     permissions:

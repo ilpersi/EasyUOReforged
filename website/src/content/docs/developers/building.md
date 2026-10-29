@@ -156,8 +156,8 @@ npm run dev
 ```
 
 `npm run dev` serves the site at `http://localhost:4321/EasyUOReforged/` and reloads a page when you save
-it. `npm run build` builds it into `website/dist/` and fails on a broken internal link, as the Docs
-workflow does for every pull request. The pages are the Markdown files in `website/src/content/docs/`.
+it. `npm run build` builds it into `website/dist/` and fails on a broken internal link, as the Docs build
+check workflow does for every pull request and every push to `main`. The pages are the Markdown files in `website/src/content/docs/`.
 
 ## What CI and releases do
 
@@ -166,7 +166,12 @@ workflow does for every pull request. The pages are the Markdown files in `websi
   EUOMigrate tests. It keeps the programs as a build artifact.
 - **`.github/workflows/release.yml`** does the same for a `v*` tag, then publishes a GitHub release: a zip
   with the three programs, `LICENSE`, `NOTICE` and `README.md`, and SHA-256 checksums.
-- **`.github/workflows/docs.yml`** builds this site for pull requests and publishes it from `main`.
+- **`.github/workflows/docs-check.yml`** (*Docs build check*) builds this site for pull requests and
+  pushes to `main`, without publishing it.
+- **`.github/workflows/docs.yml`** (*Publish docs site*) publishes this site from the latest release, after
+  `release.yml` succeeds. To publish it at another time, run it by hand from `main` (**Actions →
+  Publish docs site → Run workflow**); its `ref` field takes a tag, branch or commit to publish instead of
+  the latest release.
 
 If a build works in CI but not on your machine, compare your steps with `ci.yml`.
 
