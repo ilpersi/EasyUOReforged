@@ -2,7 +2,7 @@
 title: "Script speed and #LPC"
 description: "How fast a script runs: cycles of #LPC lines, why GOTO is not faster than GOSUB, and how to speed scripts up."
 sidebar:
-  order: 5
+  order: 6
 source: wiki
 ---
 

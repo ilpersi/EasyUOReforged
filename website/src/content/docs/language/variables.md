@@ -63,7 +63,8 @@ set *runs *runs + 1
 display ok This script has run *runs times.
 ```
 
-For more data, or data you want to keep in a file of your own, see [`SQL`](/commands/sql/).
+For more data, or data you want to keep in a file of your own, there is also [`SQL`](/commands/sql/).
+[SQL or * variables?](/guides/sql-or-persistent-variables/) compares the two.
 
 ## System variables: `#`
 

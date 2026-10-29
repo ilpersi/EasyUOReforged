@@ -2,7 +2,7 @@
 title: "Stat and skill gains on RunUO shards"
 description: "How stat and skill gains work on RunUO-based free shards, and what that means for training scripts."
 sidebar:
-  order: 6
+  order: 7
 source: wiki
 ---
 

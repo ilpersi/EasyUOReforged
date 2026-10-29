@@ -2,7 +2,7 @@
 title: "Containers and gumps"
 description: "Gump names and the #ContName, #ContType and #ContSize values of the client's screens and containers."
 sidebar:
-  order: 7
+  order: 8
 source: wiki
 ---
 

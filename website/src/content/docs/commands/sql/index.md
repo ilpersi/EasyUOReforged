@@ -52,7 +52,8 @@ Each script tab has **one** database connection, shared with scripts started by 
 you press Play on a stopped script, when a script is loaded into the tab, when the tab is closed, and by
 `sql open` / `sql close`.
 
-See [Using SQL](/guides/sql/) for how statements are written and how variables go in and out.
+See [Using SQL](/guides/sql/) for how statements are written and how variables go in and out, and
+[SQL or * variables?](/guides/sql-or-persistent-variables/) for when to use `SQL` instead of `*` variables.
 
 ## Reforged notes
 
