@@ -1,11 +1,11 @@
 ---
 title: Build from source
-description: "How to build EasyUO Reforged, uo.dll and EUOUpdater with Lazarus, run the test suite, work in the Lazarus IDE, build this site, and fix the usual build errors."
+description: "How to build EasyUO Reforged, uo.dll, EUOUpdater and the MENU Designer with Lazarus, run the test suite, work in the Lazarus IDE, build this site, and fix the usual build errors."
 sidebar:
   order: 2
 ---
 
-EasyUO Reforged is three Windows programs, built with Lazarus / Free Pascal from one repository. You need
+EasyUO Reforged is four Windows programs, built with Lazarus / Free Pascal from one repository. You need
 to build it to try a change of your own, for example a new client entry. To just use it, take the zip from
 the [releases page](https://github.com/ilpersi/EasyUOReforged/releases) instead.
 
@@ -14,6 +14,7 @@ the [releases page](https://github.com/ilpersi/EasyUOReforged/releases) instead.
 | `EasyUOReforged.lpi` | `EasyUOReforged.exe` | The script editor and runner. |
 | `uo.lpi` | `uo.dll` | The client engine as a DLL, for other programs ([uo.dll API](/dll/)). `EasyUOReforged.exe` does not use it. |
 | `EUOUpdtr.lpi` | `EUOUpdtr.exe` | EUOUpdater, the scan tool for new client builds ([Deriving values by hand](/developers/manual-derivation/)). |
+| `EUOMenuDesigner.lpi` | `EUOMenuDesigner.exe` | The MENU Designer, which lays out menu windows and writes their script. |
 
 ## What you need
 
@@ -50,7 +51,7 @@ To keep it, add the folder to your `PATH` in Windows (*Edit environment variable
 
 ## 3. Register the packages
 
-The three programs share their code through three Lazarus packages. Tell Lazarus where they are, once per
+The programs share their code through three Lazarus packages. Tell Lazarus where they are, once per
 machine:
 
 ```powershell
@@ -73,10 +74,11 @@ you registered last. Run the command again in the clone you are working in.
 lazbuild --build-mode=Release uo.lpi
 lazbuild --build-mode=Release EasyUOReforged.lpi
 lazbuild --build-mode=Release EUOUpdtr.lpi
+lazbuild --build-mode=Release EUOMenuDesigner.lpi
 ```
 
-Build one, two or all three, in any order. The programs land in the repository folder, next to the
-`.lpi` files. From a fresh clone, all three together take well under a minute.
+Build any of them, in any order. The programs land in the repository folder, next to the `.lpi` files.
+From a fresh clone, all four together take about a minute.
 
 Each project has two build modes. Both write the same file name, so the last build wins.
 
@@ -87,7 +89,7 @@ Each project has two build modes. Both write the same file name, so the last bui
 
 The modes keep their compiled units in separate folders (`lib\x86_64-win64\` and
 `lib\x86_64-win64-release\`). EUOUpdater has folders of its own, because its `main` unit has the same name
-as the GUI's.
+as the GUI's, and so does the MENU Designer.
 
 ### The version string
 
@@ -128,13 +130,13 @@ Without `--format=plain` the runner prints XML.
 ## Build in the Lazarus IDE
 
 1. Register the packages first ([step 3](#3-register-the-packages)).
-2. *Project → Open Project*, and pick `EasyUOReforged.lpi` (or `uo.lpi`, `EUOUpdtr.lpi`).
+2. *Project → Open Project*, and pick `EasyUOReforged.lpi` (or `uo.lpi`, `EUOUpdtr.lpi`, `EUOMenuDesigner.lpi`).
 3. Pick the build mode: *Project → Project Options → Compiler Options*, the *Build modes* list at the top.
 4. *Run → Build* (Shift+F9) builds it. *Run → Run* (F9) starts it under the debugger; use the `Default`
    mode for that.
 
 The GUI has no form files (`.lfm`): `easyuo/main.pas` creates every control in code, so the form designer
-has nothing to show.
+has nothing to show. The same goes for the MENU Designer (`tools/EUOMenuDesigner/mdmain.pas`).
 
 ## Run what you built
 
@@ -162,10 +164,10 @@ check workflow does for every pull request and every push to `main`. The pages a
 ## What CI and releases do
 
 - **`.github/workflows/ci.yml`** runs the steps above on a clean `windows-latest` machine for every push
-  and pull request: the version file, the package links, the three Release builds, `run_tests.ps1`, and the
+  and pull request: the version file, the package links, the four Release builds, `run_tests.ps1`, and the
   EUOMigrate tests. It keeps the programs as a build artifact.
 - **`.github/workflows/release.yml`** does the same for a `v*` tag, then publishes a GitHub release: a zip
-  with the three programs, `LICENSE`, `NOTICE` and `README.md`, and SHA-256 checksums.
+  with the four programs, `LICENSE`, `NOTICE` and `README.md`, and SHA-256 checksums.
 - **`.github/workflows/docs-check.yml`** (*Docs build check*) builds this site for pull requests and
   pushes to `main`, without publishing it.
 - **`.github/workflows/docs.yml`** (*Publish docs site*) publishes this site from the latest release, after

@@ -11,7 +11,7 @@ uses
   EuoConversion, EuoTokens, EuoExpression, EuoVariables, EuoScriptStack, 
   EuoCommandRegistry, EuoStdCommands, EuoComm, EuoMenuCommon, EuoMenu, 
   EuoMenu16, EuoMenuSelect, EuoInterpreter, EuoBreakCondition, 
-  EuoCallStackFormat, EuoExecutor, EuoSql, EuoBlocks;
+  EuoCallStackFormat, EuoExecutor, EuoSql, EuoBlocks, EuoScriptWords;
 
 implementation
 

@@ -43,7 +43,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          foreach ($proj in 'uo.lpi', 'EasyUOReforged.lpi', 'EUOUpdtr.lpi') {
+          foreach ($proj in 'uo.lpi', 'EasyUOReforged.lpi', 'EUOUpdtr.lpi', 'EUOMenuDesigner.lpi') {
             Write-Host "::group::lazbuild $proj"
             lazbuild --build-mode=Release $proj
             if ($LASTEXITCODE -ne 0) { throw "lazbuild $proj failed ($LASTEXITCODE)" }
@@ -66,7 +66,7 @@ jobs:
           $name = "EasyUOReforged-$tag-win64"
 
           New-Item -ItemType Directory -Force -Path "dist/$name" | Out-Null
-          Copy-Item EasyUOReforged.exe, uo.dll, EUOUpdtr.exe, LICENSE, NOTICE, README.md "dist/$name/"
+          Copy-Item EasyUOReforged.exe, uo.dll, EUOUpdtr.exe, EUOMenuDesigner.exe, LICENSE, NOTICE, README.md "dist/$name/"
           Compress-Archive -Path "dist/$name/*" -DestinationPath "dist/$name.zip"
 
           Push-Location dist
@@ -83,7 +83,7 @@ jobs:
             "Automated Windows x64 build of ``$tag``, produced by this workflow"
             "(``.github/workflows/release.yml``) from the tagged commit -- nothing is uploaded by hand."
             ""
-            "**Zip contents:** ``EasyUOReforged.exe``, ``uo.dll``, ``EUOUpdtr.exe`` + ``LICENSE`` / ``NOTICE`` / ``README.md``."
+            "**Zip contents:** ``EasyUOReforged.exe``, ``uo.dll``, ``EUOUpdtr.exe``, ``EUOMenuDesigner.exe`` + ``LICENSE`` / ``NOTICE`` / ``README.md``."
             ""
             "**Antivirus / SmartScreen:** this program reads and writes another process's memory"
             "and patches small code hooks into it (the same techniques a debugger uses), so"

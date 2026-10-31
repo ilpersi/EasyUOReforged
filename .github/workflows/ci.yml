@@ -36,7 +36,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          foreach ($proj in 'uo.lpi', 'EasyUOReforged.lpi', 'EUOUpdtr.lpi') {
+          foreach ($proj in 'uo.lpi', 'EasyUOReforged.lpi', 'EUOUpdtr.lpi', 'EUOMenuDesigner.lpi') {
             Write-Host "::group::lazbuild $proj"
             lazbuild --build-mode=Release $proj
             if ($LASTEXITCODE -ne 0) { throw "lazbuild $proj failed ($LASTEXITCODE)" }
@@ -55,6 +55,7 @@ jobs:
             EasyUOReforged.exe
             uo.dll
             EUOUpdtr.exe
+            EUOMenuDesigner.exe
           if-no-files-found: error
 
   # The client-table migration tool (Python). Its tests build synthetic executables, so no game

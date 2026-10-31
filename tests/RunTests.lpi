@@ -23,7 +23,7 @@
             <Filename Value="RunBench"/>
           </Target>
           <SearchPaths>
-            <OtherUnitFiles Value=".;..\easyuo"/>
+            <OtherUnitFiles Value=".;..\easyuo;..\tools\EUOMenuDesigner"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)-bench"/>
           </SearchPaths>
           <CodeGeneration>
@@ -79,7 +79,7 @@
       <Filename Value="RunTests"/>
     </Target>
     <SearchPaths>
-      <OtherUnitFiles Value=".;..\easyuo"/>
+      <OtherUnitFiles Value=".;..\easyuo;..\tools\EUOMenuDesigner"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <CodeGeneration>

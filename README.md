@@ -42,6 +42,8 @@ on it.
 2. Unzip it anywhere and run `EasyUOReforged.exe`; there is no installer. Keep `uo.dll` next to it.
 3. Start the UO client and log in first: EasyUO Reforged finds running clients by itself.
 
+`EUOMenuDesigner.exe`, in the same zip, lays out menu windows and writes their script: see the [MENU Designer](https://ilpersi.github.io/EasyUOReforged/designer/).
+
 The binaries are not code-signed, and the program reads and writes the client's memory, so SmartScreen
 and antivirus software may warn about it. Every release is built in public by GitHub Actions and ships
 with SHA-256 checksums. See

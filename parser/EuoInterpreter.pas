@@ -36,6 +36,8 @@ unit EuoInterpreter;
   - Comma-token merge-and-discard and the '.' glue operator run in ParseLine,
     strictly after variable substitution; SET/FOR's own first argument is
     exempted from substitution so they can assign to the raw variable reference.
+    (The code is in EuoScriptWords.GlueWords since the MENU designer, moved verbatim,
+    so the designer reads lines with it too; ParseLine calls it.)
   - Boolean results are Int64 -1/0 (see EuoExpression.pas).
   - Sys26 encoding (see EuoConversion.pas) is used pervasively for IDs.
   - SpeedVar (built-in #variable dispatch) uses EuoSortedList.FindSortedPos, not
@@ -78,6 +80,7 @@ uses
   Windows, SysUtils, Classes, Graphics,
   EuoTokens, EuoConversion, EuoExpression, EuoVariables, EuoScriptStack,
   EuoSortedList, EuoCommandRegistry, EuoStdCommands, EuoComm, EuoMenu, EuoMenu16, EuoMenuSelect,
+  EuoScriptWords,
   uotypes, access, ReforgedVersion, uoselector, uovariables, uocommands, uoevents, EuoLock,
   EuoSql, walkrules, walkmap, pathplan, walklive, pathwalk;
 
@@ -306,22 +309,6 @@ end;
 function IsAbsolutePath(Path : String) : Boolean;
 begin
   Result:=(Copy(Path,2,2)=':\')or(Copy(Path,1,1)='\');
-end;
-
-////////////////////////////////////////////////////////////////////////////////
-function IsVar(Str : String) : Boolean;
-var
-  Cnt1 : Integer;
-begin
-  Result:=False;
-
-  if Length(Str)<2 then Exit;
-  if not(Str[1] in ['!','%','*','#']) then Exit;
-
-  for Cnt1:=2 to Length(Str) do
-    if not(Str[Cnt1] in ['0'..'9','A'..'Z','a'..'z','_']) then Exit;
-
-  Result:=True;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -750,74 +737,27 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Port addition: the continuation join, the '.'/',' glue with variable substitution and the
+// TParList fill are in EuoScriptWords, moved there verbatim so the MENU designer reads lines
+// with the same code; the order of the steps is as it was.
 procedure TEuoInterpreter.ParseLine(PList : TParList);
 var
   sBuf    : String;
-  sBuf2   : String;
-  Cnt1    : Integer;
-  ConvRes : Boolean;
 begin
   Par.Clear;
   PList.Clear;
   if (NextLine>=ScrList.Scr.Count)or(NextLine<0) then Exit;
 
-  sBuf:=Trim(ScrList.Scr[NextLine]);
-  repeat
-    Inc(NextLine);
-    if NextLine>=ScrList.Scr.Count then Break;
-    sBuf2:=Trim(ScrList.Scr[NextLine]);
-    if Copy(sBuf2,1,1)<>'+' then Break;
-    Delete(sBuf2,1,1);
-    sBuf:=sBuf+sBuf2;
-  until False;
+  sBuf:=JoinContinuation(ScrList.Scr,NextLine);
 
   Parameterize(sBuf,Par);
   if Par.Count=0 then Exit;
 
   sBuf:=UpperCase(Par[0]);
 
-  for Cnt1:=Par.Count-1 downto 0 do
-  begin
-    if Par[Cnt1]='.' then
-      if (Cnt1<Par.Count-1)and(Cnt1>0) then
-    begin
-      Par[Cnt1-1]:=Par[Cnt1-1]+Par[Cnt1+1];
-      Par.Delete(Cnt1);
-      Par.Delete(Cnt1);
-      Continue;
-    end;
+  GlueWords(Par,GetVar,(sBuf='SET') or (sBuf='FOR'));
 
-    if IsVar(Par[Cnt1]) then
-    repeat
-      if Cnt1=1 then
-      begin
-        if sBuf='SET' then Break;
-        if sBuf='FOR' then Break;
-      end;
-
-      Par[Cnt1]:=GetVar(Par[Cnt1]);
-
-    until True;
-  end;
-
-  for Cnt1:=Par.Count-2 downto 1 do
-    if Par[Cnt1]=',' then
-  begin
-    Par[Cnt1-1]:=Par[Cnt1-1]+Par[Cnt1+1];
-    Par.Delete(Cnt1);
-    Par.Delete(Cnt1);
-  end;
-
-  for Cnt1:=0 to Par.Count-1 do
-  with PList do
-  begin
-    AddNew;
-    Last.Str:=Par[Cnt1];
-    Last.StrU:=UpperCase(Par[Cnt1]);
-    Last.Int:=SToI64Def(Par[Cnt1],0,ConvRes);
-    Last.IntValid:=ConvRes;
-    Last.CardValid:=ConvRes and (Last.Int>=0);
-  end;
+  WordsToParList(Par,PList);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -4,7 +4,7 @@
     <PathDelim Value="\"/>
     <Name Value="euoparser"/>
     <Type Value="RunTime"/>
-    <Description Value="EasyUO's own scripting language: the tokenizer/expression evaluator (EuoTokens, EuoExpression), value conversion (EuoConversion), thread-safe script variables (EuoVariables), the loaded-script/call-return model (EuoScriptStack), the command registry and no-live-client commands (EuoCommandRegistry, EuoStdCommands), Send (EuoComm), the MENU command driving real LCL controls (EuoMenu for EasyUO 1.5&apos;s logic, EuoMenu16 for 1.6&apos;s, chosen per script by EuoMenuSelect, sharing the window classes in EuoMenuCommon), the interpreter itself (EuoInterpreter) and the background execution engine with breakpoints/stepping (EuoExecutor, EuoBreakCondition, EuoCallStackFormat), the script block structure behind the editor's code folding and Format Script (EuoBlocks, a port addition), plus the SQL command's SQLite engine (EuoSql, a port addition). Ported from the original Delphi 7 parser\ folder."/>
+    <Description Value="EasyUO's own scripting language: the tokenizer/expression evaluator (EuoTokens, EuoExpression), value conversion (EuoConversion), thread-safe script variables (EuoVariables), the loaded-script/call-return model (EuoScriptStack), the command registry and no-live-client commands (EuoCommandRegistry, EuoStdCommands), Send (EuoComm), the MENU command driving real LCL controls (EuoMenu for EasyUO 1.5&apos;s logic, EuoMenu16 for 1.6&apos;s, chosen per script by EuoMenuSelect, sharing the window classes in EuoMenuCommon), the interpreter itself (EuoInterpreter) and the background execution engine with breakpoints/stepping (EuoExecutor, EuoBreakCondition, EuoCallStackFormat), the script block structure behind the editor's code folding and Format Script (EuoBlocks, a port addition), how a line becomes words, shared with the MENU designer (EuoScriptWords, a port addition), plus the SQL command's SQLite engine (EuoSql, a port addition). Ported from the original Delphi 7 parser\ folder."/>
     <CompilerOptions>
       <Version Value="11"/>
       <PathDelim Value="\"/>
@@ -15,7 +15,7 @@
         <CompilerPath Value="$(CompPath)"/>
       </Other>
     </CompilerOptions>
-    <Files Count="18">
+    <Files Count="19">
       <Item1>
         <Filename Value="EuoConversion.pas"/>
         <UnitName Value="EuoConversion"/>
@@ -88,6 +88,10 @@
         <Filename Value="EuoBlocks.pas"/>
         <UnitName Value="EuoBlocks"/>
       </Item18>
+      <Item19>
+        <Filename Value="EuoScriptWords.pas"/>
+        <UnitName Value="EuoScriptWords"/>
+      </Item19>
     </Files>
     <i18n>
       <EnableI18N LFM="False"/>
