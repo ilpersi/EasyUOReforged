@@ -76,6 +76,11 @@ Wherever a colour is asked for, give either:
 A script runs [`#LPC`](/variables/lpc/) lines (10 by default) and then pauses 50 ms, so a menu with a
 hundred controls takes about half a second to appear. Put `set #LPC 1000` before building it.
 
+:::tip[Lay it out with the mouse]
+The [MENU Designer](/designer/), in the release zip, lays out EasyUO 1.6 menu windows on a canvas and writes
+their `menu` lines for you. It opens existing scripts too.
+:::
+
 ## Commands
 
 | Window | |

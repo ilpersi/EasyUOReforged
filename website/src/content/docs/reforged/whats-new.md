@@ -90,6 +90,13 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 
 See [Editing and debugging](/guide/debugging/).
 
+## The MENU Designer
+
+- **[The MENU Designer](/designer/)** (`EUOMenuDesigner.exe`, in the release zip): lays out EasyUO 1.6
+  menu windows on a canvas, with alignment tools and snapping, and writes their script, one sub per window.
+  It opens scripts too, including ones it did not write, and reads their `menu` lines back into windows
+  you can go on editing.
+
 ## Not in Reforged
 
 - [`event Sleep`](/commands/event/sleep/) is accepted but does nothing.

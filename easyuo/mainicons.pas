@@ -52,6 +52,10 @@ procedure LoadToolbarIcons(AList : TImageList);
 // Decodes the original 32x32 window icon.
 function LoadAppIcon : TIcon;
 
+// A base64 PNG as a 32-bit bitmap with its alpha (the caller frees it). The MENU Designer's
+// icons (tools\EUOMenuDesigner\mdicons.pas) are decoded by it too.
+function LoadPNGBitmap(const B64 : String) : TBitmap;
+
 implementation
 
 uses

@@ -53,6 +53,7 @@ export default defineConfig({
 				...folderGroup('Language', 'language'),
 				...referenceSidebar(),
 				...folderGroup('Guides', 'guides', true),
+				...folderGroup('MENU Designer', 'designer'),
 				...folderGroup('Reforged', 'reforged'),
 				...folderGroup('Developers', 'developers'),
 			],

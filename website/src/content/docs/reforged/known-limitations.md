@@ -56,6 +56,9 @@ EasyUO for anything important, until you have checked that the scripts and featu
   another font, as the original did.
 - **[`menu Image File`](/commands/menu/image/file/)** reliably loads BMP, PNG, JPEG and GIF. Older formats
   the original accepted (WMF, EMF, ICO) may not work.
+- **[The MENU Designer](/designer/)** reads only the `menu` lines of a script, and leaves out those with
+  variables and what a running script reads; it designs for the 1.6 MENU system only. See its
+  [Limitations](/designer/limitations/).
 - **EasyUO 1.6's `menu`.** The [1.6 MENU logic](/commands/menu/versions/) is checked automatically against
   what EasyUO 1.6.0.337 did in 23 recorded test scripts, and by hand in the editor with test scripts and an
   example from the ScriptUO tutorial on the 1.6 menu. It has not yet been tried with real 1.6 scripts that

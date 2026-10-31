@@ -80,6 +80,9 @@ read. EasyUO 1.5 and 1.6 themselves ignore the line, so a script that has it sti
 [`menu Reforge IncludeCall #true`](/commands/menu/reforge/includecall/) makes the automatic choice read
 the files the script calls too.
 
+The [MENU Designer](/designer/) writes 1.6 windows only, and every file it saves starts with
+`menu Reforge Mode 1.6`.
+
 ## One logic for the whole run
 
 The choice holds for the whole run, for the main script and every file it calls, as in EasyUO, where one

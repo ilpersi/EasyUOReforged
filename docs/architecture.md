@@ -55,16 +55,17 @@ common/   OS-facing primitives  ── package: uocommon
   new client version; keeps its own forked copies of a couple of units) and
   `gen-version.ps1` (the version generator).
 
-## Three build targets, shared through packages
+## Four build targets, shared through packages
 
 | Project | Output | Purpose |
 |---|---|---|
 | `EasyUOReforged.lpi` | `EasyUOReforged.exe` | The GUI script editor/runner end users run. |
 | `uo.lpi` | `uo.dll` | The `uo/` engine exposed as a generic, stack-based external API. |
 | `EUOUpdtr.lpi` | `EUOUpdtr.exe` | Offset-derivation dev tool. |
+| `EUOMenuDesigner.lpi` | `EUOMenuDesigner.exe` | The MENU Designer (see [The MENU Designer](#the-menu-designer)). |
 
 `common/`, `uo/`, and `parser/` are Lazarus packages (`uocommon.lpk`,
-`uoengine.lpk`, `euoparser.lpk`) so all three projects — and the test project —
+`uoengine.lpk`, `euoparser.lpk`) so the projects — and the test project —
 resolve the shared code the same way instead of each carrying its own unit
 search paths. `lazbuild --add-package-link common/uocommon.lpk uo/uoengine.lpk
 parser/euoparser.lpk` registers them once.
@@ -180,6 +181,24 @@ as two separate implementations and runs a script under one of them:
 Both logics run on the main thread through `TThread.Synchronize`, like any LCL work. The editor's
 status bar shows the logic of each tab's run. The analysis of 1.6, the plan, the design decisions
 and the evidence are in [menu-1.6-analysis.md](menu-1.6-analysis.md).
+
+### The MENU Designer
+
+`EUOMenuDesigner.exe` (`tools/EUOMenuDesigner/`) lays out 1.6 MENU windows and reads them back
+from scripts. It reuses the 1.6 logic instead of a second copy of its rules:
+
+- **The canvas, the Preview and the importer run a real `TMenu16`.** The canvas runs each form's
+  generated sub and hosts the form's Surface in a tab, with every hosted window answering
+  `WM_NCHITTEST` with `HTTRANSPARENT` so the designer gets the mouse. The importer replays a
+  script's `menu` lines in a hidden `TMenu16` and reads the controls back with `getprop`
+  (read-only registry and property-table accessors on `EuoMenu16` make that possible).
+- **Lines are read with the interpreter's code:** `parser/EuoScriptWords.pas` holds the `+`
+  continuation, the `.`/`,` glue with its substitution hook, `IsVar` and the `TParList` fill, moved
+  out of `TEuoInterpreter.ParseLine`, which calls them.
+- **Table-driven:** `mdtypes.pas` has a row per 1.6 control type; `CheckDocsCoverage.ps1` fails when
+  the 1.6 logic gets a type, property or sub-command the designer does not cover.
+
+The plan, its decisions and the file layout are in [menu-designer.md](menu-designer.md).
 
 ### Preserved quirks
 

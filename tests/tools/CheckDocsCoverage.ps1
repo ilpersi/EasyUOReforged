@@ -20,6 +20,8 @@
 #
 # Every ```euo example on the site must be a whole script that runs as pasted: see "The examples" below.
 #
+# The MENU designer must keep up with the 1.6 MENU logic: see "The MENU designer" below.
+#
 # It also reports, as warnings that do not fail the run, names the interpreter and the editor's highlighter /
 # autocomplete lists (easyuo\eusyntax.pas, and the sub-commands in easyuo\eucomplete.pas) disagree on.
 #
@@ -175,6 +177,47 @@ foreach ($p in $pages.Values | Sort-Object Slug) {
   }
 }
 
+# ---- the MENU designer -----------------------------------------------------------------------------------
+# A new MENU 1.6 control type upgrades the MENU designer in the same change (CLAUDE.md, docs/menu-designer.md
+# section 8). Read from the source: every control type of the 1.6 logic (an MT_* constant in EuoMenu16.pas) is
+# a row of the designer's type table, every property of its table a row of the designer's, every sub-command
+# of its dispatcher one the designer writes, reads or knows to be read at runtime -- or is on MdExcluded, the
+# designer's commented list of what is left out on purpose (tools\EUOMenuDesigner\mdtypes.pas). Once the site
+# has the designer's section, every type has its own section on designer/components.md. The 1.5 logic is not
+# read: the designer is for 1.6 only.
+$designerProblems = New-Object System.Collections.Generic.List[string]
+$md = $names.Designer
+$mdKinds = @($md.Types | ForEach-Object { $_.Kind })
+foreach ($k in $names.Menu16Kinds) {
+  if ($mdKinds -notcontains $k -and $md.Excluded -notcontains "MT_$k") {
+    $designerProblems.Add("1.6 control type MT_$k (parser\EuoMenu16.pas) has no row in MdTypeRows and is not in MdExcluded")
+  }
+}
+foreach ($t in $md.Types) {
+  if ($names.Menu16Kinds -notcontains $t.Kind) { $designerProblems.Add("designer type '$($t.Name)' is MT_$($t.Kind), which the 1.6 logic does not have") }
+}
+foreach ($p in $names.Menu16Props) {
+  if ($md.Props -notcontains $p -and $md.Excluded -notcontains $p) {
+    $designerProblems.Add("1.6 property '$p' (Props in parser\EuoMenu16.pas) has no row in MdProps and is not in MdExcluded")
+  }
+}
+foreach ($s in $names.Menu16) {
+  if ($md.Subs -notcontains $s -and $md.Excluded -notcontains "menu $s") {
+    $designerProblems.Add("menu $s (TMenu16.Run) is in none of MdSubsWritten, MdSubsRead, MdSubsRuntime, and not in MdExcluded")
+  }
+}
+$designerDocs = Test-Path (Join-Path $Docs 'designer')
+if ($designerDocs) {
+  if (-not (Test-Page 'designer/components')) { $designerProblems.Add("designer/components.md does not exist") }
+  else {
+    foreach ($t in $md.Types) {
+      if ($pages['designer/components'].Text -notmatch "(?mi)^##\s+$([regex]::Escape($t.Name))\b") {
+        $designerProblems.Add("designer/components.md has no '## $($t.Name)' section")
+      }
+    }
+  }
+}
+
 # ---- highlighter / autocomplete drift (warnings) ---------------------------------------------------------
 $hlVars = & $lower $names.Highlighted.Variables
 $hlCmds = & $lower $names.Highlighted.Commands
@@ -227,6 +270,16 @@ if ($exampleProblems.Count -gt 0) {
   Write-Host "End the example with halt so it runs as pasted (see website\README.md), or list it in `$ExampleFragments with a reason."
   $failed = $true
 }
+if ($designerProblems.Count -gt 0) {
+  Write-Host "Docs coverage: the MENU designer does not cover the 1.6 MENU logic ($($designerProblems.Count) problems):" -ForegroundColor Red
+  $designerProblems | ForEach-Object { Write-Host "  $_" }
+  Write-Host "A new MENU 1.6 control type upgrades the designer in the same change: its row in tools\EUOMenuDesigner\mdtypes.pas,"
+  Write-Host "the generator and importer, tests, and its section on designer/components.md (docs/menu-designer.md, section 8)."
+  Write-Host "Something left out on purpose goes in MdExcluded, with the reason."
+  $failed = $true
+}
 if ($failed) { exit 1 }
 $dllNote = if ($dllOn) { '' } else { ' (uo.dll section not started: not checked)' }
+$mdNote = if ($designerDocs) { '' } else { ' (MENU designer section not started: its pages not checked)' }
 Write-Host "Docs coverage OK: all $checked variables, commands and sub-commands have a page$dllNote."
+Write-Host "MENU designer OK: it covers the $($names.Menu16Kinds.Count) control types, $($names.Menu16Props.Count) properties and $($names.Menu16.Count) sub-commands of the 1.6 logic$mdNote."

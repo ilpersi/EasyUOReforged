@@ -66,6 +66,11 @@ unit EuoMenu16;
   that has the properties of an edit; its text turns "$" into line breaks and back.
 
   Not done here: the repaint bursts TMenuObj holds while a script rebuilds a visible window.
+
+  Read-only views for the MENU designer (tools/EUOMenuDesigner, docs/menu-designer.md), which
+  builds its canvas and reads scripts back through this unit: the registry (RegistryCount and
+  RegistryName/Kind/Ctrl) and the property table (Menu16PropCount, Menu16PropRow). Nothing at
+  runtime reads them, and they change nothing.
 }
 
 {$mode delphi}{$H+}
@@ -89,6 +94,10 @@ const
   MT_IMAGE   = $200;
   MT_DEFAULT = $400;
   MT_MEMO    = $800;   // Reforged addition
+
+  PT_STR  = 1;   // the types 1.6's GetProp returns
+  PT_INT  = 2;
+  PT_BOOL = 3;
 
 type
   TMenu16Default = class(TControl)
@@ -181,7 +190,14 @@ type
     procedure   Run(Pars : TParList);
     function    GetMenuButton : String;
     procedure   SetMenuButton(const Value : String);
+    function    RegistryCount : Integer;
+    function    RegistryName(Index : Integer) : String;
+    function    RegistryKind(Index : Integer) : Integer;
+    function    RegistryCtrl(Index : Integer) : TControl;
   end;
+
+function  Menu16PropCount : Integer;
+procedure Menu16PropRow(Index : Integer; out Name : String; out PType, Mask : Integer);
 
 implementation
 
@@ -194,10 +210,6 @@ type
   end;
 
 const
-  PT_STR  = 1;   // the types 1.6's GetProp returns
-  PT_INT  = 2;
-  PT_BOOL = 3;
-
   PI_ALIGNMENT = 0;  PI_CHECKED = 1;  PI_COLOR = 2;  PI_ENABLED = 3;  PI_FONTCOLOR = 4;
   PI_FONTNAME = 5;  PI_FONTSIZE = 6;  PI_FONTSTYLE = 7;  PI_CLIENTHEIGHT = 8;  PI_HEIGHT = 9;
   PI_LEFT = 10;  PI_PARENT = 11;  PI_CAPTION = 12;  PI_TEXT = 13;  PI_TOOLTIP = 14;  PI_TOP = 15;
@@ -235,6 +247,19 @@ begin
   for Cnt:=Low(Props) to High(Props) do
     if (Props[Cnt].Name=Lower) and ((Props[Cnt].Mask and Kind)<>0) then Exit(Cnt);
   Result:=-1;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function Menu16PropCount : Integer;
+begin
+  Result:=Length(Props);
+end;
+
+procedure Menu16PropRow(Index : Integer; out Name : String; out PType, Mask : Integer);
+begin
+  Name:=Props[Low(Props)+Index].Name;
+  PType:=Props[Low(Props)+Index].PType;
+  Mask:=Props[Low(Props)+Index].Mask;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -451,6 +476,28 @@ end;
 procedure TMenu16.SetMenuButton(const Value : String);
 begin
   FMenuButton:=Value;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The registry in registration order, read-only (see the unit header).
+function TMenu16.RegistryCount : Integer;
+begin
+  Result:=Items.Count;
+end;
+
+function TMenu16.RegistryName(Index : Integer) : String;
+begin
+  Result:=TMenu16Item(Items[Index]).Name;
+end;
+
+function TMenu16.RegistryKind(Index : Integer) : Integer;
+begin
+  Result:=TMenu16Item(Items[Index]).Kind;
+end;
+
+function TMenu16.RegistryCtrl(Index : Integer) : TControl;
+begin
+  Result:=TMenu16Item(Items[Index]).Ctrl;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

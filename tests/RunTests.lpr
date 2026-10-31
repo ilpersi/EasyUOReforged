@@ -16,6 +16,9 @@ uses
   UoCommandsTests, UoEventsTests, LiveClientTests, EuoLockTests, PerfBenchTests,
   MenuBenchTests, EuoMenuImageTests, EuoMenuWindowTests, EuoMenuSelectTests, EuoMenu16GoldenTests, EuoSqlTests, EuoBlocksTests, EuoFoldSynTests,
   EuoCompleteTests, EuoFindTests, WalkRulesTests, PathPlanTests, WalkMapTests, WalkLiveTests,
+  EuoScriptWordsTests, MenuDesignerModelTests, MenuDesignerGenerateTests,
+  MenuDesignerRoundTripTests, MenuDesignerImportTests, MenuDesignerFileTests,
+  MenuDesignerGeometryTests, MenuDesignerInspectorTests, MenuDesignerMainTests,
   PathWalkTests, UoWrapPathTests;
 
 type
