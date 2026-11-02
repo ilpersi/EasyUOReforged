@@ -2,7 +2,7 @@
 title: "#CursorX"
 description: "Mouse cursor X position relative to the game area."
 kind: variable
-category: misc
+category: cursor
 access: ro
 type: number
 needsClient: true

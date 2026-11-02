@@ -20,24 +20,28 @@ export const COMMAND_CATEGORIES = [
 	['obsolete', 'Obsolete'],
 ];
 
+// The variable inspector of the editor uses these labels as its groups (Identifiers in
+// easyuo/vartree.pas), alphabetical like this list; tests/tools/CheckDocsCoverage.ps1 checks both.
 export const VARIABLE_CATEGORIES = [
-	['character', 'Character'],
-	['status', 'Status'],
-	['container', 'Container'],
-	['lastaction', 'Last action'],
-	['finditem', 'FindItem'],
 	['buffs', 'Buffs'],
-	['shop', 'Shop'],
-	['extended', 'Extended'],
+	['character', 'Character'],
 	['client', 'Client'],
 	['combat', 'Combat'],
-	['namespace', 'Namespace'],
-	['sql', 'SQL'],
-	['path', 'Pathfinding'],
-	['misc', 'Miscellaneous'],
-	['result', 'Result'],
-	['tile', 'Tile'],
 	['constant', 'Constants'],
+	['container', 'Container'],
+	['cursor', 'Cursor & targeting'],
+	['finditem', 'FindItem'],
+	['journal', 'Journal & messages'],
+	['lastaction', 'Last action'],
+	['path', 'Pathfinding'],
+	['result', 'Result'],
+	['script', 'Script'],
+	['shop', 'Shop'],
+	['skills', 'Skills'],
+	['sql', 'SQL'],
+	['status', 'Status bar'],
+	['tile', 'Tile'],
+	['time', 'Time'],
 ];
 
 export const DLL_CATEGORIES = [

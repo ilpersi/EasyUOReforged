@@ -2,7 +2,7 @@
 title: "#EUOVer"
 description: "Always 1_50_00, the EasyUO version Reforged is ported from; see #ReforgedVer."
 kind: variable
-category: misc
+category: script
 access: ro
 type: string
 related: ["#ReforgedVer"]

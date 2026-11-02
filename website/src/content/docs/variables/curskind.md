@@ -2,7 +2,7 @@
 title: "#CursKind"
 description: "Facet you are on: 0 Felucca, 1 Trammel, 2 Ilshenar, 3 Malas, 4 Tokuno, 5 Ter Mur."
 kind: variable
-category: extended
+category: cursor
 access: ro
 type: number
 needsClient: true

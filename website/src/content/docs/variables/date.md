@@ -2,7 +2,7 @@
 title: "#Date"
 description: "Local date of the computer as yymmdd."
 kind: variable
-category: misc
+category: time
 access: ro
 type: string
 related: ["#Time", "#SysTime"]

@@ -2,7 +2,7 @@
 title: "#PixCol"
 description: "Colour of the pixel last read by savepix, a $BBGGRR number."
 kind: variable
-category: misc
+category: result
 access: ro
 type: number
 needsClient: true

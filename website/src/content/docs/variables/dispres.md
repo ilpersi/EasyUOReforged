@@ -2,7 +2,7 @@
 title: "#DispRes"
 description: "Button the user pressed in the last display box: Ok, Yes, No or Cancel."
 kind: variable
-category: misc
+category: result
 access: ro
 type: string
 related: ["Display"]

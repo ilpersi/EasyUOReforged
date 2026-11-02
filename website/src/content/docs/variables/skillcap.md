@@ -2,7 +2,7 @@
 title: "#SkillCap"
 description: "Cap of the skill chosen with chooseskill, in tenths."
 kind: variable
-category: extended
+category: skills
 access: ro
 type: number
 needsClient: true

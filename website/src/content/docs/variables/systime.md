@@ -2,7 +2,7 @@
 title: "#SysTime"
 description: "Milliseconds since 1 January 1980 UTC; for timing."
 kind: variable
-category: misc
+category: time
 access: ro
 type: number
 related: ["#SCnt", "#SCnt2", "#Time"]

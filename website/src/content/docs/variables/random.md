@@ -2,7 +2,7 @@
 title: "#Random"
 description: "A new random number from 0 to 999 each time it is read."
 kind: variable
-category: misc
+category: script
 access: ro
 type: number
 related: ["wait"]

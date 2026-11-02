@@ -2,7 +2,7 @@
 title: "#CurPath"
 description: "Folder of EasyUOReforged.exe, ending with a backslash."
 kind: variable
-category: misc
+category: script
 access: ro
 type: string
 related: ["Call", "sql open"]

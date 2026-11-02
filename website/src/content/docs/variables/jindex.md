@@ -2,7 +2,7 @@
 title: "#JIndex"
 description: "Running number of the newest journal line; follow it to read every new line once."
 kind: variable
-category: extended
+category: journal
 access: ro
 type: number
 needsClient: true

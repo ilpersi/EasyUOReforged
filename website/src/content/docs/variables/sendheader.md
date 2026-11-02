@@ -2,7 +2,7 @@
 title: "#SendHeader"
 description: "Extra HTTP header lines for send; end each line with $."
 kind: variable
-category: result
+category: script
 access: rw
 type: string
 related: ["Send"]

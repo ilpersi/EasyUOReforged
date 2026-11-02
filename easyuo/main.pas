@@ -111,6 +111,8 @@ type
     UpdateTimer       : TTimer;
     MidPanel          : TPanel;
     VarSplitter       : TSplitter;
+    VarPanel          : TPanel;  // port addition: holds the filter box and the tree
+    VarFilterEdit     : TEdit;   // port addition: see vartree.pas
     VarTreeView       : TTreeView;
     ClientPathDialog  : TOpenDialog;
     SynPopupMenu      : TPopupMenu;
@@ -432,10 +434,22 @@ begin
   MidPanel.Align := alClient;
   MidPanel.BevelOuter := bvNone;
 
+  // Port change: the tree sits in VarPanel under a filter box (vartree.pas,
+  // VarTreeFilter); the panel takes the tree's old place, width and splitter.
+  VarPanel := TPanel.Create(Self);
+  VarPanel.Parent := MidPanel;
+  VarPanel.Align := alRight;
+  VarPanel.Width := 217;
+  VarPanel.BevelOuter := bvNone;
+
+  VarFilterEdit := TEdit.Create(Self);
+  VarFilterEdit.Parent := VarPanel;
+  VarFilterEdit.Align := alTop;
+  VarFilterEdit.TextHint := 'Filter variables';
+
   VarTreeView := TTreeView.Create(Self);
-  VarTreeView.Parent := MidPanel;
-  VarTreeView.Align := alRight;
-  VarTreeView.Width := 217;
+  VarTreeView.Parent := VarPanel;
+  VarTreeView.Align := alClient;
   VarTreeView.HideSelection := False;
   VarTreeView.Indent := 19;
 

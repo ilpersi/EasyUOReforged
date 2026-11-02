@@ -2,7 +2,7 @@
 title: "#Shard"
 description: "Name of the shard the client is logged in to."
 kind: variable
-category: misc
+category: client
 access: ro
 type: string
 needsClient: true

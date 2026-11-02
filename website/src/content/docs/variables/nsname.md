@@ -2,7 +2,7 @@
 title: "#NSName"
 description: "Name of the current namespace; std when the script starts."
 kind: variable
-category: namespace
+category: script
 access: ro
 type: string
 related: ["#NSType", "Namespace"]

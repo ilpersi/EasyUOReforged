@@ -2,7 +2,7 @@
 title: "#Journal"
 description: "Journal line read by the last scanjournal."
 kind: variable
-category: extended
+category: journal
 access: ro
 type: string
 needsClient: true

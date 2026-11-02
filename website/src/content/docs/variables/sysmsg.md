@@ -2,7 +2,7 @@
 title: "#SysMsg"
 description: "The last system message the client showed."
 kind: variable
-category: extended
+category: journal
 access: ro
 type: string
 needsClient: true

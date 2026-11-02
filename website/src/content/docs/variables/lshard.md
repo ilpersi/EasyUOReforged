@@ -2,7 +2,7 @@
 title: "#LShard"
 description: "Number of the last shard chosen; set it before logging in to preselect a shard."
 kind: variable
-category: misc
+category: client
 access: rw
 type: number
 needsClient: true

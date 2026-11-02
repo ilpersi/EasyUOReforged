@@ -2,7 +2,7 @@
 title: "#JColor"
 description: "Colour of the journal line read by the last scanjournal."
 kind: variable
-category: extended
+category: journal
 access: ro
 type: number
 needsClient: true

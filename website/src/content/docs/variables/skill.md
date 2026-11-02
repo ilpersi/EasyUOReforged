@@ -2,7 +2,7 @@
 title: "#Skill"
 description: "Value of the skill chosen with chooseskill, in tenths (700 = 70.0)."
 kind: variable
-category: extended
+category: skills
 access: ro
 type: number
 needsClient: true

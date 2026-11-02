@@ -22,6 +22,9 @@
 #
 # The MENU designer must keep up with the 1.6 MENU logic: see "The MENU designer" below.
 #
+# The editor's variable inspector must show every documented #variable, grouped like the site: see "The
+# variable inspector" below.
+#
 # It also reports, as warnings that do not fail the run, names the interpreter and the editor's highlighter /
 # autocomplete lists (easyuo\eusyntax.pas, and the sub-commands in easyuo\eucomplete.pas) disagree on.
 #
@@ -57,7 +60,8 @@ foreach ($f in Get-ChildItem $Docs -Recurse -Include '*.md', '*.mdx') {
   $kind = [regex]::Match($fm, '(?m)^kind:\s*(\S+)').Groups[1].Value
   $aliasLine = [regex]::Match($fm, '(?m)^aliases:\s*\[(.*)\]').Groups[1].Value
   $aliases = @([regex]::Matches($aliasLine, '["'']([^"'']+)["'']') | ForEach-Object { $_.Groups[1].Value.ToLower() })
-  $pages[$slug] = [pscustomobject]@{ Slug = $slug; Kind = $kind; Aliases = $aliases; Text = $text }
+  $category = [regex]::Match($fm, '(?m)^category:\s*(\S+)').Groups[1].Value
+  $pages[$slug] = [pscustomobject]@{ Slug = $slug; Kind = $kind; Category = $category; Aliases = $aliases; Text = $text }
 }
 function Test-Page([string]$slug) { $pages.ContainsKey($slug) }
 function Test-PageTree([string]$slug) { (Test-Page $slug) -or @($pages.Keys | Where-Object { $_.StartsWith("$slug/") }).Count -gt 0 }
@@ -218,6 +222,43 @@ if ($designerDocs) {
   }
 }
 
+# ---- the variable inspector ------------------------------------------------------------------------------
+# The editor's variable inspector (Identifiers in easyuo\vartree.pas) shows every documented #variable but the
+# constants, in groups named after the pages' categories (the labels of VARIABLE_CATEGORIES in
+# website\src\reference.mjs). The groups, the variables inside each, and VARIABLE_CATEGORIES are in
+# alphabetical order.
+$inspectorProblems = New-Object System.Collections.Generic.List[string]
+$refFile = Join-Path $EuoRoot 'website\src\reference.mjs'
+$varCats = [regex]::Match((Get-Content $refFile -Raw), 'VARIABLE_CATEGORIES\s*=\s*\[(.*?)\];', 'Singleline')
+if (-not $varCats.Success) { throw "Could not find VARIABLE_CATEGORIES in $refFile" }
+$catLabels = [ordered]@{}
+foreach ($m in [regex]::Matches($varCats.Groups[1].Value, "\[\s*'([^']+)'\s*,\s*'([^']+)'\s*\]")) { $catLabels[$m.Groups[1].Value] = $m.Groups[2].Value }
+function Test-Sorted([string]$what, [string[]]$list) {
+  for ($i = 1; $i -lt $list.Count; $i++) {
+    if ([string]::Compare($list[$i - 1], $list[$i], [StringComparison]::OrdinalIgnoreCase) -gt 0) {
+      $inspectorProblems.Add("$what is not in alphabetical order: '$($list[$i - 1])' comes before '$($list[$i])'")
+      return
+    }
+  }
+}
+Test-Sorted 'VARIABLE_CATEGORIES (website\src\reference.mjs)' @($catLabels.Values)
+Test-Sorted 'the inspector''s groups' @($names.VarTree | ForEach-Object { $_.Group })
+$inTree = @{}
+foreach ($g in $names.VarTree) {
+  Test-Sorted "the inspector's group '$($g.Group)'" @($g.Variables)
+  foreach ($v in $g.Variables) {
+    $inTree[$v.ToLower()] = $g.Group
+    $page = $pages["variables/$($v.ToLower())"]
+    if (-not $page) { $inspectorProblems.Add("#$v is in the inspector but has no page"); continue }
+    $want = $catLabels[$page.Category]
+    if ($g.Group -ne $want) { $inspectorProblems.Add("#$v is in the inspector's group '$($g.Group)', but its page's category is '$($page.Category)' (group '$want')") }
+  }
+}
+foreach ($p in $pages.Values | Where-Object { $_.Kind -eq 'variable' -and $_.Category -ne 'constant' } | Sort-Object Slug) {
+  $v = $p.Slug.Split('/')[1]
+  if (-not $inTree.ContainsKey($v)) { $inspectorProblems.Add("#$($v.ToUpper()) has a page but is not in the inspector (group '$($catLabels[$p.Category])')") }
+}
+
 # ---- highlighter / autocomplete drift (warnings) ---------------------------------------------------------
 $hlVars = & $lower $names.Highlighted.Variables
 $hlCmds = & $lower $names.Highlighted.Commands
@@ -278,8 +319,16 @@ if ($designerProblems.Count -gt 0) {
   Write-Host "Something left out on purpose goes in MdExcluded, with the reason."
   $failed = $true
 }
+if ($inspectorProblems.Count -gt 0) {
+  Write-Host "Docs coverage: the variable inspector and the variable pages disagree ($($inspectorProblems.Count) problems):" -ForegroundColor Red
+  $inspectorProblems | ForEach-Object { Write-Host "  $_" }
+  Write-Host "Add the variable to Identifiers in easyuo\vartree.pas, in alphabetical order, under the group named after"
+  Write-Host "its page's category (the label in VARIABLE_CATEGORIES, website\src\reference.mjs)."
+  $failed = $true
+}
 if ($failed) { exit 1 }
 $dllNote = if ($dllOn) { '' } else { ' (uo.dll section not started: not checked)' }
 $mdNote = if ($designerDocs) { '' } else { ' (MENU designer section not started: its pages not checked)' }
 Write-Host "Docs coverage OK: all $checked variables, commands and sub-commands have a page$dllNote."
+Write-Host "Variable inspector OK: its $($inTree.Count) variables in $($names.VarTree.Count) groups match the variable pages."
 Write-Host "MENU designer OK: it covers the $($names.Menu16Kinds.Count) control types, $($names.Menu16Props.Count) properties and $($names.Menu16.Count) sub-commands of the 1.6 logic$mdNote."

@@ -2,7 +2,7 @@
 title: "#SkillLock"
 description: "Lock of the skill chosen with chooseskill: up, down or locked."
 kind: variable
-category: extended
+category: skills
 access: ro
 type: string
 needsClient: true

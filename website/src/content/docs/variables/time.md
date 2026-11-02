@@ -2,7 +2,7 @@
 title: "#Time"
 description: "Local time of the computer as hhmmss, 24-hour clock."
 kind: variable
-category: misc
+category: time
 access: ro
 type: string
 related: ["#Date", "#SysTime"]

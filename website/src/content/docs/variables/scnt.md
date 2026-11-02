@@ -2,7 +2,7 @@
 title: "#SCnt"
 description: "A seconds counter; set it to start counting from that value."
 kind: variable
-category: misc
+category: time
 access: rw
 type: number
 related: ["#SCnt2", "#SysTime"]

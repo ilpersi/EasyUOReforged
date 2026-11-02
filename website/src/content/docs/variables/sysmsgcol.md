@@ -2,7 +2,7 @@
 title: "#SysMsgCol"
 description: "Colour that event SysMessage writes in."
 kind: variable
-category: extended
+category: journal
 access: rw
 type: number
 related: ["event SysMessage"]

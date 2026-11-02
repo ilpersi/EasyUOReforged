@@ -10,8 +10,12 @@ sidebar:
 - **Tabs**: one open script per tab. Use *File → New* or *Open*, or drag a `.euo` file onto the window.
   The tabs of the last session come back when you start the app again.
 - **Editor** (left and centre): a code editor with syntax highlighting and line numbers.
-- **Variable inspector** (right): a tree of every built-in `#variable` grouped by category, plus your
-  script's own `%variables`. The values refresh a few times a second while a script runs.
+- **Variable inspector** (right): a tree of the built-in `#variables`, in the same groups as the
+  [variable reference](/variables/), with the groups and the variables in alphabetical order. Type in the
+  box above the tree to keep only the variables whose name, or whose group's name, contains the text:
+  `hits` leaves [`#EnemyHits`](/variables/enemyhits/), [`#Hits`](/variables/hits/) and
+  [`#MaxHits`](/variables/maxhits/). Esc clears the box. The values refresh a few times a second while a
+  script runs, and the groups you leave open are open again the next time you start the app.
 - **Title bar**: shows the version (`YY.MM.DD.<commit>`), also under *Help → About* and in
   [`#ReforgedVer`](/variables/reforgedver/).
 - **Status bar** (bottom), from left to right: the cursor's line and column in the editor; your character's
@@ -59,7 +63,8 @@ section is the full reference.
 
 - **Tools → Don't Move Cursor** is on by default: [`click`](/commands/click/) and target commands work
   without moving your real mouse pointer. Turn it off if a script needs the real cursor moved.
-- **Tools → Manage VarList** chooses which variables the inspector shows.
+- **Tools → Manage VarList** chooses which variables the inspector shows. Add your script's own
+  `%variables` there to watch them too.
 - **Building a big [`menu`](/commands/menu/) window?** A script runs [`#LPC`](/variables/lpc/) lines
   (10 by default) and then pauses 50 ms, so a menu with a hundred controls takes about half a second to
   appear. Put `set #LPC 1000` before building it, and `set #LPC 10` once it is on screen if you want the

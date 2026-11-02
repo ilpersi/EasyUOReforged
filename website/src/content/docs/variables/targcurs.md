@@ -2,7 +2,7 @@
 title: "#TargCurs"
 description: "1 while a target cursor is showing; set it to 1 to let the user pick a target."
 kind: variable
-category: extended
+category: cursor
 access: rw
 type: boolean
 needsClient: true

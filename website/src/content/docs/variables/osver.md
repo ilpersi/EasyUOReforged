@@ -2,7 +2,7 @@
 title: "#OSVer"
 description: "Windows version, as platform_major_minor."
 kind: variable
-category: misc
+category: script
 access: ro
 type: string
 related: ["#ReforgedVer"]

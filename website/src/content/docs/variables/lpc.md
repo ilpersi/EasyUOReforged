@@ -2,7 +2,7 @@
 title: "#LPC"
 description: "Lines run per 50 ms cycle; 10 by default."
 kind: variable
-category: result
+category: script
 access: rw
 type: number
 related: ["LinesPerCycle"]

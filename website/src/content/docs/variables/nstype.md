@@ -2,7 +2,7 @@
 title: "#NSType"
 description: "Whether the current namespace is local or global."
 kind: variable
-category: namespace
+category: script
 access: ro
 type: string
 related: ["#NSName", "namespace local", "namespace global"]

@@ -9,7 +9,19 @@ page on GitHub shows it. Everything Reforged adds to EasyUO 1.5 is listed by top
 
 ### Added
 
+- **A filter box above the variable inspector**: type part of a name, such as `hits`, and only the
+  matching variables stay in the tree. Esc clears it. See
+  [Your first script](https://ilpersi.github.io/EasyUOReforged/guide/first-script/#the-window).
+
 ### Changed
+
+- **The variable inspector is regrouped.** Its groups are now the same as the
+  [variable reference](https://ilpersi.github.io/EasyUOReforged/variables/) on the site, and the groups
+  and the variables inside them are in alphabetical order. *Extended Info* and *Miscellaneous* are split
+  into *Cursor & targeting*, *Journal & messages*, *Script*, *Skills* and *Time*. *Status bar* keeps the
+  variables read from the status bar. `#ContSize` and `#CurPath` are now shown too.
+- The inspector remembers which groups you left open by their names, so adding a group no longer
+  opens the wrong ones. The groups you had open before this version start closed once.
 
 ### Fixed
 

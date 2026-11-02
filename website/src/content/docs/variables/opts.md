@@ -2,7 +2,7 @@
 title: "#Opts"
 description: "Active options: always SYS, EXEC and SEND, plus DMC when Don’t Move Cursor is on."
 kind: variable
-category: result
+category: script
 access: ro
 type: string
 related: ["Click", "Execute", "Send"]

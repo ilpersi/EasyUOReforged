@@ -29,6 +29,8 @@
 #   Highlighted the #variables and commands easyuo\eusyntax.pas colours and offers for autocomplete
 #   Completion  the sub-command lists autocomplete offers, from SubCommands in easyuo\eucomplete.pas:
 #               key (the words before, 'MENU FONT') -> the words it offers there
+#   VarTree     the variable inspector's default list, Identifiers in easyuo\vartree.pas, in order:
+#               one entry per group, Group (the label, '\' taken off) and Variables ('#' taken off)
 
 $EuoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 
@@ -105,6 +107,16 @@ function Get-EuoNames {
     Excluded = @(Get-EuoCommentedArray $md 'MdExcluded' $mdFile)
   }
 
+  $treeFile = Join-Path $EuoRoot 'easyuo\vartree.pas'
+  $ids = [regex]::Match((Get-Content $treeFile -Raw), "Identifiers\s*:\s*String\s*=(.*?);", 'Singleline')
+  if (-not $ids.Success) { throw "Could not find Identifiers in $treeFile" }
+  $varTree = New-Object System.Collections.Generic.List[object]
+  foreach ($s in [regex]::Matches($ids.Groups[1].Value, "'([^']+)'") | ForEach-Object { $_.Groups[1].Value }) {
+    if ($s.StartsWith('\')) { $varTree.Add([pscustomobject]@{ Group = $s.Substring(1); Variables = New-Object System.Collections.Generic.List[string] }) }
+    elseif ($varTree.Count -eq 0) { throw "$treeFile`: Identifiers lists $s before any group" }
+    else { $varTree[$varTree.Count - 1].Variables.Add($s.TrimStart('#')) }
+  }
+
   $rw = @(Get-EuoPascalArray $interp 'VarNamesRW' $interpFile)
   [pscustomobject]@{
     Variables   = @(Get-EuoPascalArray $interp 'VarNamesR' $interpFile) + $rw
@@ -130,5 +142,6 @@ function Get-EuoNames {
       Commands  = @(Get-EuoPascalArray $syn 'CommandKeywords' $synFile)
     }
     Completion  = $completion
+    VarTree     = $varTree
   }
 }

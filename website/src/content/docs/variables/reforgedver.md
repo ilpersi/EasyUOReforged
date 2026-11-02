@@ -2,7 +2,7 @@
 title: "#ReforgedVer"
 description: "Build version of EasyUO Reforged, such as 26.10.22.3c144de."
 kind: variable
-category: misc
+category: script
 access: ro
 type: string
 origin: reforged
