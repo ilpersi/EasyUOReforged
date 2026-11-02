@@ -76,6 +76,9 @@ from [`website/`](website/README.md), one Markdown page per command, sub-command
 `#variable` and `uo.dll` member. `run_tests.ps1` fails when one of them has no
 page (`tests/tools/CheckDocsCoverage.ps1`), so a new command or variable comes
 with its page in the same PR. Mark it `origin: reforged` in the frontmatter.
+
+A change script users would notice also adds a line under `## Unreleased` in
+[`CHANGELOG.md`](CHANGELOG.md); that section becomes the next release's notes.
 `website/README.md` explains the page format and how to preview the site.
 
 ## Pull requests

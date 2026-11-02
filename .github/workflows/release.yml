@@ -66,7 +66,7 @@ jobs:
           $name = "EasyUOReforged-$tag-win64"
 
           New-Item -ItemType Directory -Force -Path "dist/$name" | Out-Null
-          Copy-Item EasyUOReforged.exe, uo.dll, EUOUpdtr.exe, EUOMenuDesigner.exe, LICENSE, NOTICE, README.md "dist/$name/"
+          Copy-Item EasyUOReforged.exe, uo.dll, EUOUpdtr.exe, EUOMenuDesigner.exe, LICENSE, NOTICE, README.md, CHANGELOG.md "dist/$name/"
           Compress-Archive -Path "dist/$name/*" -DestinationPath "dist/$name.zip"
 
           Push-Location dist
@@ -79,22 +79,8 @@ jobs:
             Set-Content -Encoding ascii "SHA256SUMS.txt"
           Pop-Location
 
-          $notes = @(
-            "Automated Windows x64 build of ``$tag``, produced by this workflow"
-            "(``.github/workflows/release.yml``) from the tagged commit -- nothing is uploaded by hand."
-            ""
-            "**Zip contents:** ``EasyUOReforged.exe``, ``uo.dll``, ``EUOUpdtr.exe``, ``EUOMenuDesigner.exe`` + ``LICENSE`` / ``NOTICE`` / ``README.md``."
-            ""
-            "**Antivirus / SmartScreen:** this program reads and writes another process's memory"
-            "and patches small code hooks into it (the same techniques a debugger uses), so"
-            "Windows may flag it heuristically. This is expected for this class of tool. Verify"
-            "your download against ``$name.zip.sha256`` (and ``SHA256SUMS.txt`` for the extracted"
-            "files), scan it yourself, or build from source. See"
-            "https://ilpersi.github.io/EasyUOReforged/guide/install/#smartscreen-and-antivirus"
-            ""
-            "Drives both 32-bit and 64-bit Ultima Online clients."
-          ) -join "`n"
-          Set-Content -Path "dist/NOTES.md" -Value $notes -Encoding utf8
+          # The tag's CHANGELOG.md section (or the commits since the last tag) + the fixed text.
+          ./tools/release-notes.ps1 -Tag $tag -OutFile dist/NOTES.md
 
           "name=$name" >> $env:GITHUB_OUTPUT
 

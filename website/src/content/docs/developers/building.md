@@ -167,7 +167,9 @@ check workflow does for every pull request and every push to `main`. The pages a
   and pull request: the version file, the package links, the four Release builds, `run_tests.ps1`, and the
   EUOMigrate tests. It keeps the programs as a build artifact.
 - **`.github/workflows/release.yml`** does the same for a `v*` tag, then publishes a GitHub release: a zip
-  with the four programs, `LICENSE`, `NOTICE` and `README.md`, and SHA-256 checksums.
+  with the four programs, `LICENSE`, `NOTICE`, `README.md` and `CHANGELOG.md`, and SHA-256 checksums. The
+  release page shows the tag's section of `CHANGELOG.md`, or the commits since the previous tag if it has
+  none (see [Cutting a release](#cutting-a-release)).
 - **`.github/workflows/docs-check.yml`** (*Docs build check*) builds this site for pull requests and
   pushes to `main`, without publishing it.
 - **`.github/workflows/docs.yml`** (*Publish docs site*) publishes this site from the latest release, after
@@ -176,6 +178,26 @@ check workflow does for every pull request and every push to `main`. The pages a
   the latest release.
 
 If a build works in CI but not on your machine, compare your steps with `ci.yml`.
+
+## Cutting a release
+
+Each change that script users would notice adds a line under `## Unreleased` in `CHANGELOG.md`, in
+`### Added`, `### Changed` or `### Fixed`. When it is time to release, from a clean `main`:
+
+```powershell
+pwsh tools/release.ps1 v26.11.05
+```
+
+The script renames `## Unreleased` to `## v26.11.05 - <date>`, starts a new empty `## Unreleased` above
+it, commits that as `Release v26.11.05` and tags the commit. It prints the release notes as GitHub will
+show them, and pushes nothing. If they read right, push the branch and the tag:
+
+```powershell
+git push origin main v26.11.05
+```
+
+The tag starts `release.yml`. To see the notes for any tag without releasing, run
+`pwsh tools/release-notes.ps1 -Tag v26.11.05`.
 
 ## When the build fails
 
