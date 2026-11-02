@@ -51,6 +51,13 @@ EasyUO for anything important, until you have checked that the scripts and featu
     [`path stop`](/commands/path/stop/) also can't stop the client's walk to the last point it was sent to.
   - Walking has been checked by hand mostly on `client_beta.exe`. On `client.exe`: `path find`, `path can`,
     `path check`, and one walk round a player house.
+  - Whether the character walks or runs is up to the client: it runs while Always Run is on, and also
+    whenever your mouse pointer rests away from the character. It reads the real pointer itself, so a script
+    can only steer that by moving your mouse (see [Running](/commands/path/#running)).
+- **[`#MountID`](/variables/mountid/), [`#MountType`](/variables/mounttype/) and
+  [`#FindLayer`](/variables/findlayer/)** read the equip layer where `client.exe` 7.0.117.1 and 7.0.108.0
+  and `client_beta.exe` keep it (read from their code; checked live on `client.exe` 7.0.117.1 and
+  `client_beta.exe` 7.0.117.31). On older clients they are unverified.
 - **Symbol fonts in menus.** A [`menu`](/commands/menu/) text, button or checkbox using a symbol font such
   as Wingdings only shows the intended glyphs if that exact font is installed. Otherwise Windows substitutes
   another font, as the original did.

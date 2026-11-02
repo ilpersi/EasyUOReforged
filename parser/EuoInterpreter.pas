@@ -61,6 +61,8 @@ unit EuoInterpreter;
   through Delay, as MOVE does, and drives the client through TEuoWalkClient below. PATH
   CHECK, and the walker before it walks on, ask the client's own step check (the tile query
   BlockInfo calls) through TUOEvent.StepInfo.
+  Likewise the read-only #MountID/#MountType/#FindLayer (indices 125..127), read through
+  TUOCmd.CharMount and TItemRes.ItemLayer, from fields the original already used.
   Likewise the MENU 1.5/1.6 split (docs/menu-1.6-analysis.md): MENU runs under EasyUO 1.5's
   logic (TMenuObj, EuoMenu.pas, unchanged) or EasyUO 1.6's (TMenu16, EuoMenu16.pas, with its own
   dispatcher, run on the main thread like MenuProcSync), chosen once per run in Clear by
@@ -411,7 +413,7 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 const
-  VarNamesR : Array[0..124] of String = (
+  VarNamesR : Array[0..127] of String = (
     'CliCnt','CliNr','Time','Date','SysTime','Random','OSVer','CharPosX',
     'CharPosY','CharPosZ','CharID','CharGhost','CharStatus','CharDir',
     'CharName','Sex','Str','MaxWeight','Dex','Int','Hits','MaxHits',
@@ -434,7 +436,9 @@ const
     // Port additions (SQL): indices 115..118.
     'SqlCnt','SqlChanges','SqlLastID','SqlRes',
     // Port additions (PATH): indices 119..124.
-    'PathCnt','PathState','PathX','PathY','PathZ','PathDir');
+    'PathCnt','PathState','PathX','PathY','PathZ','PathDir',
+    // Port additions (mount and equip layer): indices 125..127.
+    'MountID','MountType','FindLayer');
 
   VarNamesRW : Array[0..33] of String = (
     'SCnt','SCnt2','LShard','ContPosX','ContPosY','NextCPosX','NextCPosY',
@@ -842,6 +846,7 @@ var
   iBuf : Integer;
   c    : Cardinal;
   Found: Boolean;
+  MID, MType : Cardinal;   // port addition: the mount (#MountID, #MountType)
 label Leave;
 begin
   CS.BeginWrite;
@@ -1104,6 +1109,12 @@ begin
            Result:=IntToStr(BuffTimeNow);   // read live, so a variable tree sees it count down
            VarRes:=BuffValid;
          end;
+    // Port additions (mount and equip layer). The mount's ID and type are N/A when the character
+    // rides nothing; #FindLayer is N/A unless the item FindItem selected is worn (layer 0 is no
+    // layer: a zeroed ItemRes, nothing selected).
+    125: if CharMount(MID,MType) then Result:=CardToSys26(MID) else VarRes:=False;
+    126: if CharMount(MID,MType) then Result:=CardToSys26(MType) else VarRes:=False;
+    127: if ItemRes.ItemLayer>0 then Result:=IntToStr(ItemRes.ItemLayer) else VarRes:=False;
     502: Result:=IntToStr   (LShard       );
     503: Result:=IntToStr   (ContPosX     );
     504: Result:=IntToStr   (ContPosY     );
@@ -2750,6 +2761,7 @@ type
     function  CanPathFind : Boolean; override;
     procedure Busy(On : Boolean); override;
     function  StopFlag : PBoolean; override;
+    function  Mounted : Boolean; override;
   end;
 
 constructor TEuoWalkClient.Create(AInterp : TEuoInterpreter);
@@ -2851,6 +2863,13 @@ end;
 function TEuoWalkClient.StopFlag : PBoolean;
 begin
   Result:=@Interp.Brk;
+end;
+
+function TEuoWalkClient.Mounted : Boolean;
+var
+  ID, Typ : Cardinal;
+begin
+  Result:=Interp.UOCmd.CharMount(ID,Typ);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

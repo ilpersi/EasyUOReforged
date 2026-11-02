@@ -72,6 +72,11 @@ type
     Checks       : Integer;    // CheckSteps calls
     MaxCheckDist : Integer;    // the farthest tile asked about from the character
     Asked        : TStringList;   // every tile asked about, as x,y
+    RunOn        : Boolean;    // the client's Always Run option
+    RunStepMs    : Cardinal;   // a walk-macro step's time while Always Run is on (0 = StepMs)
+    IsMounted    : Boolean;
+    LastStepAt   : QWord;      // when Step was last called
+    MinGap       : QWord;      // the shortest time between two Step calls
     constructor Create(Grid : TWalkSource; Info : TTileInfoFunc; SX, SY : Integer);
     destructor  Destroy; override;
     procedure Rebuild;
@@ -88,6 +93,7 @@ type
     function  CheckSteps(var Q : TStepChecks) : Boolean; override;
     function  Now : QWord; override;
     function  Wait(Ms : Cardinal) : Boolean; override;
+    function  Mounted : Boolean; override;
   end;
 
   TPathWalkTests = class(TTestCase)
@@ -151,6 +157,8 @@ type
     procedure TestClientCheckStaysWithinCheckDist;
     procedure TestClientCheckNeverAsksAcrossALink;
     procedure TestClientCheckTakesTheClientsHeight;
+    // the mounted pace
+    procedure TestMountedStepsGoOutFaster;
   end;
 
 implementation
@@ -179,6 +187,7 @@ begin
   Asked := TStringList.Create;
   Asked.Sorted := True;
   Asked.Duplicates := dupIgnore;
+  MinGap := High(QWord);
 end;
 
 destructor TSimClient.Destroy;
@@ -276,7 +285,8 @@ begin
     else if CanStep(Truth, X, Y, Z, D, NZ) then
     begin
       MoveTo(X + DirX[D], Y + DirY[D], NZ, D);
-      StepFree := T + StepMs;
+      if RunOn and (RunStepMs > 0) then StepFree := T + RunStepMs
+      else StepFree := T + StepMs;
     end
     else Inc(BlockedSteps);
   end;
@@ -329,6 +339,8 @@ end;
 // Taken at once when the character is free, else when the step under way ends (Advance).
 procedure TSimClient.Step(D : Integer);
 begin
+  if (StepsSent > 0) and (T - LastStepAt < MinGap) then MinGap := T - LastStepAt;
+  LastStepAt := T;
   Inc(StepsSent);
   SetLength(Queue, 0);
   PendingDir := D;
@@ -399,6 +411,11 @@ begin
   Inc(T, Ms);
   Advance;
   Result := True;
+end;
+
+function TSimClient.Mounted : Boolean;
+begin
+  Result := IsMounted;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1013,6 +1030,35 @@ begin
   AssertTrue(Logged('step 5 (10,5) lands at 4, planned 0'));
   AssertEquals(0, C.BlockedSteps);
   AssertEquals(0, Ov.LearnedCount);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The mounted pace: a mounted character's steps go out MountGapMs apart.
+
+// With Always Run on, the client takes a step in 100 ms. On foot the steps still go out StepGapMs
+// apart; mounted they go out MountGapMs apart, so the walk takes clearly less time (live, a mounted
+// run had been held to a mounted walk's pace).
+procedure TPathWalkTests.TestMountedStepsGoOutFaster;
+var
+  TFoot, TMount : QWord;
+begin
+  Sim(5, 5);
+  C.RunOn := True;
+  C.RunStepMs := 100;
+  AssertTrue(Walk(25, 5, wmSteps) = wsArrived);
+  TFoot := C.T;
+  AssertTrue('on foot, never closer than StepGapMs', C.MinGap >= 200);
+  FreeAndNil(C);
+
+  Sim(5, 5);
+  C.RunOn := True;
+  C.RunStepMs := 100;
+  C.IsMounted := True;
+  AssertTrue(Walk(25, 5, wmSteps) = wsArrived);
+  TMount := C.T;
+  AssertTrue('mounted, never closer than MountGapMs', C.MinGap >= 100);
+  AssertTrue(Format('mounted %d ms, on foot %d ms', [Int64(TMount), Int64(TFoot)]),
+    TMount*10 < TFoot*7);
 end;
 
 initialization

@@ -791,6 +791,9 @@ sub st_vg_character
   gosub st_vc charStatus any
   gosub st_vc charID has
   gosub st_vc charGhost one yes no
+  ; port additions: the mount is an item worn in layer 25 (N/A while on foot)
+  gosub st_vc mountID any
+  gosub st_vc mountType any
   gosub st_vc backpackID has
   gosub st_vc charType has
   gosub st_vc charName has
@@ -958,6 +961,16 @@ sub st_vg_find
     else
     {
       gosub st_skip finditem_details empty_backpack
+    }
+    ; port addition: #findLayer is N/A for an item in a bag, the layer for one a character wears
+    if #findCnt > 0
+    {
+      gosub st_vc findLayer eq N/A
+    }
+    findItem #backpackID
+    if #findCnt > 0
+    {
+      gosub st_vc findLayer eq 21
     }
   }
 return

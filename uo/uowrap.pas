@@ -27,6 +27,11 @@ unit uowrap;
   check; they don't walk. The work is in TUOCmd (PathFindFrom, PathCanAt, PathPacked,
   PathSetOption) and TUOEvent.StepInfo; MCall only reads the stack and pushes the answers. Their
   rows keep UOTbl in CompareStr order, as tables.pas's binary search needs.
+
+  Port addition (not in the original): the read-only properties MountID and MountType (codes 256,
+  257, as #MountID / #MountType, 0 on foot) and the method GetItemLayer (067, as #FindLayer for an
+  item of the filtered list, 0 when nobody wears it), read through TUOCmd.CharMount and
+  TItemRes.ItemLayer. GetItem's results are unchanged.
 }
 
 {$mode delphi}{$H+}
@@ -101,7 +106,7 @@ const
 ////////////////////////////////////////////////////////////////////////////////
 
 var
-  UOTbl : array[0..168] of TItem = (
+  UOTbl : array[0..171] of TItem = (
     (N: 'AR'          ;T: RO ;C: 206 ;P: 'n'        ),
     (N: 'BackpackID'  ;T: RO ;C: 224 ;P: 'n'        ),
     (N: 'BlockInfo'   ;T: ME ;C: 041 ;P: 'nnnnn'    ),
@@ -167,6 +172,7 @@ var
     (N: 'GetBuff'     ;T: ME ;C: 056 ;P: 'n'        ),
     (N: 'GetCont'     ;T: ME ;C: 032 ;P: 'n'        ),
     (N: 'GetItem'     ;T: ME ;C: 024 ;P: 'n'        ),
+    (N: 'GetItemLayer';T: ME ;C: 067 ;P: 'n'        ),    // port addition (the equip layer)
     (N: 'GetJournal'  ;T: ME ;C: 027 ;P: 'n'        ),
     (N: 'GetPath'     ;T: ME ;C: 057 ;P: 'nnnnnnn'  ),    // port addition (the pathfinder)
      (N: 'GetPath'    ;T: ME ;C: 057 ;P: 'nnn'      ),
@@ -209,6 +215,8 @@ var
     (N: 'MaxStats'    ;T: RO ;C: 235 ;P: 'n'        ),
     (N: 'MaxWeight'   ;T: RO ;C: 239 ;P: 'n'        ),
     (N: 'MinDmg'      ;T: RO ;C: 244 ;P: 'n'        ),
+    (N: 'MountID'     ;T: RO ;C: 256 ;P: 'n'        ),    // port addition (the mount)
+    (N: 'MountType'   ;T: RO ;C: 257 ;P: 'n'        ),    // port addition (the mount)
     (N: 'Move'        ;T: ME ;C: 005 ;P: 'nnnn'     ),
      (N:'Move'        ;T: ME ;C: 005 ;P: 'nnn'      ),
      (N:'Move'        ;T: ME ;C: 005 ;P: 'nn'       ),
@@ -365,6 +373,9 @@ begin
     253: PushInteger(CursorX);
     254: PushInteger(CursorY);
     255: PushBoolean(UOCmd.BuffBarOpen);          // port addition; False also when unsupported
+    // Port additions (the mount, as #MountID / #MountType): 0 while the character rides nothing.
+    256: PushInteger(UOCmd.MountID);
+    257: PushInteger(UOCmd.MountType);
     -01: Result:=ERR_NOTFOUND;
     -02: Result:=ERR_WRONGPAR;
     else Result:=ERR_GENERIC;
@@ -689,6 +700,14 @@ begin
            else s:='?';
            if s='?' then PushStrVal('error: PathClear [blocks|avoid|links|learned|all]')
            else PushStrVal('ok');
+         end;
+    // Port addition (the equip layer, as #FindLayer): the layer a mobile wears an item of the
+    // filtered list in, 0 when nobody wears it. A call of its own, so GetItem's results stay as
+    // they were.
+    067: begin                                             // GetItemLayer index
+           GetItem(GetInteger(3));
+           if ItemRes.ItemLayer>0 then PushInteger(ItemRes.ItemLayer)
+           else PushInteger(0);
          end;
     -01: Result:=ERR_NOTFOUND;
     -02: Result:=ERR_WRONGPAR;

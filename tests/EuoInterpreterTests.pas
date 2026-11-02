@@ -48,6 +48,8 @@ type
     procedure TestPathWalkingNeedsAClient;
     procedure TestPathWalkerOptions;
     procedure TestPathCheckNeedsAClient;
+    procedure TestMountVariablesReadNAWithNoClient;
+    procedure TestAlwaysRunExampleRunsWithoutAClient;
 
     procedure TestIfTrueRunsBodyAndSkipsElse;
     procedure TestIfFalseSkipsBodyAndRunsElse;
@@ -319,6 +321,75 @@ begin
   AssertEquals('0', Interp.GetVar('#False'));
   AssertEquals(' ', Interp.GetVar('#SPC'));
   AssertEquals('N/A', Interp.GetVar('#NoSuchVariable'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// #MountID, #MountType and #FindLayer are port additions appended after #PathDir: known names (the
+// editor's tree and FindItem read them), N/A without a client, and the variables before them keep
+// their meaning. Reading them with a client is tested in CstDbModernBuildTests.
+procedure TEuoInterpreterTests.TestMountVariablesReadNAWithNoClient;
+begin
+  AssertEquals('N/A', Interp.GetVar('#MountID'));
+  AssertEquals('N/A', Interp.GetVar('#MountType'));
+  AssertEquals('N/A', Interp.GetVar('#FindLayer'));
+  AssertEquals('-1', Interp.GetVar('#PathDir'));
+  AssertEquals('0', Interp.GetVar('#PathCnt'));
+  AssertEquals('-1', Interp.GetVar('#True'));
+  PlayScript(
+    'set %a #MountID' + #13#10 +
+    'set %b #FindLayer' + #13#10 +
+    'HALT');
+  AssertEquals('N/A', Interp.GetVar('%a'));
+  AssertEquals('N/A', Interp.GetVar('%b'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The Always Run example on the path command's docs page (commands/path/index.md, "Running"), as
+// printed there. Without a client the toggle gets no answer: after its second of tries, nothing is
+// switched, the walk says noclient, and the script reaches its halt.
+procedure TEuoInterpreterTests.TestAlwaysRunExampleRunsWithoutAClient;
+begin
+  PlayScript(
+    'gosub ToggleAlwaysRun' + #13#10 +
+    'set %switched #false' + #13#10 +
+    'if %run = on' + #13#10 +
+    '  set %switched #true        ; it was off: switch it back off after the walk' + #13#10 +
+    'if %run = off' + #13#10 +
+    '  gosub ToggleAlwaysRun      ; it was on already: switch it back on, and leave it on' + #13#10 +
+    'path go 2505 552' + #13#10 +
+    'if %switched = #true' + #13#10 +
+    '{' + #13#10 +
+    '  gosub ToggleAlwaysRun' + #13#10 +
+    '  if %run = on' + #13#10 +
+    '    gosub ToggleAlwaysRun    ; it had been switched off meanwhile: off again' + #13#10 +
+    '}' + #13#10 +
+    'set %done yes' + #13#10 +
+    'halt' + #13#10 +
+    '' + #13#10 +
+    'sub ToggleAlwaysRun' + #13#10 +
+    '  set %next #JIndex + 1' + #13#10 +
+    '  set %run none' + #13#10 +
+    '  set %tries 0' + #13#10 +
+    '  event macro 32 0' + #13#10 +
+    '  repeat' + #13#10 +
+    '    wait 1' + #13#10 +
+    '    set %tries %tries + 1' + #13#10 +
+    '    while %next <= #JIndex' + #13#10 +
+    '    {' + #13#10 +
+    '      scanjournal %next' + #13#10 +
+    '      if Always_Run_is_now_on in #Journal' + #13#10 +
+    '        set %run on' + #13#10 +
+    '      if Always_Run_is_now_off in #Journal' + #13#10 +
+    '        set %run off' + #13#10 +
+    '      set %next %next + 1' + #13#10 +
+    '    }' + #13#10 +
+    '  until %run <> none || %tries >= 20' + #13#10 +
+    'return', 2000);
+  AssertEquals('reached the halt', 'yes', Interp.GetVar('%done'));
+  AssertEquals('no answer without a client', 'none', Interp.GetVar('%run'));
+  AssertEquals('a second of tries', '20', Interp.GetVar('%tries'));
+  AssertEquals('nothing to put back', '0', Interp.GetVar('%switched'));
+  AssertEquals('noclient', Interp.GetVar('#PathState'));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

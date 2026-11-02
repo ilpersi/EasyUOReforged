@@ -5,7 +5,8 @@ kind: command
 category: client
 syntax: finditem {type|id}[_{type|id}...] [index] [G|G_{range}|C|C_{container}|A|CA_{container}]
 needsClient: true
-sets: ['#FindID', '#FindType', '#FindX', '#FindY', '#FindZ', '#FindDist', '#FindKind', '#FindStack', '#FindBagID', '#FindRep', '#FindCol', '#FindIndex', '#FindCnt']
+sets: ['#FindID', '#FindType', '#FindX', '#FindY', '#FindZ', '#FindDist', '#FindKind', '#FindStack', '#FindBagID', '#FindLayer', '#FindRep', '#FindCol', '#FindIndex', '#FindCnt']
+changed: true
 related: ['IgnoreItem', '#FindIndex', '#FindMod', 'event Drag', 'dll:ScanItems']
 dll: ScanItems
 aliases: ['find item', 'search item', 'scan items', 'find object']
@@ -39,7 +40,8 @@ object's details go into the [`#Find…` variables](/variables/?category=findite
 - **Found:** `#FindCnt` is the number of matches and the `#Find…` variables describe the
   selected one: `#FindID`, `#FindType`, position (`#FindX`, `#FindY`, `#FindZ`, `#FindDist`),
   `#FindKind` (0 = in a container, 1 = on the ground), `#FindStack`, `#FindBagID`, `#FindRep` and
-  `#FindCol`.
+  `#FindCol`. For an object a character wears, [`#FindLayer`](/variables/findlayer/) is the layer it is
+  worn in.
 - **Not found:** `#FindCnt` is `0`, `#FindKind` is `-1`, and `#FindID` and `#FindType` read `X`.
   Test `#FindCnt` or `#FindKind`, not `#FindID`.
 - **The other matches:** set [`#FindIndex`](/variables/findindex/) to 2, 3, … `#FindCnt` to
@@ -104,3 +106,9 @@ advice from when he added it still applies: **only use `A` when you really need 
 ### Items and characters
 
 `#FindStack` is `0` for characters (mobiles), so it is a quick way to tell them apart from items.
+
+## Reforged notes
+
+- `FindItem` also fills [`#FindLayer`](/variables/findlayer/): the layer a character wears the selected
+  object in, or `N/A` when nobody wears it. Which objects it finds, and every other `#Find…` variable, are
+  unchanged.

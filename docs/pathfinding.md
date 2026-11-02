@@ -159,9 +159,10 @@ Doors cost a little more than open ground, and the walker opens them with the op
   cell when the client stopped next to it, as first built, marked tiles that were free.
 - With these, a 22-tile walk on the beta (2701,513 to 2723,513) took 7.9 s with 3 short stops in its last 4
   tiles, before the `EndSteps` rule.
-- In `steps` mode steps go out 0.3 s apart at least, since the client may drop a request that comes during a
-  step. A step not taken is sent again after 0.5 s (after 0.3 s when it only turned the character), and is
-  refused after 1.5 s without movement.
+- In `steps` mode steps go out 0.2 s apart at least (`StepGapMs`), 0.1 s on a mount (`MountGapMs`), since the
+  client may drop a request that comes during a step; a resent step counts too. A step not taken is sent again
+  after 0.5 s (after 0.3 s when it only turned the character), and is refused after 1.5 s without movement.
+  See [Running](#running-2026-11-01) for the timings behind the two gaps.
 - The overlay is read again every second. After each read, the next 16 steps are checked with the step rules.
 - A replan first searches from the character back to the route 12 steps past the trouble (30,000 nodes, a
   margin of 36), and splices that in. If that fails, it plans the whole way again.
@@ -447,6 +448,81 @@ re-fingerprinted. `TUOCmd.PathLiveObjects` reads the pieces through new `TCstDB`
   - `client.exe` was re-fingerprinted with the two new addresses (`--set`).
   - The current beta `6AD6CEB3` was added from its earlier migration, plus `C_MULTILIST`.
   - The first beta (`6AC94360`) isn't installed, so its entry is unchanged.
+
+### Running (2026-11-01)
+
+Asked for: a `path set` option, off by default, that makes the character run. A user also reported that with
+the client's Always Run on, the walker still walked. No new field or address was allowed.
+
+**How the client decides** (read from `client.exe` 7.0.117.1, `client_beta.exe` `6AD6CEB3` and 7.0.108.0):
+- The walk macro (case 5 of the macro executor) calls the walk routine with run = -1, "decide". So does the
+  client's own pathfinder walk.
+- The routine runs the step when Always Run is on, or when the client's pointer is far from the middle of the
+  game view: `9*dx^2 + 16*dy^2 > 409600`, about 213 px sideways or 160 px up or down.
+- The game view is `#CliLeft`/`#CliTop`/`#CliXRes`/`#CliYRes`.
+- It walks instead when stamina is 1 or less (alive), or when one player flag is set. Running sets bit `$80`
+  in the move request's direction.
+- **The pointer is the real cursor.**
+  - A `timeSetEvent(25 ms)` callback (`0x6065F0`) calls `GetCursorPos` and `ScreenToClient`, and calls the
+    mouse-move handler whenever the result differs from the stored position.
+  - The handler for a window message (`0x5AACF0`) is referenced nowhere.
+  - So a script can't move the client's pointer without moving the real cursor.
+- **The Always Run macro** (`event macro 32 0`) toggles a byte and shows "Always Run is now on." / "...off.".
+  - The text is fixed English in all three clients and lands in the journal.
+
+**Mounted** is read with no new field.
+- Both clients' equip routines (`client.exe` `$5C4ED0`, 7.0.108.0 `$5C3300`, beta `$5A2EC0`) store the
+  wearer at `B_ITEMID+4` (`+$AC` / `+$11C`), where FindItem reads an item's container.
+- They store the layer in the byte after the status byte `#CharStatus` reads (`B_ITEMID+B_CHARSTATUS+1`:
+  `+$CD` / `+$13D`).
+- A mount is the item worn in layer `$19`.
+- Tiledata can't tell instead: it lists the horse item `0x3EA0` as "ship", layer 0.
+
+**Live on `client.exe`.** `path go` 2727,489 ↔ 2727,500, 4 walks of 11 steps, timed with `path set log`:
+
+| Always Run | Mounted | Pointer | s/tile | |
+|---|---|---|---|---|
+| on | no | aside | 0.23 | runs; the client moved the character 190-235 ms after each step |
+| on | yes | aside | 0.23 | each step ran in 95-125 ms, then waited for the 200 ms gap: a mounted walk's pace (the report) |
+| off | no | real cursor at the view's corner | 0.24 | runs |
+| off | no | real cursor at the view's centre | 0.40 | walks |
+| off | no | message to the centre, real cursor aside | 0.25 | runs: the message was overwritten |
+
+- A recorder sampled the stored pointer every ~2 ms for 186 s while a `SendMessage` and a `PostMessage`
+  `WM_MOUSEMOVE` were sent: it never took either position.
+- `event macro 32 0` twice read "Always Run is now on." then "...off." from the journal.
+
+**Built:**
+- **The step gap** is `MountGapMs` (100 ms) when `CharMount` finds a mount at a refresh, `StepGapMs` (200 ms)
+  on foot. Resent steps count toward it.
+- **Running is left to the player.**
+  - A `path set run` option was built first. It switched Always Run on for a walk with `event macro 32` and
+    the journal answer, and back off at its end.
+  - It was taken out (2026-11-02): the owner wants the player in charge of Always Run.
+  - The path command's docs page now explains both ways the client runs, with two scripts: the same toggle
+    and journal check in EUO, and parking the real pointer with `click … n mc`.
+  - `click … dmc` can't do it: the client goes by the real pointer (see the recorder above).
+- **New read-only variables:** `#MountID` and `#MountType` (`N/A` on foot; a separate `#CharMounted` was
+  dropped as redundant), and `#FindLayer` (`TItemRes.ItemLayer`: set when the container is a mobile, serial
+  below `$40000000`).
+- **In uo.dll:** the properties `MountID`/`MountType` (0 on foot) and the method `GetItemLayer(index)` (0 when
+  nobody wears the item). It is a call of its own, so `GetItem`'s ten results don't change.
+
+**Live on the final build** (`client.exe`, 2026-11-02):
+- **Mounted pace:** mounted with Always Run on, the same route took 147 ms per tile on average (210 steps,
+  22 walks, all arrived, no refused step, no replan), against 230 ms before.
+  - The client moves the character about 94 ms after each step; the walker sends the next one at its next
+    tick at least 100 ms after the last, so the horse stands still about 60 ms per tile.
+  - A gap near 80 ms would be smooth, but would send steps faster than a mounted run's 100 ms, which a
+    shard's speed check might refuse.
+- **`#FindLayer`:** 21 for the worn backpack, `N/A` for an item in it. `#MountID`/`#MountType` read the horse
+  item (`0x3EA1`).
+- **The docs' Always Run sample:**
+  - started with Always Run on, it read "off", switched back on and left it on;
+  - started with it off, it switched on, walked, and switched off again; the flag read off afterwards.
+- **On `client_beta.exe` 7.0.117.31,** with the same character: `TestCharMountLive` found the same horse item
+  (`402D2848`, type `3EA1`) through the beta's own layout (`+$11C` / `+$13D`). In the editor `#FindLayer` read
+  21 / `N/A` and `#MountID`/`#MountType` read `UGTDQMD`/`NVX`, the same item.
 
 ## Open questions
 

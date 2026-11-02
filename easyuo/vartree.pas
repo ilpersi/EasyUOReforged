@@ -37,6 +37,8 @@ var
    '#CHARID'#13#10+
    '#CHARTYPE'#13#10+
    '#CHARGHOST'#13#10+
+   '#MOUNTID'#13#10+
+   '#MOUNTTYPE'#13#10+
    '#BACKPACKID'#13#10+
 
     #13#10+
@@ -109,6 +111,7 @@ var
    '#FINDKIND'#13#10+
    '#FINDSTACK'#13#10+
    '#FINDBAGID'#13#10+
+   '#FINDLAYER'#13#10+
    '#FINDMOD'#13#10+
    '#FINDREP'#13#10+
    '#FINDCOL'#13#10+

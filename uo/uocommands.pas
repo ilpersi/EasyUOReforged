@@ -30,7 +30,8 @@ unit uocommands;
     only its scope moved, since it never referenced any of ScanItems's own
     locals in the first place.
 
-  TItemRes/PItemRes are unchanged -- they already match tests\stubs\uocommands.pas's
+  TItemRes/PItemRes are unchanged (but for ItemLayer, a later port addition: see the end of this
+  comment) -- they already match tests\stubs\uocommands.pas's
   shape exactly (that stub was deliberately written to mirror this file's real
   public surface), so nothing calling into TUOCmd needs to change when this
   replaces the stub.
@@ -57,6 +58,12 @@ unit uocommands;
   in this unit uses them.
   PathFindFrom, PathCanAt, PathPacked and PathSetOption are PATH FIND / CAN / SET for uo.dll
   (uowrap.pas), without the interpreter.
+
+  Port addition (not in the original): the equip layer. ScanItems also keeps an item's layer
+  (TItemRes.ItemLayer, #FindLayer) when a mobile wears it, and CharMount finds the item the
+  character rides (#MountID, #MountType, the walker's pace). Both read only fields
+  the original already used: the client stores the layer next to the status byte #CharStatus
+  reads. ScanItems' filtering and every other TItemRes field are unchanged.
 }
 
 {$mode delphi}{$H+}
@@ -83,6 +90,7 @@ type
     ItemStack   : Cardinal;
     ItemRep     : Cardinal;
     ItemCol     : Cardinal;
+    ItemLayer   : Integer;   // port addition (#FindLayer): the equip layer, -1 = not equipped
   end;
   PItemRes      = ^TItemRes;
 
@@ -190,6 +198,9 @@ type
     procedure   GetSkill(SkillStr : String);
     function    GetPix(X,Y : Cardinal) : Cardinal;
     procedure   ScanItems(VisibleOnly : Boolean = True);
+    function    CharMount(out ID, Typ : Cardinal) : Boolean;
+    function    MountID : Cardinal;
+    function    MountType : Cardinal;
     procedure   FilterItems(Filter : Cardinal; Value : Cardinal = $FFFFFFFF);
     procedure   GetItem(Index : Cardinal);
     function    HideItem(ID : Cardinal) : Boolean;
@@ -1798,16 +1809,24 @@ var
   PDat    : PItemRes;
   Nxt     : Cardinal;
   i       : Integer;
+  Len     : Cardinal;                                      // port addition (#FindLayer)
+  Layer   : Integer;
 begin
   for Nxt:=1 to ItemList.Count do
     Dispose(ItemList.Items[Nxt-1]);
   ItemList.Clear;
 
+  // Port addition (#FindLayer): the read also covers the equip layer byte (see CharMount).
+  Len:=Cst.BITEMID+Cst.BFINDREP+1;
+  if Len<Cst.BITEMID+Cst.BCHARSTATUS+2 then Len:=Cst.BITEMID+Cst.BCHARSTATUS+2;
+
   RWV(Read,Cst.CHARPTR,@Nxt,4);
   while Nxt>0 do
   begin
-    RWV(Read,Nxt,@Buf,Cst.BITEMID+Cst.BFINDREP+1);
+    RWV(Read,Nxt,@Buf,Len);
     Nxt:=Cardinal((@Buf[Cst.BITEMID+$0C])^);
+    Layer:=Buf[Cst.BITEMID+Cst.BCHARSTATUS+1];
+    Dat.ItemLayer:=-1;
 
     Dat.ItemID:=Cardinal((@Buf[Cst.BITEMID])^);
     Dat.ItemType:=Word((@Buf[Cst.BITEMTYPE])^);
@@ -1834,6 +1853,9 @@ begin
       Dat.ContID:=Cardinal((@Buf[Cst.BITEMID])^);
       cBuf:=Cardinal((@Buf[Cst.BITEMID+Cst.BGUMPPTR])^); //PtrToContGumpStruct
 
+      // Port addition (#FindLayer): worn by a mobile (serials below $40000000; items are above).
+      if (Dat.ContID<>0) and (Dat.ContID<$40000000) then Dat.ItemLayer:=Layer;
+
       if cBuf<>0 then
       begin
         RWV(Read,cBuf+Cst.BCONTX,@Buf,8);
@@ -1855,6 +1877,67 @@ begin
   ItemList.Sort(@ItemListCompare);
   ClearFilter;
   RefreshFilter;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (#MountID, #MountType and the walker's pace): the character's mount,
+// from the item list FindItem reads, with no field of its own. The client keeps a mount as an item
+// worn in layer $19. Its equip routine (client.exe 7.0.117.1 $5C4ED0, 7.0.108.0 $5C3300,
+// client_beta.exe $5A2EC0) stores the wearer at BITEMID+4, where ScanItems reads an item's
+// container, and the layer in the byte after the status byte #CharStatus reads
+// (BITEMID+BCHARSTATUS+1). False, with ID and Typ 0, when the character rides nothing.
+function TUOCmd.CharMount(out ID, Typ : Cardinal) : Boolean;
+const
+  MOUNT_LAYER = $19;
+  MAX_OBJECTS = 20000;
+var
+  Buf     : Array[0..$3FF] of Byte;
+  Me, Nxt : Cardinal;
+  Len     : Cardinal;
+  n       : Integer;
+begin
+  Result:=False;
+  ID:=0;
+  Typ:=0;
+  if not ClientAttached then Exit;
+  Len:=Cst.BITEMID+Cst.BCHARSTATUS+2;
+  if Len<Cst.BITEMID+$10 then Len:=Cst.BITEMID+$10;
+  if Len<Cst.BITEMTYPE+2 then Len:=Cst.BITEMTYPE+2;
+  if Len<Cst.BPOS then Len:=Cst.BPOS;
+  if Len>SizeOf(Buf) then Exit;
+
+  RWV(Read,Cst.CHARPTR,@Me,4);
+  Nxt:=Me;
+  n:=0;
+  while (Nxt<>0) and (n<MAX_OBJECTS) do
+  begin
+    Inc(n);
+    RWV(Read,Nxt,@Buf,Len);
+    if (Buf[Cst.BPOS-4]=0) and (Cardinal((@Buf[Cst.BITEMID+4])^)=Me) and
+      (Buf[Cst.BITEMID+Cst.BCHARSTATUS+1]=MOUNT_LAYER) then
+    begin
+      ID:=Cardinal((@Buf[Cst.BITEMID])^);
+      Typ:=Word((@Buf[Cst.BITEMTYPE])^);
+      Exit(True);
+    end;
+    Nxt:=Cardinal((@Buf[Cst.BITEMID+$0C])^);
+  end;
+end;
+
+// Port addition (uo.dll's MountID / MountType): the mount's ID and type, 0 while the character
+// rides nothing (CharMount answers 0 then).
+function TUOCmd.MountID : Cardinal;
+var
+  Typ : Cardinal;
+begin
+  CharMount(Result,Typ);
+end;
+
+function TUOCmd.MountType : Cardinal;
+var
+  ID : Cardinal;
+begin
+  CharMount(ID,Result);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

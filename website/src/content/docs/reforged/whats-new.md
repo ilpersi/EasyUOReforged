@@ -27,6 +27,8 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
     before stepping into it. [`path check`](/commands/path/check/) asks the same from a script.
   - With [`path block`](/commands/path/block/), [`path avoid`](/commands/path/avoid/) and
     [`path link`](/commands/path/link/) a script adds what the map doesn't know.
+  - Whether a step is a walk or a run is the client's choice; [Running](/commands/path/#running) shows how a
+    script can make it run. On a mount, steps go out fast enough for a full-speed run.
   - Results come back in [`#PathState`](/variables/pathstate/), [`#PathCnt`](/variables/pathcnt/),
     [`#PathX`](/variables/pathx/), [`#PathY`](/variables/pathy/), [`#PathZ`](/variables/pathz/) and
     [`#PathDir`](/variables/pathdir/).
@@ -51,12 +53,18 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
   - [`menu Reforge Mode`](/commands/menu/reforge/mode/) sets the system for a script;
     [`menu Reforge IncludeCall`](/commands/menu/reforge/includecall/) makes the automatic choice read the
     files the script calls.
+- **[`#MountID`](/variables/mountid/)** and **[`#MountType`](/variables/mounttype/)**: the ID and type of the
+  mount item your character rides, `N/A` on foot.
+- **[`#FindLayer`](/variables/findlayer/)**: the layer a character wears the object
+  [`FindItem`](/commands/finditem/) selected in.
 - **[`menu Memo`](/commands/menu/memo/)**: a multi-line, scrollable text field for menu windows.
 - **[`#ReforgedVer`](/variables/reforgedver/)**: the build version of EasyUO Reforged.
   [`#EUOVer`](/variables/euover/) still returns `1_50_00`, so existing version checks keep working.
 
 ## Changed behaviour
 
+- **[`FindItem`](/commands/finditem/)** also fills [`#FindLayer`](/variables/findlayer/). Nothing else it
+  does has changed.
 - **[`Tile`](/commands/tile/)** reads the `.uop` map files of newer client installs directly; there is no
   need to extract them to the old `.mul` format first.
 - **[`Tile`](/commands/tile/)** reads current maps correctly: Trammel from its own files instead of
@@ -73,6 +81,9 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
   [`PathSet`](/dll/pathset/), [`PathBlock`](/dll/pathblock/), [`PathUnblock`](/dll/pathunblock/),
   [`PathAvoid`](/dll/pathavoid/), [`PathLink`](/dll/pathlink/) and [`PathClear`](/dll/pathclear/) set its
   options and rules. They plan; they don't walk.
+- [`MountID`](/dll/mountid/) and [`MountType`](/dll/mounttype/) read the mount, as `#MountID` and
+  `#MountType` (0 on foot), and [`GetItemLayer`](/dll/getitemlayer/) the equip layer of an item of the
+  `ScanItems` list, as `#FindLayer`. [`GetItem`](/dll/getitem/)'s results are unchanged.
 - [`BlockInfo`](/dll/blockinfo/) no longer crashes `client.exe` 7.0.117.1: EasyUO 1.5 passed the client's
   function one argument too few. Its page now says what the two bytes per tile mean.
 

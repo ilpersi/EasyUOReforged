@@ -28,6 +28,15 @@ unit pathwalk;
     a request that comes while one is under way, so steps go out StepGapMs apart at least, and one
     the character hasn't moved for is sent again after ResendMs (after TurnWaitMs when it only turned
     the character). It counts as refused when the position still hasn't changed after StepWaitMs.
+    The client moves the character about one step's time after the walk macro (live on client.exe:
+    190-230 ms on foot running, 95-125 ms mounted), so a mounted character's steps go out
+    MountGapMs apart instead (Mounted, read at each refresh): at StepGapMs, a mounted run had
+    been held to a mounted walk's pace.
+
+  Running: the client runs a walk-macro step (and its own pathfinder's) when its Always Run option
+  is on, or when the real cursor rests away from the middle of the game view (it reads the cursor
+  every 25 ms). The walker leaves that choice to the player; the path command's docs show how a
+  script can make either happen.
 
   The walker replans from where the character is when a step is refused, when the refreshed overlay
   no longer allows the next CheckAhead steps, and when the character is off the route. A tile the
@@ -104,6 +113,7 @@ type
     function  CanPathFind : Boolean; virtual;                  // client mode works (True here)
     procedure Busy(On : Boolean); virtual;                     // a search starts / ends (nothing here)
     function  StopFlag : PBoolean; virtual;                    // interrupts a search (nil here)
+    function  Mounted : Boolean; virtual;                      // the character rides (False here)
   end;
 
   TPathWalker = class
@@ -166,8 +176,10 @@ type
     FLinkSince   : QWord;
     FStarted     : QWord;
     FCheckNow    : Boolean;    // ask the client about the route ahead on the next tick
+    FMounted     : Boolean;    // the character rode at the last refresh
     procedure Log(const Fmt : String; const Args : array of const);
     function  Finish(S : TWalkState) : TWalkState;
+    function  StepGap : Cardinal;
     procedure ResetActions;
     procedure StepPos(i : Integer; out X, Y, Z : Integer);
     function  AtGoal : Boolean;
@@ -197,6 +209,7 @@ type
     MaxDist     : Integer;    // waypoints within this many tiles of the character
     StepWaitMs  : Cardinal;   // a step that hasn't moved the character by then was refused
     StepGapMs   : Cardinal;   // steps go out at least this far apart
+    MountGapMs  : Cardinal;   // the same when the character rides
     ResendMs    : Cardinal;   // a step that hasn't moved the character is sent again after this
     StartWaitMs : Cardinal;   // the client must start walking toward a waypoint by then
     StopWaitMs  : Cardinal;   // the character stood still this long: the client's walk has ended
@@ -305,6 +318,11 @@ end;
 function TWalkClient.StopFlag : PBoolean;
 begin
   Result := nil;
+end;
+
+function TWalkClient.Mounted : Boolean;
+begin
+  Result := False;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -502,6 +520,7 @@ begin
   MaxDist := 18;
   StepWaitMs := 1500;
   StepGapMs := 200;   // the beta moved the character about 220 ms after each step
+  MountGapMs := 100;  // client.exe moved a mounted, running character 95-125 ms after each step
   ResendMs := 500;
   StartWaitMs := 1000;
   StopWaitMs := 500;
@@ -546,6 +565,13 @@ begin
     Log('end: %s at %d,%d,%d', [WalkStateName(S), FX, FY, FZ]);
   FState := S;
   Result := S;
+end;
+
+// The least time between two walk-macro steps: shorter when the character rides.
+function TPathWalker.StepGap : Cardinal;
+begin
+  if FMounted then Result := MountGapMs
+  else Result := StepGapMs;
 end;
 
 procedure TPathWalker.ResetActions;
@@ -608,10 +634,18 @@ end;
 procedure TPathWalker.Refresh;
 var
   Objs : TLiveObjs;
+  M    : Boolean;
 begin
   FC.LiveObjects(FX, FY, Objs);
   FOv.SetObjects(Objs);
   FLastRefresh := FNow;
+  M := FC.Mounted;
+  if M <> FMounted then
+  begin
+    FMounted := M;
+    if M then Log('mounted: steps %d ms apart at least', [MountGapMs])
+    else Log('on foot: steps %d ms apart at least', [StepGapMs]);
+  end;
 end;
 
 // The first of the next CheckAhead steps the overlay no longer allows, -1 = none.
@@ -968,7 +1002,7 @@ begin
     Exit;
   end;
   if FNow < FNextStep then Exit;                     // the client takes one step at a time
-  FNextStep := FNow + StepGapMs;
+  FNextStep := FNow + StepGap;
   Log('step %d: dir %d to %d,%d', [n + 1, d, FSteps[n].X, FSteps[n].Y]);
   FC.Step(d);
   FStepIdx := n;
@@ -1099,6 +1133,7 @@ begin
         FStepFacing := FDir;
         FC.Step(FStepDir);
         FStepSent := FNow;
+        FNextStep := FNow + StepGap;                 // the next one no sooner than after any step
       end;
       Exit;
     end;
@@ -1221,6 +1256,7 @@ begin
   FPrevX := -1;
   FPrevY := -1;
   FArrived := FNow;
+  FMounted := False;
   Refresh;
 
   if UsePlan and (FP.StepCount > 0) and (FP.StartFacet = F) then

@@ -67,6 +67,9 @@ type
     procedure WriteHeader(Stamp : Cardinal; DllChars : Word; CodeSize : Cardinal = $2D8548);
     procedure PutBytes(Addr : Cardinal; const Bytes : array of Byte);
     procedure PutDWord(Addr, Value : Cardinal);
+    procedure PutObj(Modern : Boolean; At, ID, Graphic, Kind, Cont, Layer, Next : Cardinal);
+    procedure OpenMountWorld(Modern : Boolean);
+    function  FindScanned(ID : Cardinal) : Boolean;
   protected
     procedure SetUp; override;
     procedure TearDown; override;
@@ -111,6 +114,10 @@ type
     procedure TestOlderFixedBaseGetsTheGridLayoutToo;
     procedure TestPathLiveObjectsReadsTheMultiList;
     procedure TestPathLiveObjectsReadsHousePiecesFromTheWorldGrid;
+    // the mount and the equip layer (#MountID, #MountType, #FindLayer)
+    procedure TestCharMountFindsTheMountOnAFixedBaseClient;
+    procedure TestCharMountFindsTheMountOnAModernClient;
+    procedure TestScanItemsKeepsTheLayerOfWornItemsOnly;
   end;
 
 implementation
@@ -1411,6 +1418,157 @@ begin
   Eq('x', 2709, Objs[0].X);
   Eq('z', 21, Objs[0].Z);
   Eq('graphic', $0521, Objs[0].Graphic);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The mount and the equip layer. The client keeps a worn item's wearer at B_ITEMID+4 (where ScanItems
+// reads an item's container) and its layer in the byte after the status byte (B_ITEMID+B_CHARSTATUS+1),
+// as both clients' equip routines write them: client.exe +$AC / +$CD, client_beta.exe +$11C / +$13D.
+// The fake world, in FindItem's item list from C_CHARPTR:
+//   player (ID 1) -> backpack worn in layer 21 -> an item inside it (a stale 7 in its layer byte) ->
+//   an item on the ground -> the mount worn in layer 25 -> another mobile (ID 2) -> its own mount.
+
+const
+  MountHeap   = $04000000;
+  MPlayer     = MountHeap;
+  MBackpack   = MountHeap + $400;
+  MInBag      = MountHeap + $800;
+  MGround     = MountHeap + $C00;
+  MMount      = MountHeap + $1000;
+  MOther      = MountHeap + $1400;
+  MOtherMount = MountHeap + $1800;
+  ModernCharPtr = $00B33F44;      // C_CHARPTR of the first beta, beyond the fake image
+
+// Fixed-base: ID $A8, graphic $38, kind $20 (B_POS $24 - 4), layer $CD. Modern: ID $118, graphic $70,
+// kind $44 (B_POS $48 - 4), layer $13D.
+procedure TCstDbModernBuildTests.PutObj(Modern : Boolean; At, ID, Graphic, Kind, Cont, Layer, Next : Cardinal);
+var
+  OID, OTyp, OKind : Cardinal;
+begin
+  if Modern then
+  begin
+    OID := $118;
+    OTyp := $70;
+    OKind := $44;
+  end
+  else
+  begin
+    OID := $A8;
+    OTyp := $38;
+    OKind := $20;
+  end;
+  PutDWord(At + OID, ID);
+  PutBytes(At + OTyp, [Byte(Graphic), Byte(Graphic shr 8)]);
+  PutBytes(At + OKind, [Byte(Kind)]);
+  PutDWord(At + OID + 4, Cont);
+  PutBytes(At + OID + $24 + 1, [Byte(Layer)]);
+  PutDWord(At + OID + $0C, Next);
+end;
+
+procedure TCstDbModernBuildTests.OpenMountWorld(Modern : Boolean);
+var
+  CharPtr : Cardinal;
+begin
+  if not Ready then Ignore(Why);
+  if Modern then WriteHeader(KnownStamp, $8140, $2000)
+  else WriteHeader(KnownStamp, $0000, $2000);
+  if VirtualAllocEx(PHnd, Pointer(MountHeap), $10000, MEM_RESERVE or MEM_COMMIT, PAGE_READWRITE) = nil then
+    Ignore('Cannot map the fake heap (Win32 error ' + IntToStr(GetLastError) + ').');
+  if Modern and (VirtualAllocEx(PHnd, Pointer(ModernCharPtr and $FFFFF000), $1000,
+    MEM_RESERVE or MEM_COMMIT, PAGE_READWRITE) = nil) then
+    Ignore('Cannot map the fake C_CHARPTR (Win32 error ' + IntToStr(GetLastError) + ').');
+  Sel := TUOSel.Create;
+  Sel.CstDB.Update('7.0.117.1', PHnd);
+  Vr := TUOVar.Create(Sel);
+  Cmd := TFakeClientCmd.Create(Sel, Vr, nil);
+  Cmd.FakeHandle := PHnd;
+  AssertEquals('layout', Modern, Sel.CstDB.ISMODERN);
+  if Modern then CharPtr := ModernCharPtr else CharPtr := $00A590C4;
+  Eq('C_CHARPTR', CharPtr, Sel.CstDB.CHARPTR);
+
+  PutDWord(CharPtr, MPlayer);
+  PutObj(Modern, MPlayer, 1, $0190, 1, 0, 0, MBackpack);
+  PutObj(Modern, MBackpack, $40000003, $0E75, 0, MPlayer, 21, MInBag);
+  PutObj(Modern, MInBag, $40000010, $0F7A, 0, MBackpack, 7, MGround);
+  PutObj(Modern, MGround, $40000020, $0EED, 1, 0, 0, MMount);
+  PutObj(Modern, MMount, $402CD2FA, $3EA0, 0, MPlayer, 25, MOther);
+  PutObj(Modern, MOther, 2, $0190, 1, 0, 0, MOtherMount);
+  PutObj(Modern, MOtherMount, $40000099, $3E9F, 0, MOther, 25, 0);
+end;
+
+// Selects the scanned item with this ID (as FindItem would), False when there is none.
+function TCstDbModernBuildTests.FindScanned(ID : Cardinal) : Boolean;
+var
+  i : Integer;
+begin
+  for i := 0 to Integer(Cmd.ItemCnt) - 1 do
+  begin
+    Cmd.GetItem(i);
+    if Cmd.ItemRes.ItemID = ID then Exit(True);
+  end;
+  Result := False;
+end;
+
+procedure TCstDbModernBuildTests.TestCharMountFindsTheMountOnAFixedBaseClient;
+var
+  ID, Typ : Cardinal;
+begin
+  OpenMountWorld(False);
+  AssertTrue('mounted', Cmd.CharMount(ID, Typ));
+  Eq('the mount''s ID', $402CD2FA, ID);
+  Eq('the mount''s type', $3EA0, Typ);
+
+  // dismounted: only the other mobile's mount is left in the list, and it isn't ours
+  PutObj(False, MGround, $40000020, $0EED, 1, 0, 0, MOther);
+  AssertFalse('not mounted', Cmd.CharMount(ID, Typ));
+  Eq('no ID', 0, ID);
+  Eq('no type', 0, Typ);
+end;
+
+procedure TCstDbModernBuildTests.TestCharMountFindsTheMountOnAModernClient;
+var
+  ID, Typ : Cardinal;
+begin
+  OpenMountWorld(True);
+  AssertTrue('mounted', Cmd.CharMount(ID, Typ));
+  Eq('the mount''s ID', $402CD2FA, ID);
+  Eq('the mount''s type', $3EA0, Typ);
+
+  Cmd.ScanItems(False);
+  AssertTrue(FindScanned($40000003));
+  Eq('the backpack''s layer', 21, Cmd.ItemRes.ItemLayer);
+  AssertTrue(FindScanned($40000010));
+  Eq('in the backpack: no layer', -1, Cmd.ItemRes.ItemLayer);
+
+  PutObj(True, MGround, $40000020, $0EED, 1, 0, 0, MOther);
+  AssertFalse('not mounted', Cmd.CharMount(ID, Typ));
+end;
+
+// Only an item a mobile wears gets a layer; every field FindItem already had stays as it was.
+procedure TCstDbModernBuildTests.TestScanItemsKeepsTheLayerOfWornItemsOnly;
+begin
+  OpenMountWorld(False);
+  Cmd.ScanItems(False);
+
+  AssertTrue('the backpack', FindScanned($40000003));
+  Eq('layer', 21, Cmd.ItemRes.ItemLayer);
+  Eq('type', $0E75, Cmd.ItemRes.ItemType);
+  Eq('kind', 0, Cmd.ItemRes.ItemKind);
+  Eq('container: the player', 1, Cmd.ItemRes.ContID);
+
+  AssertTrue('the item in the backpack', FindScanned($40000010));
+  Eq('no layer, though its byte says 7', -1, Cmd.ItemRes.ItemLayer);
+  Eq('container: the backpack', $40000003, Cmd.ItemRes.ContID);
+
+  AssertTrue('the item on the ground', FindScanned($40000020));
+  Eq('no layer', -1, Cmd.ItemRes.ItemLayer);
+  Eq('kind', 1, Cmd.ItemRes.ItemKind);
+
+  AssertTrue('the mount', FindScanned($402CD2FA));
+  Eq('layer', 25, Cmd.ItemRes.ItemLayer);
+  AssertTrue('the other mobile''s mount', FindScanned($40000099));
+  Eq('layer', 25, Cmd.ItemRes.ItemLayer);
+  Eq('container: the other mobile', 2, Cmd.ItemRes.ContID);
 end;
 
 initialization

@@ -117,6 +117,13 @@ METHODS = {
         ('notoriety', 'number', 'As `#FindRep`.'), ('colour', 'number', 'Colour (hue).')],
         'Reads one item of the filtered list, like the `#Find…` variables after `finditem`.',
         ['FindItem', '#FindID', 'dll:ScanItems', 'dll:FilterItems'], None),
+    'GetItemLayer': ([('n', 'index')], [('layer', 'number', 'The layer a character wears it in, as `#FindLayer`; '
+        '0 when nobody wears it.')],
+        'Reads the equip layer of one item of the filtered list, as `#FindLayer`. It is the layer number in which '
+        'a character wears the item (21 backpack, 25 mount, …; the table is on [`#FindLayer`](/variables/findlayer/)), '
+        'or 0 when the item lies in a container or on the ground, or when there is no such item. A call of its own, '
+        'so `GetItem`\'s results stay as they were.',
+        ['FindItem', '#FindLayer', 'dll:GetItem', 'dll:ScanItems'], None),
     'GetJournal': ([('n', 'index')], [('text', 'string', 'The line.'), ('colour', 'number', 'Its colour.')],
         'Reads one journal line of the list `ScanJournal` made: 0 is the newest.', ['ScanJournal', '#Journal', 'dll:ScanJournal'], None),
     'GetPath': ([('nn', 'x y'), ('nnn', 'x y z'), ('nnnnnnn', 'x y z fromx fromy fromz facet')],
@@ -187,8 +194,8 @@ METHODS = {
     'PathSet': ([('ss', 'option value'), ('sn', 'option value')], [('state', 'string', '`ok`, or `error: …`.')],
         'Changes a planning option, like `path set`: `accuracy`, `accuracyz`, `maxnodes`, `timeout`, `margin`, '
         '`turncost`, `heuristic`, `doorcost`, `difs`, `mobiles` or `doors`. `value` is a number, or a word for '
-        '`difs`, `mobiles` and `doors`. `timeout` is in milliseconds here. The walking options are refused: uo.dll '
-        'doesn\'t walk.', ['path set', 'dll:GetPath'], None),
+        '`difs`, `mobiles` and `doors`. `timeout` is in milliseconds here. The walking options (`mode`, `lead`, '
+        '`blocktime`, `log`, `check`) are refused: uo.dll doesn\'t walk.', ['path set', 'dll:GetPath'], None),
     'PathUnblock': ([('nn', 'x y'), ('nnn', 'x y facet'), ('nnnn', 'x y x2 y2'), ('nnnnn', 'x y x2 y2 facet')], [('state', 'string', '`ok`, or `error: …`.')],
         'Removes the blocks that overlap a tile or a rectangle, like `path unblock`.',
         ['path unblock', 'dll:PathBlock'], None),
@@ -327,6 +334,8 @@ def main():
                           'first, before reading anything else.']
             if name == 'BuffBarOpen':
                 lines += ['', 'It is also false on a client whose buff bar cannot be read, where `#BuffBarOpen` reads `N/A`.']
+            if name in ('MountID', 'MountType'):
+                lines += ['', f'It is 0 while your character rides nothing, where `#{name}` reads `N/A`.']
             write(name, name, vdesc or f'The {name} property.', 'dll-property', 'property', syntax, '\n'.join(lines),
                   related=[f'#{name}'] if var else [], aliases=[f'UO.{name}'],
                   needs=var.get('needsClient') == 'true' if var else True)

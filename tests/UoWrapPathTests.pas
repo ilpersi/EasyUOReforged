@@ -4,7 +4,9 @@ unit UoWrapPathTests;
   PathCheck, PathSet, PathBlock, PathUnblock, PathAvoid, PathLink, PathClear), without a client:
   - through TUOWrap.Execute, as the DLL's exports call it: push "Call", the method's name and its
     arguments; Execute removes those and leaves the answers from stack position 1;
-  - TUOCmd's PathSetOption and PathPacked directly, which those methods use. }
+  - TUOCmd's PathSetOption and PathPacked directly, which those methods use.
+  Also the other uo.dll additions next to them: the MountID / MountType properties (256, 257) and the
+  GetItemLayer method (067). }
 
 {$mode objfpc}{$H+}
 
@@ -32,6 +34,7 @@ type
     procedure TestNamesAroundTheNewRowsAreStillFound;
     procedure TestPathSetOptionChangesThePlanner;
     procedure TestPathPackedLayout;
+    procedure TestMountAndLayerAnswerZeroWithoutAClient;
   end;
 
 implementation
@@ -205,6 +208,31 @@ end;
 
 // The new rows sit between GetJournal and GetPix, and between PR and Pathfind: the binary search
 // still finds those (no client, so each does nothing).
+// MountID and MountType read 0 without a client (as on foot); GetItemLayer reads 0 for an item nobody
+// wears or that isn't there. The names next to the new rows are still found.
+procedure TUoWrapPathTests.TestMountAndLayerAnswerZeroWithoutAClient;
+
+  function Get(const Name : String) : Integer;
+  begin
+    W.Stack.SetTop(0);
+    W.Stack.PushStrVal('Get');
+    W.Stack.PushStrVal(PChar(Name));
+    Result := W.Execute;
+  end;
+
+begin
+  AssertEquals('MountID', RES_OK, Get('MountID'));
+  AssertEquals('MountID on foot', 0, W.Stack.GetInteger(1));
+  AssertEquals('MountType', RES_OK, Get('MountType'));
+  AssertEquals('MountType on foot', 0, W.Stack.GetInteger(1));
+  AssertEquals('GetItemLayer', RES_OK, Call('GetItemLayer', [0]));
+  AssertEquals('not worn', 0, W.Stack.GetInteger(1));
+  AssertEquals('GetItemLayer needs an index', ERR_WRONGPAR, Call('GetItemLayer', []));
+  AssertEquals('MinDmg', RES_OK, Get('MinDmg'));
+  AssertEquals('GetItem', RES_OK, Call('GetItem', [0]));
+  AssertEquals('GetJournal', RES_OK, Call('GetJournal', [0]));
+end;
+
 procedure TUoWrapPathTests.TestNamesAroundTheNewRowsAreStillFound;
 begin
   AssertEquals('GetJournal', RES_OK, Call('GetJournal', [0]));

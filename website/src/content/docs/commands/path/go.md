@@ -53,7 +53,12 @@ when it has to, so it can differ from the first one. [`path get`](/commands/path
 
 - **One step at a time.** By default the walker walks the route step by step, with the walk macro
   ([`event Macro 5`](/commands/event/macro/)). A step the character doesn't take is sent again, and it counts
-  as refused when the character still hasn't moved after one and a half seconds.
+  as refused when the character still hasn't moved after one and a half seconds. Steps go out no faster than
+  one every 0.2 seconds on foot and 0.1 seconds on a mount, about as fast as the client moves a running
+  character.
+- **Walking or running.** The client decides: it runs when its Always Run option is on, and also when your
+  mouse pointer rests away from the character. See [Running](/commands/path/#running) for how a script can
+  make it run.
 - **With the client's own pathfinder**, after [`path set mode client`](/commands/path/set/). The walker sends
   the client's pathfinder, the one [`event PathFind`](/commands/event/pathfind/) uses, to points along the
   route, each up to 18 tiles from the character (`lead` in [`path set`](/commands/path/set/)). Before sending

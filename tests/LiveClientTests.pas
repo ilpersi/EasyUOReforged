@@ -78,6 +78,7 @@ type
     procedure TestTileLookupAtCharPositionReturnsData;
     procedure TestPathMapAgreesWithTheCharactersHeight;
     procedure TestPathLiveObjectsSeeTheCharacter;
+    procedure TestCharMountLive;
     procedure TestExEvCustomRoundTripsWithNoVisibleEffect;
     procedure TestStepInfoAroundTheCharacter;
     procedure TestBlockInfoAroundTheCharacter;
@@ -333,6 +334,32 @@ begin
   WriteLn(Format('  live objects around %d,%d: %d items, %d mobiles, %d house pieces, read in %d ms',
     [X, Y, Items, Mobiles, Pieces, T0]));
   AssertTrue('the character is one of the mobiles', Me);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// #MountID / #MountType (TUOCmd.CharMount): read-only. Mounted or not, it can't tell on its own, so
+// it prints what it found for the hand check: the mount's ID and type, and the read time. A mount is
+// always an item: its ID has bit $40000000.
+procedure TLiveClientTests.TestCharMountLive;
+var
+  ID, Typ : Cardinal;
+  M       : Boolean;
+  T0      : QWord;
+begin
+  RequireLoggedIn;
+  T0 := GetTickCount64;
+  M := Cmd.CharMount(ID, Typ);
+  T0 := GetTickCount64 - T0;
+  if M then
+  begin
+    AssertTrue('the mount is an item', ID >= $40000000);
+    WriteLn(Format('  mounted: the mount is %.8X, type %.4X, read in %d ms', [ID, Typ, T0]));
+  end
+  else
+  begin
+    AssertTrue('no ID', ID = 0);
+    WriteLn(Format('  not mounted, read in %d ms', [T0]));
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

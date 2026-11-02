@@ -83,6 +83,81 @@ know about.
 The options, blocks, avoid areas, links and the places where a step was refused last until the script is
 started again.
 
+## Running
+
+The walker walks with the client's own walk macro, and the client decides whether each step is a walk or a
+run. It runs a step when either of these holds:
+
+- **Always Run** is on in the client's options.
+- **The mouse pointer rests away from the character**, more than about 213 pixels to the side or 160 pixels
+  up or down from the middle of the game view ([`#CliLeft`](/variables/clileft/),
+  [`#CliTop`](/variables/clitop/), [`#CliXRes`](/variables/clixres/), [`#CliYRes`](/variables/cliyres/)).
+  It is the real pointer that counts: the client reads it itself many times a second. So if you leave the
+  mouse beside the game window while a walk runs, the character runs; with the mouse over the character, it
+  walks.
+
+Neither holds at very low stamina: the client walks then. `path` doesn't change either setting: running is
+your choice. A mounted character's steps go out twice as fast as on foot, so a run on a mount gets its full
+speed ([`#MountID`](/variables/mountid/) says whether you ride).
+
+A script can switch Always Run on for a walk. [`event Macro 32`](/commands/event/macro/) is the client's
+Always Run toggle, and the client answers it in the journal with "Always Run is now on." or "Always Run is now
+off." (the same English text in every client language). This switches it on, walks, and puts it back as it
+was:
+
+```euo
+gosub ToggleAlwaysRun
+set %switched #false
+if %run = on
+  set %switched #true        ; it was off: switch it back off after the walk
+if %run = off
+  gosub ToggleAlwaysRun      ; it was on already: switch it back on, and leave it on
+path go 2505 552
+if %switched = #true
+{
+  gosub ToggleAlwaysRun
+  if %run = on
+    gosub ToggleAlwaysRun    ; it had been switched off meanwhile: off again
+}
+halt
+
+; Toggles Always Run. %run becomes on or off, as the client's answer in the journal says, or none
+; when no answer came within a second.
+sub ToggleAlwaysRun
+  set %next #JIndex + 1
+  set %run none
+  set %tries 0
+  event macro 32 0
+  repeat
+    wait 1
+    set %tries %tries + 1
+    while %next <= #JIndex
+    {
+      scanjournal %next
+      if Always_Run_is_now_on in #Journal
+        set %run on
+      if Always_Run_is_now_off in #Journal
+        set %run off
+      set %next %next + 1
+    }
+  until %run <> none || %tries >= 20
+return
+```
+
+A script can also park the mouse pointer away from the character, at a corner of the game view. `click` with
+`n` doesn't press anything, and `mc` moves the real pointer there:
+
+```euo
+set %x #CliLeft + 20
+set %y #CliTop + 20
+click %x %y n mc             ; the pointer moves to the game view's top-left corner, without a click
+path go 2505 552             ; leave the mouse there until the walk ends
+halt
+```
+
+`click … dmc` can't do this: it leaves the real pointer where it is, and the client goes by the real pointer.
+Moving the mouse back near the character during the walk makes the next steps walk.
+
 ## Reforged notes
 
 `path` and the `#Path…` variables are new in EasyUO Reforged. [`event PathFind`](/commands/event/pathfind/),
