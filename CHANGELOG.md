@@ -9,6 +9,14 @@ page on GitHub shows it. Everything Reforged adds to EasyUO 1.5 is listed by top
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## v26.11.02 - 2026-11-02
+
+### Added
+
 - **The MENU Designer** (`EUOMenuDesigner.exe`, in the zip): lay out EasyUO 1.6 `menu` windows by
   drawing them, preview them, and turn them into script lines, or read an existing script's window
   back in. See [The MENU Designer](https://ilpersi.github.io/EasyUOReforged/designer/).
