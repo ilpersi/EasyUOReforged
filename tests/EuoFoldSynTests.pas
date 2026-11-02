@@ -45,6 +45,7 @@ type
     procedure TestEarlyReturnInBracesInARealEditor;
     procedure TestEverySelfTestSubFoldsToItsReturn;
     procedure TestColoringMatchesPlainTSynUniSyn;
+    procedure TestKeywordsColorInAnyCase;
   end;
 
 implementation
@@ -343,6 +344,48 @@ begin
   finally
     Src.Free;
     Plain.Free;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The language ignores case, so the coloring must too -- and the text SynEdit
+// paints (GetTokenEx) must stay as typed, not the upper-cased copy the inner
+// highlighter matches against.
+procedure TEuoFoldSynTests.TestKeywordsColorInAnyCase;
+const
+  Cases : array[0..7] of array[0..2] of String = (
+    ('HALT','HALT','Command'), ('halt','halt','Command'), ('Halt','Halt','Command'),
+    ('#CHARPOSX','#CHARPOSX','System'), ('#charPosX','#charPosX','System'),
+    ('if %a in %b','in','Operators'), ('if %a NotIn %b','NotIn','Operators'),
+    ('set %a abs %b','abs','Operators'));
+var
+  Cnt     : Integer;
+  Found   : Boolean;
+  P       : PChar;
+  Len     : Integer;
+  Painted : String;
+  Attr    : TSynHighlighterAttributes;
+begin
+  for Cnt:=0 to High(Cases) do
+  begin
+    FHL.ResetRange;
+    FHL.SetLine(Cases[Cnt][0],0);
+    Found:=False;
+    while not FHL.GetEol do
+    begin
+      FHL.GetTokenEx(P,Len);
+      SetString(Painted,P,Len);
+      AssertEquals(Cases[Cnt][0]+': painted text is GetToken',FHL.GetToken,Painted);
+      if Painted=Cases[Cnt][1] then
+      begin
+        Found:=True;
+        Attr:=FHL.GetTokenAttribute;
+        AssertTrue(Cases[Cnt][0]+': attribute assigned',Assigned(Attr));
+        AssertEquals(Cases[Cnt][0],Cases[Cnt][2],Attr.StoredName);
+      end;
+      FHL.Next;
+    end;
+    AssertTrue(Cases[Cnt][0]+': token "'+Cases[Cnt][1]+'" painted as typed',Found);
   end;
 end;
 

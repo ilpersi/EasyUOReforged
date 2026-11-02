@@ -25,6 +25,9 @@ page on GitHub shows it. Everything Reforged adds to EasyUO 1.5 is listed by top
 
 ### Fixed
 
+- **The editor colors commands, `#variables` and operators however you write them**: `halt` is now
+  bold like `HALT`, and `#charPosX` is colored like `#CHARPOSX`, as the language itself ignores case.
+
 ## v26.11.02 - 2026-11-02
 
 ### Added

@@ -9,7 +9,10 @@ unit eufoldsyn;
   it has no folding of its own. Rather than re-implement the coloring, TSynEUOSyn
   is a fold highlighter that WRAPS a private TSynUniSyn built by the unchanged
   BuildEUOHighlighter: every token method is forwarded to it, so what the editor
-  colors is exactly what it colored before, and eusyntax.pas stays untouched.
+  colors is exactly what it colored before. One exception: GetTokenEx points
+  into the original line, not the inner highlighter's upper-cased working copy,
+  so keywords can match in any case without the editor showing capitals (see
+  BuildEUOHighlighter's comment on CaseSensitive).
 
   What folds, and where each block ends, comes from EuoBlocks.pas's
   EuoBlockStep -- the same rules Edit > Format Script indents by (see that
@@ -207,9 +210,12 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// FInner's TokenStart points into its upper-cased copy of the line; the same
+// position in CurrentLineText (the string FInner was given) is the real text.
 procedure TSynEUOSyn.GetTokenEx(out TokenStart : PChar; out TokenLength : Integer);
 begin
   FInner.GetTokenEx(TokenStart,TokenLength);
+  TokenStart:=PChar(CurrentLineText)+FInner.GetTokenPos;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

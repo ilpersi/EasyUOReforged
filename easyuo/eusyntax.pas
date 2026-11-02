@@ -146,10 +146,6 @@ function AddChildRange(Parent : TSynRange; const AName, AOpenSym, ACloseSym : St
 begin
   Result := TSynRange.Create(AOpenSym, ACloseSym);
   Result.Name := AName;
-  Result.CaseSensitive := True; // see the matching comment on Root in
-                                 // BuildEUOHighlighter -- required per-range
-                                 // to avoid SynEdit rendering everything in
-                                 // this range as uppercase
   Result.CloseOnTerm := ACloseOnTerm;
   Result.CloseOnEol := ACloseOnEol;
   Result.DefaultAttri.Foreground := AFore;
@@ -169,29 +165,14 @@ begin
   // part of this component's own DefaultTermSymbols (confirmed directly in
   // synunihighlighter.pas), which every TSynRange gets by default.
   //
-  // CaseSensitive:=True is NOT about wanting case-sensitive keyword
-  // matching (EasyUO scripts are conventionally uppercase, and the original
-  // EUOSyn.hlr's own "False:False." Attributes strings suggest the intent
-  // was actually case-INsensitive matching) -- it's a required workaround
-  // for a real display bug in this installed SynUniHighlighter version:
-  // TSynRange.CaseFunct defaults to @UpCase (confirmed directly in
-  // synunihighlighter.pas's TSynRange.Create), and SetLine uses it to build
-  // the WORKING line buffer (FLine) that GetTokenEx -- the method SynEdit's
-  // own paint routine actually calls to fetch text to draw -- reads from.
-  // Left at the default, every character SynEdit renders is silently
-  // uppercased on screen (typed text and file content both), even though
-  // the real document buffer (Lines/FTrueLine) is untouched underneath.
-  // CaseSensitive:=True switches CaseFunct to the identity function
-  // (CaseNone), which is the only way to fix this from outside the
-  // component -- it can't be patched in place (it's an installed Lazarus
-  // package, not part of this project's own source). The cost is real but
-  // minor: keyword coloring now only recognizes exact-case matches (a
-  // script written in lowercase "if" won't be colored as a Command
-  // keyword) -- purely cosmetic, and does not affect script execution at
-  // all (that's the separate parser, not the editor's highlighter). Must
-  // be set on every range below, not just Root -- CaseFunct is a per-range
-  // field, and SetLine uses whichever range is currently active.
-  Root.CaseSensitive := True;
+  // Every range keeps the component's default CaseSensitive=False, so
+  // keywords match in any case, as the language itself does ("halt" as well
+  // as "HALT"; the keyword lists above are uppercase, as Prepare expects).
+  // The catch: SetLine matches against an upper-cased copy of the line
+  // (FLine), and TSynUniSyn.GetTokenEx -- what SynEdit paints from --
+  // points into that copy, so a bare TSynUniSyn would show every line in
+  // capitals. TSynEUOSyn.GetTokenEx (eufoldsyn.pas) hands SynEdit the
+  // original line instead: use this highlighter through that wrapper.
   Root.DefaultAttri.Foreground := clNone;
   Root.DefaultAttri.Background := 16777215; // white
   Root.NumberAttri.Foreground := 54528;     // green
