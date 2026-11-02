@@ -26,6 +26,9 @@ page on GitHub shows it. Everything Reforged adds to EasyUO 1.5 is listed by top
 - [`#BuffBarOpen`](https://ilpersi.github.io/EasyUOReforged/variables/buffbaropen/) is `#true` (`-1`)
   when the buff bar is open, where it used to be `1`, so it can be compared with `#true` and `#false`.
   A script that compares it with `1` must compare it with `#true` now.
+- `uo.dll`'s [`GetBuff`](https://ilpersi.github.io/EasyUOReforged/dll/getbuff/) returns the seconds a
+  buff has left at the moment it is called, like `#BuffTime`, instead of the seconds it had when
+  `ScanBuffs` ran.
 - The [`#CharStatus`](https://ilpersi.github.io/EasyUOReforged/variables/charstatus/) page now
   explains every letter, and how to tell poison from a yellow health bar.
 

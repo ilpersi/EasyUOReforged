@@ -607,6 +607,7 @@ begin
     053: UOVar.IgnoreCont(GetInteger(3));
     // Buff bar (port addition). ScanBuffs([iconID]) -> count; GetBuff(index, 0-based) -> id,
     // title cliloc, name, description, seconds left (-1 = no timer); nil when there is no such buff.
+    // The seconds are read from the client now, as #BuffTime is, not taken from the snapshot.
     054: begin
            ScanBuffs(GetInteger(3));
            PushInteger(BuffCnt);
@@ -623,7 +624,7 @@ begin
              PushInteger(BuffRes.Cliloc);
              PushStrVal(PChar(BuffRes.Name));
              PushStrVal(PChar(BuffRes.Desc));
-             PushInteger(BuffRes.Time);
+             PushInteger(BuffTimeNow);
            end
            else PushNil;
          end;

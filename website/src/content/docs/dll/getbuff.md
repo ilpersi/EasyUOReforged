@@ -27,4 +27,4 @@ In this order, from stack position 1:
 | `cliloc` | number | Cliloc number of the title. |
 | `name` | string | Title. |
 | `description` | string | Second tooltip line. |
-| `seconds` | number | Seconds left; -1 = no timer. |
+| `seconds` | number | Seconds left now, like `#BuffTime`; -1 = no timer. |

@@ -102,7 +102,7 @@ METHODS = {
         ['FindItem', 'dll:ScanItems', 'dll:GetItem'], None),
     'GetBuff': ([('n', 'index')], [('id', 'number', 'Icon ID.'), ('cliloc', 'number', 'Cliloc number of the title.'),
         ('name', 'string', 'Title.'), ('description', 'string', 'Second tooltip line.'),
-        ('seconds', 'number', 'Seconds left; -1 = no timer.')],
+        ('seconds', 'number', 'Seconds left now, like `#BuffTime`; -1 = no timer.')],
         'Reads one buff of the list `ScanBuffs` made. Returns nil (nothing) when there is no such buff.',
         ['ScanBuffs', '#BuffID', 'dll:ScanBuffs'], None),
     'GetCont': ([('n', 'index')], [('name', 'string', 'Gump name, as `#ContName` but with spaces.'), ('x', 'number', 'Left edge, in pixels.'),
