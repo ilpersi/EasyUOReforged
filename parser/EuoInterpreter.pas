@@ -1100,8 +1100,9 @@ begin
            VarRes:=BuffValid and (BuffRes.Desc<>'');
          end;
     114: begin
-           // 1 = the buff bar window is open, 0 = closed (N/A: no readable buff bar on this client)
-           Result:=IntToStr(Byte(BuffBarOpen));
+           // #true (-1) = the buff bar window is open, #false (0) = closed, so scripts can compare
+           // it with #true/#false (N/A: no readable buff bar on this client)
+           if BuffBarOpen then Result:='-1' else Result:='0';
            VarRes:=BuffAvailable;
          end;
     113: begin

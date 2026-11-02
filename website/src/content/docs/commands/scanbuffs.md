@@ -67,7 +67,7 @@ Tell a closed buff bar from an empty one:
 
 ```euo
 scanbuffs
-if #BuffBarOpen = 0
+if #BuffBarOpen = #false
   display ok Open the buff bar first.
 halt
 ```
