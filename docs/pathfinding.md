@@ -505,8 +505,10 @@ the client's Always Run on, the walker still walked. No new field or address was
 - **New read-only variables:** `#MountID` and `#MountType` (`N/A` on foot; a separate `#CharMounted` was
   dropped as redundant), and `#FindLayer` (`TItemRes.ItemLayer`: set when the container is a mobile, serial
   below `$40000000`).
-- **In uo.dll:** the properties `MountID`/`MountType` (0 on foot) and the method `GetItemLayer(index)` (0 when
-  nobody wears the item). It is a call of its own, so `GetItem`'s ten results don't change.
+- **In uo.dll:** the properties `MountID`/`MountType` (0 on foot), and `GetItem` returns the item's layer
+  as an 11th value after its original ten (0 when nobody wears the item). A first version had a separate
+  `GetItemLayer` call (released in v26.11.02); on the owner's choice it became `GetItem`'s 11th value
+  (2026-11-03).
 
 **Live on the final build** (`client.exe`, 2026-11-02):
 - **Mounted pace:** mounted with Always Run on, the same route took 147 ms per tile on average (210 steps,

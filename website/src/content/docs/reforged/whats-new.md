@@ -82,8 +82,8 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
   [`PathAvoid`](/dll/pathavoid/), [`PathLink`](/dll/pathlink/) and [`PathClear`](/dll/pathclear/) set its
   options and rules. They plan; they don't walk.
 - [`MountID`](/dll/mountid/) and [`MountType`](/dll/mounttype/) read the mount, as `#MountID` and
-  `#MountType` (0 on foot), and [`GetItemLayer`](/dll/getitemlayer/) the equip layer of an item of the
-  `ScanItems` list, as `#FindLayer`. [`GetItem`](/dll/getitem/)'s results are unchanged.
+  `#MountType` (0 on foot). [`GetItem`](/dll/getitem/) returns an 11th value after its original ten: the
+  item's equip layer, as `#FindLayer` (0 when nobody wears it).
 - [`BlockInfo`](/dll/blockinfo/) no longer crashes `client.exe` 7.0.117.1: EasyUO 1.5 passed the client's
   function one argument too few. Its page now says what the two bytes per tile mean.
 

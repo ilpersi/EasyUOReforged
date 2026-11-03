@@ -6,7 +6,7 @@ unit UoWrapPathTests;
     arguments; Execute removes those and leaves the answers from stack position 1;
   - TUOCmd's PathSetOption and PathPacked directly, which those methods use.
   Also the other uo.dll additions next to them: the MountID / MountType properties (256, 257) and the
-  GetItemLayer method (067). }
+  layer GetItem answers after its original ten values. }
 
 {$mode objfpc}{$H+}
 
@@ -206,10 +206,9 @@ begin
   AssertEquals('error: PathClear [blocks|avoid|links|learned|all]', Answer(1));
 end;
 
-// The new rows sit between GetJournal and GetPix, and between PR and Pathfind: the binary search
-// still finds those (no client, so each does nothing).
-// MountID and MountType read 0 without a client (as on foot); GetItemLayer reads 0 for an item nobody
-// wears or that isn't there. The names next to the new rows are still found.
+// MountID and MountType read 0 without a client (as on foot). GetItem answers the original ten values
+// and then the layer, 0 for an item nobody wears or that isn't there. The names next to the new rows
+// are still found.
 procedure TUoWrapPathTests.TestMountAndLayerAnswerZeroWithoutAClient;
 
   function Get(const Name : String) : Integer;
@@ -225,14 +224,17 @@ begin
   AssertEquals('MountID on foot', 0, W.Stack.GetInteger(1));
   AssertEquals('MountType', RES_OK, Get('MountType'));
   AssertEquals('MountType on foot', 0, W.Stack.GetInteger(1));
-  AssertEquals('GetItemLayer', RES_OK, Call('GetItemLayer', [0]));
-  AssertEquals('not worn', 0, W.Stack.GetInteger(1));
-  AssertEquals('GetItemLayer needs an index', ERR_WRONGPAR, Call('GetItemLayer', []));
   AssertEquals('MinDmg', RES_OK, Get('MinDmg'));
   AssertEquals('GetItem', RES_OK, Call('GetItem', [0]));
+  AssertEquals('the ten values of EasyUO 1.5, then the layer', 11, W.Stack.GetTop);
+  AssertEquals('kind: no such item', -1, W.Stack.GetInteger(3));
+  AssertEquals('layer: nobody wears it', 0, W.Stack.GetInteger(11));
+  AssertEquals('GetItemLayer is gone: GetItem has the layer', ERR_NOTFOUND, Call('GetItemLayer', [0]));
   AssertEquals('GetJournal', RES_OK, Call('GetJournal', [0]));
 end;
 
+// The new rows sit between GetJournal and GetPix, and between PR and Pathfind: the binary search
+// still finds those (no client, so each does nothing).
 procedure TUoWrapPathTests.TestNamesAroundTheNewRowsAreStillFound;
 begin
   AssertEquals('GetJournal', RES_OK, Call('GetJournal', [0]));

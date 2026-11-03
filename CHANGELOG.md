@@ -22,6 +22,10 @@ page on GitHub shows it. Everything Reforged adds to EasyUO 1.5 is listed by top
   variables read from the status bar. `#ContSize` and `#CurPath` are now shown too.
 - The inspector remembers which groups you left open by their names, so adding a group no longer
   opens the wrong ones. The groups you had open before this version start closed once.
+- `uo.dll`'s [`GetItem`](https://ilpersi.github.io/EasyUOReforged/dll/getitem/) returns the item's
+  equip layer as an 11th value, after its usual ten: the same number as `#FindLayer`, or 0 when nobody
+  wears the item. The separate `GetItemLayer` call that v26.11.02 added is gone; read the layer from
+  `GetItem` instead.
 
 ### Fixed
 

@@ -5,7 +5,7 @@ kind: dll-method
 category: method
 syntax: "Call GetItem index"
 needsClient: true
-related: ["FindItem", "#FindID", "dll:ScanItems", "dll:FilterItems"]
+related: ["FindItem", "#FindID", "#FindLayer", "dll:ScanItems", "dll:FilterItems"]
 aliases: ["UO.GetItem"]
 ---
 
@@ -33,3 +33,8 @@ In this order, from stack position 1:
 | `stack` | number | How many in the stack; 0 for characters. |
 | `notoriety` | number | As `#FindRep`. |
 | `colour` | number | Colour (hue). |
+| `layer` | number | The layer a character wears it in, as `#FindLayer` (21 backpack, 25 mount, …); 0 when nobody wears it. |
+
+:::note
+The 11th value, `layer`, is new in EasyUO Reforged; the first ten are those of EasyUO 1.5, in the same order. The layer numbers are listed on [`#FindLayer`](/variables/findlayer/).
+:::

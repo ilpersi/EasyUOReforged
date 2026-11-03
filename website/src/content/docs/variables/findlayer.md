@@ -7,7 +7,7 @@ access: ro
 type: number
 origin: reforged
 needsClient: true
-related: ["FindItem", "#FindBagID", "#FindKind", "#MountID", "dll:GetItemLayer"]
+related: ["FindItem", "#FindBagID", "#FindKind", "#MountID", "dll:GetItem"]
 aliases: ["layer", "equip layer", "worn", "equipped", "paperdoll"]
 ---
 

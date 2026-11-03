@@ -29,9 +29,9 @@ unit uowrap;
   rows keep UOTbl in CompareStr order, as tables.pas's binary search needs.
 
   Port addition (not in the original): the read-only properties MountID and MountType (codes 256,
-  257, as #MountID / #MountType, 0 on foot) and the method GetItemLayer (067, as #FindLayer for an
-  item of the filtered list, 0 when nobody wears it), read through TUOCmd.CharMount and
-  TItemRes.ItemLayer. GetItem's results are unchanged.
+  257, as #MountID / #MountType, 0 on foot), read through TUOCmd.CharMount; and GetItem's 11th
+  value, after the original ten: the item's equip layer (TItemRes.ItemLayer, as #FindLayer), 0
+  when nobody wears it. A caller that reads the first ten gets what it always did.
 }
 
 {$mode delphi}{$H+}
@@ -106,7 +106,7 @@ const
 ////////////////////////////////////////////////////////////////////////////////
 
 var
-  UOTbl : array[0..171] of TItem = (
+  UOTbl : array[0..170] of TItem = (
     (N: 'AR'          ;T: RO ;C: 206 ;P: 'n'        ),
     (N: 'BackpackID'  ;T: RO ;C: 224 ;P: 'n'        ),
     (N: 'BlockInfo'   ;T: ME ;C: 041 ;P: 'nnnnn'    ),
@@ -172,7 +172,6 @@ var
     (N: 'GetBuff'     ;T: ME ;C: 056 ;P: 'n'        ),
     (N: 'GetCont'     ;T: ME ;C: 032 ;P: 'n'        ),
     (N: 'GetItem'     ;T: ME ;C: 024 ;P: 'n'        ),
-    (N: 'GetItemLayer';T: ME ;C: 067 ;P: 'n'        ),    // port addition (the equip layer)
     (N: 'GetJournal'  ;T: ME ;C: 027 ;P: 'n'        ),
     (N: 'GetPath'     ;T: ME ;C: 057 ;P: 'nnnnnnn'  ),    // port addition (the pathfinder)
      (N: 'GetPath'    ;T: ME ;C: 057 ;P: 'nnn'      ),
@@ -511,6 +510,10 @@ begin
            PushInteger(ItemRes.ItemStack);
            PushInteger(ItemRes.ItemRep);
            PushInteger(ItemRes.ItemCol);
+           // Port addition (the equip layer, as #FindLayer): an 11th value after the original
+           // ten, the layer a mobile wears the item in, 0 when nobody wears it.
+           if ItemRes.ItemLayer>0 then PushInteger(ItemRes.ItemLayer)
+           else PushInteger(0);
          end;
     025: HideItem(GetInteger(3));
     026: begin
@@ -701,14 +704,6 @@ begin
            else s:='?';
            if s='?' then PushStrVal('error: PathClear [blocks|avoid|links|learned|all]')
            else PushStrVal('ok');
-         end;
-    // Port addition (the equip layer, as #FindLayer): the layer a mobile wears an item of the
-    // filtered list in, 0 when nobody wears it. A call of its own, so GetItem's results stay as
-    // they were.
-    067: begin                                             // GetItemLayer index
-           GetItem(GetInteger(3));
-           if ItemRes.ItemLayer>0 then PushInteger(ItemRes.ItemLayer)
-           else PushInteger(0);
          end;
     -01: Result:=ERR_NOTFOUND;
     -02: Result:=ERR_WRONGPAR;

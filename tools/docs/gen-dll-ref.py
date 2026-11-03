@@ -114,16 +114,13 @@ METHODS = {
     'GetItem': ([('n', 'index')], [('id', 'number', 'Item or character ID.'), ('type', 'number', 'Its type.'), ('kind', 'number', '0 in a container, 1 on the ground, -1 none.'),
         ('container', 'number', 'Container ID; 0 on the ground.'), ('x', 'number', 'X position: in the world, or inside the container gump.'),
         ('y', 'number', 'Y position.'), ('z', 'number', 'Height.'), ('stack', 'number', 'How many in the stack; 0 for characters.'),
-        ('notoriety', 'number', 'As `#FindRep`.'), ('colour', 'number', 'Colour (hue).')],
+        ('notoriety', 'number', 'As `#FindRep`.'), ('colour', 'number', 'Colour (hue).'),
+        ('layer', 'number', 'The layer a character wears it in, as `#FindLayer` (21 backpack, 25 mount, …); 0 when '
+         'nobody wears it.')],
         'Reads one item of the filtered list, like the `#Find…` variables after `finditem`.',
-        ['FindItem', '#FindID', 'dll:ScanItems', 'dll:FilterItems'], None),
-    'GetItemLayer': ([('n', 'index')], [('layer', 'number', 'The layer a character wears it in, as `#FindLayer`; '
-        '0 when nobody wears it.')],
-        'Reads the equip layer of one item of the filtered list, as `#FindLayer`. It is the layer number in which '
-        'a character wears the item (21 backpack, 25 mount, …; the table is on [`#FindLayer`](/variables/findlayer/)), '
-        'or 0 when the item lies in a container or on the ground, or when there is no such item. A call of its own, '
-        'so `GetItem`\'s results stay as they were.',
-        ['FindItem', '#FindLayer', 'dll:GetItem', 'dll:ScanItems'], None),
+        ['FindItem', '#FindID', '#FindLayer', 'dll:ScanItems', 'dll:FilterItems'],
+        'The 11th value, `layer`, is new in EasyUO Reforged; the first ten are those of EasyUO 1.5, in the same order. '
+        'The layer numbers are listed on [`#FindLayer`](/variables/findlayer/).'),
     'GetJournal': ([('n', 'index')], [('text', 'string', 'The line.'), ('colour', 'number', 'Its colour.')],
         'Reads one journal line of the list `ScanJournal` made: 0 is the newest.', ['ScanJournal', '#Journal', 'dll:ScanJournal'], None),
     'GetPath': ([('nn', 'x y'), ('nnn', 'x y z'), ('nnnnnnn', 'x y z fromx fromy fromz facet')],
