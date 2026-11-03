@@ -21,9 +21,15 @@ unit vartree;
     fails when the list and the site disagree or the order breaks. A list
     edited through Tools > Manage VarList is shown as typed, never re-sorted.
   - A filter box (MainForm.VarFilterEdit) above the tree: VarTreeFilter
-    rebuilds the tree with only the variables whose name, or whose group's
-    name, contains the text. Groups left empty are not added, and every group
-    shown is expanded while filtering.
+    rebuilds the tree with only the variables whose name (without its '#'),
+    or whose group's name, matches the text as a case-insensitive regular
+    expression -- TRegExpr, the engine of the Find window (eufind.pas), whose
+    CheckPattern also gives the error message. Plain text is a regex that
+    matches itself. A '#' typed at the start (or after a leading '^') is
+    dropped, as names are matched without theirs. A pattern that does not
+    compile leaves the tree as it is and turns the box's text red, with the
+    error as its hint. Groups left empty are not added, and every group shown
+    is expanded while filtering.
   - The open groups are saved by name (registry value VarTree.Expanded, the
     full paths of the expanded groups, each followed by '|'), not as the
     original Tree0.State, one '+'/'-' per group by position, which a group
@@ -265,7 +271,7 @@ var
 
 ////////////////////////////////////////////////////////////////////////////////
 implementation
-uses Main, InstHandler;
+uses Main, InstHandler, Graphics, RegExpr, eufind;
 var
   VReg      : TRegistry;
   NodePopup : TPopupMenu;
@@ -273,8 +279,9 @@ var
   VList     : TTreeView;
   MForm     : TForm;
   UserNode  : TTreeNode = nil;
-  FilterStr : String = '';     // port addition: the filter box's text, '#' stripped
+  FilterStr : String = '';     // port addition: the filter box's regex, '#' stripped
   Filtered  : Boolean = False; // port addition: the tree shown was built with a filter
+  BadFilter : Boolean = False; // port addition: the box's text does not compile
   ExpState  : String = '';     // port addition: open groups of the unfiltered tree
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -366,19 +373,27 @@ var
   List       : TStringList;
   sBuf1      : String;
   sPath      : String;
-  sFilter    : String;
+  sName      : String;
   Pending    : Boolean;
   ParentNode : TTreeNode;
+  Re         : TRegExpr;
 begin
   if (VList.Items.Count>0) and not Filtered then
     ExpState:=TreeGetState;
+
+  Re:=nil;
+  if FilterStr<>'' then
+  begin
+    Re:=TRegExpr.Create;
+    Re.ModifierI:=True;
+    Re.Expression:=FilterStr; // VarTreeFilter compiled it already
+  end;
 
   VList.Items.BeginUpdate;
   VList.Items.Clear;
 
   List:=TStringList.Create;
   List.Text:=Identifiers;
-  sFilter:=UpperCase(FilterStr);
 
   ParentNode:=nil;
   sPath:='';
@@ -393,14 +408,17 @@ begin
     begin
       sPath:=sBuf1;
       ParentNode:=nil;
-      Pending:=sFilter<>'';
+      Pending:=Re<>nil;
       if not Pending then ParentNode:=GroupNode(sPath);
       Continue;
     end;
 
-    if sFilter<>'' then
-      if (Pos(sFilter,UpperCase(sBuf1))=0) and
-         (Pos(sFilter,UpperCase(sPath))=0) then Continue;
+    if Re<>nil then
+    begin
+      sName:=sBuf1;
+      if sName[1]='#' then Delete(sName,1,1);
+      if not Re.Exec(sName) and not Re.Exec(Copy(sPath,2,MaxInt)) then Continue;
+    end;
 
     if Pending then
     begin
@@ -412,7 +430,8 @@ begin
   end;
 
   List.Free;
-  Filtered:=sFilter<>'';
+  Re.Free;
+  Filtered:=FilterStr<>'';
   if Filtered then VList.FullExpand
   else TreeSetState(ExpState);
   VList.Items.EndUpdate;
@@ -421,9 +440,33 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 // Port addition: the filter box's OnChange (see the header).
 procedure VarTreeFilter(S : String);
+var
+  Find : TFindSettings;
+  Msg  : String;
 begin
   S:=Trim(S);
-  if (S<>'') and (S[1]='#') then Delete(S,1,1);
+  if (S<>'') and (S[1]='#') then Delete(S,1,1)
+  else if (Length(S)>1) and (S[1]='^') and (S[2]='#') then Delete(S,2,1);
+
+  Find:=Default(TFindSettings);
+  Find.FindText:=S;
+  Find.RegExpr:=True;
+  if not CheckPattern(Find,Msg) then
+  begin
+    BadFilter:=True;
+    MainForm.VarFilterEdit.Font.Color:=clRed;
+    MainForm.VarFilterEdit.Hint:=Msg;
+    MainForm.VarFilterEdit.ShowHint:=True;
+    Exit;
+  end;
+  if BadFilter then
+  begin
+    BadFilter:=False;
+    MainForm.VarFilterEdit.Font.Color:=clDefault;
+    MainForm.VarFilterEdit.Hint:='';
+    MainForm.VarFilterEdit.ShowHint:=False;
+  end;
+
   if S=FilterStr then Exit;
   FilterStr:=S;
   VarTreeLoad(Identifiers);

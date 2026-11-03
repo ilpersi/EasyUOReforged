@@ -10,7 +10,8 @@ page on GitHub shows it. Everything Reforged adds to EasyUO 1.5 is listed by top
 ### Added
 
 - **A filter box above the variable inspector**: type part of a name, such as `hits`, and only the
-  matching variables stay in the tree. Esc clears it. See
+  matching variables stay in the tree. It takes regular expressions too, like the Find window:
+  `^max` keeps the names that start with `Max`. Esc clears it. See
   [Your first script](https://ilpersi.github.io/EasyUOReforged/guide/first-script/#the-window).
 - **Ctrl+click a sub or label name to jump to it**: hold Ctrl over the name after `gosub` or `goto`,
   it underlines, and a click takes you to its `sub` line or its `label:` line. **Alt+Left** (*Edit →

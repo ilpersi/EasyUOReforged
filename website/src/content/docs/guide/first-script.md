@@ -14,8 +14,13 @@ sidebar:
   [variable reference](/variables/), with the groups and the variables in alphabetical order. Type in the
   box above the tree to keep only the variables whose name, or whose group's name, contains the text:
   `hits` leaves [`#EnemyHits`](/variables/enemyhits/), [`#Hits`](/variables/hits/) and
-  [`#MaxHits`](/variables/maxhits/). Esc clears the box. The values refresh a few times a second while a
-  script runs, and the groups you leave open are open again the next time you start the app.
+  [`#MaxHits`](/variables/maxhits/). The text is a regular expression, as with *Regular expression* in
+  the [Find window](/guide/debugging/#find-and-replace), and upper or lower case doesn't matter:
+  `^max` leaves the names that start with `Max`, `id$` those that end in `ID`, and `^(hits|mana)$` just
+  those two. Names are matched without their `#`. A pattern with a mistake in it, such as `[`, turns
+  red and leaves the tree as it was; hover over the box for the reason. Esc clears the box. The values
+  refresh a few times a second while a script runs, and the groups you leave open are open again the
+  next time you start the app.
 - **Title bar**: shows the version (`YY.MM.DD.<commit>`), also under *Help → About* and in
   [`#ReforgedVer`](/variables/reforgedver/).
 - **Status bar** (bottom), from left to right: the cursor's line and column in the editor; your character's
