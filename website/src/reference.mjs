@@ -7,16 +7,17 @@ export const BASE = '/EasyUOReforged';
 export const REPO = 'https://github.com/ilpersi/EasyUOReforged';
 
 // [key, label] in sidebar order. Keys are what pages put in `category:`.
+// Alphabetical by label, like the variables below, with Obsolete kept last.
 export const COMMAND_CATEGORIES = [
-	['flow', 'Flow control'],
 	['client', 'Client'],
+	['data', 'Data (SQL)'],
 	['event', 'Event'],
 	['exevent', 'ExEvent'],
+	['flow', 'Flow control'],
 	['menu', 'Menu'],
-	['namespace', 'Namespace'],
-	['data', 'Data (SQL)'],
-	['path', 'Pathfinding'],
 	['misc', 'Miscellaneous'],
+	['namespace', 'Namespace'],
+	['path', 'Pathfinding'],
 	['obsolete', 'Obsolete'],
 ];
 
