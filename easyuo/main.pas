@@ -93,7 +93,7 @@ type
     Exit1,New1,Open1,Reopen1,Save1,SaveAs1,SaveAll1,Close1,CloseAll1 : TMenuItem;
     Cut1,Copy1,Paste1,Delete1,SelectAll1,Find1,Replace1,Undo1,Redo1 : TMenuItem;
     FindNext1,FindPrev1 : TMenuItem;
-    FormatScript1,FoldAll1,UnfoldAll1 : TMenuItem;
+    FormatScript1,FoldAll1,UnfoldAll1,GoBack1 : TMenuItem;
     Start1,Pause1,Stop1,StopAll1,StepOver1,StepInto1,StepOut1 : TMenuItem;
     ToggleBreakpoint1,RunToCursor1,BreakpointCondition1,ClearBreakpoints1 : TMenuItem;
     CallStackPanel1 : TMenuItem;
@@ -136,6 +136,8 @@ var
   IH         : TInstHandler;
   Reg        : TRegistry;
   UpdateCnt  : Cardinal = 0;
+
+procedure GotoLineAndCenter(Editor : TSynEdit; Line : Integer);
 
 implementation
 uses text, uoselector, EuoMenuSelect;
@@ -300,6 +302,11 @@ begin
   FormatScript1 := AddMenu(Edit1, 220, 'F&ormat Script', ShortCut(VK_F, [ssCtrl,ssShift]));
   FoldAll1      := AddMenu(Edit1, 221, 'Fo&ld All', ShortCut(VK_1, [ssAlt,ssShift]));
   UnfoldAll1    := AddMenu(Edit1, 222, 'U&nfold All', ShortCut(VK_0, [ssAlt,ssShift]));
+  // New addition: back from a Ctrl+click jump to a sub or label (see
+  // insthandler.pas's SynMouseUp). SynEdit binds Alt+Shift+Left (column
+  // select) but not Alt+Left (checked in syneditkeycmds.pp).
+  AddSep(Edit1);
+  GoBack1       := AddMenu(Edit1, 225, 'Go &Back', ShortCut(VK_LEFT, [ssAlt]));
 
   Control1 := TMenuItem.Create(Self);
   Control1.Caption := '&Control';
@@ -855,6 +862,9 @@ begin
     // New additions: Find Next / Find Previous (F3 / Shift+F3)
    223 : FindDialog.FindAgain(False);
    224 : FindDialog.FindAgain(True);
+
+    // New addition: Go Back (Alt+Left), after a Ctrl+click on a GOSUB/GOTO name
+   225 : JumpBack(CSyn);
   end;
 end;
 

@@ -12,6 +12,11 @@ page on GitHub shows it. Everything Reforged adds to EasyUO 1.5 is listed by top
 - **A filter box above the variable inspector**: type part of a name, such as `hits`, and only the
   matching variables stay in the tree. Esc clears it. See
   [Your first script](https://ilpersi.github.io/EasyUOReforged/guide/first-script/#the-window).
+- **Ctrl+click a sub or label name to jump to it**: hold Ctrl over the name after `gosub` or `goto`,
+  it underlines, and a click takes you to its `sub` line or its `label:` line. **Alt+Left** (*Edit →
+  Go Back*) returns to where you clicked. The jump goes where the script would: to the last `sub` of
+  that name, and to the nearest label, the one below first. A name held in a variable is not a link.
+  See [Editor features](https://ilpersi.github.io/EasyUOReforged/guide/debugging/#editor-features).
 
 ### Changed
 

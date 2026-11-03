@@ -1,6 +1,6 @@
 ---
 title: Editing and debugging
-description: "Breakpoints, conditional breakpoints, stepping, run to cursor, the call stack, VarDump and the editor's autocomplete, code folding, Format Script and Find and Replace."
+description: "Breakpoints, conditional breakpoints, stepping, run to cursor, the call stack, VarDump and the editor's autocomplete, code folding, Format Script, Ctrl+click to a sub or label and Find and Replace."
 sidebar:
   order: 3
 ---
@@ -55,6 +55,11 @@ variable to a text window you can copy, which is handy for bug reports.
   indented, and the one line under a brace-less `if` indented. It only changes the spaces at the start
   and end of lines, so the script runs exactly as before, and one **Ctrl+Z** undoes it. It is not
   available while a script runs.
+- **Go to a sub or label**: hold **Ctrl** over the name after `gosub` or `goto`. When the script has
+  that `sub` or label, the name is underlined; click it to jump there. *Edit → Go Back* (**Alt+Left**)
+  returns to where you clicked, and pressed again goes further back. The jump goes where the script would
+  go: to the last `sub` of that name when there are two, and to the nearest label, the one below first
+  when two are as close. A name the script only knows when it runs, such as `gosub %next`, is not a link.
 
 ## Find and replace
 

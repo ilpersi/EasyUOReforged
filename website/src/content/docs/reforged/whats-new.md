@@ -97,6 +97,7 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
   search in a selection or in all open scripts, search history, and **F3** / **Shift+F3**.
 - Code folding for subs, `{ }` blocks and `repeat`, with Fold All / Unfold All.
 - Format Script (**Ctrl+Shift+F**) re-indents a script in one step.
+- **Ctrl+click** the name after `gosub` or `goto` to jump to its `sub` or label, **Alt+Left** to go back.
 - Breakpoints, conditional breakpoints, step into / over / out, run to cursor and a live call stack.
 
 See [Editing and debugging](/guide/debugging/).

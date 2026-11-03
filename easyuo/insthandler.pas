@@ -19,6 +19,9 @@ unit insthandler;
 
   The script file loader added during the migration (LoadScriptFileAsUTF8) lives in
   scriptfile.pas, shared with the MENU designer.
+
+  New additions besides breakpoints: Ctrl+click on a GOSUB/GOTO name jumps to its SUB or
+  label, and JumpBack (Edit > Go Back) returns -- see SynMouseUp.
 }
 
 {$mode delphi}{$H+}
@@ -26,7 +29,7 @@ unit insthandler;
 interface
 uses Windows, SysUtils, Classes, Graphics, Controls, Dialogs, Menus, SynEdit,
      SynEditTypes, SynEditMarks, SynGutterBase, SynGutterCodeFolding,
-     EuoExecutor, scriptfile;
+     SynEditMouseCmds, EuoExecutor, EuoJumpTarget, scriptfile;
 
 type
   TInstHandler  = class(TObject)
@@ -40,6 +43,8 @@ type
     procedure   SynLineColors(S: TObject; Line: Integer; var Special: Boolean; var FG, BG: TColor);
     procedure   SynReplaceText(Sender: TObject; const ASearch, AReplace: String; Line, Column: Integer; var Action: TSynReplaceAction);
     procedure   SynGutterClick(Sender: TObject; X, Y, Line: Integer; Mark: TSynEditMark);
+    procedure   SynMouseLink(Sender: TObject; X, Y: Integer; var AllowMouseLink: Boolean);
+    procedure   SynMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
   public
     Cur         : Integer;
     constructor Create;
@@ -63,6 +68,7 @@ type
   function CSyn  : TSynEdit;
   function CFN   : String;
   function CExec : TExecutor;
+  procedure JumpBack(Ed : TSynEdit);
 
 const
   STOP     = 0;
@@ -178,6 +184,84 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// New addition (not present in the original app): Ctrl+click on the name after
+// GOSUB or GOTO jumps to the SUB or label the script would run (the lookup is
+// EuoJumpTarget.pas), and Edit > Go Back (Alt+Left) returns. Each editor owns
+// its own TJumpHistory, so the history goes away with its tab. It holds plain
+// line numbers: lines inserted above an entry shift where Go Back lands, which
+// a back-jump can live with.
+type
+  TJumpPos = record
+    Caret   : TPoint;
+    TopLine : Integer;
+  end;
+
+  TJumpHistory = class(TComponent)
+  public
+    Stack : array of TJumpPos;
+  end;
+
+const
+  MaxJumpBack = 50;
+
+function JumpHistoryOf(Ed : TSynEdit) : TJumpHistory;
+var
+  Cnt : Integer;
+begin
+  for Cnt:=0 to Ed.ComponentCount-1 do
+    if Ed.Components[Cnt] is TJumpHistory then
+  begin
+    Result:=TJumpHistory(Ed.Components[Cnt]);
+    Exit;
+  end;
+  Result:=TJumpHistory.Create(Ed);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Only a name that leads somewhere underlines. X is the logical start column
+// of the word under the mouse, Y its line (both 1-based).
+procedure TInstHandler.SynMouseLink(Sender: TObject; X, Y: Integer; var AllowMouseLink: Boolean);
+begin
+  AllowMouseLink:=AllowMouseLink and
+    (EuoJumpTargetAt(TSynEdit(Sender).Lines,Y-1,X)>=0);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The click itself is taken here, on the plain mouse-up, not from SynEdit's own
+// link click (OnClickLink): that one only fires when its link state, kept from
+// the live keyboard, still agrees at the mouse-up, and in this editor the first
+// Ctrl+click on a name often only moved the caret, so it took two or three
+// clicks. Here Ctrl comes with the click. A selection means the mouse was
+// dragged, or the click was a double click (which selects the word): no jump.
+procedure TInstHandler.SynMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var
+  Ed     : TSynEdit;
+  P      : TPoint;
+  Target : Integer;
+  H      : TJumpHistory;
+begin
+  if Button<>mbLeft then Exit;
+  if Shift*[ssShift,ssAlt,ssCtrl]<>[ssCtrl] then Exit;
+  Ed:=TSynEdit(Sender);
+  if Ed.SelAvail then Exit;
+  // The character under the mouse: PixelsToLogicalPos rounds to the nearest
+  // caret position, which is past the name on the right half of its last letter.
+  P:=Ed.PhysicalToLogicalPos(Ed.PixelsToRowColumn(Point(X,Y),[scmLimitToLines,scmForceLeftSidePos]));
+  Target:=EuoJumpTargetAt(Ed.Lines,P.Y-1,P.X);
+  if Target<0 then Exit;
+
+  H:=JumpHistoryOf(Ed);
+  if Length(H.Stack)>=MaxJumpBack then
+    Delete(H.Stack,0,1);
+  SetLength(H.Stack,Length(H.Stack)+1);
+  H.Stack[High(H.Stack)].Caret:=Ed.LogicalCaretXY;
+  H.Stack[High(H.Stack)].TopLine:=Ed.TopLine;
+
+  Ed.LogicalCaretXY:=Point(1,Target+1);
+  GotoLineAndCenter(Ed,Target+1);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 function TInstHandler.CreateSyn : TSynEdit;
 begin
   Result:=TSynEdit.Create(nil);
@@ -206,6 +290,14 @@ begin
   // so this is a deliberate, visible UI change, not an accidental one.
   Result.Gutter.Visible:=True;
   Result.OnGutterClick:=SynGutterClick;
+
+  // New addition: Ctrl+click on a GOSUB/GOTO name (see SynMouseUp). SynEdit's
+  // Ctrl mouse links only draw the link: blue, and underlined (its default
+  // has no underline, the Lazarus IDE adds it from its own options).
+  Result.MouseOptions:=Result.MouseOptions+[emShowCtrlMouseLinks];
+  Result.MouseLinkColor.Style:=[fsUnderline];
+  Result.OnMouseLink:=SynMouseLink;
+  Result.OnMouseUp:=SynMouseUp;
 
   // New addition (code folding, see eufoldsyn.pas): the fold gutter draws the
   // fold around the caret with MarkupInfoCurrentFold, a TSynSelectedColor
@@ -486,6 +578,25 @@ end;
 function CFN : String;
 begin
   Result:=IH.SynList[IH.Cur];
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Edit > Go Back: undoes the last Ctrl+click jump in Ed (see SynMouseUp).
+procedure JumpBack(Ed : TSynEdit);
+var
+  H : TJumpHistory;
+  J : TJumpPos;
+begin
+  H:=JumpHistoryOf(Ed);
+  if Length(H.Stack)=0 then Exit;
+  J:=H.Stack[High(H.Stack)];
+  SetLength(H.Stack,Length(H.Stack)-1);
+
+  if J.Caret.Y>Ed.Lines.Count then J.Caret:=Point(1,Ed.Lines.Count);
+  if J.Caret.Y<1 then J.Caret:=Point(1,1);
+  Ed.LogicalCaretXY:=J.Caret;
+  Ed.TopLine:=J.TopLine;
+  if Ed.CanFocus then Ed.SetFocus;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
