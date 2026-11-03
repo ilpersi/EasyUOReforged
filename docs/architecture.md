@@ -107,8 +107,10 @@ There is no `.lfm` form file. The original `main.dfm` embedded its icon and imag
 list as Delphi-format binary property streams, which don't translate cleanly to
 LCL's streaming format. Rather than risk a subtly-broken hand-converted `.lfm`,
 `easyuo/main.pas` constructs and wires every control in code. The toolbar/menu
-icons are reconstructed at runtime by `mainicons.pas` from the original DFM's
-(standard-format underneath) bitmap and icon streams.
+icons are in the MENU Designer's style: `easyuo/make_toolbar_icons.py` writes them
+into `mainiconsdata.pas` as base64 PNGs. The application icon keeps the original's
+emblem: `easyuo/make_app_icon.py` writes `appicon.ico`, `appicon.res` (the
+executables' icon, and the taskbar's) and `appicondata.pas` (the windows' copy).
 
 ### Syntax highlighter
 

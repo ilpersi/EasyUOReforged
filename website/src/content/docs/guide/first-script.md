@@ -7,6 +7,9 @@ sidebar:
 
 ## The window
 
+- **Toolbar**: the commands you use most, each with its name under the icon. A button that can't be used
+  right now is grey: *Start* turns green once the tab has a script, *Pause* orange and *Stop* red while
+  it runs.
 - **Tabs**: one open script per tab. Use *File → New* or *Open*, or drag a `.euo` file onto the window.
   The tabs of the last session come back when you start the app again.
 - **Editor** (left and centre): a code editor with syntax highlighting and line numbers.
@@ -41,7 +44,7 @@ sidebar:
    halt
    ```
 
-3. Press **F9** (*Control → Start*), or the Play button on the toolbar.
+3. Press **F9** (*Control → Start*), or the Start button on the toolbar.
 4. *Control → Pause*, *Stop* and *Stop All* (stops the scripts of every tab) control execution. The editor
    is read-only while a script runs.
 

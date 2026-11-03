@@ -26,7 +26,9 @@ unit main;
   full extraction story), so the real icons are restored via that unit, and
   ShowCaptions is back to its original default (False -- the original DFM
   never sets it, so the icon-only look this restores IS the authentic one,
-  not a new stylistic choice).
+  not a new stylistic choice). The toolbar/menu icons themselves have since been
+  redrawn in the MENU Designer's style, in the same slots (see mainicons.pas),
+  and the toolbar shows captions under them again, as the Designer does.
 
   Two modernizations applied per the migration plan's explicit instructions:
   - Drag-and-drop uses TCustomForm.AllowDropFiles/OnDropFiles (confirmed present
@@ -103,6 +105,7 @@ type
     FormatScript2,FoldAll2,UnfoldAll2 : TMenuItem;
     ToolBar           : TToolBar;
     ImageList         : TImageList;
+    DisabledImageList : TImageList;
     StatusBar         : TStatusBar;
     SynHilite         : TSynEUOSyn;
     SynRec            : TSynMacroRecorder;
@@ -171,14 +174,13 @@ begin
 
   Left := 200;
   Top := 122;
-  Width := 661;
-  Height := 381;
+  Width := 860;  // was 661: the toolbar's captions need the width for one row
+  Height := 394; // was 381: the same editor height under the taller toolbar
   Caption := 'EasyUO Reforged ' + REFORGED_VERSION;
   Position := poScreenCenter;
   OnCloseQuery := FormCloseQuery;
 
-  TempIcon := LoadAppIcon; // see mainicons.pas -- the original window icon,
-                            // restored from main.dfm's Icon.Data
+  TempIcon := LoadAppIcon; // see mainicons.pas
   try
     Icon.Assign(TempIcon);
   finally
@@ -355,47 +357,47 @@ begin
 
   ////////////////////////////////////////////////////////////////////////////
   ImageList := TImageList.Create(Self);
-  LoadToolbarIcons(ImageList); // see mainicons.pas -- real icons restored
-                                // from the original DFM's binary streams
+  LoadToolbarIcons(ImageList); // see mainicons.pas
+  DisabledImageList := TImageList.Create(Self);
+  LoadDisabledToolbarIcons(DisabledImageList);
 
   ////////////////////////////////////////////////////////////////////////////
   ToolBar := TToolBar.Create(Self);
   ToolBar.Parent := Self;
   ToolBar.Align := alTop;
   ToolBar.AutoSize := True;
-  ToolBar.ButtonHeight := 25;
+  ToolBar.ButtonHeight := 38; // the icon above the caption, as the MENU Designer
   ToolBar.Flat := True;
-  // ShowCaptions left at its default (False) -- matches the original DFM,
-  // which never sets it; icon-only is the authentic look, now that
-  // LoadToolbarIcons above gives every button a real icon to show instead.
+  ToolBar.ShowCaptions := True; // the original DFM never set it (icons only)
   ToolBar.Images := ImageList;
+  ToolBar.DisabledImages := DisabledImageList;
 
-  AddTool('New', '&New', 1);
-  AddTool('Open', '&Open...', 2);
-  ReopenBtn := AddTool('Reopen', '&Reopen', 9);
+  AddTool('New', 'New', 1);
+  AddTool('Open', 'Open', 2);
+  ReopenBtn := AddTool('Reopen', 'Reopen', 9);
   ReopenBtn.OnMouseDown := ToolButtonReopen;
   AddToolSep;
-  ToolButton4 := AddTool('Save', '&Save', 3);
-  AddTool('Close', '&Close', 6);
+  ToolButton4 := AddTool('Save', 'Save', 3);
+  AddTool('Close', 'Close', 6);
   AddToolSep;
-  ToolButton7 := AddTool('Cut', 'Cu&t', 22);
-  ToolButton8 := AddTool('Copy', '&Copy', 23);
-  ToolButton9 := AddTool('Paste', '&Paste', 24);
+  ToolButton7 := AddTool('Cut', 'Cut', 22);
+  ToolButton8 := AddTool('Copy', 'Copy', 23);
+  ToolButton9 := AddTool('Paste', 'Paste', 24);
   AddToolSep;
-  AddTool('Find', '&Find...', 27);
-  AddTool('Replace', '&Replace...', 28);
-  FormatButton := AddTool('Format Script', 'F&ormat Script', 220); // new addition
+  AddTool('Find', 'Find', 27);
+  AddTool('Replace', 'Replace', 28);
+  FormatButton := AddTool('Format Script', 'Format', 220); // new addition
   AddToolSep;
-  ToolButton14 := AddTool('Start', '&Start', 60);
-  ToolButton15 := AddTool('Pause', '&Pause', 61);
-  ToolButton16 := AddTool('Stop', 'S&top', 62);
-  AddTool('Stop All', 'Stop &All', 63);
+  ToolButton14 := AddTool('Start', 'Start', 60);
+  ToolButton15 := AddTool('Pause', 'Pause', 61);
+  ToolButton16 := AddTool('Stop', 'Stop', 62);
+  AddTool('Stop All', 'Stop All', 63);
   AddToolSep;
-  AddTool('New Client', '&New Client', 81);
-  ToolButton24 := AddTool('Swap To Next Client', '&Swap To Next Client', 82);
+  AddTool('New Client', 'New Client', 81);
+  ToolButton24 := AddTool('Swap To Next Client', 'Swap Client', 82);
   AddToolSep;
-  AddTool('Help', '&Help...', 100);
-  AddTool('Go To Website', '&Website...', 101);
+  AddTool('Help', 'Help', 100);
+  AddTool('Go To Website', 'Website', 101);
 
   ////////////////////////////////////////////////////////////////////////////
   StatusBar := TStatusBar.Create(Self);
@@ -811,7 +813,8 @@ begin
     // Port change: was http://wiki.easyuo.com, which is gone. The documentation site is built from
     // this repo's website\ folder.
    100 : ShellExecute(0,'open','https://ilpersi.github.io/EasyUOReforged/','','',SW_SHOW);
-   101 : ShellExecute(0,'open','http://www.easyuo.com','','',SW_SHOW);
+    // Port change: was http://www.easyuo.com, the original project's site.
+   101 : ShellExecute(0,'open','https://github.com/ilpersi/EasyUOReforged','','',SW_SHOW);
    102 : ShowMessage('EasyUO Reforged '+REFORGED_VERSION+#13#10#13#10+
            'A community port of EasyUO (originally by Cheffe) to Lazarus/'+
            'Free Pascal.'+#13#10+

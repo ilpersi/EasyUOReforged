@@ -10,10 +10,9 @@ program EasyUOReforged;
 {$apptype GUI}
 
 {
-  Windows executable resource: the application icon (RT_GROUP_ICON "MAINICON"),
-  carried over from the original easyuo\EasyUO.res. Regenerate appicon.res from
-  appicon.rc / appicon.ico with fpcres if the icon ever changes:
-    fpcres easyuo\appicon.rc -o easyuo\appicon.res -of res
+  Windows executable resource: the application icon (RT_GROUP_ICON "MAINICON").
+  If the icon ever changes, easyuo\make_app_icon.py regenerates appicon.ico and
+  appicon.res, and the windows' copy of it in easyuo\appicondata.pas.
 }
 {$R easyuo\appicon.res}
 
