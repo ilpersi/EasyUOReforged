@@ -79,6 +79,7 @@ with its page in the same PR. Mark it `origin: reforged` in the frontmatter.
 
 A change script users would notice also adds a line under `## Unreleased` in
 [`CHANGELOG.md`](CHANGELOG.md); that section becomes the next release's notes.
+Keep each entry on one line, because the release page shows every line break.
 `website/README.md` explains the page format and how to preview the site.
 
 ## Pull requests

@@ -182,7 +182,8 @@ If a build works in CI but not on your machine, compare your steps with `ci.yml`
 ## Cutting a release
 
 Each change that script users would notice adds a line under `## Unreleased` in `CHANGELOG.md`, in
-`### Added`, `### Changed` or `### Fixed`. When it is time to release, from a clean `main`:
+`### Added`, `### Changed` or `### Fixed`. Keep each entry on one line, because the release page shows
+every line break. When it is time to release, from a clean `main`:
 
 ```powershell
 pwsh tools/release.ps1 v26.11.05
