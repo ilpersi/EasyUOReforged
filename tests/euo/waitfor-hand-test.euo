@@ -1,0 +1,72 @@
+; ============================================================================
+;  waitfor hand test: what needs a live client, or a person pressing buttons.
+;  Needs a logged-in client attached. Run ONE case at a time: set %case below,
+;  press Play, do what the case's comment says, and note the result box.
+;
+;  case  do this                                    expected box
+;  ----  -----------------------------------------  ---------------------------
+;   1    close the paperdoll, then press Play       WaitRes -1, in under a second
+;   2    press Play, within 15 s use anything that  WaitRes -1, about when the
+;        gives a target cursor (a spell, a tool)    cursor appeared; Esc it after
+;   3    press Play, do nothing in the client       WaitRes 0, about 5 s
+;   4    press Play, within 20 s open your status   WaitRes -1, with what is on
+;        window, or get a target cursor. Opening    top and whether a cursor
+;        the backpack alone must NOT end it unless  shows
+;        it is wider than 100
+;   5    press Play, press Pause within 5 s, wait   WaitRes 0; elapsed about 5 s
+;        about 10 s, press Play                     PLUS the time you were paused
+;   6    press Play, press Stop within 60 s         no box; the script stops at
+;                                                   once and the inspector's
+;                                                   #WaitRes reads N/A
+; ============================================================================
+set %case 1
+
+goto case . %case
+
+case1:
+  event macro 8 1                 ; open the paperdoll
+  set #scnt2 0
+  waitfor #ContName = paperdoll_gump 5s
+  set %took #scnt2
+  display ok case 1: WaitRes #WaitRes  took %took tenths$top gump: #ContName
+  halt
+
+case2:
+  event sysmessage waitfor test: get a target cursor within 15 seconds
+  set #scnt2 0
+  waitfor #TargCurs = 1 15s
+  set %took #scnt2
+  display ok case 2: WaitRes #WaitRes  took %took tenths$TargCurs: #TargCurs
+  halt
+
+case3:
+  set #TargCurs 0
+  set #scnt2 0
+  waitfor #TargCurs = 1 5s
+  set %took #scnt2
+  display ok case 3: WaitRes #WaitRes  took %took tenths (expect about 50)
+  halt
+
+case4:
+  event sysmessage waitfor test: open your status window, or get a target cursor, within 20 seconds
+  set #scnt2 0
+  waitfor ( ( #ContName = status_gump || #ContName = paperdoll_gump ) && #ContSizeX > 100 ) || ( #ContName = container_gump && #ContSizeX > 100 ) || #TargCurs = 1 20s
+  set %took #scnt2
+  display ok case 4: WaitRes #WaitRes  took %took tenths$top gump: #ContName  width: #ContSizeX$TargCurs: #TargCurs
+  halt
+
+case5:
+  event sysmessage waitfor test: press Pause now, wait about 10 seconds, press Play
+  set #scnt2 0
+  waitfor 1 = 2 5s
+  set %took #scnt2
+  display ok case 5: WaitRes #WaitRes  took %took tenths (expect 50 + the time paused)
+  halt
+
+case6:
+  event sysmessage waitfor test: press Stop now
+  waitfor 1 = 2 60s
+  display ok case 6: FAILED, the wait was not stopped. WaitRes #WaitRes
+  halt
+
+halt

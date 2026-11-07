@@ -93,6 +93,7 @@
       <word value="UNTIL"/>
       <word value="UOXL"/>
       <word value="WAIT"/>
+      <word value="WAITFOR"/>
       <word value="WHILE"/>
     </Keywords>
     <Keywords Name="System" Attributes="12615680,16777215;False:False." Style="">
@@ -244,6 +245,7 @@
       <word value="#TIME"/>
       <word value="#TP"/>
       <word value="#TRUE"/>
+      <word value="#WAITRES"/>
       <word value="#WEIGHT"/>
     </Keywords>
     <Keywords Name="Bracket" Attributes="255,16777215;False:False.B" Style="">

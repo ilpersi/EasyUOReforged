@@ -4,7 +4,7 @@ description: "Pauses the script for a time, in 50 ms ticks or seconds, plus an o
 kind: command
 category: flow
 syntax: "wait {time} [random]"
-related: ["Sleep", "Pause"]
+related: ["Sleep", "Pause", "WaitFor"]
 aliases: ["delay", "pause script"]
 source: wiki
 ---

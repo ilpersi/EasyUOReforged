@@ -76,6 +76,25 @@ type
 
     procedure TestNameSpaceLocalIsolatesFromDefaultStd;
     procedure TestNameSpaceGlobalSingletonIsSharedAcrossInterpreterInstances;
+
+    procedure TestWaitForAlreadyTrueReturnsAtOnce;
+    procedure TestWaitForTimesOutInTicks;
+    procedure TestWaitForTimesOutInSeconds;
+    procedure TestWaitForDefaultAndUnreadableTimeoutAreTwoSeconds;
+    procedure TestWaitForTimeoutZeroChecksOnce;
+    procedure TestWaitForTimeoutFromAVariable;
+    procedure TestWaitForReadsTheConditionAgainWhileWaiting;
+    procedure TestWaitForAgreesWithIf;
+    procedure TestWaitForAndBindsTighterThanOr;
+    procedure TestWaitForNestedConditionWaitsAndTimesOut;
+    procedure TestWaitForNestedConditionOverContinuationLines;
+    procedure TestWaitForContinuationGoesOnAfterItsLastLine;
+    procedure TestWaitForLeavesResultAlone;
+    procedure TestWaitForBareWordIsANoOp;
+    procedure TestWaitResReadsNAUntilAWaitForAndAfterClear;
+    procedure TestWaitForAsAnIfBody;
+    procedure TestWaitForInLoopsKeepsTheLoopGoing;
+    procedure TestSubAndLabelNamedWaitForStillWork;
   end;
 
 implementation
@@ -813,6 +832,279 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// WAITFOR (port addition). Timing bounds leave room for a GetTickCount step on the low side and
+// for a busy machine on the high side.
+procedure TEuoInterpreterTests.TestWaitForAlreadyTrueReturnsAtOnce;
+var
+  T : QWord;
+begin
+  T := GetTickCount64;
+  PlayScript('waitfor 1 = 1 5s' + #13#10 + 'HALT');
+  AssertEquals('-1', Interp.GetVar('#WaitRes'));
+  AssertTrue('must not wait', GetTickCount64 - T < 1000);
+end;
+
+procedure TEuoInterpreterTests.TestWaitForTimesOutInTicks;
+var
+  T, E : QWord;
+begin
+  T := GetTickCount64;
+  PlayScript('waitfor 1 = 2 4' + #13#10 + 'HALT');
+  E := GetTickCount64 - T;
+  AssertEquals('0', Interp.GetVar('#WaitRes'));
+  AssertTrue('4 ticks are 200 ms, waited ' + IntToStr(E), (E >= 170) and (E < 2000));
+end;
+
+procedure TEuoInterpreterTests.TestWaitForTimesOutInSeconds;
+var
+  T, E : QWord;
+begin
+  T := GetTickCount64;
+  PlayScript('waitfor 1 = 2 1s' + #13#10 + 'HALT');
+  E := GetTickCount64 - T;
+  AssertEquals('0', Interp.GetVar('#WaitRes'));
+  AssertTrue('1s, waited ' + IntToStr(E), (E >= 960) and (E < 3000));
+end;
+
+procedure TEuoInterpreterTests.TestWaitForDefaultAndUnreadableTimeoutAreTwoSeconds;
+var
+  T, E : QWord;
+begin
+  T := GetTickCount64;
+  PlayScript('waitfor 1 = 2' + #13#10 + 'HALT');
+  E := GetTickCount64 - T;
+  AssertEquals('0', Interp.GetVar('#WaitRes'));
+  AssertTrue('omitted, waited ' + IntToStr(E), (E >= 1960) and (E < 4000));
+
+  Interp.Clear;
+  T := GetTickCount64;
+  PlayScript('waitfor 1 = 2 %unset' + #13#10 + 'HALT');
+  E := GetTickCount64 - T;
+  AssertEquals('0', Interp.GetVar('#WaitRes'));
+  AssertTrue('unreadable, waited ' + IntToStr(E), (E >= 1960) and (E < 4000));
+end;
+
+procedure TEuoInterpreterTests.TestWaitForTimeoutZeroChecksOnce;
+var
+  T : QWord;
+begin
+  T := GetTickCount64;
+  PlayScript('waitfor 1 = 2 0' + #13#10 + 'set %f #WaitRes' + #13#10 +
+             'waitfor 1 = 1 0' + #13#10 + 'set %t #WaitRes' + #13#10 + 'HALT');
+  AssertEquals('0', Interp.GetVar('%f'));
+  AssertEquals('-1', Interp.GetVar('%t'));
+  AssertTrue('must not wait', GetTickCount64 - T < 1000);
+end;
+
+procedure TEuoInterpreterTests.TestWaitForTimeoutFromAVariable;
+var
+  T, E : QWord;
+begin
+  T := GetTickCount64;
+  PlayScript('set %t 4' + #13#10 + 'waitfor 1 = 2 %t' + #13#10 + 'HALT');
+  E := GetTickCount64 - T;
+  AssertEquals('0', Interp.GetVar('#WaitRes'));
+  AssertTrue('4 ticks, waited ' + IntToStr(E), (E >= 170) and (E < 1900));
+end;
+
+// #SCnt2 counts tenths of a second, so this condition only comes true while waiting.
+procedure TEuoInterpreterTests.TestWaitForReadsTheConditionAgainWhileWaiting;
+var
+  T, E : QWord;
+begin
+  T := GetTickCount64;
+  PlayScript('set #scnt2 0' + #13#10 + 'waitfor #scnt2 >= 3 20s' + #13#10 + 'HALT');
+  E := GetTickCount64 - T;
+  AssertEquals('-1', Interp.GetVar('#WaitRes'));
+  AssertTrue('about 300 ms, waited ' + IntToStr(E), (E >= 150) and (E < 5000));
+end;
+
+// Each condition goes through IF and through WAITFOR followed by a timeout, and both must answer
+// what the table says.
+procedure TEuoInterpreterTests.TestWaitForAgreesWithIf;
+const
+  Cases : array[0..21] of array[0..1] of String = (
+    ('%a = 5', '-1'),
+    ('%a <> 5', '0'),
+    ('%a < 6', '-1'),
+    ('%a >= 6', '0'),
+    ('%b = ABC', '-1'),
+    ('%a < %b', '0'),
+    ('b in %b', '-1'),
+    ('z in %b', '0'),
+    ('z notin %b', '-1'),
+    ('%a = 5 && %b = abc', '-1'),
+    ('%a = 5 && %b = zzz', '0'),
+    ('%a = 6 || %b = abc', '-1'),
+    ('%a = 6 || %b = zzz', '0'),
+    ('! ( %a = 5 )', '0'),
+    ('%t', '-1'),
+    ('%f', '0'),
+    ('%a = 5 && %b = abc && 1 = 1 && 2 = 2 && 3 = 3 && 4 = 4', '-1'),
+    ('%a = 6 || %a = 7 || %a = 8 || %a = 9 || %a = 5', '-1'),
+    ('( %a = 6 || %b = abc ) && ( %a = 5 || %b = zzz )', '-1'),
+    ('( ( %a = 6 || %b = abc ) && ( %a = 7 || %b = zzz ) ) || %a = 9', '0'),
+    ('( ( ( %a = 6 || %a = 5 ) && %b = abc ) || %a = 9 ) && ! ( %a = 9 )', '-1'),
+    ('( ( ( %a = 6 || %a = 7 ) && %b = abc ) || %a = 5 ) && ( %b = abc || ( %a = 9 && %a = 8 ) )', '-1'));
+var
+  Cnt : Integer;
+begin
+  for Cnt := Low(Cases) to High(Cases) do
+  begin
+    Interp.Clear;
+    PlayScript(
+      'set %a 5' + #13#10 + 'set %b abc' + #13#10 + 'set %t #true' + #13#10 + 'set %f #false' + #13#10 +
+      'set %if 0' + #13#10 +
+      'if ' + Cases[Cnt][0] + #13#10 +
+      '  set %if -1' + #13#10 +
+      'waitfor ' + Cases[Cnt][0] + ' 0' + #13#10 +
+      'HALT');
+    AssertEquals('if ' + Cases[Cnt][0], Cases[Cnt][1], Interp.GetVar('%if'));
+    AssertEquals('waitfor ' + Cases[Cnt][0], Cases[Cnt][1], Interp.GetVar('#WaitRes'));
+  end;
+end;
+
+procedure TEuoInterpreterTests.TestWaitForAndBindsTighterThanOr;
+begin
+  PlayScript(
+    'waitfor 1 = 2 && 1 = 2 || 1 = 1 0' + #13#10 + 'set %a #WaitRes' + #13#10 +
+    'waitfor 1 = 1 || 1 = 2 && 1 = 2 0' + #13#10 + 'set %b #WaitRes' + #13#10 +
+    'waitfor ( 1 = 1 || 1 = 2 ) && 1 = 2 0' + #13#10 + 'set %c #WaitRes' + #13#10 +
+    'HALT');
+  AssertEquals('(F && F) || T', '-1', Interp.GetVar('%a'));
+  AssertEquals('T || (F && F)', '-1', Interp.GetVar('%b'));
+  AssertEquals('(T || F) && F', '0', Interp.GetVar('%c'));
+end;
+
+procedure TEuoInterpreterTests.TestWaitForNestedConditionWaitsAndTimesOut;
+var
+  T, E : QWord;
+begin
+  // One inner branch turns true during the wait.
+  T := GetTickCount64;
+  PlayScript('set #scnt2 0' + #13#10 +
+             'waitfor ( ( 1 = 2 || #scnt2 >= 3 ) && 2 = 2 ) || 3 = 4 20s' + #13#10 + 'HALT');
+  E := GetTickCount64 - T;
+  AssertEquals('-1', Interp.GetVar('#WaitRes'));
+  AssertTrue('about 300 ms, waited ' + IntToStr(E), (E >= 150) and (E < 5000));
+
+  // Stays false: the timeout after the closing parenthesis is the one that counts, not the default.
+  Interp.Clear;
+  T := GetTickCount64;
+  PlayScript('waitfor ( ( 1 = 2 || 1 = 3 ) && 2 = 2 ) || 3 = 4 4' + #13#10 + 'HALT');
+  E := GetTickCount64 - T;
+  AssertEquals('0', Interp.GetVar('#WaitRes'));
+  AssertTrue('4 ticks, waited ' + IntToStr(E), (E >= 170) and (E < 1900));
+end;
+
+procedure TEuoInterpreterTests.TestWaitForNestedConditionOverContinuationLines;
+begin
+  PlayScript(
+    'set #scnt2 0' + #13#10 +
+    'waitfor ( ( 1 = 2 || #scnt2 >= 2 )' + #13#10 +
+    '+ && 2 = 2 )' + #13#10 +
+    '+ || 3 = 4 20s' + #13#10 +
+    'set %after 1' + #13#10 +
+    'HALT');
+  AssertEquals('-1', Interp.GetVar('#WaitRes'));
+  AssertEquals('1', Interp.GetVar('%after'));
+end;
+
+// Polling parses the line again: that must not lose the place after the continuation lines.
+procedure TEuoInterpreterTests.TestWaitForContinuationGoesOnAfterItsLastLine;
+begin
+  PlayScript(
+    'waitfor 1 =' + #13#10 +
+    '+ 2 3' + #13#10 +
+    'set %after 1' + #13#10 +
+    'HALT');
+  AssertEquals('0', Interp.GetVar('#WaitRes'));
+  AssertEquals('1', Interp.GetVar('%after'));
+end;
+
+procedure TEuoInterpreterTests.TestWaitForLeavesResultAlone;
+begin
+  PlayScript('set #result keep' + #13#10 + 'waitfor 1 = 1 0' + #13#10 + 'waitfor 1 = 2 0' + #13#10 + 'HALT');
+  AssertEquals('keep', Interp.GetVar('#Result'));
+end;
+
+procedure TEuoInterpreterTests.TestWaitForBareWordIsANoOp;
+begin
+  PlayScript('waitfor' + #13#10 + 'set %x reached' + #13#10 + 'HALT');
+  AssertEquals('reached', Interp.GetVar('%x'));
+  AssertEquals('N/A', Interp.GetVar('#WaitRes'));
+end;
+
+procedure TEuoInterpreterTests.TestWaitResReadsNAUntilAWaitForAndAfterClear;
+begin
+  AssertEquals('N/A', Interp.GetVar('#WaitRes'));
+  PlayScript('waitfor 1 = 1 0' + #13#10 + 'HALT');
+  AssertEquals('-1', Interp.GetVar('#WaitRes'));
+  Interp.Clear;
+  AssertEquals('N/A', Interp.GetVar('#WaitRes'));
+end;
+
+procedure TEuoInterpreterTests.TestWaitForAsAnIfBody;
+begin
+  PlayScript(
+    'if 1 = 1' + #13#10 +
+    '  waitfor 1 = 2 2' + #13#10 +
+    'else' + #13#10 +
+    '  set %else ran' + #13#10 +
+    'set %after 1' + #13#10 +
+    'if 1 = 2' + #13#10 +
+    '  waitfor 1 = 1 0' + #13#10 +
+    'HALT');
+  AssertEquals('0', Interp.GetVar('#WaitRes'));
+  AssertEquals('N/A', Interp.GetVar('%else'));
+  AssertEquals('1', Interp.GetVar('%after'));
+end;
+
+// A one-line FOR body: LineInfo aims NextLine at the loop's head before the command runs, and
+// polling must put that back, or the loop ends after one pass.
+procedure TEuoInterpreterTests.TestWaitForInLoopsKeepsTheLoopGoing;
+begin
+  PlayScript(
+    'for %i 1 3' + #13#10 +
+    '  waitfor 1 = 2 2' + #13#10 +
+    'set %n 0' + #13#10 +
+    'while %n < 3' + #13#10 +
+    '{' + #13#10 +
+    '  waitfor 1 = 2 2' + #13#10 +
+    '  set %n %n + 1' + #13#10 +
+    '}' + #13#10 +
+    'set %after 1' + #13#10 +
+    'HALT');
+  AssertEquals('three passes of the FOR', '4', Interp.GetVar('%i'));
+  AssertEquals('three passes of the WHILE', '3', Interp.GetVar('%n'));
+  AssertEquals('1', Interp.GetVar('%after'));
+end;
+
+procedure TEuoInterpreterTests.TestSubAndLabelNamedWaitForStillWork;
+var
+  T : QWord;
+begin
+  T := GetTickCount64;
+  PlayScript(
+    'gosub waitfor 7' + #13#10 +
+    'set %res #result' + #13#10 +
+    'goto waitfor' + #13#10 +
+    'set %skipped yes' + #13#10 +
+    'waitfor:' + #13#10 +
+    'set %label reached' + #13#10 +
+    'HALT' + #13#10 +
+    'sub waitfor' + #13#10 +
+    '  set %sub %1' + #13#10 +
+    'return done');
+  AssertEquals('7', Interp.GetVar('%sub'));
+  AssertEquals('done', Interp.GetVar('%res'));
+  AssertEquals('N/A', Interp.GetVar('%skipped'));
+  AssertEquals('reached', Interp.GetVar('%label'));
+  AssertEquals('none of these lines is the command', 'N/A', Interp.GetVar('#WaitRes'));
+  AssertTrue('nothing waits', GetTickCount64 - T < 1000);
+end;
+
 initialization
   RegisterTest(TEuoInterpreterTests);
 end.

@@ -184,6 +184,7 @@ var
    '#PROPERTY'#13#10+
    '#RESULT'#13#10+
    '#STRRES'#13#10+
+   '#WAITRES'#13#10+
 
     #13#10+
    '\Script'#13#10+

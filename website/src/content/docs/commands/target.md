@@ -5,7 +5,7 @@ kind: command
 category: client
 syntax: "target [timeout]"
 needsClient: true
-related: ["#TargCurs", "#LTargetID", "event Macro"]
+related: ["#TargCurs", "#LTargetID", "event Macro", "WaitFor"]
 aliases: ["wait for target", "target cursor"]
 source: wiki
 ---
@@ -19,7 +19,8 @@ source: wiki
 | `timeout` | Optional. The longest to wait. Default: 2 seconds. A time is a number of **ticks** of 50 ms (`20` is one second), or a whole number of **seconds** followed by
 `s` (`5s`). |
 
-`target` does not say whether the cursor appeared. Check [`#TargCurs`](/variables/targcurs/) afterwards.
+`target` does not say whether the cursor appeared. Check [`#TargCurs`](/variables/targcurs/) afterwards, or use
+[`waitfor #TargCurs = 1`](/commands/waitfor/), which reports it.
 
 ## Example
 

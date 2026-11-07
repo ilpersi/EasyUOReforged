@@ -72,7 +72,7 @@ uses
 // vocabulary -- see this unit's header comment -- no reason to also risk a
 // second, independent copy for completion).
 const
-  CommandKeywords : array[0..57] of String = (
+  CommandKeywords : array[0..58] of String = (
     'BREAK', 'CALL', 'CHOOSESKILL', 'CLICK', 'CMPPIX', 'CONTINUE', 'CONTPOS',
     'DELETEJOURNAL', 'DELETEVAR', 'DISPLAY', 'ELSE', 'EVENT', 'EXECUTE',
     'EXEVENT', 'EXIT', 'FINDITEM', 'FOR', 'GETSHOPINFO', 'GETUOTITLE',
@@ -81,10 +81,10 @@ const
     'PATH', 'PAUSE', 'REPEAT', 'RETURN', 'SAVEPIX', 'SCANBUFFS', 'SCANJOURNAL', 'SEND', 'SET',
     'SETSHOPITEM', 'SETUOTITLE', 'SHUTDOWN', 'SLEEP', 'SOUND', 'SQL', 'STOP',
     'STR', 'SUB', 'TARGET', 'TERMINATE', 'TILE', 'UNTIL', 'UOXL', 'WAIT',
-    'WHILE'
+    'WAITFOR', 'WHILE'
   );
 
-  SystemKeywords : array[0..158] of String = (
+  SystemKeywords : array[0..159] of String = (
     '#AR', '#BACKPACKID', '#BUFFBAROPEN', '#BUFFCLILOC', '#BUFFCNT', '#BUFFDESC', '#BUFFID',
     '#BUFFINDEX', '#BUFFNAME', '#BUFFTIME', '#CHARDIR', '#CHARGHOST', '#CHARID', '#CHARNAME',
     '#CHARPOSX', '#CHARPOSY', '#CHARPOSZ', '#CHARSTATUS', '#CLICNT',
@@ -112,7 +112,7 @@ const
     '#SMC', '#SPC', '#SQLCHANGES', '#SQLCNT', '#SQLLASTID', '#SQLRES',
     '#STAMINA', '#STR', '#STRMAX', '#STRRES', '#SYSMSG',
     '#SYSMSGCOL', '#SYSTIME', '#TARGCURS', '#TILECNT', '#TILEFLAGS',
-    '#TILENAME', '#TILETYPE', '#TILEZ', '#TIME', '#TP', '#TRUE', '#WEIGHT'
+    '#TILENAME', '#TILETYPE', '#TILEZ', '#TIME', '#TP', '#TRUE', '#WAITRES', '#WEIGHT'
   );
 
 // Populates Hilite's MainRules with the EasyUO script language definition.

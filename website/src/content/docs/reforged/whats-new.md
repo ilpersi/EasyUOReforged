@@ -15,6 +15,9 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 
 ## New commands and variables
 
+- **[`WaitFor`](/commands/waitfor/)**: wait until a condition is true or a timeout passes, instead of a hand-written
+  polling loop or a guessed wait. The condition works as for `if`, with `&&`, `||` and nested parentheses.
+  [`#WaitRes`](/variables/waitres/) says which happened.
 - **[`Path`](/commands/path/)**: plan a walking route anywhere on the facet, around walls and water, over
   bridges and up stairs, from the client's own map files, and walk it.
   - [`path go`](/commands/path/go/) and [`path walk`](/commands/path/walk/) walk a route and wait;

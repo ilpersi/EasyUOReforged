@@ -36,6 +36,11 @@ type
     procedure TestRunToCursorIsOneShotAndConsumedOnHit;
     procedure TestConditionalBreakpointOnlyPausesWhenTrue;
     procedure TestPlayChoosesMenuLogicFromTheLoadedScript;
+    procedure TestWaitForEndsAtOnceOnStop;
+    procedure TestWaitForSeesAVariableSetFromAnotherThread;
+    procedure TestWaitForPauseDoesNotUseUpTheTimeout;
+    procedure TestWaitForConditionMetDuringPauseCounts;
+    procedure TestWaitForIsOneStep;
   end;
 
 implementation
@@ -220,6 +225,82 @@ begin
   Exec.State := PLAY;
   AssertTrue('the next script', Exec.Parser.MenuLogic = mlMenu15);
   AssertTrue(WaitForVar('%x', 'two'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// WAITFOR (port addition) on the real thread: what only the executor's Stop, Pause and stepping
+// can show. The synchronous cases are in EuoInterpreterTests.
+procedure TEuoExecutorTests.TestWaitForEndsAtOnceOnStop;
+var
+  StartTick : Cardinal;
+begin
+  Exec.LoadScript('SET %a 1' + #13#10 + 'waitfor 1 = 2 30s' + #13#10 + 'SET %after 1' + #13#10 + 'HALT');
+  Exec.State := PLAY;
+  AssertTrue(WaitForVar('%a', '1'));
+  Sleep(150);
+  StartTick := GetTickCount;
+  Exec.State := STOP;
+  while (not Exec.Paused) and (GetTickCount - StartTick < 5000) do
+    Sleep(5);
+  AssertTrue('the thread did not leave the wait', Exec.Paused);
+  AssertEquals('N/A', Exec.GetVar('%after'));
+  AssertEquals('a stopped wait reports nothing', 'N/A', Exec.GetVar('#WaitRes'));
+end;
+
+// The GUI's variable polling and editing go through this same lock.
+procedure TEuoExecutorTests.TestWaitForSeesAVariableSetFromAnotherThread;
+begin
+  Exec.LoadScript('SET %a 1' + #13#10 + 'waitfor %go = 1 30s' + #13#10 + 'SET %after 1' + #13#10 + 'HALT');
+  Exec.State := PLAY;
+  AssertTrue(WaitForVar('%a', '1'));
+  Sleep(150);
+  AssertEquals('still waiting', 'N/A', Exec.GetVar('#WaitRes'));
+  Exec.SetVar('%go', '1');
+  AssertTrue('the wait did not end', WaitForVar('#WaitRes', '-1', 5000));
+  AssertTrue(WaitForVar('%after', '1'));
+end;
+
+procedure TEuoExecutorTests.TestWaitForPauseDoesNotUseUpTheTimeout;
+var
+  StartTick : Cardinal;
+begin
+  Exec.LoadScript('SET %a 1' + #13#10 + 'waitfor 1 = 2 1s' + #13#10 + 'SET %after 1' + #13#10 + 'HALT');
+  Exec.State := PLAY;
+  AssertTrue(WaitForVar('%a', '1'));
+  Sleep(100);
+  Exec.State := PAUSE;
+  Sleep(1500);   // longer than the whole timeout
+  AssertEquals('held by Pause', 'N/A', Exec.GetVar('#WaitRes'));
+
+  StartTick := GetTickCount;
+  Exec.State := PLAY;
+  AssertTrue('the wait did not end', WaitForVar('#WaitRes', '0', 5000));
+  AssertTrue('the rest of the timeout must still run, it took ' + IntToStr(GetTickCount - StartTick),
+    GetTickCount - StartTick >= 400);
+  AssertTrue(WaitForVar('%after', '1'));
+end;
+
+procedure TEuoExecutorTests.TestWaitForConditionMetDuringPauseCounts;
+begin
+  Exec.LoadScript('SET %a 1' + #13#10 + 'waitfor %go = 1 10' + #13#10 + 'HALT');
+  Exec.State := PLAY;
+  AssertTrue(WaitForVar('%a', '1'));
+  Sleep(100);
+  Exec.State := PAUSE;
+  Sleep(1000);   // longer than the timeout
+  Exec.SetVar('%go', '1');
+  Exec.State := PLAY;
+  AssertTrue('must report met, not timed out', WaitForVar('#WaitRes', '-1', 5000));
+end;
+
+procedure TEuoExecutorTests.TestWaitForIsOneStep;
+begin
+  Exec.LoadScript('waitfor 1 = 2 4' + #13#10 + 'SET %b 2' + #13#10 + 'HALT');
+  Exec.State := STEPINTO;
+  AssertTrue('the step did not finish', WaitForVar('#WaitRes', '0', 5000));
+  Sleep(150);
+  AssertEquals('N/A', Exec.GetVar('%b'));
+  AssertEquals(Cardinal(PAUSE), Exec.State);
 end;
 
 initialization

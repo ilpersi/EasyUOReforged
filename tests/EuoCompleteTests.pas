@@ -154,6 +154,8 @@ begin
     Ed.LogicalCaretXY:=Point(2,2);
     BuildCompletionList(L,Ed);
     AssertTrue('on the command word: the full list',L.Count>200);
+    AssertTrue('the full list has WAITFOR',L.IndexOf('WAITFOR')>=0);
+    AssertTrue('the full list has #WAITRES',L.IndexOf('#WAITRES')>=0);
 
     Ed.LogicalCaretXY:=Point(12,3);
     BuildCompletionList(L,Ed);

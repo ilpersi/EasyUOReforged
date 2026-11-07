@@ -73,6 +73,11 @@ unit EuoInterpreter;
   before. Under the 1.6
   logic MENU must do what EasyUO 1.6 did as recorded in tests/fixtures/menu16, which
   EuoMenu16GoldenTests replays.
+  Likewise the WAITFOR command plus the read-only #WaitRes (index 128): waits until a condition,
+  evaluated by the same Eval as IF, is true or a timeout passes. A line starting with it was a
+  silent no-op before. It waits only through Delay, as TARGET does, and re-reads its line through
+  ParseLine on each poll with NextLine put back afterwards, because LineInfo may have aimed
+  NextLine at a loop head.
 }
 
 {$mode delphi}{$H+}
@@ -161,6 +166,7 @@ type
     PathGoalAcc  : Integer;
     PathCli      : TWalkClient;   // the walker's view of the client (TEuoWalkClient)
     PathLogFile  : String;        // path set log: where the walker's decisions go, '' = nowhere
+    WaitRes      : String;        // port addition (WAITFOR)
 
     procedure    RegisterCommands;
     function     RawLineText : String;
@@ -215,6 +221,7 @@ type
     procedure    IfProc;
     procedure    SetProc;
     procedure    WaitProc;
+    procedure    WaitForProc;
     procedure    SqlProc;
     procedure    PathProc;
     procedure    PathReset;
@@ -413,7 +420,7 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 const
-  VarNamesR : Array[0..127] of String = (
+  VarNamesR : Array[0..128] of String = (
     'CliCnt','CliNr','Time','Date','SysTime','Random','OSVer','CharPosX',
     'CharPosY','CharPosZ','CharID','CharGhost','CharStatus','CharDir',
     'CharName','Sex','Str','MaxWeight','Dex','Int','Hits','MaxHits',
@@ -438,7 +445,9 @@ const
     // Port additions (PATH): indices 119..124.
     'PathCnt','PathState','PathX','PathY','PathZ','PathDir',
     // Port additions (mount and equip layer): indices 125..127.
-    'MountID','MountType','FindLayer');
+    'MountID','MountType','FindLayer',
+    // Port addition (WAITFOR): index 128.
+    'WaitRes');
 
   VarNamesRW : Array[0..33] of String = (
     'SCnt','SCnt2','LShard','ContPosX','ContPosY','NextCPosX','NextCPosY',
@@ -515,6 +524,7 @@ begin
   SqlLastID:=0;
   SqlRes:='N/A';
   PathReset;
+  WaitRes:='N/A';
 
   CmdRegistry:=TEuoCommandRegistry.Create;
   RegisterCommands;
@@ -574,6 +584,7 @@ begin
   SqlLastID:=0;
   SqlRes:='N/A';
   PathReset;   // port addition (PATH): options, rules and the last path
+  WaitRes:='N/A';   // port addition (WAITFOR)
 
   UOVar.IgnoreCont($FFFFFFFF);
 end;
@@ -909,6 +920,8 @@ begin
     122: Result:=IntToStr   (PathY        );
     123: Result:=IntToStr   (PathZ        );
     124: Result:=IntToStr   (PathDir      );
+    // Port addition (WAITFOR).
+    128: Result:=            WaitRes       ;
     500: Result:=IntToStr   (GetTickCount div 1000 - SCntBase);
     501: Result:=IntToStr   (GetTickCount div 100 - SCnt2Base);
     525: Result:=            _Result       ;
@@ -1348,6 +1361,7 @@ begin
   CmdRegistry.Register('LinesPerCycle',LinesPerCycleProc);
   CmdRegistry.Register('Sql',SqlProc);   // port addition
   CmdRegistry.Register('Path',PathProc); // port addition; checks for a client itself
+  CmdRegistry.Register('WaitFor',WaitForProc); // port addition
 
   // Cmd2 -- client-dependent (RequiresClient=True).
   CmdRegistry.Register('Key',KeyProc,True);
@@ -1425,6 +1439,56 @@ begin
   until True;
 
   StdCmd.Wait(D1*50,D2*50);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition. WaitFor {condition} [timeout]: polls the condition every tick until it is true
+// (#WaitRes -1) or the timeout passes (#WaitRes 0). The condition is IF's: Eval(1) collapses it to
+// one word, leaving the timeout as word 2, where IF has its line count. Eval is destructive and
+// variables are substituted by ParseLine, so each poll parses the line again. Time held by Pause
+// does not count, the same way TEuoWalkClient.Wait leaves it out; the clock is read, not counted
+// in calls to Delay, because each call takes up to a GetTickCount step longer than asked. Stop
+// leaves #WaitRes as it was.
+procedure TEuoInterpreter.WaitForProc;
+var
+  Ticks    : Cardinal;
+  Start    : QWord;
+  PausedMs : QWord;
+  T, E     : QWord;
+  Line     : Integer;
+begin
+  if ParList.Count<2 then Exit;
+  Eval(1);
+
+  Ticks:=40;
+  if ParList.Count>2 then
+    Ticks:=ParseTicksOrSeconds(ParList[2],40);
+
+  Start:=GetTickCount64;
+  PausedMs:=0;
+  repeat
+    if ParList[1].Int=-1 then
+    begin
+      WaitRes:='-1';
+      Exit;
+    end;
+    if GetTickCount64-Start-PausedMs>=QWord(Ticks)*50 then
+    begin
+      WaitRes:='0';
+      Exit;
+    end;
+
+    T:=GetTickCount64;
+    if not Delay(50) then Exit;
+    E:=GetTickCount64-T;
+    if E>50+250 then Inc(PausedMs,E-50);   // held by Pause
+
+    Line:=NextLine;
+    NextLine:=CurLine;
+    ParseLine(ParList);
+    NextLine:=Line;
+    Eval(1);
+  until False;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

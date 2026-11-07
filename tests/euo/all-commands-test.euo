@@ -1460,6 +1460,23 @@ sub sec_misc
   set %r %r , after
   gosub t_eq sleep_and_wait_with_bad_arguments_are_noops %r beforeafter
 
+  ; ---- waitFor  [Reforged]  (#waitRes: -1 condition met, 0 timed out) -------------------------
+  set %r keep
+  set #result %r
+  waitFor 1 = 1 5s
+  gosub t_eq waitfor_leaves_result_alone #result keep
+  gosub t_eq waitfor_condition_already_true #waitres -1
+  waitFor 1 = 2 0
+  gosub t_eq waitfor_timeout_0_checks_once #waitres 0
+  waitFor 1 = 2 2
+  gosub t_eq waitfor_times_out_in_ticks #waitres 0
+  waitFor ( ( 1 = 2 || 2 = 2 ) && 3 = 3 ) || 4 = 5 0
+  gosub t_eq waitfor_nested_and_or_true #waitres -1
+  waitFor ( ( 1 = 2 || 2 = 3 ) && 3 = 3 ) || 4 = 5 0
+  gosub t_eq waitfor_nested_and_or_false #waitres 0
+  waitFor
+  gosub t_eq waitfor_with_no_condition_is_a_noop #waitres 0
+
   ; ---- deleteVar of something that does not exist ---------------------------------------------
   deleteVar v_surely_not_defined
   deleteVar
