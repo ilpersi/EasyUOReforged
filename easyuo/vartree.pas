@@ -145,6 +145,7 @@ var
     #13#10+
    '\Journal & messages'#13#10+
    '#JCOLOR'#13#10+
+   '#JFOUND'#13#10+
    '#JINDEX'#13#10+
    '#JOURNAL'#13#10+
    '#SYSMSG'#13#10+

@@ -15,6 +15,9 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 
 ## New commands and variables
 
+- **[`FindJournal`](/commands/findjournal/)**: search the journal lines since a saved [`#JIndex`](/variables/jindex/) for
+  a colour and any of several texts, and wait for them up to a timeout, instead of a hand-written `scanjournal` loop.
+  `*` matches any colour or any text. [`#JFound`](/variables/jfound/) gives the line's number.
 - **[`WaitFor`](/commands/waitfor/)**: wait until a condition is true or a timeout passes, instead of a hand-written
   polling loop or a guessed wait. The condition works as for `if`, with `&&`, `||` and nested parentheses.
   [`#WaitRes`](/variables/waitres/) says which happened.

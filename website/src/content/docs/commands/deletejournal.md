@@ -5,7 +5,7 @@ kind: command
 category: client
 syntax: "deletejournal"
 needsClient: true
-related: ["ScanJournal", "#JIndex", "#Journal"]
+related: ["ScanJournal", "FindJournal", "#JIndex", "#Journal"]
 aliases: ["clear journal"]
 source: wiki
 ---
@@ -15,8 +15,9 @@ from later `scanjournal` calls: they then read `N/A`. It marks text you have alr
 handled twice.
 
 :::tip
-Following [`#JIndex`](/variables/jindex/) is simpler and never skips or repeats a line. `deletejournal` is
-kept for older scripts.
+Following [`#JIndex`](/variables/jindex/) is simpler and never skips or repeats a line, and
+[`findjournal`](/commands/findjournal/) searches that way in one line. `deletejournal` is kept for older scripts.
+Lines it hides are not searched by `findjournal` either.
 :::
 
 `deletejournal` takes no line number on purpose. If new lines arrive between `scanjournal` and

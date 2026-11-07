@@ -6,7 +6,7 @@ category: client
 syntax: "scanjournal [line]"
 needsClient: true
 sets: ["#Journal", "#JColor"]
-related: ["DeleteJournal", "#JIndex", "#Journal", "#SysMsg"]
+related: ["FindJournal", "DeleteJournal", "#JIndex", "#Journal", "#SysMsg"]
 aliases: ["journal", "read journal", "chat"]
 dll: GetJournal
 source: wiki
@@ -14,6 +14,11 @@ source: wiki
 
 `scanjournal` reads one line of the client's journal into [`#Journal`](/variables/journal/), and its colour
 into [`#JColor`](/variables/jcolor/).
+
+:::tip
+To look for texts rather than read lines one by one, [`findjournal`](/commands/findjournal/) does the whole loop in one
+line, and can wait for them.
+:::
 
 ## Parameters
 

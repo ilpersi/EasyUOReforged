@@ -78,6 +78,10 @@ unit EuoInterpreter;
   silent no-op before. It waits only through Delay, as TARGET does, and re-reads its line through
   ParseLine on each poll with NextLine put back afterwards, because LineInfo may have aimed
   NextLine at a loop head.
+  Likewise the FINDJOURNAL command plus the read-only #JFound (index 129): searches the journal
+  lines since a bookmark for a colour and any of several texts (EuoJournalSearch.pas), waiting up to
+  a timeout. A line starting with it was a silent no-op before. Like WAITFOR it waits only through
+  Delay; it reads its parameters once, so it never re-parses its line.
 }
 
 {$mode delphi}{$H+}
@@ -89,7 +93,7 @@ uses
   EuoSortedList, EuoCommandRegistry, EuoStdCommands, EuoComm, EuoMenu, EuoMenu16, EuoMenuSelect,
   EuoScriptWords,
   uotypes, access, ReforgedVersion, uoselector, uovariables, uocommands, uoevents, EuoLock,
-  EuoSql, walkrules, walkmap, pathplan, walklive, pathwalk;
+  EuoSql, walkrules, walkmap, pathplan, walklive, pathwalk, EuoJournalSearch;
 
 const
   RES_OK    = 0;
@@ -167,6 +171,7 @@ type
     PathCli      : TWalkClient;   // the walker's view of the client (TEuoWalkClient)
     PathLogFile  : String;        // path set log: where the walker's decisions go, '' = nowhere
     WaitRes      : String;        // port addition (WAITFOR)
+    JFound       : String;        // port addition (FINDJOURNAL)
 
     procedure    RegisterCommands;
     function     RawLineText : String;
@@ -249,6 +254,7 @@ type
     procedure    HideItemProc;
     procedure    DeleteJournalProc;
     procedure    ScanJournalProc;
+    procedure    FindJournalProc;
     procedure    ScanBuffsProc;
     procedure    NextCPosProc;
     procedure    ChooseSkillProc;
@@ -420,7 +426,7 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 const
-  VarNamesR : Array[0..128] of String = (
+  VarNamesR : Array[0..129] of String = (
     'CliCnt','CliNr','Time','Date','SysTime','Random','OSVer','CharPosX',
     'CharPosY','CharPosZ','CharID','CharGhost','CharStatus','CharDir',
     'CharName','Sex','Str','MaxWeight','Dex','Int','Hits','MaxHits',
@@ -447,7 +453,9 @@ const
     // Port additions (mount and equip layer): indices 125..127.
     'MountID','MountType','FindLayer',
     // Port addition (WAITFOR): index 128.
-    'WaitRes');
+    'WaitRes',
+    // Port addition (FINDJOURNAL): index 129.
+    'JFound');
 
   VarNamesRW : Array[0..33] of String = (
     'SCnt','SCnt2','LShard','ContPosX','ContPosY','NextCPosX','NextCPosY',
@@ -525,6 +533,7 @@ begin
   SqlRes:='N/A';
   PathReset;
   WaitRes:='N/A';
+  JFound:='N/A';
 
   CmdRegistry:=TEuoCommandRegistry.Create;
   RegisterCommands;
@@ -585,6 +594,7 @@ begin
   SqlRes:='N/A';
   PathReset;   // port addition (PATH): options, rules and the last path
   WaitRes:='N/A';   // port addition (WAITFOR)
+  JFound:='N/A';    // port addition (FINDJOURNAL)
 
   UOVar.IgnoreCont($FFFFFFFF);
 end;
@@ -922,6 +932,8 @@ begin
     124: Result:=IntToStr   (PathDir      );
     // Port addition (WAITFOR).
     128: Result:=            WaitRes       ;
+    // Port addition (FINDJOURNAL).
+    129: Result:=            JFound        ;
     500: Result:=IntToStr   (GetTickCount div 1000 - SCntBase);
     501: Result:=IntToStr   (GetTickCount div 100 - SCnt2Base);
     525: Result:=            _Result       ;
@@ -1375,6 +1387,7 @@ begin
   CmdRegistry.Register('ChooseSkill',ChooseSkillProc,True);
   CmdRegistry.Register('NextCPos',NextCPosProc,True);
   CmdRegistry.Register('ScanJournal',ScanJournalProc,True);
+  CmdRegistry.Register('FindJournal',FindJournalProc,True);   // port addition
   CmdRegistry.Register('ScanBuffs',ScanBuffsProc,True);   // port addition
   CmdRegistry.Register('DeleteJournal',DeleteJournalProc,True);
   CmdRegistry.Register('HideItem',HideItemProc,True);
@@ -4119,6 +4132,61 @@ begin
   // return result
   DJournalSave:=d;
   UOCmd.GetJournal(c);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition. FindJournal {since} {color} {timeout} {text} [text...]: the oldest line since the
+// bookmark with that colour and any of the texts (EuoJournalSearch), polled every tick up to the
+// timeout. The waiting rules are WaitForProc's: Pause isn't counted and Stop leaves the results as
+// they were. A match counts as the line last read, so DELETEJOURNAL right after it hides it, as
+// after SCANJOURNAL. With no text nothing could match, so it doesn't wait.
+procedure TEuoInterpreter.FindJournalProc;
+var
+  Since, Color : Int64;
+  ColorAny     : Boolean;
+  Ticks        : Cardinal;
+  Texts        : Array of String;
+  Cnt          : Integer;
+  Found        : Cardinal;
+  Start        : QWord;
+  PausedMs     : QWord;
+  T, E         : QWord;
+begin
+  Found:=0;
+  if ParList.Count>4 then
+  begin
+    Since:=0;
+    if ParList[1].IntValid then Since:=ParList[1].Int;
+    ColorAny:=ParList[2].Str=JOURNAL_ANY;
+    Color:=-1;
+    if ParList[2].IntValid then Color:=ParList[2].Int;
+    Ticks:=ParseTicksOrSeconds(ParList[3],40);
+    SetLength(Texts,ParList.Count-4);
+    for Cnt:=0 to High(Texts) do
+      Texts[Cnt]:=ParList[Cnt+4].Str;
+
+    Start:=GetTickCount64;
+    PausedMs:=0;
+    repeat
+      UpdateJournal;
+      Found:=JournalSearch(Since,JIndex,DJournal,UOCmd.JournalEntry,ColorAny,Color,Texts);
+      if Found>0 then Break;
+      if GetTickCount64-Start-PausedMs>=QWord(Ticks)*50 then Break;
+
+      T:=GetTickCount64;
+      if not Delay(50) then Exit;
+      E:=GetTickCount64-T;
+      if E>50+250 then Inc(PausedMs,E-50);   // held by Pause
+    until False;
+  end;
+
+  JFound:=IntToStr(Found);
+  if Found>0 then
+  begin
+    DJournalSave:=Found;
+    UOCmd.GetJournal(JIndex-Found);
+  end
+  else UOCmd.GetJournal(High(Cardinal));   // past the end: clears #Journal and #JColor
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -16,7 +16,7 @@ unit EuoInterpreterTests;
 interface
 
 uses
-  Classes, SysUtils, fpcunit, testregistry, EuoInterpreter, ReforgedVersion;
+  Classes, SysUtils, fpcunit, testregistry, EuoInterpreter, EuoJournalSearch, ReforgedVersion;
 
 type
   TEuoInterpreterTests = class(TTestCase)
@@ -95,6 +95,11 @@ type
     procedure TestWaitForAsAnIfBody;
     procedure TestWaitForInLoopsKeepsTheLoopGoing;
     procedure TestSubAndLabelNamedWaitForStillWork;
+    procedure TestFindJournalWithNoClientIsANoOp;
+    procedure TestJFoundReadsNAAfterClear;
+    procedure TestSubAndLabelNamedFindJournalStillWork;
+    procedure TestBareStarReachesACommandAsAWord;
+    procedure TestFindJournalMatchAgreesWithIn;
   end;
 
 implementation
@@ -1103,6 +1108,115 @@ begin
   AssertEquals('reached', Interp.GetVar('%label'));
   AssertEquals('none of these lines is the command', 'N/A', Interp.GetVar('#WaitRes'));
   AssertTrue('nothing waits', GetTickCount64 - T < 1000);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// FINDJOURNAL (port addition). The search itself is in EuoJournalSearchTests; here what the
+// interpreter adds that can run without a client.
+type
+  TOneJournalLine = class(TObject)
+  public
+    Line : String;
+    function Entry(Index : Cardinal; out Txt : String; out Col : Cardinal) : Boolean;
+  end;
+
+function TOneJournalLine.Entry(Index : Cardinal; out Txt : String; out Col : Cardinal) : Boolean;
+begin
+  Txt := Line;
+  Col := 0;
+  Result := Index = 0;
+end;
+
+procedure TEuoInterpreterTests.TestFindJournalWithNoClientIsANoOp;
+var
+  T : QWord;
+begin
+  T := GetTickCount64;
+  PlayScript('findjournal 1000 * 3s fizzles' + #13#10 + 'set %after yes' + #13#10 + 'HALT');
+  AssertEquals('it goes on', 'yes', Interp.GetVar('%after'));
+  AssertEquals('N/A', Interp.GetVar('#JFound'));
+  AssertTrue('nothing waits', GetTickCount64 - T < 1000);
+end;
+
+procedure TEuoInterpreterTests.TestJFoundReadsNAAfterClear;
+begin
+  AssertEquals('N/A', Interp.GetVar('#JFound'));
+  Interp.Clear;
+  AssertEquals('N/A', Interp.GetVar('#JFound'));
+end;
+
+procedure TEuoInterpreterTests.TestSubAndLabelNamedFindJournalStillWork;
+begin
+  PlayScript(
+    'gosub findjournal 7' + #13#10 +
+    'set %res #result' + #13#10 +
+    'goto findjournal' + #13#10 +
+    'set %skipped yes' + #13#10 +
+    'findjournal:' + #13#10 +
+    'set %label reached' + #13#10 +
+    'HALT' + #13#10 +
+    'sub findjournal' + #13#10 +
+    '  set %sub %1' + #13#10 +
+    'return done');
+  AssertEquals('7', Interp.GetVar('%sub'));
+  AssertEquals('done', Interp.GetVar('%res'));
+  AssertEquals('N/A', Interp.GetVar('%skipped'));
+  AssertEquals('reached', Interp.GetVar('%label'));
+end;
+
+// The wildcard has to arrive as the word '*': not read as a global variable (IsVar), and not as an
+// operator, since FINDJOURNAL never calls Eval. A sub's parameters are ParseLine's words as well.
+procedure TEuoInterpreterTests.TestBareStarReachesACommandAsAWord;
+begin
+  PlayScript(
+    'gosub look 1000 * 0 *' + #13#10 +
+    'HALT' + #13#10 +
+    'sub look' + #13#10 +
+    '  set %count %0' + #13#10 +
+    '  set %color %2' + #13#10 +
+    '  set %text %4' + #13#10 +
+    'return');
+  AssertEquals('4', Interp.GetVar('%count'));
+  AssertEquals('*', Interp.GetVar('%color'));
+  AssertEquals('*', Interp.GetVar('%text'));
+end;
+
+// The same text and line through the real IN and through JournalSearch. The line is what #Journal
+// would read for 'You must wait'; a text with a real space is built with #spc.
+procedure TEuoInterpreterTests.TestFindJournalMatchAgreesWithIn;
+const
+  Texts : array[0..6] of String =
+    ('must', 'MUST', 'you_must_wait', 'You_Must', 'must_not', 'wait_', 'You must');
+var
+  Cnt       : Integer;
+  InResult  : Boolean;
+  Found     : Boolean;
+  TextWords : String;
+  Search    : TOneJournalLine;
+begin
+  Search := TOneJournalLine.Create;
+  try
+    Search.Line := 'You must wait';
+    for Cnt := 0 to High(Texts) do
+    begin
+      TextWords := Texts[Cnt];
+      if Pos(' ', TextWords) > 0 then
+        TextWords := StringReplace(TextWords, ' ', ' , #spc , ', []);
+      Interp.Clear;
+      PlayScript(
+        'set %t ' + TextWords + #13#10 +
+        'set %hit no' + #13#10 +
+        'if %t in You_must_wait' + #13#10 +
+        '  set %hit yes' + #13#10 +
+        'HALT');
+      InResult := Interp.GetVar('%hit') = 'yes';
+      AssertEquals('the script read the text: ' + Texts[Cnt], Texts[Cnt], Interp.GetVar('%t'));
+      Found := JournalSearch(1, 1000, 0, Search.Entry, True, 0, [Texts[Cnt]]) > 0;
+      AssertEquals(Texts[Cnt], InResult, Found);
+    end;
+  finally
+    Search.Free;
+  end;
 end;
 
 initialization

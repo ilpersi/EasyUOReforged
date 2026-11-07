@@ -156,6 +156,8 @@ begin
     AssertTrue('on the command word: the full list',L.Count>200);
     AssertTrue('the full list has WAITFOR',L.IndexOf('WAITFOR')>=0);
     AssertTrue('the full list has #WAITRES',L.IndexOf('#WAITRES')>=0);
+    AssertTrue('the full list has FINDJOURNAL',L.IndexOf('FINDJOURNAL')>=0);
+    AssertTrue('the full list has #JFOUND',L.IndexOf('#JFOUND')>=0);
 
     Ed.LogicalCaretXY:=Point(12,3);
     BuildCompletionList(L,Ed);

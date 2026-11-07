@@ -6,7 +6,7 @@ category: flow
 syntax: "waitfor {condition} [timeout]"
 origin: reforged
 sets: ['#WaitRes']
-related: ["If", "Target", "Wait", "#WaitRes"]
+related: ["If", "Target", "Wait", "FindJournal", "#WaitRes"]
 aliases: ["wait until", "wait for gump", "wait for condition", "poll"]
 ---
 
@@ -85,6 +85,8 @@ halt
 - `waitfor` works without a client. Client variables then read `N/A`, so a condition on them never comes true and the
   command runs its timeout. Conditions on `%` variables or [`#SCnt`](/variables/scnt/) work as usual.
 - A state that lasts less than a tick can be missed between two checks.
+- To wait for a text in the journal, use [`findjournal`](/commands/findjournal/) with a timeout. A condition can't search
+  the journal.
 - The wait can end up to one tick after the timeout.
 - `waitfor 5s` has `5s` as its **condition**, which is never true, so it waits for the default 2 seconds. To wait a fixed
   time, use [`wait`](/commands/wait/).

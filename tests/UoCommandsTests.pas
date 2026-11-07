@@ -34,6 +34,8 @@ type
     procedure SetUp; override;
     procedure TearDown; override;
   published
+    // FINDJOURNAL (port addition)
+    procedure TestJournalEntryWithNothingReadIsFalse;
     // Buff bar (port addition)
     procedure TestScanBuffsWithNoClientFindsNothing;
     procedure TestGetBuffOutOfRangeLeavesNoSelection;
@@ -82,6 +84,18 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+procedure TUoCommandsTests.TestJournalEntryWithNothingReadIsFalse;
+var
+  Txt : String;
+  Col : Cardinal;
+begin
+  Txt := 'stale';
+  Col := 7;
+  AssertFalse('nothing read yet', Cmd.JournalEntry(0, Txt, Col));
+  AssertEquals('', Txt);
+  AssertEquals(Cardinal(0), Col);
+end;
+
 procedure TUoCommandsTests.TestScanBuffsWithNoClientFindsNothing;
 begin
   AssertFalse('no client: nothing to read', Cmd.ScanBuffs);

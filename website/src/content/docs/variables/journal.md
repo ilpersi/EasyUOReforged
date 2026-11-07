@@ -6,13 +6,14 @@ category: journal
 access: ro
 type: string
 needsClient: true
-related: ["ScanJournal", "#JIndex", "#JColor", "#SysMsg"]
+related: ["ScanJournal", "FindJournal", "#JIndex", "#JColor", "#SysMsg"]
 aliases: ["journal line", "chat"]
 source: wiki
 ---
 
-`#Journal` is the journal line read by the last [`scanjournal`](/commands/scanjournal/); its colour is in
-[`#JColor`](/variables/jcolor/). Spaces read as `_`, so search it with `in`, writing `_` for spaces.
+`#Journal` is the journal line read by the last [`scanjournal`](/commands/scanjournal/) or found by the last
+[`findjournal`](/commands/findjournal/); its colour is in [`#JColor`](/variables/jcolor/). Spaces read as `_`, so
+search it with `in`, writing `_` for spaces.
 
 It reads `N/A` when the line does not exist, is too old, or was hidden by
 [`deletejournal`](/commands/deletejournal/).

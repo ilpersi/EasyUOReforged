@@ -209,6 +209,7 @@ type
     function    ScanJournal(OldRef : Cardinal) : Boolean;
     procedure   GetJournal(Index : Cardinal);
     function    JournalLine(Index : Cardinal) : String;
+    function    JournalEntry(Index : Cardinal; out Txt : String; out Col : Cardinal) : Boolean;
     function    TileInit(NoOverrides : Boolean = False) : Boolean;
     function    TileCnt(X,Y : Cardinal; Facet : Integer = -1) : Cardinal;
     function    TileGet(X,Y,Layer : Cardinal; Facet : Integer = -1) : Boolean;
@@ -1534,6 +1535,18 @@ function TUOCmd.JournalLine(Index : Cardinal) : String;
 begin
   Result:='';
   if Index<Cardinal(JournalList.Count) then Result:=JournalList[Index];
+end;
+
+// Port addition (FINDJOURNAL): line Index of what the last ScanJournal read, with its colour, again
+// without touching JournalStr/JournalCol. False past the last line.
+function TUOCmd.JournalEntry(Index : Cardinal; out Txt : String; out Col : Cardinal) : Boolean;
+begin
+  Txt:='';
+  Col:=0;
+  Result:=Index<Cardinal(JournalList.Count);
+  if not Result then Exit;
+  Txt:=JournalList[Index];
+  Col:=Cardinal(JournalList.Objects[Index]);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

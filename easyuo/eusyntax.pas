@@ -72,10 +72,10 @@ uses
 // vocabulary -- see this unit's header comment -- no reason to also risk a
 // second, independent copy for completion).
 const
-  CommandKeywords : array[0..58] of String = (
+  CommandKeywords : array[0..59] of String = (
     'BREAK', 'CALL', 'CHOOSESKILL', 'CLICK', 'CMPPIX', 'CONTINUE', 'CONTPOS',
     'DELETEJOURNAL', 'DELETEVAR', 'DISPLAY', 'ELSE', 'EVENT', 'EXECUTE',
-    'EXEVENT', 'EXIT', 'FINDITEM', 'FOR', 'GETSHOPINFO', 'GETUOTITLE',
+    'EXEVENT', 'EXIT', 'FINDITEM', 'FINDJOURNAL', 'FOR', 'GETSHOPINFO', 'GETUOTITLE',
     'GOSUB', 'GOTO', 'HALT', 'HIDEITEM', 'IF', 'IGNORECONT', 'IGNOREITEM',
     'KEY', 'MENU', 'MOVE', 'MSG', 'NAMESPACE', 'NEXTCPOS', 'ONHOTKEY',
     'PATH', 'PAUSE', 'REPEAT', 'RETURN', 'SAVEPIX', 'SCANBUFFS', 'SCANJOURNAL', 'SEND', 'SET',
@@ -84,7 +84,7 @@ const
     'WAITFOR', 'WHILE'
   );
 
-  SystemKeywords : array[0..159] of String = (
+  SystemKeywords : array[0..160] of String = (
     '#AR', '#BACKPACKID', '#BUFFBAROPEN', '#BUFFCLILOC', '#BUFFCNT', '#BUFFDESC', '#BUFFID',
     '#BUFFINDEX', '#BUFFNAME', '#BUFFTIME', '#CHARDIR', '#CHARGHOST', '#CHARID', '#CHARNAME',
     '#CHARPOSX', '#CHARPOSY', '#CHARPOSZ', '#CHARSTATUS', '#CLICNT',
@@ -96,7 +96,7 @@ const
     '#FALSE', '#FINDBAGID', '#FINDCNT', '#FINDCOL', '#FINDDIST', '#FINDID',
     '#FINDINDEX', '#FINDKIND', '#FINDLAYER', '#FINDMOD', '#FINDREP', '#FINDSTACK',
     '#FINDTYPE', '#FINDX', '#FINDY', '#FINDZ', '#FOLLOWERS', '#FR',
-    '#GOLD', '#HITS', '#INT', '#JCOLOR', '#JINDEX', '#JOURNAL', '#LHANDID',
+    '#GOLD', '#HITS', '#INT', '#JCOLOR', '#JFOUND', '#JINDEX', '#JOURNAL', '#LHANDID',
     '#LLIFTEDID', '#LLIFTEDKIND', '#LLIFTEDTYPE', '#LOBJECTID',
     '#LOBJECTTYPE', '#LPC', '#LSHARD', '#LSKILL', '#LSPELL', '#LTARGETID',
     '#LTARGETKIND', '#LTARGETTILE', '#LTARGETX', '#LTARGETY', '#LTARGETZ',

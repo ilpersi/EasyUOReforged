@@ -6,7 +6,7 @@ category: journal
 access: ro
 type: number
 needsClient: true
-related: ["ScanJournal", "#Journal"]
+related: ["ScanJournal", "FindJournal", "#JFound", "#Journal"]
 aliases: ["journal index"]
 source: wiki
 ---
@@ -14,6 +14,7 @@ source: wiki
 `#JIndex` is the running number of the newest journal line: every new line gets the next number. Give such a
 number to [`scanjournal`](/commands/scanjournal/) to read exactly that line. Remembering `#JIndex` and reading
 every number up to the current one handles each new line exactly once, however many arrive at once.
+[`findjournal`](/commands/findjournal/) searches those lines for you, starting from a saved `#JIndex`.
 
 ## Example
 

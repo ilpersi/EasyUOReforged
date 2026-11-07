@@ -2286,6 +2286,7 @@ sub st_s_cmds
     return
   }
   gosub st_c_msg
+  gosub st_c_findjournal
   gosub st_c_key_target
   gosub st_c_click
   gosub st_c_move
@@ -2313,7 +2314,38 @@ sub st_c_msg
   gosub st_vc jIndex pos
 return
 
-; ---- 5.02  key + target ------------------------------------------------------------------------------------
+; ---- 5.08  findJournal (port addition) -----------------------------------------------------------------
+sub st_c_findjournal
+  gosub st_case 5.08 findJournal
+  if %st_run = 0
+  {
+    return
+  }
+  set %st_jb #jIndex
+  findJournal %st_jb * 0 EUO_selftest_find
+  gosub st_eq findJournal_with_no_new_line_finds_nothing #jFound 0
+  gosub st_eq findJournal_with_no_match_clears_journal #journal N/A
+  msg EUO_selftest_find$
+  findJournal %st_jb * 3s EUO_selftest_other EUO_selftest_find
+  set %st_ck #jFound > %st_jb
+  gosub st_ok findJournal_waits_for_the_text_and_gives_its_line_number #jFound %st_ck
+  str pos #journal EUO_selftest_find
+  set %st_ck #strres > 0
+  gosub st_ok findJournal_puts_the_line_in_journal #journal %st_ck
+  set %st_jc #jColor
+  set %st_jf #jFound
+  findJournal %st_jb %st_jc 0 EUO_selftest_find
+  gosub st_eq findJournal_finds_the_line_by_its_own_colour #jFound %st_jf
+  set %st_jc %st_jc + 1
+  findJournal %st_jb %st_jc 0 EUO_selftest_find
+  gosub st_eq findJournal_does_not_find_it_in_another_colour #jFound 0
+  findJournal %st_jf * 0 EUO_selftest_find
+  gosub st_eq findJournal_from_the_found_line_goes_on_after_it #jFound 0
+  findJournal %st_jb * 0
+  gosub st_eq findJournal_with_no_text_finds_nothing #jFound 0
+return
+
+; ---- 5.02  key + target------------------------------------------------------------------------------------
 sub st_c_key_target
   gosub st_case 5.02 key_and_target
   if %st_run = 0

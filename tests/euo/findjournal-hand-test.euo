@@ -1,0 +1,175 @@
+; ============================================================================
+;  findjournal hand test: what needs a live client, or a person pressing buttons.
+;  Needs a logged-in client attached. Run ONE case at a time: set %case below,
+;  press Play, do what the case's comment says, and note the result box.
+;
+;  case  do this                                  expected box
+;  ----  ---------------------------------------  -----------------------------
+;   1    press Play                               JFound 0, Journal N/A, JColor 0,
+;                                                 took about 0
+;   2    press Play                               JFound above Bookmark, the line
+;                                                 in Journal, a colour; Again shows
+;                                                 the same line
+;   3    press Play                               every new line once, oldest first,
+;                                                 including journaltest_one, _two, _three
+;   4    press Play                               JFound above 0, the _beta line
+;   5    press Play                               the _delta line, found counting back
+;   6    press Play                               First above 0, Second 0
+;   7    press Play                               the colour of your speech and of a
+;                                                 system message; note both
+;   8    press Play                               the _zeta line, found by colour alone
+;   9    press Play                               Right colour above 0, Wrong colour 0
+;  10    press Play, within 15 s say hello there  JFound above 0, about when you said it
+;        in the client
+;  11    press Play, within 5 s say something     JFound 0, about 5 s, however much you
+;        else in the client                       said
+;  12    press Play, press Pause within 5 s,      JFound 0; took about 5 s PLUS the time
+;        wait about 10 s, press Play              you were paused
+;  13    press Play, press Stop within 60 s       no box; the script stops at once and
+;                                                 the inspector's #JFound reads N/A
+;  14    press Play                               JFound 0, took about 0 (no stall from
+;                                                 the forgotten parameter)
+;  15    optional: press Play, then log out and   logged out -1, back in -1; a line in
+;        back in within 2 minutes; the box comes  Journal, JFound above 0; JIndex back
+;        5 s after you are back                   near 1000, or the next numbers if the
+;                                                 client kept its journal
+; ============================================================================
+set %case 1
+
+set %j #JIndex
+goto case . %case
+
+case1:
+  set #scnt2 0
+  findjournal %j * 0 journaltest_no_such_text
+  set %took #scnt2
+  display ok case 1: JFound #JFound $Journal #Journal $JColor #JColor $took %took tenths
+  halt
+
+case2:
+  msg journaltest_alpha$
+  findjournal %j * 3s journaltest_alpha
+  set %line #Journal
+  set %col #JColor
+  set %num #JFound
+  scanjournal %num
+  display ok case 2: Bookmark %j JFound %num $Journal %line $JColor %col $Again #Journal
+  halt
+
+case3:
+  msg journaltest_one$
+  msg journaltest_two$
+  msg journaltest_three$
+  wait 2s
+  set %got lines:
+  repeat
+    findjournal %j * 0 *
+    if #JFound > 0
+    {
+      set %got %got , $ , #Journal
+      set %j #JFound
+    }
+  until #JFound = 0
+  display ok case 3: %got
+  halt
+
+case4:
+  msg journaltest_beta$
+  findjournal %j * 3s journaltest_gamma journaltest_beta
+  display ok case 4: JFound #JFound $Journal #Journal
+  halt
+
+case5:
+  msg journaltest_delta$
+  wait 1s
+  findjournal 10 * 0 journaltest_delta
+  display ok case 5: JFound #JFound $Journal #Journal
+  halt
+
+case6:
+  msg journaltest_epsilon$
+  wait 1s
+  findjournal %j * 0 journaltest_epsilon
+  set %first #JFound
+  deletejournal
+  findjournal %j * 0 journaltest_epsilon
+  display ok case 6: First %first Second #JFound
+  halt
+
+case7:
+  msg journaltest_speech$
+  event sysmessage journaltest_system
+  findjournal %j * 3s journaltest_speech
+  set %speech #JColor
+  findjournal %j * 3s journaltest_system
+  display ok case 7: speech colour %speech $system colour #JColor $JFound #JFound $Journal #Journal
+  halt
+
+case8:
+  msg journaltest_colour$
+  findjournal %j * 3s journaltest_colour
+  set %c #JColor
+  set %j #JFound
+  msg journaltest_zeta$
+  findjournal %j %c 3s *
+  display ok case 8: colour %c JFound #JFound $Journal #Journal
+  halt
+
+case9:
+  msg journaltest_eta$
+  findjournal %j * 3s journaltest_eta
+  set %c #JColor
+  findjournal %j %c 0 journaltest_eta
+  set %right #JFound
+  set %c %c + 1
+  findjournal %j %c 0 journaltest_eta
+  display ok case 9: Right colour %right Wrong colour #JFound
+  halt
+
+case10:
+  event sysmessage findjournal test: say the test phrase within 15 seconds
+  set #scnt2 0
+  findjournal %j * 15s hello_there
+  set %took #scnt2
+  display ok case 10: JFound #JFound took %took tenths $Journal #Journal
+  halt
+
+case11:
+  event sysmessage findjournal test: say anything but the test phrase, for 5 seconds
+  set #scnt2 0
+  findjournal %j * 5s hello_there
+  set %took #scnt2
+  display ok case 11: JFound #JFound took %took tenths
+  halt
+
+case12:
+  event sysmessage findjournal test: press Pause, wait about 10 seconds, press Play
+  set #scnt2 0
+  findjournal %j * 5s journaltest_no_such_text
+  set %took #scnt2
+  display ok case 12: JFound #JFound took %took tenths
+  halt
+
+case13:
+  event sysmessage findjournal test: press Stop within 60 seconds
+  findjournal %j * 60s journaltest_no_such_text
+  display ok case 13: should not show: JFound #JFound
+  halt
+
+case14:
+  set #scnt2 0
+  findjournal %j * journaltest_no_such_text
+  set %took #scnt2
+  display ok case 14: JFound #JFound took %took tenths
+  halt
+
+case15:
+  event sysmessage findjournal test: relog now, you have 2 minutes
+  waitfor #CliLogged = 0 120s
+  set %out #WaitRes
+  waitfor #CliLogged = 1 120s
+  set %in #WaitRes
+  wait 5s
+  findjournal %j * 0 *
+  display ok case 15: logged out %out back in %in $Bookmark %j JIndex #JIndex JFound #JFound $Journal #Journal
+  halt
