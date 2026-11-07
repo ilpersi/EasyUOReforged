@@ -13,7 +13,8 @@ source: wiki
 
 `#Property` is the property tooltip read by the last [`event Property`](/commands/event/property/): the item's
 name first, then its properties, each line ending with `$`. For a blessed runebook, for example, it reads
-`Runebook$Blessed$`.
+`Runebook$Blessed$`. Spaces in it are real spaces, not `_` as in [`#Journal`](/variables/journal/), so write
+[`#SPC`](/variables/spc/) for them; [`str`](/commands/str/#spaces-and-_) shows how to take it apart.
 
 ## Example
 

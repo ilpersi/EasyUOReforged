@@ -82,6 +82,9 @@ unit EuoInterpreter;
   lines since a bookmark for a colour and any of several texts (EuoJournalSearch.pas), waiting up to
   a timeout. A line starting with it was a silent no-op before. Like WAITFOR it waits only through
   Delay; it reads its parameters once, so it never re-parses its line.
+  Likewise the STR operations REPLACE, PART, TRIM, JOIN and CONCAT (the first three in EuoStrOps.pas).
+  They gave N/A before, as any unknown operation does. Each is an added test in StrProc, at the
+  parameter-count gate it needs; the original operations, their order and quirks are untouched.
 }
 
 {$mode delphi}{$H+}
@@ -93,7 +96,7 @@ uses
   EuoSortedList, EuoCommandRegistry, EuoStdCommands, EuoComm, EuoMenu, EuoMenu16, EuoMenuSelect,
   EuoScriptWords,
   uotypes, access, ReforgedVersion, uoselector, uovariables, uocommands, uoevents, EuoLock,
-  EuoSql, walkrules, walkmap, pathplan, walklive, pathwalk, EuoJournalSearch;
+  EuoSql, walkrules, walkmap, pathplan, walklive, pathwalk, EuoJournalSearch, EuoStrOps;
 
 const
   RES_OK    = 0;
@@ -2467,6 +2470,18 @@ begin
     StrRes:=LowerCase(ParList[2].Str);
   if ParList[1].StrU='UPPER' then
     StrRes:=UpperCase(ParList[2].Str);
+  // Port addition: TRIM and CONCAT
+  if ParList[1].StrU='TRIM' then
+    if ParList.Count>3 then
+      StrRes:=StrTrimChars(ParList[2].Str,ParList[3].Str)
+    else
+      StrRes:=StrTrimChars(ParList[2].Str,STR_TRIM_DEFAULT);
+  if ParList[1].StrU='CONCAT' then
+  begin
+    StrRes:='';
+    for Cnt1:=2 to ParList.Count-1 do
+      StrRes:=StrRes+ParList[Cnt1].Str;
+  end;
 
   if ParList.Count<4 then Exit;
 
@@ -2486,9 +2501,25 @@ begin
     StrRes:=IntToStr(Cnt1);
     Inc(Cnt1);
   until Cnt2<1;
+  // Port addition: REPLACE and JOIN
+  if ParList[1].StrU='REPLACE' then
+    if ParList.Count>4 then
+      StrRes:=StrReplaceAll(ParList[2].Str,ParList[3].Str,ParList[4].Str)
+    else
+      StrRes:=StrReplaceAll(ParList[2].Str,ParList[3].Str,'');
+  if ParList[1].StrU='JOIN' then
+  begin
+    StrRes:=ParList[3].Str;
+    for Cnt1:=4 to ParList.Count-1 do
+      StrRes:=StrRes+ParList[2].Str+ParList[Cnt1].Str;
+  end;
 
   if ParList.Count<5 then Exit;
 
+  // Port addition: PART
+  if ParList[1].StrU='PART' then
+    if ParList[4].CardValid then
+      StrRes:=StrField(ParList[2].Str,ParList[3].Str,ParList[4].Int);
   if ParList[1].StrU='MID' then
     if ParList[3].CardValid and ParList[4].CardValid then
       StrRes:=Copy(ParList[2].Str,ParList[3].Int,ParList[4].Int);

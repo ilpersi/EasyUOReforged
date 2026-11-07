@@ -92,6 +92,7 @@ begin
   AssertEquals(Words('menu getdef '),Words('menu setdef '));
   AssertEquals('NOOVERRIDES',Words('tile init '));
   AssertEquals('DEX,INT,STR',Words('exevent statlock '));
+  AssertEquals('CONCAT,COUNT,DEL,INS,JOIN,LEFT,LEN,LOWER,MID,PART,POS,REPLACE,RIGHT,TRIM,UPPER',Words('str '));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

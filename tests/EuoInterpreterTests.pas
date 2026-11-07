@@ -72,6 +72,19 @@ type
     procedure TestHaltActuallyStops;
 
     procedure TestStrCommandLenUpperLowerLeftRightMid;
+    procedure TestStrOriginalOperationsUnchanged;
+    procedure TestStrReplace;
+    procedure TestStrReplaceWithNothing;
+    procedure TestStrReplaceMissingParametersAndGlue;
+    procedure TestStrPart;
+    procedure TestStrPartEmptyFields;
+    procedure TestStrPartNoSuchField;
+    procedure TestStrPartAgreesWithCount;
+    procedure TestStrPartOnPropertyAndJournalText;
+    procedure TestStrPartReplacesHandWrittenSubs;
+    procedure TestStrTrim;
+    procedure TestStrJoin;
+    procedure TestStrConcat;
     procedure TestDeleteVarRemovesUserVariable;
 
     procedure TestNameSpaceLocalIsolatesFromDefaultStd;
@@ -780,6 +793,404 @@ begin
   AssertEquals('Hel', Interp.GetVar('%left'));
   AssertEquals('llo', Interp.GetVar('%right'));
   AssertEquals('ell', Interp.GetVar('%mid'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The operations from before REPLACE/PART/TRIM/JOIN/CONCAT sit in the same procedure,
+// so their results and quirks are pinned here.
+procedure TEuoInterpreterTests.TestStrOriginalOperationsUnchanged;
+begin
+  PlayScript(
+    'STR POS Hello LL' + #13#10 + 'SET %pos #StrRes' + #13#10 +
+    'STR POS Hello ll' + #13#10 + 'SET %posCase #StrRes' + #13#10 +
+    'STR POS Hello z' + #13#10 + 'SET %posNone #StrRes' + #13#10 +
+    'STR POS _a_b_ _ 3' + #13#10 + 'SET %posN #StrRes' + #13#10 +
+    'STR COUNT _a_b_ _' + #13#10 + 'SET %count #StrRes' + #13#10 +
+    'STR COUNT Hello z' + #13#10 + 'SET %countNone #StrRes' + #13#10 +
+    'STR COUNT aaa aa' + #13#10 + 'SET %countOverlap #StrRes' + #13#10 +
+    'STR INS Hello I 3' + #13#10 + 'SET %ins #StrRes' + #13#10 +
+    'STR DEL Hello 3 2' + #13#10 + 'SET %del #StrRes' + #13#10 +
+    'STR' + #13#10 + 'SET %noOp #StrRes' + #13#10 +
+    'STR LEN' + #13#10 + 'SET %noText #StrRes' + #13#10 +
+    'STR LEFT Hello' + #13#10 + 'SET %noCount #StrRes' + #13#10 +
+    'STR FOO a b c d' + #13#10 + 'SET %unknown #StrRes' + #13#10 +
+    'HALT');
+  AssertEquals('3', Interp.GetVar('%pos'));
+  AssertEquals('3', Interp.GetVar('%posCase'));
+  AssertEquals('0', Interp.GetVar('%posNone'));
+  AssertEquals('5', Interp.GetVar('%posN'));
+  AssertEquals('3', Interp.GetVar('%count'));
+  AssertEquals('0', Interp.GetVar('%countNone'));
+  AssertEquals('1', Interp.GetVar('%countOverlap'));
+  AssertEquals('HeIllo', Interp.GetVar('%ins'));
+  AssertEquals('Heo', Interp.GetVar('%del'));
+  // STR with no words at all exits before its operation is read, and leaves #StrRes reset.
+  AssertEquals('N/A', Interp.GetVar('%noOp'));
+  AssertEquals('N/A', Interp.GetVar('%noText'));
+  AssertEquals('N/A', Interp.GetVar('%noCount'));
+  AssertEquals('N/A', Interp.GetVar('%unknown'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoInterpreterTests.TestStrReplace;
+begin
+  PlayScript(
+    'STR REPLACE a_b_c _ - ' + #13#10 + 'SET %all #StrRes' + #13#10 +
+    'STR REPLACE Hello_WORLD_hello HELLO Bye' + #13#10 + 'SET %case #StrRes' + #13#10 +
+    'STR REPLACE abc X Y' + #13#10 + 'SET %absent #StrRes' + #13#10 +
+    'STR REPLACE a_b _ __' + #13#10 + 'SET %grow #StrRes' + #13#10 +
+    'STR REPLACE aaa aa x' + #13#10 + 'SET %overlap #StrRes' + #13#10 +
+    'STR REPLACE abab ab abab' + #13#10 + 'SET %contains #StrRes' + #13#10 +
+    'STR REPLACE _a_b_ _ -' + #13#10 + 'SET %ends #StrRes' + #13#10 +
+    'STR REPLACE a b c d' + #13#10 + 'SET %extra #StrRes' + #13#10 +
+    'STR LEFT Hello 0' + #13#10 + 'SET %empty #StrRes' + #13#10 +
+    'STR REPLACE Hello %empty x' + #13#10 + 'SET %emptySearch #StrRes' + #13#10 +
+    'STR REPLACE %empty a x' + #13#10 + 'SET %emptyText #StrRes' + #13#10 +
+    'STR REPLACE a_b _ #SPC' + #13#10 + 'SET %toSpace #StrRes' + #13#10 +
+    'STR REPLACE %toSpace #SPC _' + #13#10 + 'SET %fromSpace #StrRes' + #13#10 +
+    'STR REPLACE a.b #DOT _' + #13#10 + 'SET %dot #StrRes' + #13#10 +
+    'STR REPLACE a;b #SMC _' + #13#10 + 'SET %smc #StrRes' + #13#10 +
+    'HALT');
+  AssertEquals('a-b-c', Interp.GetVar('%all'));
+  AssertEquals('Bye_WORLD_Bye', Interp.GetVar('%case'));
+  AssertEquals('abc', Interp.GetVar('%absent'));
+  AssertEquals('a__b', Interp.GetVar('%grow'));
+  AssertEquals('xa', Interp.GetVar('%overlap'));
+  AssertEquals('abababab', Interp.GetVar('%contains'));
+  AssertEquals('-a-b-', Interp.GetVar('%ends'));
+  AssertEquals('a', Interp.GetVar('%extra'));
+  AssertEquals('Hello', Interp.GetVar('%emptySearch'));
+  AssertEquals('', Interp.GetVar('%emptyText'));
+  AssertEquals('a b', Interp.GetVar('%toSpace'));
+  AssertEquals('a_b', Interp.GetVar('%fromSpace'));
+  AssertEquals('a_b', Interp.GetVar('%dot'));
+  AssertEquals('a_b', Interp.GetVar('%smc'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoInterpreterTests.TestStrReplaceWithNothing;
+begin
+  PlayScript(
+    'STR REPLACE a_b_c _' + #13#10 + 'SET %missing #StrRes' + #13#10 +
+    'STR LEFT Hello 0' + #13#10 + 'SET %empty #StrRes' + #13#10 +
+    'STR REPLACE a_b_c _ %empty' + #13#10 + 'SET %emptyVar #StrRes' + #13#10 +
+    'STR REPLACE ___ _' + #13#10 + 'SET %nothingLeft #StrRes' + #13#10 +
+    'HALT');
+  AssertEquals('abc', Interp.GetVar('%missing'));
+  AssertEquals('abc', Interp.GetVar('%emptyVar'));
+  AssertEquals('', Interp.GetVar('%nothingLeft'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoInterpreterTests.TestStrReplaceMissingParametersAndGlue;
+begin
+  PlayScript(
+    'STR REPLACE' + #13#10 + 'SET %noText #StrRes' + #13#10 +
+    'STR REPLACE abc' + #13#10 + 'SET %noSearch #StrRes' + #13#10 +
+    'SET %comma ,' + #13#10 +
+    'SET %s a,b' + #13#10 +
+    // A lone comma is glued away unless it's the last word: as the last word it's a search...
+    'STR REPLACE %s ,' + #13#10 + 'SET %commaLast #StrRes' + #13#10 +
+    'STR REPLACE %s %comma' + #13#10 + 'SET %commaVarLast #StrRes' + #13#10 +
+    // ...anywhere else the words merge, and too few remain.
+    'STR REPLACE %s , _' + #13#10 + 'SET %commaThenWith #StrRes' + #13#10 +
+    'STR REPLACE %s %comma _' + #13#10 + 'SET %commaVarThenWith #StrRes' + #13#10 +
+    // A lone dot is glued too, unless it's the last word.
+    'SET %d a.b' + #13#10 +
+    'STR REPLACE %d .' + #13#10 + 'SET %dotLast #StrRes' + #13#10 +
+    'STR REPLACE %d . _' + #13#10 + 'SET %dotThenWith #StrRes' + #13#10 +
+    'HALT');
+  AssertEquals('N/A', Interp.GetVar('%noText'));
+  AssertEquals('N/A', Interp.GetVar('%noSearch'));
+  AssertEquals('ab', Interp.GetVar('%commaLast'));
+  AssertEquals('ab', Interp.GetVar('%commaVarLast'));
+  AssertEquals('N/A', Interp.GetVar('%commaThenWith'));
+  AssertEquals('N/A', Interp.GetVar('%commaVarThenWith'));
+  AssertEquals('ab', Interp.GetVar('%dotLast'));
+  AssertEquals('N/A', Interp.GetVar('%dotThenWith'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoInterpreterTests.TestStrPart;
+begin
+  PlayScript(
+    'SET %s one_Two_three' + #13#10 +
+    'STR PART %s _ 1' + #13#10 + 'SET %f1 #StrRes' + #13#10 +
+    'STR PART %s _ 2' + #13#10 + 'SET %f2 #StrRes' + #13#10 +
+    'STR PART %s _ 3' + #13#10 + 'SET %f3 #StrRes' + #13#10 +
+    'STR PART aXbxc x 3' + #13#10 + 'SET %case #StrRes' + #13#10 +
+    'STR PART a::b::c :: 2' + #13#10 + 'SET %long #StrRes' + #13#10 +
+    'STR PART ABCmake:DEF MAKE: 2' + #13#10 + 'SET %word #StrRes' + #13#10 +
+    'STR PART Hello _ 1' + #13#10 + 'SET %noSep #StrRes' + #13#10 +
+    'SET %n 2' + #13#10 +
+    'STR PART %s _ %n' + #13#10 + 'SET %var #StrRes' + #13#10 +
+    'STR PART a;b #SMC 2' + #13#10 + 'SET %smc #StrRes' + #13#10 +
+    'STR PART a.b #DOT 2' + #13#10 + 'SET %dot #StrRes' + #13#10 +
+    'HALT');
+  AssertEquals('one', Interp.GetVar('%f1'));
+  AssertEquals('Two', Interp.GetVar('%f2'));
+  AssertEquals('three', Interp.GetVar('%f3'));
+  AssertEquals('c', Interp.GetVar('%case'));
+  AssertEquals('b', Interp.GetVar('%long'));
+  AssertEquals('DEF', Interp.GetVar('%word'));
+  AssertEquals('Hello', Interp.GetVar('%noSep'));
+  AssertEquals('Two', Interp.GetVar('%var'));
+  AssertEquals('b', Interp.GetVar('%smc'));
+  AssertEquals('b', Interp.GetVar('%dot'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoInterpreterTests.TestStrPartEmptyFields;
+begin
+  PlayScript(
+    'STR PART _a_b _ 1' + #13#10 + 'SET %startEmpty #StrRes' + #13#10 +
+    'STR PART _a_b _ 2' + #13#10 + 'SET %startA #StrRes' + #13#10 +
+    'STR PART a_b_ _ 3' + #13#10 + 'SET %endEmpty #StrRes' + #13#10 +
+    'STR PART a__b _ 2' + #13#10 + 'SET %midEmpty #StrRes' + #13#10 +
+    'STR PART a__b _ 3' + #13#10 + 'SET %midB #StrRes' + #13#10 +
+    'STR LEFT Hello 0' + #13#10 + 'SET %empty #StrRes' + #13#10 +
+    'STR PART %empty _ 1' + #13#10 + 'SET %emptyText #StrRes' + #13#10 +
+    'STR PART Hello %empty 1' + #13#10 + 'SET %emptySep #StrRes' + #13#10 +
+    'HALT');
+  AssertEquals('', Interp.GetVar('%startEmpty'));
+  AssertEquals('a', Interp.GetVar('%startA'));
+  AssertEquals('', Interp.GetVar('%endEmpty'));
+  AssertEquals('', Interp.GetVar('%midEmpty'));
+  AssertEquals('b', Interp.GetVar('%midB'));
+  AssertEquals('', Interp.GetVar('%emptyText'));
+  AssertEquals('Hello', Interp.GetVar('%emptySep'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoInterpreterTests.TestStrPartNoSuchField;
+begin
+  PlayScript(
+    'STR PART a_b _ 3' + #13#10 + 'SET %past #StrRes' + #13#10 +
+    'STR PART a_b _ 0' + #13#10 + 'SET %zero #StrRes' + #13#10 +
+    'STR PART a_b _ -1' + #13#10 + 'SET %negative #StrRes' + #13#10 +
+    'STR PART a_b _ x' + #13#10 + 'SET %notNumber #StrRes' + #13#10 +
+    'STR PART a_b _' + #13#10 + 'SET %noN #StrRes' + #13#10 +
+    'STR PART a_b' + #13#10 + 'SET %noSep #StrRes' + #13#10 +
+    'STR PART' + #13#10 + 'SET %noText #StrRes' + #13#10 +
+    'STR PART Hello _ 2' + #13#10 + 'SET %pastNoSep #StrRes' + #13#10 +
+    'STR LEFT Hello 0' + #13#10 + 'SET %empty #StrRes' + #13#10 +
+    'STR PART Hello %empty 2' + #13#10 + 'SET %pastEmptySep #StrRes' + #13#10 +
+    'STR PART %empty _ 2' + #13#10 + 'SET %pastEmptyText #StrRes' + #13#10 +
+    // A lone comma merges the words around it, as for REPLACE.
+    'STR PART a,b , 2' + #13#10 + 'SET %comma #StrRes' + #13#10 +
+    'HALT');
+  AssertEquals('N/A', Interp.GetVar('%past'));
+  AssertEquals('N/A', Interp.GetVar('%zero'));
+  AssertEquals('N/A', Interp.GetVar('%negative'));
+  AssertEquals('N/A', Interp.GetVar('%notNumber'));
+  AssertEquals('N/A', Interp.GetVar('%noN'));
+  AssertEquals('N/A', Interp.GetVar('%noSep'));
+  AssertEquals('N/A', Interp.GetVar('%noText'));
+  AssertEquals('N/A', Interp.GetVar('%pastNoSep'));
+  AssertEquals('N/A', Interp.GetVar('%pastEmptySep'));
+  AssertEquals('N/A', Interp.GetVar('%pastEmptyText'));
+  AssertEquals('N/A', Interp.GetVar('%comma'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// STR COUNT + 1 is the number of fields: its last field exists and the one after doesn't.
+procedure TEuoInterpreterTests.TestStrPartAgreesWithCount;
+const
+  Texts : array[0..7] of String = ('a_b_c','_a_b','a_b_','a__b','___','Hello','_','a_b_c_d_e');
+var
+  Cnt : Integer;
+begin
+  for Cnt:=0 to High(Texts) do
+  begin
+    PlayScript(
+      'STR COUNT ' + Texts[Cnt] + ' _' + #13#10 +
+      'SET %n #StrRes + 1' + #13#10 +
+      'SET %past %n + 1' + #13#10 +
+      'STR PART ' + Texts[Cnt] + ' _ %n' + #13#10 + 'SET %last #StrRes' + #13#10 +
+      'STR PART ' + Texts[Cnt] + ' _ %past' + #13#10 + 'SET %beyond #StrRes' + #13#10 +
+      'HALT');
+    AssertTrue(Texts[Cnt] + ': the last field exists', Interp.GetVar('%last') <> 'N/A');
+    AssertEquals(Texts[Cnt] + ': the one after does not', 'N/A', Interp.GetVar('%beyond'));
+    Interp.Clear;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// #Property holds real spaces and ends each line in $; #Journal reads spaces as _.
+// Neither can be set from a script, so a variable holds the same shape.
+procedure TEuoInterpreterTests.TestStrPartOnPropertyAndJournalText;
+begin
+  PlayScript(
+    'SET %p Tinker , #SPC , Tools$Uses , #SPC , Remaining: , #SPC , 25$Blessed$' + #13#10 +
+    'STR PART %p $ 1' + #13#10 + 'SET %name #StrRes' + #13#10 +
+    'STR PART %p $ 3' + #13#10 + 'SET %line3 #StrRes' + #13#10 +
+    'STR PART %p $ 4' + #13#10 + 'SET %afterLast #StrRes' + #13#10 +
+    'STR PART %p $ 5' + #13#10 + 'SET %past #StrRes' + #13#10 +
+    'STR PART %name #SPC 1' + #13#10 + 'SET %word1 #StrRes' + #13#10 +
+    'STR PART %name _ 2' + #13#10 + 'SET %underscoreIsNotASpace #StrRes' + #13#10 +
+    // Between two markers: everything after the colon, up to the end of its line.
+    'STR PART %p : 2' + #13#10 +
+    'STR PART #StrRes $ 1' + #13#10 + 'SET %rawUses #StrRes' + #13#10 +
+    'STR TRIM %rawUses' + #13#10 + 'SET %uses #StrRes' + #13#10 +
+    'STR REPLACE %name #SPC _' + #13#10 + 'SET %likeJournal #StrRes' + #13#10 +
+    'SET %j You_must_wait' + #13#10 +
+    'STR PART %j _ 3' + #13#10 + 'SET %jWord #StrRes' + #13#10 +
+    'STR PART %j #SPC 2' + #13#10 + 'SET %spaceIsNotAnUnderscore #StrRes' + #13#10 +
+    'STR REPLACE %j _ #SPC' + #13#10 + 'SET %readable #StrRes' + #13#10 +
+    'HALT');
+  AssertEquals('Tinker Tools', Interp.GetVar('%name'));
+  AssertEquals('Blessed', Interp.GetVar('%line3'));
+  AssertEquals('', Interp.GetVar('%afterLast'));
+  AssertEquals('N/A', Interp.GetVar('%past'));
+  AssertEquals('Tinker', Interp.GetVar('%word1'));
+  AssertEquals('N/A', Interp.GetVar('%underscoreIsNotASpace'));
+  AssertEquals(' 25', Interp.GetVar('%rawUses'));
+  AssertEquals('25', Interp.GetVar('%uses'));
+  AssertEquals('Tinker_Tools', Interp.GetVar('%likeJournal'));
+  AssertEquals('wait', Interp.GetVar('%jWord'));
+  AssertEquals('N/A', Interp.GetVar('%spaceIsNotAnUnderscore'));
+  AssertEquals('You must wait', Interp.GetVar('%readable'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// What the hand-written subs of real scripts got, written here by hand, from the same inputs.
+procedure TEuoInterpreterTests.TestStrPartReplacesHandWrittenSubs;
+begin
+  PlayScript(
+    // A version check taking #EUOVer apart at _ (two calls of a "string before underscore" sub).
+    'STR PART 1_50_00 _ 1' + #13#10 + 'SET %major #StrRes' + #13#10 +
+    'STR PART 1_50_00 _ 2' + #13#10 + 'SET %minor #StrRes' + #13#10 +
+    'STR PART 1_50_00 _ 3' + #13#10 + 'SET %build #StrRes' + #13#10 +
+    // A lookup in a stored list: after name^, up to the next |.
+    'SET %global one^1|two^2|three^3|' + #13#10 +
+    'STR PART %global two^ 2' + #13#10 +
+    'STR PART #StrRes | 1' + #13#10 + 'SET %lookup #StrRes' + #13#10 +
+    // Splitting into numbered variables, in a FOR.
+    'SET %list a_b_c' + #13#10 +
+    'STR COUNT %list _' + #13#10 +
+    'SET %n #StrRes + 1' + #13#10 +
+    'FOR %i 1 %n' + #13#10 +
+    '{' + #13#10 +
+    '  STR PART %list _ %i' + #13#10 +
+    '  SET %map . %i #StrRes' + #13#10 +
+    '}' + #13#10 +
+    // Removing a set of characters, one at a time.
+    'SET %bad ?!/' + #13#10 +
+    'SET %name a?b!c/d?' + #13#10 +
+    'STR LEN %bad' + #13#10 +
+    'SET %n #StrRes' + #13#10 +
+    'FOR %i 1 %n' + #13#10 +
+    '{' + #13#10 +
+    '  STR MID %bad %i 1' + #13#10 +
+    '  STR REPLACE %name #StrRes' + #13#10 +
+    '  SET %name #StrRes' + #13#10 +
+    '}' + #13#10 +
+    'HALT', 200);
+  AssertEquals('1', Interp.GetVar('%major'));
+  AssertEquals('50', Interp.GetVar('%minor'));
+  AssertEquals('00', Interp.GetVar('%build'));
+  AssertEquals('2', Interp.GetVar('%lookup'));
+  AssertEquals('a', Interp.GetVar('%map1'));
+  AssertEquals('b', Interp.GetVar('%map2'));
+  AssertEquals('c', Interp.GetVar('%map3'));
+  AssertEquals('abcd', Interp.GetVar('%name'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoInterpreterTests.TestStrTrim;
+begin
+  PlayScript(
+    'STR TRIM __hello_world__' + #13#10 + 'SET %underscores #StrRes' + #13#10 +
+    'SET %s #SPC , _ , #SPC , a , #SPC , b , _ , #SPC' + #13#10 +
+    'STR TRIM %s' + #13#10 + 'SET %mixed #StrRes' + #13#10 +
+    'STR TRIM Hello' + #13#10 + 'SET %nothing #StrRes' + #13#10 +
+    'STR TRIM ____' + #13#10 + 'SET %allGone #StrRes' + #13#10 +
+    'STR TRIM _a_' + #13#10 + 'SET %short #StrRes' + #13#10 +
+    'STR TRIM /a/b/ /' + #13#10 + 'SET %named #StrRes' + #13#10 +
+    'STR TRIM _/a/_ /' + #13#10 + 'SET %namedOnly #StrRes' + #13#10 +
+    'STR TRIM $/a$b/$ $/' + #13#10 + 'SET %namedTwo #StrRes' + #13#10 +
+    'STR TRIM xXHelloXx X' + #13#10 + 'SET %case #StrRes' + #13#10 +
+    'STR TRIM HelloxX x' + #13#10 + 'SET %caseKept #StrRes' + #13#10 +
+    'STR TRIM %s #SPC' + #13#10 + 'SET %spaceOnly #StrRes' + #13#10 +
+    'STR LEFT Hello 0' + #13#10 + 'SET %empty #StrRes' + #13#10 +
+    'STR TRIM _a_ %empty' + #13#10 + 'SET %emptyChars #StrRes' + #13#10 +
+    'STR TRIM %empty' + #13#10 + 'SET %emptyText #StrRes' + #13#10 +
+    'STR TRIM' + #13#10 + 'SET %noText #StrRes' + #13#10 +
+    'HALT');
+  AssertEquals('hello_world', Interp.GetVar('%underscores'));
+  AssertEquals('a b', Interp.GetVar('%mixed'));
+  AssertEquals('Hello', Interp.GetVar('%nothing'));
+  AssertEquals('', Interp.GetVar('%allGone'));
+  AssertEquals('a', Interp.GetVar('%short'));
+  AssertEquals('a/b', Interp.GetVar('%named'));
+  AssertEquals('_/a/_', Interp.GetVar('%namedOnly'));
+  AssertEquals('a$b', Interp.GetVar('%namedTwo'));
+  AssertEquals('Hello', Interp.GetVar('%case'));
+  AssertEquals('Hello', Interp.GetVar('%caseKept'));
+  AssertEquals('_ a b_', Interp.GetVar('%spaceOnly'));
+  AssertEquals('_a_', Interp.GetVar('%emptyChars'));
+  AssertEquals('', Interp.GetVar('%emptyText'));
+  AssertEquals('N/A', Interp.GetVar('%noText'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoInterpreterTests.TestStrJoin;
+begin
+  PlayScript(
+    'STR JOIN _ a b c' + #13#10 + 'SET %three #StrRes' + #13#10 +
+    'STR JOIN _ OnlyOne' + #13#10 + 'SET %one #StrRes' + #13#10 +
+    'STR JOIN _' + #13#10 + 'SET %noText #StrRes' + #13#10 +
+    'STR JOIN' + #13#10 + 'SET %noSep #StrRes' + #13#10 +
+    'STR JOIN :: a b' + #13#10 + 'SET %long #StrRes' + #13#10 +
+    'STR JOIN #SPC Sir Robin' + #13#10 + 'SET %spc #StrRes' + #13#10 +
+    'STR JOIN #DOT file txt' + #13#10 + 'SET %dot #StrRes' + #13#10 +
+    'STR JOIN #SMC a b' + #13#10 + 'SET %smc #StrRes' + #13#10 +
+    'STR LEFT Hello 0' + #13#10 + 'SET %empty #StrRes' + #13#10 +
+    'STR JOIN %empty a b' + #13#10 + 'SET %emptySep #StrRes' + #13#10 +
+    'STR JOIN _ a %empty c' + #13#10 + 'SET %emptyMiddle #StrRes' + #13#10 +
+    'STR PART %emptyMiddle _ 3' + #13#10 + 'SET %readBack #StrRes' + #13#10 +
+    'STR COUNT %emptyMiddle _' + #13#10 + 'SET %readBackCount #StrRes' + #13#10 +
+    // A lone comma merges the words around it, here the operation word itself.
+    'STR JOIN , a b' + #13#10 + 'SET %comma #StrRes' + #13#10 +
+    'HALT');
+  AssertEquals('a_b_c', Interp.GetVar('%three'));
+  AssertEquals('OnlyOne', Interp.GetVar('%one'));
+  AssertEquals('N/A', Interp.GetVar('%noText'));
+  AssertEquals('N/A', Interp.GetVar('%noSep'));
+  AssertEquals('a::b', Interp.GetVar('%long'));
+  AssertEquals('Sir Robin', Interp.GetVar('%spc'));
+  AssertEquals('file.txt', Interp.GetVar('%dot'));
+  AssertEquals('a;b', Interp.GetVar('%smc'));
+  AssertEquals('ab', Interp.GetVar('%emptySep'));
+  AssertEquals('a__c', Interp.GetVar('%emptyMiddle'));
+  AssertEquals('c', Interp.GetVar('%readBack'));
+  AssertEquals('2', Interp.GetVar('%readBackCount'));
+  AssertEquals('N/A', Interp.GetVar('%comma'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoInterpreterTests.TestStrConcat;
+begin
+  PlayScript(
+    'STR CONCAT a B c' + #13#10 + 'SET %three #StrRes' + #13#10 +
+    'STR CONCAT OnlyOne' + #13#10 + 'SET %one #StrRes' + #13#10 +
+    'STR CONCAT' + #13#10 + 'SET %noText #StrRes' + #13#10 +
+    'STR LEFT Hello 0' + #13#10 + 'SET %empty #StrRes' + #13#10 +
+    'STR CONCAT a %empty b' + #13#10 + 'SET %emptyMiddle #StrRes' + #13#10 +
+    'STR CONCAT %empty' + #13#10 + 'SET %allEmpty #StrRes' + #13#10 +
+    'STR CONCAT Sir #SPC Robin' + #13#10 + 'SET %spc #StrRes' + #13#10 +
+    'STR CONCAT a , b c' + #13#10 + 'SET %glued #StrRes' + #13#10 +
+    'SET %x 12' + #13#10 +
+    'STR CONCAT %x 34' + #13#10 + 'SET %numbers #StrRes' + #13#10 +
+    'HALT');
+  AssertEquals('aBc', Interp.GetVar('%three'));
+  AssertEquals('OnlyOne', Interp.GetVar('%one'));
+  AssertEquals('N/A', Interp.GetVar('%noText'));
+  AssertEquals('ab', Interp.GetVar('%emptyMiddle'));
+  AssertEquals('', Interp.GetVar('%allEmpty'));
+  AssertEquals('Sir Robin', Interp.GetVar('%spc'));
+  AssertEquals('abc', Interp.GetVar('%glued'));
+  AssertEquals('1234', Interp.GetVar('%numbers'));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
