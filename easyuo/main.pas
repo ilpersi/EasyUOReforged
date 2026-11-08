@@ -49,7 +49,9 @@ unit main;
   MenuHandlerProc (the same mechanism the menu items use) rather than via
   TToolButton.MenuItem's auto-forwarding (which does exist in LCL) -- avoids
   any risk of a click double-dispatching if MenuItem-forwarding and an
-  explicit OnClick were both wired to the same Tag.
+  explicit OnClick were both wired to the same Tag. The one exception is the
+  Reopen button: it has no command to dispatch, only Reopen1's list to drop
+  down, so it keeps the original's MenuItem = Reopen1 and has no OnClick.
 }
 
 {$mode delphi}{$H+}
@@ -259,7 +261,15 @@ begin
   Open1    := AddMenu(File1, 2, '&Open...');
   Reopen1  := TMenuItem.Create(Self);
   Reopen1.Caption := '&Reopen';
+  Reopen1.Hint := 'Reopen';
+  Reopen1.ImageIndex := TagToImageIndex(9);
   File1.Add(Reopen1);
+  // The original DFM's placeholder child (xxx1): it makes Reopen1 a submenu
+  // from the start. File1's OnClick (tag 9) and the toolbar button's
+  // OnMouseDown replace it with the real list before it is shown.
+  MI := TMenuItem.Create(Self);
+  MI.Caption := '...';
+  Reopen1.Add(MI);
   AddSep(File1);
   Save1    := AddMenu(File1, 3, '&Save');
   SaveAs1  := AddMenu(File1, 4, 'Save &As...');
@@ -374,8 +384,15 @@ begin
 
   AddTool('New', 'New', 1);
   AddTool('Open', 'Open', 2);
+  // As in the original DFM (ToolButton3): MenuItem = Reopen1, no OnClick.
+  // OnMouseDown rebuilds Reopen1's list, then the toolbar drops it down as a
+  // popup (TToolBar.CheckMenuDropdown). Assigning MenuItem copies the item's
+  // Caption, so the button's own caption is set again after it.
   ReopenBtn := AddTool('Reopen', 'Reopen', 9);
+  ReopenBtn.OnClick := nil;
   ReopenBtn.OnMouseDown := ToolButtonReopen;
+  ReopenBtn.MenuItem := Reopen1;
+  ReopenBtn.Caption := 'Reopen';
   AddToolSep;
   ToolButton4 := AddTool('Save', 'Save', 3);
   AddTool('Close', 'Close', 6);

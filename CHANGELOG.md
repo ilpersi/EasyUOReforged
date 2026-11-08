@@ -25,6 +25,7 @@ What changes for script users in each release of EasyUO Reforged. New entries go
 
 - **The editor colors commands, `#variables` and operators however you write them**: `halt` is now bold like `HALT`, and `#charPosX` is colored like `#CHARPOSX`, as the language itself ignores case.
 - **A menu button shows its new caption right away**: after [`menu Set`](https://ilpersi.github.io/EasyUOReforged/commands/menu/set/), or [`menu SetProp`](https://ilpersi.github.io/EasyUOReforged/commands/menu/setprop/) `text` in a 1.6 menu, the button kept showing its old caption until you clicked it or something covered the window.
+- **The Reopen toolbar button lists your recent scripts again**: clicking it did nothing; it now drops down the last opened scripts, as in EasyUO 1.5, and picking one opens it.
 
 ## v26.11.02 - 2026-11-02
 
