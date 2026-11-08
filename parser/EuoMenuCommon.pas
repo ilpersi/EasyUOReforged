@@ -27,7 +27,11 @@ unit EuoMenuCommon;
     TEuoMenuButton below: a small self-painted TCustomControl with the same
     public surface menu.pas needs (Caption/Font/Color/OnClick). This is a
     deliberate scope reduction, not a silent one -- flagged here and at the
-    class itself.
+    class itself. A native button redraws itself when its caption changes;
+    a TCustomControl does not (TControl.TextChanged is empty), so
+    TEuoMenuButton overrides TextChanged to Invalidate. Without it MENU SET
+    and 1.6's text property changed a shown button's caption but the old
+    text stayed on screen until something else repainted the button.
   - TMenuForm's CreateParams(WS_EX_TOPMOST) override IS kept, unlike most of
     the rest of this file's Win32-API-manual-plumbing -- a first revision of
     this file replaced it with LCL's FormStyle:=fsStayOnTop instead, which
@@ -103,6 +107,7 @@ type
     FPressed : Boolean;
   protected
     procedure   Paint; override;
+    procedure   TextChanged; override;
     procedure   MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
     procedure   MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
   public
@@ -370,6 +375,14 @@ begin
   TS.WordBreak:=True;
   TS.Opaque:=False;
   Canvas.TextRect(R,0,0,Caption,TS);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// A new caption has to be drawn: see the unit header (TBitBtnWithColor).
+procedure TEuoMenuButton.TextChanged;
+begin
+  inherited TextChanged;
+  Invalidate;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

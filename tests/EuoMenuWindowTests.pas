@@ -13,6 +13,10 @@ unit EuoMenuWindowTests;
   hide the form. The handler that does it moved from the form class to TMenuObj
   when the window classes went to EuoMenuCommon, so it is pinned here.
 
+  A button's new caption must be drawn: TEuoMenuButton is self-painted, and LCL does not
+  repaint a TCustomControl when its text changes, so MENU SET left the old caption on
+  screen. Checked by the button having an update region right after the change.
+
   MENU LIST SELECT under the 1.5 logic: an index outside the list must leave the
   selection as it was (LB_SETCURSEL), not stop the script with LCL's out-of-bounds
   error; 0 clears it. These need no shown window.
@@ -23,8 +27,8 @@ unit EuoMenuWindowTests;
 interface
 
 uses
-  Windows, Classes, SysUtils, Forms, fpcunit, testregistry, EuoMenu, EuoMenuSelect,
-  EuoInterpreter;
+  Windows, Classes, SysUtils, Forms, Controls, fpcunit, testregistry, EuoMenu, EuoMenuSelect,
+  EuoMenuCommon, EuoInterpreter;
 
 type
   TEuoMenuWindowTests = class(TTestCase)
@@ -34,6 +38,7 @@ type
     procedure TestRepaintHoldLeavesWindowVisible;
     procedure TestSetDoesNotStartRepaintHold;
     procedure TestClosingTheWindowSetsClosed;
+    procedure TestSetButtonCaptionRepaints;
     procedure TestListSelectPastTheEndKeepsSelection;
     procedure TestListSelectZeroClears;
     procedure TestListSelectBelowZeroKeepsSelection;
@@ -205,6 +210,40 @@ begin
     Result := Interp.GetVar('%sel');
   finally
     Interp.Free;
+  end;
+end;
+
+procedure TEuoMenuWindowTests.TestSetButtonCaptionRepaints;
+var
+  M   : TMenuObj;
+  Btn : TEuoMenuButton;
+  Cnt : Integer;
+begin
+  Application.Initialize;
+  M := TMenuObj.Create;
+  try
+    M.ButtonCreate('face', 10, 10, 40, 40, 'one');
+    M.Form.Show;
+    Application.ProcessMessages;
+    if not M.Form.Showing then
+    begin
+      Ignore('MENU form could not be shown in this session');
+      Exit;
+    end;
+
+    Btn := nil;
+    for Cnt := 0 to M.Form.Surface.ControlCount-1 do
+      if M.Form.Surface.Controls[Cnt] is TEuoMenuButton then
+        Btn := TEuoMenuButton(M.Form.Surface.Controls[Cnt]);
+    AssertNotNull('the button exists', Btn);
+
+    Btn.Update;   // paint now, so the update region starts empty
+    AssertFalse('nothing to paint before the change', GetUpdateRect(Btn.Handle, nil, False));
+    M._Set('face', 'two');
+    AssertEquals('caption changed', 'two', Btn.Caption);
+    AssertTrue('the new caption is queued for painting', GetUpdateRect(Btn.Handle, nil, False));
+  finally
+    M.Free;
   end;
 end;
 
