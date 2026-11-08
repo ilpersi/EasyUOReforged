@@ -63,7 +63,8 @@ variable to a text window you can copy, which is handy for bug reports.
 
 ## Find and replace
 
-*Edit → Find…* (**Ctrl+F**) and *Edit → Replace…* (**Ctrl+H**) open one window for both. It starts with
+*Edit → Find…* (**Ctrl+F**), *Edit → Replace…* (**Ctrl+H**) and the *Find/Replace* toolbar button open one
+window for both; Ctrl+H puts the cursor in the *Replace* box. It starts with
 the selected text, or the word under the cursor, already filled in (`#FindID`, `%item`: the `#` or `%` is
 included).
 

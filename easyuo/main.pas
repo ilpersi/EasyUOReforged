@@ -401,8 +401,10 @@ begin
   ToolButton8 := AddTool('Copy', 'Copy', 23);
   ToolButton9 := AddTool('Paste', 'Paste', 24);
   AddToolSep;
-  AddTool('Find', 'Find', 27);
-  AddTool('Replace', 'Replace', 28);
+  // The original had a Find and a Replace button (tags 27/28). Both now open
+  // the same Find/Replace window (eufinddlg.pas), differing only in which box
+  // gets the focus, so one button does it; Edit > Replace (Ctrl+H) remains.
+  AddTool('Find and Replace', 'Find/Replace', 27);
   FormatButton := AddTool('Format Script', 'Format', 220); // new addition
   AddToolSep;
   ToolButton14 := AddTool('Start', 'Start', 60);
