@@ -6,6 +6,14 @@ What changes for script users in each release of EasyUO Reforged. New entries go
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## v26.11.09 - 2026-11-09
+
+### Added
+
 - **`str replace`, `part`, `trim`, `join` and `concat`: work on text without hand-written loops.** `str replace %s _ #SPC` replaces every `_`, or removes it if you leave out what to replace it with. `str part 1_50_00 _ 2` takes the second field (`50`), and a `for` with `str count` goes through all of them. `str trim %s` removes spaces and `_` from both ends, or the characters you name. `str join _ %a %b %c` and `str concat %a %b` put texts together. See [`str`](https://ilpersi.github.io/EasyUOReforged/commands/str/), including how spaces differ between `#Journal` and `#Property`.
 - **`findjournal`: search the journal in one line.** For example `findjournal %j * 3s fizzles you_must_wait` looks through every line since you saved `#JIndex` in `%j`, in any colour, for either text, and waits up to 3 seconds. Give a colour instead of `*` to match only lines of that colour, or `*` as the text to match any line. [`#JFound`](https://ilpersi.github.io/EasyUOReforged/variables/jfound/) gives the line's number, and `#Journal` and `#JColor` hold the line, so nothing is missed when lines arrive together and `deletejournal` isn't needed. See [`findjournal`](https://ilpersi.github.io/EasyUOReforged/commands/findjournal/).
 - **`waitfor`: wait until a condition is true, or give up after a timeout.** For example `waitfor #ContName = generic_gump 5s`. The condition works like `if`, including `&&`, `||` and nested parentheses, so one line can replace a hand-written polling loop. [`#WaitRes`](https://ilpersi.github.io/EasyUOReforged/variables/waitres/) then says which happened: `#true` if the condition was met, `#false` on timeout. Pressing Pause doesn't use up the timeout, and Stop ends the wait at once. See [`waitfor`](https://ilpersi.github.io/EasyUOReforged/commands/waitfor/).
