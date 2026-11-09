@@ -27,9 +27,12 @@ unit EuoExecutor;
   - SetState's exact legal-transition table and the StepOut->StepOver downgrade
     when already at the outermost call/sub level (an OldCall=0/OldSub=0 StepOut
     would otherwise never trigger its own stop condition).
-  - KillDisplayBox's exact window-matching (#32770 dialog class + "EUO Message"
+  - KillDisplayBox's exact window-matching (#32770 dialog class + the DISPLAY
     caption) so a pending DISPLAY message box for a stopped/freed script tab gets
     closed automatically rather than leaking a modal dialog no one can dismiss.
+    The caption is now EuoStdCommands.DISPLAY_CAPTION ('Reforged Message', was
+    'EUO Message'); its buffer grew from 16 to 64 chars, since GetWindowText
+    keeps at most size-1 chars and the 16-char new caption would never match.
   - STOP/PLAY/PAUSE/STEPINTO/STEPOVER/STEPOUT are declared once here (the original
     duplicated this same const block in both executor.pas and easyuo\insthandler.pas)
     per the migration plan's interface-contracts section.
@@ -135,6 +138,7 @@ const
   STEPOUT  = 5;
 
 implementation
+uses EuoStdCommands;
 
 ////////////////////////////////////////////////////////////////////////////////
 /// External Thread ////////////////////////////////////////////////////////////
@@ -145,16 +149,16 @@ function KillDisplayBox(Wnd : HWnd; ThrdID : Cardinal) : Boolean; stdcall;
 const
   WM_CLOSE = $0010;
 var
-  Buf : Array[1..16] of Char;
+  Buf : Array[1..64] of Char;
 begin
   Result:=True;
   if GetWindowThreadProcessID(Wnd,LPDWORD(nil))<>ThrdID then Exit;
   // FPC's GetWindowThreadProcessID has no 1-arg overload (Delphi's has a
   // process-id-out-param default); confirmed via compiler error, not guessed.
-  GetClassName(Wnd,@Buf,16);
+  GetClassName(Wnd,@Buf,64);
   if StrPas(@Buf[1])<>'#32770' then Exit;
-  GetWindowText(Wnd,@Buf,16);
-  if StrPas(@Buf[1])<>'EUO Message' then Exit;
+  GetWindowText(Wnd,@Buf,64);
+  if StrPas(@Buf[1])<>DISPLAY_CAPTION then Exit;
   PostMessage(Wnd,WM_CLOSE,0,0);
   Result:=False;
 end;

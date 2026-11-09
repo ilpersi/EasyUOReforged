@@ -21,12 +21,18 @@ unit EuoStdCommands;
     Phase 1's access.pas RPM/WPM finding.
   - FPC's Windows unit has no ID_OK/ID_YES/ID_NO aliases Delphi provides; only
     the standard IDOK/IDYES/IDNO spellings exist.
+  Later, at the user's request: the DISPLAY box's caption is 'Reforged Message'
+  (was 'EUO Message'), held in DISPLAY_CAPTION, which EuoExecutor's
+  KillDisplayBox matches on to close a stopped script's box.
 }
 
 {$mode delphi}{$H+}
 
 interface
 uses SysUtils, Windows, Messages, ShellApi, MMSystem, Registry, Classes, uotypes;
+
+const
+  DISPLAY_CAPTION = 'Reforged Message';
 
 type
   TStdCmd       = class(TObject)
@@ -188,7 +194,7 @@ begin
   if MsgType='YESNOCANCEL' then MBType:=MB_YESNOCANCEL;
 
   if Dollar then Str:=ReplaceStr(Str,'$',#13#10);
-  MBType:=MessageBox(Wnd,PChar(Str),'EUO Message',MB_SETFOREGROUND+{MB_TOPMOST+}MBType);
+  MBType:=MessageBox(Wnd,PChar(Str),DISPLAY_CAPTION,MB_SETFOREGROUND+{MB_TOPMOST+}MBType);
   //MB_TOPMOST will only work if executed in the EUO window thread!
   //But because of the sync all other threads who use display get blocked
   //until the very last display message disappears!!!!!!!!!!

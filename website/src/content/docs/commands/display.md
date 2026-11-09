@@ -7,6 +7,7 @@ syntax: "display [ok|okcancel|yesno|yesnocancel] {message}"
 sets: ["#DispRes"]
 related: ["#DispRes", "event SysMessage"]
 aliases: ["message box", "popup", "alert"]
+changed: true
 source: wiki
 ---
 
@@ -33,3 +34,8 @@ if #DispRes = yes
 display ok Going on without ingots.
 halt
 ```
+
+## Reforged notes
+
+- The message box's title is *Reforged Message* instead of EasyUO 1.5's *EUO Message*. The buttons, the
+  text and `#DispRes` are unchanged. A program that looks for the box by its title has to look for the new one.

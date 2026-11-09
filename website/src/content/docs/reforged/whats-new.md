@@ -72,6 +72,7 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 - **[`Str`](/commands/str/)** has five new operations, instead of hand-written loops of `str pos` and `str del`:
   `replace` replaces every occurrence of a text, `part` takes the `n`-th field between separators, `trim` cleans up
   both ends, and `join` and `concat` put texts together. The other operations are unchanged.
+- **[`Display`](/commands/display/)**'s message box is titled *Reforged Message* instead of *EUO Message*.
 - **[`FindItem`](/commands/finditem/)** also fills [`#FindLayer`](/variables/findlayer/). Nothing else it
   does has changed.
 - **[`Tile`](/commands/tile/)** reads the `.uop` map files of newer client installs directly; there is no
