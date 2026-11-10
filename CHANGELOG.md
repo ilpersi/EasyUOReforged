@@ -6,6 +6,9 @@ What changes for script users in each release of EasyUO Reforged. New entries go
 
 ### Added
 
+- **An agent pack, so AI coding agents can write EasyUO scripts for you.** The new `agent` folder of the release zip holds the language rules, every command and `#variable` on one line, and a reference page for each, as plain files that Claude Code, Codex, Cursor and other agents read, so they look names up instead of inventing commands that EasyUO would skip without an error. For Claude Code it is a ready-made skill; other agents read its `AGENTS.md`; a chat can read <https://ilpersi.github.io/EasyUOReforged/llms.txt>. The agent writes and changes scripts, and you still run them yourself. See [Write scripts with an AI agent](https://ilpersi.github.io/EasyUOReforged/guide/agents/).
+- **Three new documentation pages for writing scripts that work.** [Common mistakes](https://ilpersi.github.io/EasyUOReforged/language/common-mistakes/) lists the rules scripts break most often, such as spaces around every word, `-1` for true and `halt` at the end, each with an example whose result is checked against the interpreter. [Common patterns](https://ilpersi.github.io/EasyUOReforged/guides/patterns/) shows how to find and use an item, target, move items, wait for a gump or a journal line, walk and loop. [Finding IDs and types](https://ilpersi.github.io/EasyUOReforged/guides/finding-ids/) shows how to read the values a script needs from your own game.
+
 ### Changed
 
 ### Fixed

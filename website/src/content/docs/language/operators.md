@@ -6,8 +6,9 @@ sidebar:
 source: wiki
 ---
 
-Operators are worked out by the five commands that calculate: [`set`](/commands/set/), [`if`](/commands/if/),
-[`while`](/commands/while/), [`until`](/commands/repeat/) and [`return`](/commands/return/). Every operator has
+Operators are worked out by the six commands that calculate: [`set`](/commands/set/), [`if`](/commands/if/),
+[`while`](/commands/while/), [`until`](/commands/repeat/), [`return`](/commands/return/) and
+[`waitfor`](/commands/waitfor/). Every operator has
 to be a separate word, with spaces around it; see [Expressions](/language/expressions/).
 
 ## Arithmetic
@@ -64,7 +65,7 @@ worked out.
 ## Text and lines
 
 These are handled while the line is read, before the command runs, so they work with every command, not just
-the five above.
+the six above.
 
 | Example | Operator | What it does |
 |---|---|---|

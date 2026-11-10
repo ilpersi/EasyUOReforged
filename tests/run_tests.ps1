@@ -67,4 +67,8 @@ if ($LASTEXITCODE -ne 0) { $TestExit = $LASTEXITCODE }
 & (Join-Path $PSScriptRoot 'tools\CheckDocsCoverage.ps1')
 if ($LASTEXITCODE -ne 0) { $TestExit = $LASTEXITCODE }
 
+# ...and be on the lists of the agent pack built from those pages (agent\, tools\docs\gen-agent-pack.mjs)
+& (Join-Path $PSScriptRoot 'tools\CheckAgentPack.ps1')
+if ($LASTEXITCODE -ne 0) { $TestExit = $LASTEXITCODE }
+
 exit $TestExit

@@ -33,7 +33,10 @@ Check your shard's rules first: many shards limit or forbid unattended scripting
 ## Where to go next
 
 1. [Install EasyUO Reforged](/guide/install/) and [run your first script](/guide/first-script/).
-2. Follow the [beginner's tutorial](/guides/beginners-tutorial/).
+2. Follow the [beginner's tutorial](/guides/beginners-tutorial/), then build on the
+   [common patterns](/guides/patterns/). [Finding IDs and types](/guides/finding-ids/) shows how to read the
+   values a script needs from your own game.
 3. Learn the language: [variables](/language/variables/), [expressions](/language/expressions/),
-   [operators](/language/operators/) and [control structures](/language/control-structures/).
+   [operators](/language/operators/) and [control structures](/language/control-structures/). When a script
+   runs but does the wrong thing, check it against the [common mistakes](/language/common-mistakes/).
 4. Look up anything in the [command](/commands/) and [variable](/variables/) lists.

@@ -73,6 +73,11 @@ license text is in website/LICENSE-GFDL-1.2.txt. Pages derived from the wiki
 say so at the bottom. Original authorship and page history are on the source
 wiki.
 
+The agent pack (the agent/ folder of a release, and /agent/, llms.txt and
+llms-full.txt on the site) holds the same pages as plain markdown. Those
+derived from the wiki keep their notice there, and the pack carries the
+license text as agent/euo-script/LICENSE-GFDL-1.2.txt.
+
 Acknowledgements
 ----------------
 

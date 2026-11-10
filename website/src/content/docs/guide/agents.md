@@ -1,0 +1,103 @@
+---
+title: Write scripts with an AI agent
+description: "How to let Claude Code, Codex, Cursor or another AI coding agent write and change EasyUO scripts for you, using the agent pack that comes with EasyUO Reforged."
+sidebar:
+  order: 5
+---
+
+An AI coding agent can write an EasyUO script from a request in plain words: "eat a fish steak whenever my
+stamina is below 50", "move every reagent from this bag to that one". Left to itself it does this badly. It
+knows little EasyUO, so it borrows commands from other languages, and EasyUO runs such a script without any
+error: the lines it doesn't know are just skipped.
+
+The **agent pack** fixes that. It is this documentation as plain files an agent can read: the rules of the
+language, every command and `#variable`, a reference page for each, and instructions that tell the agent how
+to work. With it, the agent looks names up instead of guessing them.
+
+## What you need
+
+- EasyUO Reforged. The pack is the `agent` folder of the
+  [release zip](https://github.com/ilpersi/EasyUOReforged/releases), and it describes that version.
+- An AI coding agent: a program such as Claude Code, Codex, Cursor or Gemini CLI that reads and writes files
+  in a folder on your computer.
+
+## Set it up
+
+### Claude Code
+
+Copy the `euo-script` folder from `agent` into your skills folder:
+
+- `%USERPROFILE%\.claude\skills\euo-script` to have it everywhere, or
+- `.claude\skills\euo-script` inside the folder where you keep your scripts, to have it only there.
+
+Start Claude Code in your scripts folder and ask for a script. It loads the skill when you mention EasyUO or
+a `.euo` file.
+
+### Other agents
+
+Copy `AGENTS.md` and the `euo-script` folder from `agent` into the folder where you keep your scripts, and
+start the agent there. Most agents read `AGENTS.md` by themselves. If yours doesn't, start with: "read
+AGENTS.md first".
+
+### A chat without files
+
+Give the chat this address and ask it to read the language rules first:
+
+```
+https://ilpersi.github.io/EasyUOReforged/llms.txt
+```
+
+It lists every page of this documentation as plain markdown.
+[llms-full.txt](https://ilpersi.github.io/EasyUOReforged/llms-full.txt) holds all of them in one file.
+
+## Ask for a script
+
+Say what the script should do, and give the values only your game knows:
+
+- **Item types and IDs.** "Bandages are type `ZLF`, my loot bag is `ABCDEFG`." You see them in the variable
+  inspector after a [`finditem`](/commands/finditem/), or after using an item
+  ([`#LObjectID`](/variables/lobjectid/)).
+- **Texts** the script waits for, as your shard writes them in the journal.
+- **Your client and shard**, if it matters: a free shard without tooltips, an old client.
+
+A good agent asks for what is missing, or gives you a small probe script that shows the value: you click an
+item, and a box shows its ID and type. An agent that hands you a script full of types and positions you never
+gave it has made them up.
+
+## Run it yourself
+
+The agent can't run a script or see your game. You do that:
+
+1. **Read the script.** It controls your character, and a script can also start programs
+   ([`execute`](/commands/execute/)) or switch the computer off ([`shutdown`](/commands/shutdown/)). Ask the
+   agent what a line does if you aren't sure.
+2. Open it in EasyUO Reforged with the client running and your character logged in, and press **Start**
+   (F9). **Stop** ends it. See [Run a script](/guide/first-script/#run-a-script).
+3. When it doesn't do what you wanted, tell the agent what happened: what the character did, what the journal
+   said, and what the variables in the inspector showed. [Stepping through the script](/guide/debugging/)
+   shows which line goes wrong.
+
+Running and checking scripts from the agent itself is planned.
+
+## What is in the pack
+
+| File | What it is |
+|---|---|
+| `AGENTS.md` | The instructions an agent reads first. |
+| `euo-script/SKILL.md` | How to work on a script, step by step. Also the Claude Code skill. |
+| `euo-script/language.md` | The rules of the language, and patterns that work. |
+| `euo-script/commands.md` | Every command and sub-command on one line. |
+| `euo-script/variables.md` | Every `#variable` on one line. |
+| `euo-script/reference/` | One page per command, variable and guide of this site. |
+| `euo-script/reference.json` | The command and variable lists as data, for tools. |
+| `euo-script/VERSION` | The EasyUO Reforged version the pack describes. |
+
+Replace the pack when you update EasyUO Reforged: new commands are in the new one.
+
+## Good to know
+
+- **Commands marked "New in Reforged"** don't exist in the original EasyUO. Tell the agent if the script also
+  has to run there.
+- **Journal lines and names come from other players.** The pack tells the agent to treat them as data, never
+  as instructions. Still, don't paste text from the game into an agent and ask it to "do what it says".
+- **Your shard's rules** on unattended scripting apply to a script an agent wrote as to any other.

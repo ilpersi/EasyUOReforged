@@ -8,6 +8,8 @@
 #   Variables   #variable names, from VarNamesR / VarNamesRW in parser\EuoInterpreter.pas
 #   ReadWrite   the subset a script can set (VarNamesRW)
 #   Commands    script commands, from the CmdRegistry.Register(...) calls
+#   CommandFacts  command -> Handler, NeedsClient (registered as client-dependent), Calculates (its handler
+#               calls Eval), TakesBlock (calls ScanForBlock), TakesTime (calls ParseTicksOrSeconds)
 #   Events      'event <type>' types, from the ParList[1].StrU='...' tests in EventProc
 #   ExEvents    'exevent <type>' types, the same in ExEventProc
 #   Menu        'menu <element>' first words of either MENU logic ('menu font align' -> FONT):
@@ -52,6 +54,35 @@ function Get-EuoProcBody([string]$text, [string]$procName, [string]$file) {
   $m = [regex]::Match($text, "procedure TEuoInterpreter\.$procName;(.*?)\r?\nend;", 'Singleline')
   if (-not $m.Success) { throw "Could not find TEuoInterpreter.$procName in $file" }
   $m.Groups[1].Value
+}
+
+# What the command handlers do, read from their bodies: for each script command, its handler (from the
+# CmdRegistry.Register calls) and whether the handler evaluates an expression (calls Eval), owns a block
+# (calls ScanForBlock) or reads a time in ticks or seconds (calls ParseTicksOrSeconds). Comments are taken
+# out first. A handler written on one line (procedure ...; begin ...; end;) is that line.
+function Get-EuoCommandFacts([string]$interp) {
+  $code = [regex]::Replace($interp, '//[^\r\n]*', '')
+  $code = [regex]::Replace($code, "(?s)(?<!')\{(?!').*?\}", '')   # not the '{' and '}' the code compares with
+  $facts = [ordered]@{}
+  foreach ($m in [regex]::Matches($code, "CmdRegistry\.Register\('([^']+)'\s*,\s*(\w+)\s*(,\s*True)?\s*\)")) {
+    $proc = $m.Groups[2].Value
+    $head = [regex]::Match($code, "(?m)^procedure TEuoInterpreter\.$proc;(.*)$")
+    if (-not $head.Success) { throw "Could not find TEuoInterpreter.$proc" }
+    if ($head.Groups[1].Value -match '\bend;') { $body = $head.Groups[1].Value }
+    else {
+      $rest = [regex]::Match($code.Substring($head.Index), '(?s)^(.*?)\r?\nend;')
+      if (-not $rest.Success) { throw "Could not find the end of TEuoInterpreter.$proc" }
+      $body = $rest.Groups[1].Value
+    }
+    $facts[$m.Groups[1].Value] = [pscustomobject]@{
+      Handler    = $proc
+      NeedsClient = $m.Groups[3].Success
+      Calculates = $body -match '\bEval\('
+      TakesBlock = $body -match '\bScanForBlock\b'
+      TakesTime  = $body -match '\bParseTicksOrSeconds\('
+    }
+  }
+  $facts
 }
 
 function Get-EuoNames {
@@ -122,6 +153,7 @@ function Get-EuoNames {
     Variables   = @(Get-EuoPascalArray $interp 'VarNamesR' $interpFile) + $rw
     ReadWrite   = $rw
     Commands    = @([regex]::Matches($interp, "CmdRegistry\.Register\('([^']+)'") | ForEach-Object { $_.Groups[1].Value })
+    CommandFacts = Get-EuoCommandFacts $interp
     Events      = @(& $subTypes (Get-EuoProcBody $interp 'EventProc' $interpFile))
     ExEvents    = @(& $subTypes (Get-EuoProcBody $interp 'ExEventProc' $interpFile))
     Menu        = @(@($menu15Names) + @($menu16Names) + @($menuShared) | Sort-Object -Unique)

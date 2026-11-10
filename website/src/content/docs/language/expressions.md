@@ -21,8 +21,9 @@ halt
 
 ## Which commands calculate
 
-**Only five commands work out expressions:** [`set`](/commands/set/), [`if`](/commands/if/),
-[`while`](/commands/while/), [`until`](/commands/repeat/) and [`return`](/commands/return/). Every other command
+**Only six commands work out expressions:** [`set`](/commands/set/), [`if`](/commands/if/),
+[`while`](/commands/while/), [`until`](/commands/repeat/), [`return`](/commands/return/) and, new in EasyUO
+Reforged, [`waitfor`](/commands/waitfor/). Every other command
 takes its parameters as they are: `wait %a + 1` waits `%a` ticks and ignores the rest. To pass a calculated
 value to another command, calculate it with `set` first:
 

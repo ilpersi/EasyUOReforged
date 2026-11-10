@@ -6,6 +6,22 @@ import starlightLinksValidator from 'starlight-links-validator';
 import { SITE, BASE, REPO } from './src/reference.mjs';
 import { referenceSidebar, folderGroup } from './src/sidebar.mjs';
 import { euoGrammar } from './src/euo-grammar.mjs';
+import { fileURLToPath } from 'node:url';
+import { writeSite } from '../tools/docs/gen-agent-pack.mjs';
+
+// The agent pack: the pages as plain markdown for AI agents, written into the built site as
+// /agent/..., /llms.txt and /llms-full.txt (docs/agent-support.md). The same generator fills the
+// agent/ folder of a release zip.
+const agentPack = {
+	name: 'agent-pack',
+	hooks: {
+		/** @param {{ dir: URL, logger: { info: (message: string) => void } }} options */
+		'astro:build:done': ({ dir, logger }) => {
+			const pack = writeSite(fileURLToPath(dir));
+			logger.info(`${pack.version}: ${pack.files.size} files under /agent/, plus llms.txt and llms-full.txt`);
+		},
+	},
+};
 
 // Pages link to each other root-relative ("/variables/findid/"); this puts the GitHub Pages
 // base ("/EasyUOReforged") in front at build time, so no page has to spell it out. It runs as an
@@ -58,5 +74,6 @@ export default defineConfig({
 				...folderGroup('Developers', 'developers'),
 			],
 		}),
+		agentPack,
 	],
 });

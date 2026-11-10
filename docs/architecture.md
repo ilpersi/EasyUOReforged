@@ -54,6 +54,10 @@ common/   OS-facing primitives  ── package: uocommon
 - **`tools/`** — `EUOUpdater/` (a standalone utility for deriving offsets for a
   new client version; keeps its own forked copies of a couple of units) and
   `gen-version.ps1` (the version generator).
+- **`agent/`** — the hand-written part of the agent pack: what AI coding agents
+  read to write scripts. `tools/docs/gen-agent-pack.mjs` adds the documentation
+  site's pages as plain markdown and writes the pack into a release zip and into
+  the site. Plan and state: [agent-support.md](agent-support.md).
 
 ## Four build targets, shared through packages
 

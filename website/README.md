@@ -57,6 +57,21 @@ Every command, sub-command and `#variable` of the interpreter must have a page.
 so in CI), and also fails on a reference page that matches no real name. Exceptions go in its
 `$NotDocumented` / `$PageWithoutName` tables, with a reason.
 
+## The agent pack
+
+The build also writes the pages as plain markdown for AI coding agents: `/agent/...`, `/llms.txt` and
+`/llms-full.txt` in `dist/` (they are not served by `npm run dev`). They come from
+[`tools/docs/gen-agent-pack.mjs`](../tools/docs/gen-agent-pack.mjs), which `astro.config.mjs` calls when the
+build is done, and which also fills the `agent` folder of a release zip. It reads the frontmatter of the
+`commands/`, `variables/`, `language/`, `guides/`, `guide/` and `reforged/` pages with a small parser of its own,
+so keep frontmatter to one `key: value` per line, with lists on one line: it stops the build on a line it can't
+read. The pack's `language.md`, which an agent reads in full, is three pages of this site in one file:
+`language/common-mistakes.md`, `guides/patterns.md` and `guides/finding-ids.md`. A rule or pattern worth telling
+an agent goes on one of them. On any page, an `euo` example may say what a variable holds at the end in a
+comment starting with `=>` (`set %a 1 + 1   ; => %a = 2`): the test suite runs such examples, so they may use
+only commands that need no client and don't wait (the list is in `tests/DocsExampleTests.pas`).
+`tests/tools/CheckAgentPack.ps1` checks the rest.
+
 ## Licence
 
 Text derived from the [EasyUO wiki](https://github.com/ilpersi/easyuo-wiki-archive) (pages with

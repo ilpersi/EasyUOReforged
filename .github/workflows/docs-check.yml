@@ -10,11 +10,15 @@ on:
     paths:
       - 'website/**'
       - 'easyuo/eusyntax.pas'        # the euo code highlighting reads its keyword list
+      - 'agent/**'                   # the agent pack is built into the site
+      - 'tools/docs/gen-agent-pack.mjs'
       - '.github/workflows/docs-check.yml'
   pull_request:
     paths:
       - 'website/**'
       - 'easyuo/eusyntax.pas'
+      - 'agent/**'
+      - 'tools/docs/gen-agent-pack.mjs'
       - '.github/workflows/docs-check.yml'
 
 permissions:

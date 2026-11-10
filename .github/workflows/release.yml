@@ -67,6 +67,9 @@ jobs:
 
           New-Item -ItemType Directory -Force -Path "dist/$name" | Out-Null
           Copy-Item EasyUOReforged.exe, uo.dll, EUOUpdtr.exe, EUOMenuDesigner.exe, LICENSE, NOTICE, README.md, CHANGELOG.md "dist/$name/"
+          # The agent pack (agent/ plus the documentation as markdown), for AI coding agents.
+          node tools/docs/gen-agent-pack.mjs --out "dist/$name/agent" --version $tag
+          if ($LASTEXITCODE -ne 0) { throw "gen-agent-pack failed ($LASTEXITCODE)" }
           Compress-Archive -Path "dist/$name/*" -DestinationPath "dist/$name.zip"
 
           Push-Location dist

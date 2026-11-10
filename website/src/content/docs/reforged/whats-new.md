@@ -119,6 +119,13 @@ See [Editing and debugging](/guide/debugging/).
   It opens scripts too, including ones it did not write, and reads their `menu` lines back into windows
   you can go on editing.
 
+## AI agents
+
+- **[The agent pack](/guide/agents/)** (the `agent` folder of the release zip): the language rules, every
+  command and `#variable`, and this documentation as plain files, so that Claude Code, Codex, Cursor and other
+  AI coding agents write EasyUO scripts from names they looked up instead of ones they made up. The site
+  offers the same as [llms.txt](https://ilpersi.github.io/EasyUOReforged/llms.txt).
+
 ## Not in Reforged
 
 - [`event Sleep`](/commands/event/sleep/) is accepted but does nothing.
