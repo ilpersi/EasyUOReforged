@@ -119,8 +119,12 @@ See [Editing and debugging](/guide/debugging/).
   It opens scripts too, including ones it did not write, and reads their `menu` lines back into windows
   you can go on editing.
 
-## AI agents
+## Checking scripts and AI agents
 
+- **[`EUOCli check`](/guide/euocli/)** (`EUOCli.exe`, in the release zip): a command-line program that
+  reports what EasyUO would skip or misread in a script, without running it: a word that is not a command,
+  a `#variable` that doesn't exist, a missing space, a block left open, a `gosub` to nowhere, a missing
+  `halt`. EasyUO itself gives no error for any of these.
 - **[The agent pack](/guide/agents/)** (the `agent` folder of the release zip): the language rules, every
   command and `#variable`, and this documentation as plain files, so that Claude Code, Codex, Cursor and other
   AI coding agents write EasyUO scripts from names they looked up instead of ones they made up. The site

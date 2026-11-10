@@ -15,12 +15,10 @@
 #   The gate    everything new or changed in Reforged (origin: reforged / changed: true on its page) is
 #               mentioned in the rules, or is on $NoRuleNeeded with the reason. So nobody adds a command
 #               without deciding whether an agent has to be told how to use it.
-#   The examples  every euo example of the rules and of the hand-written files (agent\) uses only commands,
-#               sub-commands and #variables the interpreter has. An agent copies those examples, so a wrong
-#               name there is copied into every script.
 #
-# What the examples of the rules claim (their "; => %x = 5" comments) is checked by running them:
-# tests\DocsExampleTests.pas.
+# The examples of the rules are checked in the FPCUnit suite, with the real code: tests\DocsLintTests.pas runs
+# the script checker (parser\EuoLint.pas) over every example of the site and of agent\, and
+# tests\DocsExampleTests.pas runs the ones that say what they give (their "; => %x = 5" comments).
 #
 # The generator needs Node.js (as the documentation site does). Without it the check is skipped with a
 # warning, except in CI, where it fails.
@@ -50,10 +48,6 @@ $NoRuleNeeded = @{
 $ClientDiffers = @{
   'path' = 'registered as client-independent because it checks for a client itself: some sub-commands (path block, path from, ...) work without one. Its overview page says needsClient for the family; each sub-command page says its own'
 }
-# first words of a line that are not commands of the registry but are part of the language, and the two
-# made-up names the rules use to show that an unknown name gives no error
-$Syntax = @('repeat', '{', '}', 'nosuchcommand')
-$MadeUpVariables = @('nosuchvariable')
 
 $node = Get-Command node -ErrorAction SilentlyContinue
 if (-not $node) {
@@ -172,37 +166,6 @@ foreach ($k in $NoRuleNeeded.Keys) {
   if ($known -eq 0) { $problems.Add("gate: `$NoRuleNeeded lists '$k', which is not a command or variable of the pack") }
 }
 
-# ---- the examples: only real names -----------------------------------------------------------------------
-$cmds = @($names.Commands | ForEach-Object { $_.ToLower() }) + $Syntax
-$vars = @($names.Variables | ForEach-Object { $_.ToLower() }) + $MadeUpVariables
-$subs = @{}
-foreach ($f in $families.Keys) { $subs[$f] = @($families[$f] | ForEach-Object { $_.ToLower() }) }
-$examples = 0
-function Test-Examples([string]$where, [string]$text) {
-  $n = 0
-  foreach ($block in [regex]::Matches($text, '```euo[^\r\n]*\r?\n(.*?)```', 'Singleline')) {
-    $n++; $script:examples++
-    foreach ($raw in $block.Groups[1].Value -split '\r?\n') {
-      $line = ($raw -split ';')[0].Trim()
-      if (-not $line -or $line.StartsWith('+')) { continue }
-      $words = @($line -split '\s+')
-      $first = $words[0].ToLower()
-      if ($first.EndsWith(':') -and $words.Count -eq 1) { continue }   # a label
-      if ($cmds -notcontains $first) { $problems.Add("examples: ${where}, example ${n}: '$($words[0])' is not a command: $line") }
-      elseif ($subs.ContainsKey($first) -and $words.Count -gt 1 -and $subs[$first] -notcontains $words[1].ToLower()) {
-        $problems.Add("examples: ${where}, example ${n}: '$first $($words[1])' is not a sub-command: $line")
-      }
-      foreach ($v in [regex]::Matches($line, '(?<![\w#])#(\w+)')) {
-        if ($vars -notcontains $v.Groups[1].Value.ToLower()) { $problems.Add("examples: ${where}, example ${n}: #$($v.Groups[1].Value) is not a variable: $line") }
-      }
-    }
-  }
-}
-Test-Examples 'the rules (euo-script\language.md)' $ruleText
-foreach ($file in Get-ChildItem (Join-Path $EuoRoot 'agent') -Recurse -Filter '*.md') {
-  Test-Examples ([IO.Path]::GetRelativePath($EuoRoot, $file.FullName)) (Get-Content $file.FullName -Raw)
-}
-
 if ($problems.Count -gt 0) {
   Write-Host "Agent pack: $($problems.Count) problems:" -ForegroundColor Red
   $problems | ForEach-Object { Write-Host "  $_" }
@@ -212,4 +175,4 @@ if ($problems.Count -gt 0) {
   exit 1
 }
 Write-Host "Agent pack OK: $files files; all $checked commands, sub-commands and variables are on its lists."
-Write-Host "Agent rules OK: the table of what commands do matches the interpreter; all $gated new or changed commands and variables are in the rules or need none; the $examples examples use only real names."
+Write-Host "Agent rules OK: the table of what commands do matches the interpreter; all $gated new or changed commands and variables are in the rules or need none."

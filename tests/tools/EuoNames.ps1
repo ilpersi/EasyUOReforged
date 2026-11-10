@@ -29,8 +29,11 @@
 #   DllMembers  uo.dll names (properties, methods), from UOTbl in uo\uowrap.pas
 #   DllCalls    uo.dll generic calls (Call, Get, Set, ...), from Commands in uo\uowrap.pas
 #   Highlighted the #variables and commands easyuo\eusyntax.pas colours and offers for autocomplete
-#   Completion  the sub-command lists autocomplete offers, from SubCommands in easyuo\eucomplete.pas:
+#   Completion  the sub-command lists autocomplete offers and the script checker accepts, from EuoSubCommands
+#               in parser\EuoVocabulary.pas:
 #               key (the words before, 'MENU FONT') -> the words it offers there
+#   Calculating the commands the script checker treats as working out an expression, EuoCalculating in the
+#               same unit
 #   VarTree     the variable inspector's default list, Identifiers in easyuo\vartree.pas, in order:
 #               one entry per group, Group (the label, '\' taken off) and Variables ('#' taken off)
 
@@ -89,7 +92,7 @@ function Get-EuoNames {
   $interpFile = Join-Path $EuoRoot 'parser\EuoInterpreter.pas'
   $wrapFile   = Join-Path $EuoRoot 'uo\uowrap.pas'
   $synFile    = Join-Path $EuoRoot 'easyuo\eusyntax.pas'
-  $complFile  = Join-Path $EuoRoot 'easyuo\eucomplete.pas'
+  $complFile  = Join-Path $EuoRoot 'parser\EuoVocabulary.pas'
   $menu16File = Join-Path $EuoRoot 'parser\EuoMenu16.pas'
   $mdFile     = Join-Path $EuoRoot 'tools\EUOMenuDesigner\mdtypes.pas'
   $interp = Get-Content $interpFile -Raw
@@ -99,7 +102,7 @@ function Get-EuoNames {
   $compl  = (Get-Content $complFile -Raw) -replace "'\s*\+\s*'", ''   # join 'a ' + 'b' literals
 
   $completion = [ordered]@{}
-  foreach ($entry in Get-EuoPascalArray $compl 'SubCommands' $complFile) {
+  foreach ($entry in Get-EuoPascalArray $compl 'EuoSubCommands' $complFile) {
     $key, $words = $entry.Split('=', 2)
     $completion[$key] = @($words.Split(' ', [StringSplitOptions]::RemoveEmptyEntries))
   }
@@ -174,6 +177,7 @@ function Get-EuoNames {
       Commands  = @(Get-EuoPascalArray $syn 'CommandKeywords' $synFile)
     }
     Completion  = $completion
+    Calculating = @(Get-EuoPascalArray $compl 'EuoCalculating' $complFile)
     VarTree     = $varTree
   }
 }

@@ -47,19 +47,25 @@ common/   OS-facing primitives  ── package: uocommon
   `winsqlite3.dll` lazily through FPC's `sqlite3dyn`; see
   [`sql.md`](sql.md)), and the background execution state machine with
   breakpoints and stepping (`EuoExecutor`, `EuoBreakCondition`,
-  `EuoCallStackFormat`).
+  `EuoCallStackFormat`). Beside the interpreter sit pure units that read a
+  script without running it, each built on the interpreter's own rules: the
+  block structure (`EuoBlocks`), how a line becomes words (`EuoScriptWords`),
+  where a `gosub` or `goto` leads (`EuoJumpTarget`), the sub-command table
+  (`EuoVocabulary`) and the script checker (`EuoLint`; see
+  [The script checker](#the-script-checker) below).
 - **`easyuo/`** — the GUI: a multi-tab `TSynEdit` editor, the syntax
   highlighter, a live variable-inspector tree, and the menu/toolbar that drive
   `TExecutor`. The whole window is built in code (see below).
 - **`tools/`** — `EUOUpdater/` (a standalone utility for deriving offsets for a
-  new client version; keeps its own forked copies of a couple of units) and
+  new client version; keeps its own forked copies of a couple of units),
+  `EUOMenuDesigner/`, `EUOCli/` (the command-line program) and
   `gen-version.ps1` (the version generator).
 - **`agent/`** — the hand-written part of the agent pack: what AI coding agents
   read to write scripts. `tools/docs/gen-agent-pack.mjs` adds the documentation
   site's pages as plain markdown and writes the pack into a release zip and into
   the site. Plan and state: [agent-support.md](agent-support.md).
 
-## Four build targets, shared through packages
+## Five build targets, shared through packages
 
 | Project | Output | Purpose |
 |---|---|---|
@@ -67,6 +73,7 @@ common/   OS-facing primitives  ── package: uocommon
 | `uo.lpi` | `uo.dll` | The `uo/` engine exposed as a generic, stack-based external API. |
 | `EUOUpdtr.lpi` | `EUOUpdtr.exe` | Offset-derivation dev tool. |
 | `EUOMenuDesigner.lpi` | `EUOMenuDesigner.exe` | The MENU Designer (see [The MENU Designer](#the-menu-designer)). |
+| `EUOCli.lpi` | `EUOCli.exe` | The command-line program: `check` today (see [The script checker](#the-script-checker)). |
 
 `common/`, `uo/`, and `parser/` are Lazarus packages (`uocommon.lpk`,
 `uoengine.lpk`, `euoparser.lpk`) so the projects — and the test project —
@@ -205,6 +212,29 @@ from scripts. It reuses the 1.6 logic instead of a second copy of its rules:
   the 1.6 logic gets a type, property or sub-command the designer does not cover.
 
 The plan, its decisions and the file layout are in [menu-designer.md](menu-designer.md).
+
+### The script checker
+
+The interpreter reports no errors: a line it cannot understand is skipped. `parser/EuoLint.pas`
+(`TEuoLinter`) reports what it would skip or misread, without running anything, and
+`EUOCli.exe check` (`tools/EUOCli/`) is that as a command, for people and for AI coding agents
+([agent-support.md](agent-support.md), phase 2).
+
+- **Nothing is copied from the interpreter.** The command and variable names come from it
+  (`TEuoInterpreter.GetCommandNames` / `GetVariableNames`, two read-only views of the registry and of
+  `VarNamesR` / `VarNamesRW`); lines, blocks and jumps are read with `EuoScriptWords`, `EuoBlocks`,
+  `EuoJumpTarget` and `EuoMenuSelect`; sub-commands come from `EuoVocabulary`, the table the editor's
+  autocomplete offers. `CheckDocsCoverage.ps1` fails when that table's first level, or its list of the
+  commands that calculate, differs from the handlers.
+- **It only warns.** Old scripts rely on odd behaviour. A word that only exists at run time (held in a
+  variable, glued with `,` or `.`) is never reported, and plain text in `set` and `if` lines is left alone.
+- **It is checked against the project's own scripts.** `tests/DocsLintTests.pas` runs it over every `euo`
+  example of the site and the self-test scripts and fails on a warning; deliberate mistakes are in its
+  `Excepted` table with the reason.
+- **`EUOCli.exe` ends with `TerminateProcess`.** Linking the engine starts `uoselector.pas`'s client scan
+  at program start, and its finalization stops that thread with `TerminateThread`. A program that is done
+  in milliseconds reaches the finalization while the thread still holds locks, and hung about every other
+  run. `EUOCli.lpr`'s header has the details.
 
 ### Preserved quirks
 

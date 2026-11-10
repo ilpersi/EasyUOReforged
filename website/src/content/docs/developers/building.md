@@ -5,7 +5,7 @@ sidebar:
   order: 2
 ---
 
-EasyUO Reforged is four Windows programs, built with Lazarus / Free Pascal from one repository. You need
+EasyUO Reforged is five Windows programs, built with Lazarus / Free Pascal from one repository. You need
 to build it to try a change of your own, for example a new client entry. To just use it, take the zip from
 the [releases page](https://github.com/ilpersi/EasyUOReforged/releases) instead.
 
@@ -15,6 +15,7 @@ the [releases page](https://github.com/ilpersi/EasyUOReforged/releases) instead.
 | `uo.lpi` | `uo.dll` | The client engine as a DLL, for other programs ([uo.dll API](/dll/)). `EasyUOReforged.exe` does not use it. |
 | `EUOUpdtr.lpi` | `EUOUpdtr.exe` | EUOUpdater, the scan tool for new client builds ([Deriving values by hand](/developers/manual-derivation/)). |
 | `EUOMenuDesigner.lpi` | `EUOMenuDesigner.exe` | The MENU Designer, which lays out menu windows and writes their script. |
+| `EUOCli.lpi` | `EUOCli.exe` | The command-line program: [`EUOCli check`](/guide/euocli/) reports what EasyUO would skip in a script. |
 
 ## What you need
 
@@ -75,10 +76,11 @@ lazbuild --build-mode=Release uo.lpi
 lazbuild --build-mode=Release EasyUOReforged.lpi
 lazbuild --build-mode=Release EUOUpdtr.lpi
 lazbuild --build-mode=Release EUOMenuDesigner.lpi
+lazbuild --build-mode=Release EUOCli.lpi
 ```
 
 Build any of them, in any order. The programs land in the repository folder, next to the `.lpi` files.
-From a fresh clone, all four together take about a minute.
+From a fresh clone, all five together take about a minute.
 
 Each project has two build modes. Both write the same file name, so the last build wins.
 
@@ -89,7 +91,7 @@ Each project has two build modes. Both write the same file name, so the last bui
 
 The modes keep their compiled units in separate folders (`lib\x86_64-win64\` and
 `lib\x86_64-win64-release\`). EUOUpdater has folders of its own, because its `main` unit has the same name
-as the GUI's, and so does the MENU Designer.
+as the GUI's, and so do the MENU Designer and EUOCli.
 
 ### The version string
 
@@ -130,7 +132,7 @@ Without `--format=plain` the runner prints XML.
 ## Build in the Lazarus IDE
 
 1. Register the packages first ([step 3](#3-register-the-packages)).
-2. *Project → Open Project*, and pick `EasyUOReforged.lpi` (or `uo.lpi`, `EUOUpdtr.lpi`, `EUOMenuDesigner.lpi`).
+2. *Project → Open Project*, and pick `EasyUOReforged.lpi` (or `uo.lpi`, `EUOUpdtr.lpi`, `EUOMenuDesigner.lpi`, `EUOCli.lpi`).
 3. Pick the build mode: *Project → Project Options → Compiler Options*, the *Build modes* list at the top.
 4. *Run → Build* (Shift+F9) builds it. *Run → Run* (F9) starts it under the debugger; use the `Default`
    mode for that.
@@ -164,10 +166,11 @@ check workflow does for every pull request and every push to `main`. The pages a
 ## What CI and releases do
 
 - **`.github/workflows/ci.yml`** runs the steps above on a clean `windows-latest` machine for every push
-  and pull request: the version file, the package links, the four Release builds, `run_tests.ps1`, and the
+  and pull request: the version file, the package links, the five Release builds, `run_tests.ps1`, and the
   EUOMigrate tests. It keeps the programs as a build artifact.
 - **`.github/workflows/release.yml`** does the same for a `v*` tag, then publishes a GitHub release: a zip
-  with the four programs, `LICENSE`, `NOTICE`, `README.md` and `CHANGELOG.md`, and SHA-256 checksums. The
+  with the five programs, the [agent pack](/guide/agents/), `LICENSE`, `NOTICE`, `README.md` and
+  `CHANGELOG.md`, and SHA-256 checksums. The
   release page shows the tag's section of `CHANGELOG.md`, or the commits since the previous tag if it has
   none (see [Cutting a release](#cutting-a-release)).
 - **`.github/workflows/docs-check.yml`** (*Docs build check*) builds this site for pull requests and

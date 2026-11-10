@@ -44,7 +44,7 @@ unit eucomplete;
   Sub-commands: where the caret sits on the word after a command that takes
   a sub-command (MENU, SQL, EVENT, STR, ...) -- or deeper, after MENU FONT,
   NAMESPACE COPY <pattern> FROM, ... -- the list holds only the words allowed
-  there (SubCommands below), not the whole vocabulary. Only the words before
+  there (EuoSubCommands in parser\EuoVocabulary.pas), not the whole vocabulary. Only the words before
   the caret on the caret's own line are looked at, split the way the
   interpreter's Parameterize splits them (spaces/tabs; a ';' word starts a
   comment). When nothing in that short list starts with what is already
@@ -85,65 +85,11 @@ procedure AdjustCompletionSpan(Editor : TSynEdit; const Value : String;
 implementation
 
 uses
-  SysUtils;
+  SysUtils, EuoVocabulary;
 
 const
   VarSigils = ['#', '%', '*', '!'];
   VarNameChars = ['A'..'Z', 'a'..'z', '0'..'9', '_'];
-
-  // 'KEY=WORDS': the words that may follow KEY, the words before them on the
-  // line ('MENU FONT=...' is what may follow "menu font"). A '*' in KEY
-  // stands for any one word (a skill name, a namespace pattern). Transcribed
-  // from the ParList[n].StrU tests in EuoInterpreter.pas (MenuProcSync,
-  // EventProc, ...; STATLOCK's stats from uoevents.pas's ExEv_StatLock), plus
-  // the MENU words only the 1.6 logic has (TMenu16.Run and its property table
-  // in EuoMenu16.pas) and MENU REFORGE's settings.
-  // Left out on purpose: menu Test (an empty debug hook) and event Sleep (not
-  // implemented). tests\tools\CheckDocsCoverage.ps1 warns when the first-level
-  // words here and the interpreter's drift apart.
-  SubCommands : array[0..37] of String = (
-    'DISPLAY=OK OKCANCEL YESNO YESNOCANCEL',
-    'EVENT=CONTTOP DRAG EXMSG MACRO PATHFIND PROPERTY SKILLLOCK STATBAR SYSMESSAGE',
-    'EVENT SKILLLOCK *=DOWN LOCKED UP',
-    'EXEVENT=DRAG DROPC DROPG DROPPD EQUIP POPUP RENAMEPET SKILLLOCK STATLOCK',
-    'EXEVENT SKILLLOCK *=DOWN LOCKED UP',
-    'EXEVENT STATLOCK=DEX INT STR',
-    'EXEVENT STATLOCK *=DOWN LOCKED UP',
-    'IGNORECONT=RESET',
-    'IGNOREITEM=RESET',
-    'MENU=ACTIVATE BUTTON CHECK CLEAR COMBO DELETE EDIT FONT FORM GET GETDEF GETNUM ' +
-      'GETPROP HIDE HIDEEUO IMAGE LIST MEMO PANEL POPDEF PUSHDEF RADIO REFORGE SET ' +
-      'SETDEF SETPROP SHAPE SHOW TEXT WINDOW',
-    'MENU COMBO=ADD CLEAR CREATE SELECT',
-    'MENU FONT=ALIGN BGCOLOR COLOR NAME SIZE STYLE TRANSPARENT',
-    'MENU FONT ALIGN=CENTER LEFT RIGHT',
-    'MENU GETDEF=ALIGNMENT COLOR FONTCOLOR FONTNAME FONTSIZE FONTSTYLE PARENT',
-    'MENU GETPROP *=ALIGNMENT CHECKED COLOR ENABLED FONTCOLOR FONTNAME FONTSIZE FONTSTYLE HEIGHT LEFT PARENT TEXT TOOLTIP TOP VISIBLE WIDTH',
-    'MENU IMAGE=CREATE ELLIPSE FILE FLOODFILL LINE PIX PIXLINE POS RECTANGLE',
-    'MENU LIST=ADD CLEAR CREATE SELECT',
-    'MENU REFORGE=INCLUDECALL MODE',
-    'MENU SETDEF=ALIGNMENT COLOR FONTCOLOR FONTNAME FONTSIZE FONTSTYLE PARENT',
-    'MENU SETPROP *=ALIGNMENT CHECKED COLOR ENABLED FONTCOLOR FONTNAME FONTSIZE FONTSTYLE HEIGHT LEFT PARENT TEXT TOOLTIP TOP VISIBLE WIDTH',
-    'MENU WINDOW=COLOR SIZE TITLE TRANSPARENT',
-    'NAMESPACE=CLEAR COPY GLOBAL LOCAL POP PUSH',
-    'NAMESPACE COPY *=FROM TO',
-    'NAMESPACE COPY * FROM=GLOBAL LOCAL',
-    'NAMESPACE COPY * TO=GLOBAL LOCAL',
-    'PATH=AVOID BLOCK CAN CHECK CLEAR FIND FROM GET GO LINK SET STEP STOP UNBLOCK WALK',
-    'PATH CLEAR=ALL AVOID BLOCKS LEARNED LINKS',
-    'PATH SET=ACCURACY ACCURACYZ BLOCKTIME CHECK DIFS DOORCOST DOORS HEURISTIC LEAD LOG MARGIN MAXNODES ' +
-      'MOBILES MODE TIMEOUT TURNCOST',
-    'PATH SET DIFS=OFF ON',
-    'PATH SET DOORS=ALL OFF ON',
-    'PATH SET LOG=OFF',
-    'PATH SET MOBILES=BLOCK IGNORE',
-    'PATH SET MODE=AUTO CLIENT STEPS',
-    'SQL=CLOSE DELETE EXEC LOAD OPEN QUERY ROW SAVE',
-    'STR=CONCAT COUNT DEL INS JOIN LEFT LEN LOWER MID PART POS REPLACE RIGHT TRIM UPPER',
-    'TILE=CNT GET INIT',
-    'TILE INIT=NOOVERRIDES',
-    'UOXL=NEW SWAP'
-  );
 
 ////////////////////////////////////////////////////////////////////////////////
 // Splits S into AWords at spaces and tabs, as Parameterize does, stopping at
@@ -180,8 +126,7 @@ function SubCommandWords(const LineBeforeCaret : String; AList : TStrings) : Boo
 var
   Words, Parts : TStringList;
   Partial      : String;
-  i, j, Eq     : Integer;
-  Match        : Boolean;
+  j            : Integer;
 begin
   Result := False;
   Words := TStringList.Create;
@@ -198,30 +143,15 @@ begin
     end;
     if Words.Count = 0 then Exit; // still on the command itself
 
-    for i := Low(SubCommands) to High(SubCommands) do
-    begin
-      Eq := Pos('=', SubCommands[i]);
-      SplitWords(Copy(SubCommands[i], 1, Eq - 1), Parts);
-      if Parts.Count <> Words.Count then Continue;
-      Match := True;
-      for j := 0 to Parts.Count - 1 do
-        if (Parts[j] <> '*') and (Parts[j] <> Words[j]) then
-        begin
-          Match := False;
-          Break;
-        end;
-      if not Match then Continue;
-
-      SplitWords(Copy(SubCommands[i], Eq + 1, MaxInt), Parts);
-      for j := 0 to Parts.Count - 1 do
-        if Copy(Parts[j], 1, Length(Partial)) = Partial then
-        begin
-          AList.AddStrings(Parts);
-          Result := True;
-          Break;
-        end;
-      Exit;
-    end;
+    // The row of the table that says what may follow these words, if there is one.
+    if not EuoWordsAfter(Words, Parts) then Exit;
+    for j := 0 to Parts.Count - 1 do
+      if Copy(Parts[j], 1, Length(Partial)) = Partial then
+      begin
+        AList.AddStrings(Parts);
+        Result := True;
+        Break;
+      end;
   finally
     Words.Free;
     Parts.Free;

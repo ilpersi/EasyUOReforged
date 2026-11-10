@@ -43,7 +43,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          foreach ($proj in 'uo.lpi', 'EasyUOReforged.lpi', 'EUOUpdtr.lpi', 'EUOMenuDesigner.lpi') {
+          foreach ($proj in 'uo.lpi', 'EasyUOReforged.lpi', 'EUOUpdtr.lpi', 'EUOMenuDesigner.lpi', 'EUOCli.lpi') {
             Write-Host "::group::lazbuild $proj"
             lazbuild --build-mode=Release $proj
             if ($LASTEXITCODE -ne 0) { throw "lazbuild $proj failed ($LASTEXITCODE)" }
@@ -66,7 +66,7 @@ jobs:
           $name = "EasyUOReforged-$tag-win64"
 
           New-Item -ItemType Directory -Force -Path "dist/$name" | Out-Null
-          Copy-Item EasyUOReforged.exe, uo.dll, EUOUpdtr.exe, EUOMenuDesigner.exe, LICENSE, NOTICE, README.md, CHANGELOG.md "dist/$name/"
+          Copy-Item EasyUOReforged.exe, uo.dll, EUOUpdtr.exe, EUOMenuDesigner.exe, EUOCli.exe, LICENSE, NOTICE, README.md, CHANGELOG.md "dist/$name/"
           # The agent pack (agent/ plus the documentation as markdown), for AI coding agents.
           node tools/docs/gen-agent-pack.mjs --out "dist/$name/agent" --version $tag
           if ($LASTEXITCODE -ne 0) { throw "gen-agent-pack failed ($LASTEXITCODE)" }

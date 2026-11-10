@@ -85,6 +85,8 @@ unit EuoInterpreter;
   Likewise the STR operations REPLACE, PART, TRIM, JOIN and CONCAT (the first three in EuoStrOps.pas).
   They gave N/A before, as any unknown operation does. Each is an added test in StrProc, at the
   parameter-count gate it needs; the original operations, their order and quirks are untouched.
+  Likewise GetCommandNames and GetVariableNames, two read-only views of the command registry and
+  of VarNamesR/VarNamesRW for the script checker (EuoLint.pas). No script reaches them.
 }
 
 {$mode delphi}{$H+}
@@ -300,6 +302,13 @@ type
     // (once per run), or ''; taking it clears it -- the poll-and-consume idiom of
     // TExecutor.LastError, under the lock PlayLine holds while the script thread writes it.
     function     TakeMenuNotice : String;
+    // Port additions (the script checker, EuoLint.pas, docs\agent-support.md phase 2): the names
+    // a script can use, read from what the interpreter itself uses, so a tool never keeps a copy.
+    // Commands are upper-case, Objects[i] non-nil for a client-dependent one (RegisterCommands);
+    // variables are without their '#', as VarNamesR/VarNamesRW spell them, Objects[i] non-nil
+    // for a read/write one. Read-only: nothing here is used when a script runs.
+    procedure    GetCommandNames(List : TStrings);
+    procedure    GetVariableNames(List : TStrings);
   end;
 
 implementation
@@ -1969,6 +1978,24 @@ begin
   finally
     CS.EndWrite;
   end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port additions (the script checker): see the declarations.
+procedure TEuoInterpreter.GetCommandNames(List : TStrings);
+begin
+  CmdRegistry.GetNames(List);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoInterpreter.GetVariableNames(List : TStrings);
+var
+  Cnt : Integer;
+begin
+  for Cnt:=0 to High(VarNamesR) do
+    List.AddObject(VarNamesR[Cnt],nil);
+  for Cnt:=0 to High(VarNamesRW) do
+    List.AddObject(VarNamesRW[Cnt],TObject(PtrUInt(1)));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

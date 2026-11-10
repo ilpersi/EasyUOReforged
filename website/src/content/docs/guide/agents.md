@@ -64,6 +64,23 @@ A good agent asks for what is missing, or gives you a small probe script that sh
 item, and a box shows its ID and type. An agent that hands you a script full of types and positions you never
 gave it has made them up.
 
+## The agent checks its own script
+
+EasyUO gives no error for a line it can't understand, so an agent can't tell by itself that it wrote one.
+[`EUOCli check`](/guide/euocli/) can: it reports unknown commands and `#variables`, missing spaces, open
+blocks, jumps to nowhere and a missing `halt`, without running the script. The pack tells the agent to run it
+on every script it writes and to fix what it reports.
+
+`EUOCli.exe` is in the EasyUO Reforged folder, next to `EasyUOReforged.exe`. Tell the agent where that
+folder is, once, or it will ask:
+
+```text
+EasyUO Reforged is in C:\Games\EasyUOReforged. Check your scripts with EUOCli.exe from there.
+```
+
+A clean check means EasyUO will read every line as written. It doesn't mean the script does what you asked:
+only running it shows that.
+
 ## Run it yourself
 
 The agent can't run a script or see your game. You do that:
@@ -77,7 +94,7 @@ The agent can't run a script or see your game. You do that:
    said, and what the variables in the inspector showed. [Stepping through the script](/guide/debugging/)
    shows which line goes wrong.
 
-Running and checking scripts from the agent itself is planned.
+Running scripts from the agent itself is planned.
 
 ## What is in the pack
 

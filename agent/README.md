@@ -46,6 +46,9 @@ EasyUO wiki say so at their foot: that text is available under the GNU Free Docu
 
 ## What the agent can and can't do
 
-It writes, explains and changes scripts. It can't run them or see your game yet: you run the script
-in EasyUO Reforged and tell the agent what happened. Read a script before you run it, as with any
-script you didn't write.
+It writes, explains and changes scripts, and it checks them with `EUOCli.exe check` (in the EasyUO
+Reforged folder, one level up from this one), which reports what EasyUO would skip or misread. Tell
+the agent where the EasyUO Reforged folder is, or it will ask.
+
+It can't run scripts or see your game yet: you run the script in EasyUO Reforged and tell the agent
+what happened. Read a script before you run it, as with any script you didn't write.

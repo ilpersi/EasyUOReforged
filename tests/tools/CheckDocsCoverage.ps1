@@ -25,8 +25,12 @@
 # The editor's variable inspector must show every documented #variable, grouped like the site: see "The
 # variable inspector" below.
 #
-# It also reports, as warnings that do not fail the run, names the interpreter and the editor's highlighter /
-# autocomplete lists (easyuo\eusyntax.pas, and the sub-commands in easyuo\eucomplete.pas) disagree on.
+# The sub-command table (EuoSubCommands in parser\EuoVocabulary.pas), which the editor's autocomplete offers and
+# the script checker (parser\EuoLint.pas) accepts, must have the interpreter's first-level sub-commands: see
+# "The sub-command table" below.
+#
+# It also reports, as warnings that do not fail the run, names the interpreter and the editor's highlighter
+# list (easyuo\eusyntax.pas) disagree on.
 #
 # Usage:  pwsh ./tests/tools/CheckDocsCoverage.ps1
 
@@ -259,7 +263,7 @@ foreach ($p in $pages.Values | Where-Object { $_.Kind -eq 'variable' -and $_.Cat
   if (-not $inTree.ContainsKey($v)) { $inspectorProblems.Add("#$($v.ToUpper()) has a page but is not in the inspector (group '$($catLabels[$p.Category])')") }
 }
 
-# ---- highlighter / autocomplete drift (warnings) ---------------------------------------------------------
+# ---- highlighter drift (warnings) ------------------------------------------------------------------------
 $hlVars = & $lower $names.Highlighted.Variables
 $hlCmds = & $lower $names.Highlighted.Commands
 $notHl  = @($names.Variables | Where-Object { $hlVars -notcontains $_.ToLower() } | ForEach-Object { "#$_" }) +
@@ -268,8 +272,11 @@ $hlOnly = @($names.Highlighted.Variables | Where-Object { $vars -notcontains $_.
 if ($notHl.Count -gt 0)  { Write-Host "Warning: not highlighted / not offered by autocomplete (easyuo\eusyntax.pas): $($notHl -join ', ')" -ForegroundColor Yellow }
 if ($hlOnly.Count -gt 0) { Write-Host "Warning: highlighted, but the interpreter has no such variable: $($hlOnly -join ', ')" -ForegroundColor Yellow }
 
-# The sub-commands autocomplete offers right after a command (SubCommands in easyuo\eucomplete.pas), against
-# the interpreter's own. Deeper levels (menu font align, ...) are not read off the source, so not checked.
+# ---- the sub-command table -------------------------------------------------------------------------------
+# The words that may follow a command (EuoSubCommands in parser\EuoVocabulary.pas), against the interpreter's
+# own. Autocomplete offers them and the script checker reports any other word as a sub-command that does
+# nothing, so a difference is an error. Deeper levels (menu font align, ...) are not read off the source, so
+# not checked.
 $complFamilies = [ordered]@{
   EVENT = $names.Events; EXEVENT = $names.ExEvents; MENU = $names.Menu
   NAMESPACE = $names.NameSpace; STR = $names.Str; SQL = $names.Sql; PATH = $names.Path
@@ -282,8 +289,11 @@ foreach ($cmd in $complFamilies.Keys) {
                    Where-Object { -not $NotDocumented.ContainsKey($_) })
   $offeredOnly += @($offered | Where-Object { $real -notcontains $_ } | ForEach-Object { "$($cmd.ToLower()) $_" })
 }
-if ($notOffered.Count -gt 0)  { Write-Host "Warning: not offered by autocomplete (easyuo\eucomplete.pas SubCommands): $($notOffered -join ', ')" -ForegroundColor Yellow }
-if ($offeredOnly.Count -gt 0) { Write-Host "Warning: offered by autocomplete, but the interpreter has no such sub-command: $($offeredOnly -join ', ')" -ForegroundColor Yellow }
+# The same unit's list of the commands that work out an expression (EuoCalculating), against the handlers
+# that call Eval: the script checker looks for words glued together only in those commands' expressions.
+$calcSaid = @($names.Calculating | ForEach-Object { $_.ToUpper() } | Sort-Object)
+$calcReal = @($names.CommandFacts.Keys | Where-Object { $names.CommandFacts[$_].Calculates } | ForEach-Object { $_.ToUpper() } | Sort-Object)
+$calcDiffers = ($calcSaid -join ' ') -ne ($calcReal -join ' ')
 
 # ---- result ----------------------------------------------------------------------------------------------
 $failed = $false
@@ -324,6 +334,17 @@ if ($inspectorProblems.Count -gt 0) {
   $inspectorProblems | ForEach-Object { Write-Host "  $_" }
   Write-Host "Add the variable to Identifiers in easyuo\vartree.pas, in alphabetical order, under the group named after"
   Write-Host "its page's category (the label in VARIABLE_CATEGORIES, website\src\reference.mjs)."
+  $failed = $true
+}
+if ($notOffered.Count -gt 0 -or $offeredOnly.Count -gt 0) {
+  Write-Host "Docs coverage: the sub-command table (EuoSubCommands in parser\EuoVocabulary.pas) and the interpreter disagree:" -ForegroundColor Red
+  if ($notOffered.Count -gt 0)  { Write-Host "  in the interpreter, not in the table: $($notOffered -join ', ')" }
+  if ($offeredOnly.Count -gt 0) { Write-Host "  in the table, not in the interpreter: $($offeredOnly -join ', ')" }
+  Write-Host "Autocomplete offers the table's words and the script checker reports any other as doing nothing: correct the table."
+  $failed = $true
+}
+if ($calcDiffers) {
+  Write-Host "Docs coverage: EuoCalculating in parser\EuoVocabulary.pas lists [$($calcSaid -join ' ')], but the handlers that call Eval in parser\EuoInterpreter.pas are [$($calcReal -join ' ')]. Correct the list." -ForegroundColor Red
   $failed = $true
 }
 if ($failed) { exit 1 }

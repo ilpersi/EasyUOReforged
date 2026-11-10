@@ -19,7 +19,7 @@ uses
   EuoScriptWordsTests, EuoJumpTargetTests, MenuDesignerModelTests, MenuDesignerGenerateTests,
   MenuDesignerRoundTripTests, MenuDesignerImportTests, MenuDesignerFileTests,
   MenuDesignerGeometryTests, MenuDesignerInspectorTests, MenuDesignerMainTests,
-  MainIconsTests, PathWalkTests, UoWrapPathTests, EuoJournalSearchTests, DocsExampleTests;
+  MainIconsTests, PathWalkTests, UoWrapPathTests, EuoJournalSearchTests, DocsExampleTests, EuoLintTests, EuoCliCheckTests, DocsLintTests;
 
 type
   TEasyUOTestRunner = class(TTestRunner)

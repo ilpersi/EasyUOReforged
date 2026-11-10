@@ -34,10 +34,37 @@ skipped. So do not write EasyUO from memory. Work from the files in this folder.
    three). **Never make one up**, and treat the types and texts in the examples as examples.
 4. **Write the script.** Put the values the user may want to change in `set` lines at the top, with
    a comment each. Use `event sysmessage` to say what the script is doing.
-5. **Check it** against the list below, line by line. Nothing else will catch your mistakes: look
-   every command and `#variable` up again.
+5. **Check it.** Run `EUOCli check` on the file (see below) and fix every warning, then go through
+   the list under "Before you hand a script over". If you can't run `EUOCli`, the list is all there
+   is: look every command and `#variable` up again.
 6. **Hand it over.** Save it as a `.euo` file. Say what it does, which values the user must fill in,
    and what the script expects in the game (which gump open, which items where).
+
+## Checking a script: `EUOCli check`
+
+EasyUO never tells you a line is wrong. `EUOCli check` does, without running the script and
+without a UO client:
+
+```
+EUOCli check script.euo --json --strict
+```
+
+- `EUOCli.exe` is in the EasyUO Reforged folder, next to `EasyUOReforged.exe`. If you don't know
+  where that folder is, ask the user once, and remember the path for the rest of the session.
+- It reports, with line and column: a word that is not a command (`unknown-command`), a `#name`
+  that is not a variable (`unknown-variable`), a wrong sub-command (`unknown-subcommand`), words
+  with no space between them (`glued-words`), braces and `repeat` / `until` that don't pair up, a
+  `gosub` or `goto` that leads nowhere, and a script that restarts because its main part doesn't
+  end with `halt` (`restarts-at-end`). Each finding has a `message` and a `hint`.
+- With `--strict` the exit code is `1` when there is a warning, `0` when there is none, `2` when
+  the file can't be read. `-` instead of a file name reads the script from standard input.
+- **Fix every warning, and run it again until none is left.** A warning you believe is wrong (an
+  old script doing something odd on purpose) you leave, and you tell the user which and why.
+- A `note` is information, not a mistake: which commands need a client, which MENU logic applies.
+- A clean check means EasyUO will read every line as you wrote it. It does not check item types,
+  IDs, gump names or journal texts, and it does not show that the script does what was asked.
+- When you change an existing script, check it before you touch it too: what it already reports
+  is not yours to fix unasked, but you need to know it was there.
 
 ## Before you hand a script over
 
@@ -62,7 +89,7 @@ skipped. So do not write EasyUO from memory. Work from the files in this folder.
 
 ## What you can't do yet
 
-You can't run a script or see the game. The user runs it: in EasyUO Reforged, with the UO client
+You can check a script, but you can't run one or see the game. The user runs it: in EasyUO Reforged, with the UO client
 running and a character logged in, open the file and press Start (F9); Stop ends it. When a script
 doesn't work, ask what happened (what the character did, what the journal said) and for the values
 of the variables involved, which the variable inspector on the right of the editor shows.

@@ -7,7 +7,7 @@ Status: **approved 2026-11-10 with the recommended choices** (CLI with MCP on to
 | Phase | State |
 |---|---|
 | 1 Reference pack | **Built** (2026-11-10). See [What phase 1 built](#what-phase-1-built). |
-| 2 `EUOCli check` | Not started. |
+| 2 `EUOCli check` | **Built** (2026-11-10). See [What phase 2 built](#what-phase-2-built). |
 | 3 `EUOCli run`, `vars`, `clients`, `log` | Not started. |
 | 4 `EUOCli mcp` | Not started. |
 
@@ -144,6 +144,63 @@ registry, `VarNamesR`/`VarNamesRW`, `EuoBlocks`, `EuoScriptWords`, `EuoJumpTarge
 Every finding has a rule id, a line and a message. All are warnings, because old scripts rely on
 odd things: `--strict` turns them into a non-zero exit code. The rules are tuned on the local PSL
 archive (`psl-scripts/`, not in the repo) so working scripts come out clean.
+
+#### What phase 2 built
+
+- **`parser/EuoLint.pas`** (`TEuoLinter`, pure) with fifteen rule ids: `unknown-command`,
+  `unknown-variable`, `unknown-subcommand`, `glued-words`, `brace-on-header-line`, `stray-brace`,
+  `unbalanced-braces`, `repeat-until`, `missing-sub`, `missing-label`, `missing-call-file`,
+  `restarts-at-end`, `menu-logic`, and the notes `needs-client` and `menu-logic-chosen`. The site's
+  `guide/euocli.md` describes each.
+- **Names from the interpreter, not a copy:** `TEuoInterpreter.GetCommandNames` /
+  `GetVariableNames` (and `TEuoCommandRegistry.GetNames`), read-only.
+- **`parser/EuoVocabulary.pas`:** the sub-command table, moved from `easyuo/eucomplete.pas` so
+  autocomplete and the checker share it, plus `EuoCalculating`. `CheckDocsCoverage.ps1` now fails
+  (it only warned) when the table's first level differs from the handlers, and checks
+  `EuoCalculating` against the handlers that call `Eval`.
+- **`EUOCli.exe`** (`EUOCli.lpr`, `tools/EUOCli/climain.pas` and `clicheck.pas`): `check`,
+  `version`, `help`. Plain output or `--json`; `--strict` for the exit code; `-` for standard
+  input; `--curpath` for `call`. The JSON is one object with a `files` array, also for one file,
+  so its shape doesn't depend on how many scripts were given.
+- **Tests:** `EuoLintTests` (20), `EuoCliCheckTests` (10), and `DocsLintTests`, which runs the
+  checker over the 416 scripts the project shows people: the 411 `euo` examples of the site and
+  the five self-test scripts. It found nothing wrong that was not wrong on purpose; those 16 places are in
+  its `Excepted` table. The small example lint of `CheckAgentPack.ps1` is gone.
+
+Things found on the way:
+
+- **The program hung on exit about every other run.** Linking the engine starts
+  `uo/uoselector.pas`'s client scan at program start, and its finalization stops that thread with
+  `TerminateThread`. A program that is done in milliseconds gets there while the thread still
+  holds locks. `EUOCli.lpr` ends with `TerminateProcess` instead; its header says why. So `check`
+  uses no client, but the program does look for clients when it starts, as the editor does.
+- **`halt;comment` is not a `halt`.** The interpreter looks up the first word, and without a space
+  the `;` is part of it. `unknown-command` says so in its hint.
+
+Tuning on the PSL archive (192 files, 111,025 lines; code blocks of posts, attachments, unpacked
+archives; not in the repo, never run):
+
+| Rule | Findings | Files | What they are |
+|---|---|---|---|
+| `unknown-command` | 102 | 31 | Text that is not script (readme lines, multi-line `display` text without `+`) and typos: `contpost`, `namepsace`, `choosekill`, `meu`. |
+| `restarts-at-end` | 82 | 82 | Mostly fragments. Of the 46 files of 400 lines or more, 5: the main part ends inside a block, in an `else`, or with a `gosub` to a sub that never returns. |
+| `missing-sub` | 59 | 19 | Fragments whose subs are in the rest of the script. |
+| `unknown-variable` | 19 | 13 | Typos (`#disres`) and names Reforged doesn't have: `#pathscr`, `#pathdat`, `#pathlib` (see below), `#backpack`, `#waittime`. |
+| `glued-words` | 7 | 5 | All real: `%delta2<>`, `=magery`, `%br1+`. |
+| `unknown-subcommand` | 6 | 5 | `event propery`, `event sleep`, `exevent drop`, `menu select`, `namespace crafter`. |
+| the block and jump rules | 12 | 9 | All real. |
+
+Three false-positive classes showed up and were removed, each with a test: text pieces joined by
+`,` in a `set` (`(none)`, `===$`), text with its own pair of parentheses, and a slash between
+numbers (`if 120/125 in #property`). `repeat` followed by a `{ }` block, a common way to write
+the loop, is not a stray brace either.
+
+Open, not part of this phase: several PSL scripts read `#pathscr`, `#pathdat` or `#pathlib`.
+They are not EasyUO 1.5 variables and Reforged doesn't have them, so those scripts get `N/A`.
+Whether EasyUO 1.6 had them has not been checked.
+
+Not built, as planned: a "Check Script" command in the editor (the unit is ready for it), and
+sub-command checks below the first level.
 
 ### Phase 3: `EUOCli run`, `vars`, `clients`
 

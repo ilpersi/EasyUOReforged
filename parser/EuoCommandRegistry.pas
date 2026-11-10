@@ -54,6 +54,10 @@ type
     // and returns False -- matching the original's silent-no-op behavior in
     // both cases; callers don't need to distinguish them.
     function    Dispatch(const Name : String; ClientSelected : Boolean) : Boolean;
+    // Port addition (the script checker, EuoLint.pas): every registered name, upper-case and
+    // sorted, added to List; Objects[i] is non-nil for a name registered with RequiresClient.
+    // Read-only: nothing here is used when a script runs.
+    procedure   GetNames(List : TStrings);
   end;
 
 implementation
@@ -113,6 +117,15 @@ begin
   if Entry.RequiresClient and not ClientSelected then Exit;
   Entry.Handler;
   Result:=True;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoCommandRegistry.GetNames(List : TStrings);
+var
+  i : Integer;
+begin
+  for i:=0 to Names.Count-1 do
+    List.AddObject(Names[i],TObject(PtrUInt(Ord(TEuoCommandEntry(Names.Objects[i]).RequiresClient))));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
