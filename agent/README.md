@@ -9,6 +9,17 @@ Full instructions: <https://ilpersi.github.io/EasyUOReforged/guide/agents/>
 
 ## Set it up
 
+**In one step.** Open a terminal in the EasyUO Reforged folder (one level up from this one) and name
+the folder where you keep your scripts:
+
+```
+EUOCli init C:\Games\UO\Scripts
+```
+
+It copies this pack there as a Claude Code skill, writes `AGENTS.md` for other agents, and adds the
+`.mcp.json` entry that gives the agent EUOCli's tools. Run it again after an update. Then start your
+agent in that folder. The rest of this section is the same by hand.
+
 **Claude Code.** Copy the `euo-script` folder into your skills folder:
 
 - for every project: `%USERPROFILE%\.claude\skills\euo-script`
@@ -55,12 +66,19 @@ one level up from this one) on them:
 - `EUOCli vars` reads variables from your client, such as where your character stands. It changes
   nothing.
 
-Tell the agent where the EasyUO Reforged folder is, or it will ask.
+Tell the agent where the EasyUO Reforged folder is, or it will ask. After `EUOCli init` it knows.
 
-The agent is told to run a script on your character (`EUOCli run --client 1`) only after you say
-yes to that script, and after telling you what it will do. Your agent program also asks before it
-runs a command: look for `--client` and `--allow` in what you approve. Without them a run can't
-touch the game or start anything on your computer.
+With the `.mcp.json` entry that `EUOCli init` writes, the agent gets the same as tools
+(`EUOCli mcp`), and can also step through a script line by line, as you do in the editor.
+
+The agent is told to run a script on your character (`EUOCli run --client 1`, or the tool
+`euo_run_live`) only after you say yes to that script, and after telling you what it will do. Your
+agent program also asks before it runs a command or uses a tool:
+
+- In a command, look for `--client` and `--allow`. Without them a run can't touch the game or start
+  anything on your computer.
+- Of the tools, `euo_run` can do neither, so it is safe to allow for good. `euo_run_live` is the one
+  that acts on your character: allow it one run at a time.
 
 It can't see your game screen. Read a script before you let it run on your character, as with any
 script you didn't write.

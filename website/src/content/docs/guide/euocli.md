@@ -1,6 +1,6 @@
 ---
 title: Check and run scripts with EUOCli
-description: "EUOCli is EasyUO Reforged from the command line: check reports what EasyUO would skip or misread in a script, run runs a script and prints what happens, vars and clients read the game."
+description: "EUOCli is EasyUO Reforged from the command line: check reports what EasyUO would skip or misread in a script, run runs a script and prints what happens, vars and clients read the game, docs looks a command up, and mcp and init give all of it to an AI agent."
 sidebar:
   order: 6
 ---
@@ -15,6 +15,9 @@ scripts it writes.
 | [`EUOCli run`](#run-a-script) | Runs a script with nobody watching and prints what happens. |
 | [`EUOCli vars`](#read-variables) | Reads variables from a client, without a script. |
 | [`EUOCli clients`](#list-the-clients) | Lists the UO clients found. |
+| [`EUOCli docs`](#look-up-the-documentation) | Prints the documentation page of a command or `#variable`. |
+| [`EUOCli init`](#set-a-folder-up-for-an-agent) | Sets a folder of scripts up for AI coding agents. |
+| [`EUOCli mcp`](#tools-for-an-agent-euocli-mcp) | Gives an AI agent all of the above as tools, and a script it can step through. |
 
 `EUOCli help` lists the commands, `EUOCli help run` explains one, and `EUOCli version` prints the version,
 the same as [`#ReforgedVer`](/variables/reforgedver/). The output is UTF-8.
@@ -299,3 +302,115 @@ script has run.
 The number is what `--client` takes. `--json` prints the same as
 `{"clients": [{"nr", "pid", "version", "title", "loggedIn", "character"}], "denied": 0}`; `denied` counts
 clients that run as administrator and can't be opened.
+
+## Look up the documentation
+
+`EUOCli docs` prints a page of this documentation in the terminal, from the files that came with the program
+(the [agent pack](/guide/agents/#what-is-in-the-pack)), so it matches your version and needs no network.
+
+```text
+> EUOCli docs finditem
+> EUOCli docs "event macro"
+> EUOCli docs #FindKind
+> EUOCli docs --search journal
+```
+
+| Part | Meaning |
+|---|---|
+| `<name>` | A command, a sub-command (`"event macro"`), a `#variable` (the `#` may be left out), another name the page is known by, or the title of a guide. Prints its page. |
+| `--search <words>` | Lists the names whose name or one-line description holds every word, with `[client]` for those that need a client and `[new]` for those the original EasyUO doesn't have. |
+| `--pack <folder>` | The pack to read. Default: the `agent\euo-script` folder next to `EUOCli.exe`. |
+
+The exit code is `0` when something was found, `1` when nothing was, and `2` when the command line is wrong
+or there is no pack.
+
+## Set a folder up for an agent
+
+`EUOCli init` prepares the folder where you keep your scripts for an AI coding agent, in one step:
+
+```text
+> EUOCli init C:\Games\UO\Scripts
+wrote .claude\skills\euo-script\  (354 files: the agent pack)
+wrote AGENTS.md
+wrote the "easyuo" entry of .mcp.json  (EUOCli mcp)
+```
+
+| It writes | What it is |
+|---|---|
+| `.claude\skills\euo-script\` | The agent pack. Claude Code loads it as a skill; other agents are pointed to it. A file in it tells the agent where `EUOCli.exe` is. |
+| `AGENTS.md` | The instructions other agents read first, between two marker lines. |
+| `.mcp.json` | The entry that starts [`EUOCli mcp`](#tools-for-an-agent-euocli-mcp) for the agent. |
+
+```text
+EUOCli init [folder] [--no-mcp] [--pack <folder>]
+```
+
+| Part | Meaning |
+|---|---|
+| `[folder]` | The folder to set up. Default: the current one. |
+| `--no-mcp` | Don't write `.mcp.json`. The agent then uses `EUOCli` as a shell command. |
+| `--pack <folder>` | The pack to copy. Default: the `agent\euo-script` folder next to `EUOCli.exe`. |
+
+Nothing else in the folder is touched, and what is already there is kept:
+
+- An `AGENTS.md` you wrote keeps your text: the part of EasyUO Reforged is added at its end.
+- A `.mcp.json` with other servers keeps them. One that can't be read is left alone, and the entry to add by
+  hand is printed.
+- **Run it again after you update EasyUO Reforged.** It replaces the pack and its part of `AGENTS.md` with the
+  new ones.
+
+## Tools for an agent: EUOCli mcp
+
+`EUOCli mcp` is a [Model Context Protocol](https://modelcontextprotocol.io/) server: a program an AI agent
+starts and talks to, which gives it **tools** instead of shell commands. You don't run it yourself. The agent
+program starts it from an entry like the one `EUOCli init` writes:
+
+```json title=".mcp.json"
+{
+  "mcpServers": {
+    "easyuo": { "command": "C:\\Games\\EasyUOReforged\\EUOCli.exe", "args": ["mcp"] }
+  }
+}
+```
+
+It does what the commands above do, plus one thing they can't: **a run that stays alive**, which the agent
+can follow, pause, step through line by line and stop, as you do in the editor.
+
+| Tool | What it does |
+|---|---|
+| `euo_check` | What [`EUOCli check`](#check-a-script) reports. |
+| `euo_run` | Starts a script **without a client**. It answers when the script ends or pauses, or after a few seconds if it is still going. |
+| `euo_run_live` | Starts a script **on a UO client**, or with a blocked command allowed. |
+| `euo_status` | Where the run is, and what it logged since the last answer. |
+| `euo_stop` | Ends the run. |
+| `euo_pause`, `euo_continue` | Pause the run; let it run on, to its end, the next breakpoint or a line. |
+| `euo_step` | Runs one line of a paused script: over a `gosub`, into it, or out of the sub. |
+| `euo_breakpoint` | Sets or removes a breakpoint, with a condition if wanted, as [in the editor](/guide/debugging/#breakpoints-and-stepping). |
+| `euo_vars` | Reads variables: the script's own `%` and `!` variables and what its commands filled, or `#variables` from a client. |
+| `euo_clients` | What [`EUOCli clients`](#list-the-clients) lists. |
+| `euo_docs` | What [`EUOCli docs`](#look-up-the-documentation) prints. |
+
+The rules of [`EUOCli run`](#what-is-different-from-the-editor) apply: `display` opens no box, a run ends at
+its timeout (60 seconds unless the agent says otherwise) or when a script without `halt` starts over, and the
+blocked commands stop it. The time a script sits paused doesn't count towards the timeout. One script runs at
+a time.
+
+### What you approve
+
+Agent programs ask before they use a tool, and let you allow a tool for good. The tools are split so that
+this stays safe:
+
+- **`euo_run` can't reach a client and can't run a blocked command.** It has no setting for either. Allow it
+  for good if you like: nothing can happen in your game or on your computer.
+- **`euo_run_live` is the only tool that acts on your character.** It takes the client's number. It is also
+  the only one that can let [`execute`](/commands/execute/), [`shutdown`](/commands/shutdown/),
+  [`terminate`](/commands/terminate/), [`uoxl`](/commands/uoxl/) or [`send`](/commands/send/) through, and
+  only the ones it names. **Allow it one run at a time**, and read the script first: the request shows the
+  client number and the commands it wants allowed.
+- `euo_vars` and `euo_clients` read from the client. They change nothing.
+
+**The script stops when the agent's program closes** or ends its session: a run never outlives the agent
+that started it.
+
+It speaks the protocol versions from 2024-11-05 to 2026-07-28, over standard input and output, and offers
+tools only. `--pack <folder>` names the pack `euo_docs` reads, as for `EUOCli docs`.

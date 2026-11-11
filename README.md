@@ -44,7 +44,7 @@ on it.
 
 `EUOMenuDesigner.exe`, in the same zip, lays out menu windows and writes their script: see the [MENU Designer](https://ilpersi.github.io/EasyUOReforged/designer/).
 
-`EUOCli.exe` checks a script from the command line and reports what EasyUO would skip without an error: see [Check a script with EUOCli](https://ilpersi.github.io/EasyUOReforged/guide/euocli/). The `agent` folder is for AI coding agents that write scripts: see [Write scripts with an AI agent](https://ilpersi.github.io/EasyUOReforged/guide/agents/).
+`EUOCli.exe` checks and runs a script from the command line, and reports what EasyUO would skip without an error: see [Check and run scripts with EUOCli](https://ilpersi.github.io/EasyUOReforged/guide/euocli/). The `agent` folder is for AI coding agents that write scripts: see [Write scripts with an AI agent](https://ilpersi.github.io/EasyUOReforged/guide/agents/).
 
 The binaries are not code-signed, and the program reads and writes the client's memory, so SmartScreen
 and antivirus software may warn about it. Every release is built in public by GitHub Actions and ships

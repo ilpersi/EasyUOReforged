@@ -26,7 +26,9 @@ The rules that matter most, in case you read nothing else:
   know.
 - Try its logic with `EUOCli run <file> --json`. That runs it with no UO client: nothing happens
   in the game, and commands that need a client are skipped. Use `log` lines to see what it does.
-- Never run a script on the game (`--client`) or allow a blocked command (`--allow`) without the
-  user's yes for that script, after telling them what it will do.
+- Never run a script on the game (`--client`, or the tool `euo_run_live`) or allow a blocked command
+  (`--allow`) without the user's yes for that script, after telling them what it will do.
 - You can't see the game. `EUOCli vars #CharPosX ...` reads variables from it, and changes
   nothing.
+- If you have the tools `euo_check`, `euo_run`, `euo_vars`, `euo_docs` (the `easyuo` MCP server),
+  they do the same as these commands without a shell. `euo_run` never touches the game.

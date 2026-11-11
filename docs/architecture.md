@@ -73,7 +73,7 @@ common/   OS-facing primitives  ── package: uocommon
 | `uo.lpi` | `uo.dll` | The `uo/` engine exposed as a generic, stack-based external API. |
 | `EUOUpdtr.lpi` | `EUOUpdtr.exe` | Offset-derivation dev tool. |
 | `EUOMenuDesigner.lpi` | `EUOMenuDesigner.exe` | The MENU Designer (see [The MENU Designer](#the-menu-designer)). |
-| `EUOCli.lpi` | `EUOCli.exe` | The command-line program: `check` (see [The script checker](#the-script-checker)), `run`, `vars`, `clients` (see [Running a script with nobody watching](#running-a-script-with-nobody-watching)). |
+| `EUOCli.lpi` | `EUOCli.exe` | The command-line program: `check` (see [The script checker](#the-script-checker)), `run`, `vars`, `clients` (see [Running a script with nobody watching](#running-a-script-with-nobody-watching)), and `mcp`, `init`, `docs` (see [The MCP server](#the-mcp-server)). |
 
 `common/`, `uo/`, and `parser/` are Lazarus packages (`uocommon.lpk`,
 `uoengine.lpk`, `euoparser.lpk`) so the projects — and the test project —
@@ -266,6 +266,34 @@ The **`log` command** is the one addition to the language here: a line of text f
 The interpreter queues it (`TakeLog`, its own lock, the newest 10,000 lines) and the host empties the queue:
 `EUOCli run` prints it, and the editor's 100 ms timer moves it to the Output panel (`easyuo/euoutput.pas`
 formats and bounds the panel's text).
+
+### The MCP server
+
+`EUOCli.exe mcp` (`tools/EUOCli/climcp.pas`) offers the same checks and runs to AI agents as tools, over the
+Model Context Protocol on standard input and output ([agent-support.md](agent-support.md), phase 4). What it
+adds is a run that stays alive between calls: the agent can follow it, pause it, set breakpoints, step it and
+read its variables, with the executor's own stepping and breakpoints.
+
+- **One run, one implementation.** `tools/EUOCli/clisession.pas` (`TRunSession`) is the run with its rules:
+  no client unless given one, `display` answered by the host, the blocked commands, the timeout, the stop at
+  a restart. `EUOCli run` starts one and waits for its end; the server keeps one between calls. For the
+  server a paused script is a state, not the end of the run, and the timeout counts only the time the script
+  runs.
+- **Two safety decisions of the owner** are in the shape of the tool list, and tests pin them. `euo_run` has
+  no argument for a client or for a blocked command and refuses a call that passes one. `euo_run_live` is the
+  only tool that takes a client number and an `allow` list. Agent programs let their user allow a tool for
+  good, whatever its arguments: this way that click can never cover a run on the user's character.
+- **The script stops with the session.** A thread reads standard input into a queue; the main thread answers,
+  pumps the LCL message loop and keeps the run's clock. At the end of input it stops the script and exits.
+- **Both ways of opening a session are answered:** the `initialize` handshake (protocol versions 2024-11-05
+  to 2025-11-25), and requests that carry the version themselves (2026-07-28, `server/discover`). Only tools
+  are offered.
+- `TMcpServer.Handle` takes one message and returns its answer, so the tests talk to it without a pipe.
+
+`EUOCli docs` (`clidocs.pas`, also the `euo_docs` tool) looks a name up in the agent pack's `reference.json`
+and prints the page's own file: nothing about the language is stored in the program. `EUOCli init`
+(`cliinit.pas`) copies the pack into a script folder as a Claude Code skill and writes `AGENTS.md` and the
+`.mcp.json` entry, merging into files that are already there.
 
 ### Preserved quirks
 

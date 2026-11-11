@@ -31,7 +31,8 @@ uses
   Interfaces,
   Windows, SysUtils, Classes,
   climain in 'tools\EUOCli\climain.pas',
-  clirun in 'tools\EUOCli\clirun.pas';
+  clirun in 'tools\EUOCli\clirun.pas',
+  climcp in 'tools\EUOCli\climcp.pas';
 
 ////////////////////////////////////////////////////////////////////////////////
 // Standard input to its end, when it is a file or a pipe. A console nobody is typing
@@ -74,7 +75,15 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-// Ctrl+C and Ctrl+Break ask "run" to stop its script and end in order. Windows calls this
+// climcp.McpOut: one message of the MCP server. The protocol wants one line feed after
+// each, and nothing else on standard output while it runs.
+procedure WriteMcpLine(const Line : String);
+begin
+  WriteStdOut(Line+#10);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Ctrl+C and Ctrl+Break ask "run" and "mcp" to stop their script and end in order. Windows calls this
 // on a thread of its own; it only sets a flag the run loop reads.
 function CtrlHandler(CtrlType : DWORD) : BOOL; stdcall;
 begin
@@ -104,6 +113,7 @@ begin
     // A console set to another code page would show UTF-8 as two wrong characters.
     SetConsoleOutputCP(CP_UTF8);
     CliOnLine:=WriteLineNow;
+    McpOut:=WriteMcpLine;
     SetConsoleCtrlHandler(@CtrlHandler,True);
     Code:=RunCli(Args,StdInText,ExtractFilePath(ParamStr(0)),Output);
     WriteStdOut(Output.Text);

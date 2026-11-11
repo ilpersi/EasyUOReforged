@@ -136,6 +136,12 @@ See [Editing and debugging](/guide/debugging/).
   logs, what its `display` boxes would have shown, and why and where it ended. It uses no client unless told
   to, always ends, and refuses the commands that reach beyond the script. `EUOCli vars` and `EUOCli clients`
   read variables and list the clients.
+- **[`EUOCli mcp`](/guide/euocli/#tools-for-an-agent-euocli-mcp)**: the same as tools for AI agents (the
+  Model Context Protocol), plus a run that stays alive, so an agent can pause a script, set breakpoints, step
+  through it and read its variables. Running on your character is a tool of its own, with its own approval.
+  [`EUOCli init`](/guide/euocli/#set-a-folder-up-for-an-agent) sets a script folder up for an agent in one
+  step, and [`EUOCli docs`](/guide/euocli/#look-up-the-documentation) prints a documentation page in the
+  terminal.
 - **[The agent pack](/guide/agents/)** (the `agent` folder of the release zip): the language rules, every
   command and `#variable`, and this documentation as plain files, so that Claude Code, Codex, Cursor and other
   AI coding agents write EasyUO scripts from names they looked up instead of ones they made up. The site

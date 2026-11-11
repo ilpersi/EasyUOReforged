@@ -9,7 +9,7 @@ Status: **approved 2026-11-10 with the recommended choices** (CLI with MCP on to
 | 1 Reference pack | **Built** (2026-11-10). See [What phase 1 built](#what-phase-1-built). |
 | 2 `EUOCli check` | **Built** (2026-11-10). See [What phase 2 built](#what-phase-2-built). |
 | 3 `EUOCli run`, `vars`, `clients`, `log` | **Built** (2026-11-11). See [What phase 3 built](#what-phase-3-built). |
-| 4 `EUOCli mcp` | Not started. |
+| 4 `EUOCli mcp`, `init`, `docs` | **Built** (2026-11-11). See [What phase 4 built](#what-phase-4-built). |
 
 Goal: a coding agent (Claude Code, Codex, Cursor, any tool with a shell or MCP) can write, change
 and run EasyUO scripts from a request in plain language, and see for itself whether the script
@@ -300,6 +300,72 @@ single commands can't do: a run that stays alive.
 | `euo_docs` | look up or search the pack (name, alias) |
 
 `EUOCli init <folder>` writes `AGENTS.md`, the skill and an `.mcp.json` entry into a script folder.
+
+#### What phase 4 built
+
+Two choices were the owner's, made on 2026-11-11 before building:
+
+- **Running on a client is a tool of its own, `euo_run_live`.** Agent programs let their user allow
+  a tool for good, whatever its arguments. With a `client` argument on `euo_run`, that one click
+  would also cover every later run on the user's character. So `euo_run` cannot reach a client.
+- **A blocked command is let through by an argument of the call** (`allow`), as `--allow` does on
+  the command line, and not by an option of the server.
+
+One thing here is my reading of those two together, not something the owner said in so many words:
+**`allow` is an argument of `euo_run_live` only.** `euo_run` has neither argument and refuses a call
+that passes one. Otherwise an `euo_run` allowed for good could start a program with `execute`, which
+is what the first choice was made to prevent. `euo_run_live` therefore needs a client or an `allow`
+list (a script that needs `execute` and no client is run with it, `client` left out).
+
+What exists:
+
+- **`tools/EUOCli/clisession.pas`** (`TRunSession`, `TRunHost`): the run with its rules, moved out
+  of `clirun.pas` so that `EUOCli run` and the server share one implementation. New for the server:
+  a paused script is a state and not the end of the run, the timeout counts only the time the
+  script runs, breakpoints are listed, events can be taken a batch at a time, and at most 10,000
+  wait for a host that is not taking them.
+- **`tools/EUOCli/climcp.pas`** (`TMcpServer`, `RunMcp`): JSON-RPC 2.0, one message per line.
+  Twelve tools: `euo_check`, `euo_run`, `euo_run_live`, `euo_status`, `euo_stop`, `euo_pause`,
+  `euo_continue`, `euo_step`, `euo_breakpoint`, `euo_vars`, `euo_clients`, `euo_docs`. A tool
+  answers with one piece of text, JSON for all but `euo_docs`. A run tool waits a few seconds
+  (`wait`, at most 50) for the script to end or pause and then answers with its state; a script
+  that is still going is followed with `euo_status`. One run at a time; the run before stays
+  readable (`euo_vars`) until the next one has started.
+- **The script stops with the session:** at the end of standard input the program stops it and
+  exits. A call that is waiting when the agent's program cancels it (`notifications/cancelled`)
+  ends without an answer, and the script goes on.
+- **Both ways of opening a session:** the `initialize` handshake (2024-11-05 to 2025-11-25), and
+  requests that carry the protocol version themselves (2026-07-28: `server/discover`,
+  `resultType` in every result, `ttlMs` and `cacheScope` on the tool list, error -32022 for a
+  version nobody knows). The specification was read on 2026-11-11; the handshake was removed in
+  2026-07-28, which is why both are there.
+- **`EUOCli docs`** (`clidocs.pas`, and the `euo_docs` tool): a page by name (command,
+  sub-command, `#variable` with or without `#`, alias, guide title) or a search, from the pack's
+  `reference.json` and files. The pack is looked for in `agent\euo-script` next to the program
+  (the release zip's layout), or where `--pack` says.
+- **`EUOCli init`** (`cliinit.pas`): copies the pack to `.claude\skills\euo-script\` with an
+  `euocli-path.txt` (the skill reads it instead of asking where the program is), writes the pack's
+  `AGENTS.md` between two marker lines (added to the end of a file that is there, replaced on a
+  second run) and merges the `easyuo` entry into `.mcp.json` (a file it cannot read is left alone).
+- **Tests:** `EuoCliMcpTests` (23, through `TMcpServer.Handle`) and `EuoCliInitTests` (9, with a
+  small pack made in a temporary folder). `TestRunHasNoWayToAClientOrABlockedCommand` pins the
+  shape of the tool list: no `client` and no `allow` among `euo_run`'s arguments.
+
+Found on the way:
+
+- **A failed start must not throw the last run away.** The first version freed the old session
+  before the new one had selected its client, so a wrong client number also lost the variables of
+  the run before. The new session now replaces the old one only once it has started.
+- **`TStrings.Values[name]:=''` adds an entry in FPC** (Delphi deletes one): the breakpoint list
+  showed a line twice.
+- **Two names clash inside a unit that uses `Windows`:** `TCriticalSection` (qualified as
+  `SyncObjs.TCriticalSection`) and, inside a `with` on a session, its `Start` method against a
+  local variable.
+
+Not verified: the server with a real agent program (it was driven through a pipe with hand-written
+messages, in both protocol forms), `euo_run_live` on a client, and `euo_vars` from a client.
+`euo_clients` was seen listing a running client. Not built: `resources` (the pack's pages as MCP
+resources), progress notifications during a long wait, and more than one run at a time.
 
 ### Phase 5 (optional): the agent's script in the editor
 

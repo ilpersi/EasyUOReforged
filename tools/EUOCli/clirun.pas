@@ -24,10 +24,11 @@ unit clirun;
     (TEuoInterpreter.BlockCommands) unless --allow names them. They reach beyond the script:
     start programs, switch the computer off, close or start clients, fetch and run a reply.
 
-  The script's thread reports through a queue this unit's host object owns; the main thread
-  pumps the LCL message loop (MENU builds its windows there, through TThread.Synchronize) and
-  prints the queue as it fills. Like clicheck.pas everything is in the unit, so the test suite
-  runs scripts through it the way the program does (tests\EuoCliRunTests.pas).
+  The run itself, with these rules, is clisession.pas's TRunSession, which the MCP server
+  (climcp.pas) uses too. This unit reads the command line, starts a session, pumps the LCL
+  message loop until it ends and prints what it reports. Like clicheck.pas everything is in
+  the unit, so the test suite runs scripts through it the way the program does
+  (tests\EuoCliRunTests.pas).
 
   Exit codes of "run": 0 the script stopped itself (HALT, STOP, PAUSE); 2 the command line is
   wrong or the script cannot be read; 3 timeout; 4 a command raised an error; 5 the client
@@ -40,7 +41,7 @@ unit clirun;
 interface
 
 uses
-  Classes, SysUtils;
+  Classes, SysUtils, fpjson;
 
 const
   CLI_TIMEOUT     = 3;
@@ -49,11 +50,6 @@ const
   CLI_BLOCKED     = 6;
   CLI_RESTARTED   = 7;
   CLI_INTERRUPTED = 8;
-
-  // What "run" will not run unless --allow names it.
-  DefaultBlocked : array[0..4] of String = ('EXECUTE','SHUTDOWN','TERMINATE','UOXL','SEND');
-  DefaultTimeoutSec = 60;
-  MaxTraceLines     = 5000;
 
 type
   // Where a line of output goes the moment it exists, when a host wants it then (the
@@ -73,202 +69,23 @@ procedure RunHelp(Output : TStrings);
 procedure VarsHelp(Output : TStrings);
 procedure ClientsHelp(Output : TStrings);
 
+// What "vars" and "clients" print with --json, for the MCP server too.
+// ReadClientVars: Names are #variables and *variables; Every adds every #variable to them.
+// ClientNr < 0 becomes 1 when a client is running and 0 (no client) when none is. nil when
+// the client asked for is not there: Err says so.
+function ReadClientVars(Names : TStrings; Every : Boolean; var ClientNr : Integer; out Err : String) : TJSONObject;
+function ListClients : TJSONObject;
+
 implementation
 
 uses
-  Windows, Forms, fpjson, EuoInterpreter, EuoExecutor, EuoLock, scriptfile, clicheck;
-
-type
-  // What the running script reports, queued on its thread and printed on the main one.
-  TRunHost = class(TObject)
-  private
-    FLock     : TEuoLock;
-    FQueue    : TStringList;
-    FExec     : TExecutor;
-    FTraced   : Integer;
-    procedure Add(const Plain : String; Obj : TJSONObject);
-    procedure DrainLog;
-  public
-    Json      : Boolean;
-    Trace     : Boolean;
-    Answer    : String;      // '' = the box's first button
-    LastLine  : Integer;     // 0-based line that ran last, -1 before the first
-    constructor Create(AExec : TExecutor);
-    destructor  Destroy; override;
-    function  Display(const Text, Buttons : String) : String;
-    procedure Line(LineIdx : Integer);
-    procedure Note(const Kind, Text : String);
-    // Everything queued so far, in the order it happened, into List.
-    procedure Take(List : TStrings);
-  end;
-
-var
-  LclReady : Boolean = False;
+  Windows, Forms, EuoInterpreter, EuoExecutor, scriptfile, clicheck, clisession;
 
 ////////////////////////////////////////////////////////////////////////////////
 procedure Emit(Output : TStrings; const Line : String);
 begin
   if Assigned(CliOnLine) then CliOnLine(Line)
   else Output.Add(Line);
-end;
-
-////////////////////////////////////////////////////////////////////////////////
-// An event as one line of JSON, with no spaces to pay for.
-function OneLineJson(Obj : TJSONObject) : String;
-begin
-  Result:=Obj.FormatJSON([foSingleLineArray,foSingleLineObject,foSkipWhiteSpace]);
-end;
-
-////////////////////////////////////////////////////////////////////////////////
-function OneLine(const S : String) : String;
-begin
-  Result:=StringReplace(S,#13#10,' / ',[rfReplaceAll]);
-  Result:=StringReplace(Result,#10,' / ',[rfReplaceAll]);
-end;
-
-////////////////////////////////////////////////////////////////////////////////
-/// TRunHost ///////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-constructor TRunHost.Create(AExec : TExecutor);
-begin
-  inherited Create;
-  FExec:=AExec;
-  FLock:=TEuoLock.Create;
-  FQueue:=TStringList.Create;
-  FTraced:=0;
-  Json:=False;
-  Trace:=False;
-  Answer:='';
-  LastLine:=-1;
-end;
-
-////////////////////////////////////////////////////////////////////////////////
-destructor TRunHost.Destroy;
-begin
-  FQueue.Free;
-  FLock.Free;
-  inherited Destroy;
-end;
-
-////////////////////////////////////////////////////////////////////////////////
-// Queues one event: the plain line, or the JSON object as one line. Takes the object.
-procedure TRunHost.Add(const Plain : String; Obj : TJSONObject);
-begin
-  FLock.BeginWrite;
-  try
-    if Json then FQueue.Add(OneLineJson(Obj)) else FQueue.Add(Plain);
-  finally
-    FLock.EndWrite;
-    Obj.Free;
-  end;
-end;
-
-////////////////////////////////////////////////////////////////////////////////
-// What LOG has queued in the interpreter moves into this queue. Every event calls this
-// first, so the lines a script logged before a DISPLAY are printed before it.
-procedure TRunHost.DrainLog;
-var
-  Lines : TStringList;
-  i     : Integer;
-  Obj   : TJSONObject;
-  LineNr : Integer;
-begin
-  Lines:=TStringList.Create;
-  try
-    if not FExec.Parser.TakeLog(Lines) then Exit;
-    for i:=0 to Lines.Count-1 do
-    begin
-      LineNr:=PtrUInt(Lines.Objects[i]);
-      Obj:=TJSONObject.Create;
-      Obj.Add('event','log');
-      Obj.Add('line',LineNr);
-      Obj.Add('text',Lines[i]);
-      Add('['+IntToStr(LineNr)+'] log: '+Lines[i],Obj);
-    end;
-  finally
-    Lines.Free;
-  end;
-end;
-
-////////////////////////////////////////////////////////////////////////////////
-// TEuoInterpreter.OnDisplay, on the script's thread: no box. The answer is --answer when the
-// box has that button, otherwise its first button.
-function TRunHost.Display(const Text, Buttons : String) : String;
-var
-  Obj    : TJSONObject;
-  LineNr : Integer;
-begin
-  if (Buttons='YESNO') or (Buttons='YESNOCANCEL') then Result:='Yes' else Result:='Ok';
-  if Answer<>'' then
-  begin
-    if (Answer='CANCEL') and ((Buttons='OKCANCEL') or (Buttons='YESNOCANCEL')) then Result:='Cancel';
-    if (Answer='NO') and ((Buttons='YESNO') or (Buttons='YESNOCANCEL')) then Result:='No';
-    if (Answer='YES') and ((Buttons='YESNO') or (Buttons='YESNOCANCEL')) then Result:='Yes';
-    if (Answer='OK') and ((Buttons='OK') or (Buttons='OKCANCEL')) then Result:='Ok';
-  end;
-
-  DrainLog;
-  LineNr:=FExec.Parser.CurLine+1;
-  Obj:=TJSONObject.Create;
-  Obj.Add('event','display');
-  Obj.Add('line',LineNr);
-  Obj.Add('buttons',LowerCase(Buttons));
-  Obj.Add('text',Text);
-  Obj.Add('answer',Result);
-  Add('['+IntToStr(LineNr)+'] display ('+LowerCase(Buttons)+', answered '+Result+'): '+OneLine(Text),Obj);
-end;
-
-////////////////////////////////////////////////////////////////////////////////
-// TExecutor.OnLine, on the script's thread, before each line runs.
-procedure TRunHost.Line(LineIdx : Integer);
-var
-  Obj  : TJSONObject;
-  Text : String;
-begin
-  LastLine:=LineIdx;
-  if not Trace then Exit;
-  if FTraced>MaxTraceLines then Exit;
-  Inc(FTraced);
-  DrainLog;
-  if FTraced>MaxTraceLines then
-  begin
-    Note('trace','the trace stops here: '+IntToStr(MaxTraceLines)+' lines were shown');
-    Exit;
-  end;
-  Text:='';
-  with FExec.Parser.ScrList do
-    if (LineIdx>=0) and (LineIdx<Scr.Count) then Text:=Trim(Scr[LineIdx]);
-  Obj:=TJSONObject.Create;
-  Obj.Add('event','line');
-  Obj.Add('line',LineIdx+1);
-  Obj.Add('depth',Integer(FExec.Parser.ScrList.CallLevel));
-  Obj.Add('text',Text);
-  Add('['+IntToStr(LineIdx+1)+'] > '+Text,Obj);
-end;
-
-////////////////////////////////////////////////////////////////////////////////
-procedure TRunHost.Note(const Kind, Text : String);
-var
-  Obj : TJSONObject;
-begin
-  Obj:=TJSONObject.Create;
-  Obj.Add('event',Kind);
-  Obj.Add('text',Text);
-  Add(Kind+': '+Text,Obj);
-end;
-
-////////////////////////////////////////////////////////////////////////////////
-procedure TRunHost.Take(List : TStrings);
-begin
-  DrainLog;
-  FLock.BeginWrite;
-  try
-    List.AddStrings(FQueue);
-    FQueue.Clear;
-  finally
-    FLock.EndWrite;
-  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -367,30 +184,20 @@ end;
 function RunRun(Args : TStrings; const StdInText, ExeDir : String; Output : TStrings) : Integer;
 var
   FileName   : String;
-  ClientNr   : Integer;
-  TimeoutSec : Integer;
+  Opt        : TRunOptions;
   Json       : Boolean;
-  Trace      : Boolean;
-  ShowBoxes  : Boolean;
-  Answer     : String;
   Dump       : TStringList;
   Allow      : TStringList;
   Blocked    : TStringList;
   Script     : String;
-  Exec       : TExecutor;
-  Host       : TRunHost;
+  Session    : TRunSession;
   Pending    : TStringList;
-  i          : Integer;
+  i, k       : Integer;
   A          : String;
-  Start      : QWord;
-  Reason     : String;
-  Detail     : String;
-  ErrMsg     : String;
+  NoClient   : Boolean;
   Obj        : TJSONObject;
   VarsObj    : TJSONObject;
   Arr        : TJSONArray;
-  ElapsedMs  : QWord;
-  EndLine    : Integer;
   Plain      : String;
 
   function Next(const Opt : String; out Value : String) : Boolean;
@@ -403,11 +210,11 @@ var
 
   procedure Flush;
   var
-    k : Integer;
+    n : Integer;
   begin
     Pending.Clear;
-    Host.Take(Pending);
-    for k:=0 to Pending.Count-1 do Emit(Output,Pending[k]);
+    Session.Take(Pending,Json);
+    for n:=0 to Pending.Count-1 do Emit(Output,Pending[n]);
   end;
 
 begin
@@ -416,35 +223,36 @@ begin
   Allow:=TStringList.Create;
   Blocked:=TStringList.Create;
   Pending:=TStringList.Create;
-  Exec:=nil;
-  Host:=nil;
+  Session:=nil;
   try
     // ---- the command line ---------------------------------------------------------------
     FileName:='';
-    ClientNr:=0;
-    TimeoutSec:=DefaultTimeoutSec;
+    Opt.ClientNr:=0;
+    Opt.TimeoutSec:=DefaultTimeoutSec;
+    Opt.Trace:=False;
+    Opt.ShowBoxes:=False;
+    Opt.Answer:='';
+    Opt.PauseEnds:=True;
+    Opt.AllowHint:='rerun with --allow %s if the user agrees';
     Json:=False;
-    Trace:=False;
-    ShowBoxes:=False;
-    Answer:='';
     i:=0;
     while i<Args.Count do
     begin
       A:=Args[i];
       if A='--json' then Json:=True
-      else if A='--trace' then Trace:=True
-      else if A='--show-display' then ShowBoxes:=True
-      else if A='--no-client' then ClientNr:=0
+      else if A='--trace' then Opt.Trace:=True
+      else if A='--show-display' then Opt.ShowBoxes:=True
+      else if A='--no-client' then Opt.ClientNr:=0
       else if A='--client' then
       begin
         if not Next(A,A) then Exit;
-        if not (TryStrToInt(A,ClientNr) and (ClientNr>=0)) then
+        if not (TryStrToInt(A,Opt.ClientNr) and (Opt.ClientNr>=0)) then
           Exit(Fail(Output,'run','--client needs a client number, as "EUOCli clients" lists them'));
       end
       else if A='--timeout' then
       begin
         if not Next(A,A) then Exit;
-        if not ParseSeconds(A,TimeoutSec) then
+        if not ParseSeconds(A,Opt.TimeoutSec) then
           Exit(Fail(Output,'run','--timeout needs a number of seconds'));
       end
       else if A='--dump' then
@@ -460,8 +268,8 @@ begin
       else if A='--answer' then
       begin
         if not Next(A,A) then Exit;
-        Answer:=UpperCase(A);
-        if (Answer<>'OK') and (Answer<>'YES') and (Answer<>'NO') and (Answer<>'CANCEL') then
+        Opt.Answer:=UpperCase(A);
+        if (Opt.Answer<>'OK') and (Opt.Answer<>'YES') and (Opt.Answer<>'NO') and (Opt.Answer<>'CANCEL') then
           Exit(Fail(Output,'run','--answer is ok, yes, no or cancel'));
       end
       else if (A<>'-') and (Copy(A,1,1)='-') then Exit(Fail(Output,'run','unknown option '+A))
@@ -473,8 +281,8 @@ begin
     for i:=0 to Allow.Count-1 do
     begin
       A:='';
-      for EndLine:=Low(DefaultBlocked) to High(DefaultBlocked) do
-        if DefaultBlocked[EndLine]=Allow[i] then A:=Allow[i];
+      for k:=Low(DefaultBlocked) to High(DefaultBlocked) do
+        if DefaultBlocked[k]=Allow[i] then A:=Allow[i];
       if A='' then Exit(Fail(Output,'run','--allow takes execute, shutdown, terminate, uoxl or send; "'+
         LowerCase(Allow[i])+'" is not a blocked command'));
     end;
@@ -498,50 +306,26 @@ begin
       if Allow.IndexOf(DefaultBlocked[i])<0 then Blocked.Add(DefaultBlocked[i]);
 
     // ---- the engine ----------------------------------------------------------------------
-    // MENU builds real windows on the main thread; they need the LCL's window classes.
-    if not LclReady then
-    begin
-      Application.Initialize;
-      LclReady:=True;
-    end;
     CliInterrupted:=False;
-
-    Exec:=TExecutor.Create(0);
-    // LoadScript only works once the script thread has idled a first time.
-    Start:=GetTickCount64;
-    while (not Exec.Paused) and (GetTickCount64-Start<3000) do Sleep(5);
-
-    if ClientNr>0 then
-      if not Exec.Parser.UOSel.SelectClient(ClientNr) then
-      begin
-        if Exec.Parser.UOSel.Cnt=0 then A:='no UO client is running, or none EasyUO Reforged can drive'
-        else A:='there is no client number '+IntToStr(ClientNr)+' ("EUOCli clients" lists '+
-          IntToStr(Exec.Parser.UOSel.Cnt)+')';
-        Output.Add('EUOCli run: '+A);
-        Exit(CLI_NO_CLIENT);
-      end;
-
-    Host:=TRunHost.Create(Exec);
-    Host.Json:=Json;
-    Host.Trace:=Trace;
-    Host.Answer:=Answer;
-    if not ShowBoxes then Exec.Parser.OnDisplay:=Host.Display;
-    Exec.Parser.BlockCommands(Blocked);
-    Exec.StopOnRestart:=True;
-    Exec.OnLine:=Host.Line;
+    Session:=TRunSession.Create;
+    if not Session.Start(Script,Opt,Blocked,A,NoClient) then
+    begin
+      Output.Add('EUOCli run: '+A);
+      Exit(CLI_NO_CLIENT);
+    end;
 
     Obj:=TJSONObject.Create;
     try
       Obj.Add('event','start');
       Obj.Add('file',FileName);
-      Obj.Add('client',ClientNr);
-      Obj.Add('timeout',TimeoutSec);
+      Obj.Add('client',Opt.ClientNr);
+      Obj.Add('timeout',Opt.TimeoutSec);
       Arr:=TJSONArray.Create;
       for i:=0 to Blocked.Count-1 do Arr.Add(LowerCase(Blocked[i]));
       Obj.Add('blocked',Arr);
       if Json then Emit(Output,OneLineJson(Obj))
       else begin
-        if ClientNr>0 then A:='on client '+IntToStr(ClientNr)
+        if Opt.ClientNr>0 then A:='on client '+IntToStr(Opt.ClientNr)
         else A:='without a client (commands that need one are skipped)';
         Emit(Output,'running '+FileName+' '+A);
       end;
@@ -550,99 +334,52 @@ begin
     end;
 
     // ---- the run -------------------------------------------------------------------------
-    Exec.LoadScript(Script);
-    Start:=GetTickCount64;
-    Exec.State:=PLAY;
-    Reason:='';
-    while Reason='' do
+    Session.Go;
+    while not Session.Ended do
     begin
       Application.ProcessMessages;
       Flush;
-      if Exec.State=STOP then Reason:='halt'
-      else if Exec.State=PAUSE then Reason:='pause'
-      else if CliInterrupted then Reason:='interrupted'
-      else if (TimeoutSec>0) and (GetTickCount64-Start>=QWord(TimeoutSec)*1000) then Reason:='timeout'
-      else if (ClientNr>0) and (Exec.Parser.UOSel.Nr=0) then Reason:='client-lost'
-      else Sleep(5);
+      if CliInterrupted then Session.Finish('interrupted')
+      else Session.Tick;
+      if not Session.Ended then Sleep(5);
     end;
-    ElapsedMs:=GetTickCount64-Start;
-
-    // Stop it, and let the script thread come to rest before its state is read. Nothing runs
-    // after this: TExecutor marks the script stopped before it breaks the wait it is in
-    // (tests\EuoCliRunTests.pas, TestNothingRunsAfterATimeout).
-    Exec.State:=STOP;
-    Start:=GetTickCount64;
-    while (not Exec.Paused) and (GetTickCount64-Start<3000) do
-    begin
-      Application.ProcessMessages;
-      Sleep(5);
-    end;
-
-    // ---- how it ended --------------------------------------------------------------------
-    ErrMsg:=Exec.LastError;
-    Exec.LastError:='';
-    A:=Exec.Parser.TakeMenuNotice;
-    if A<>'' then Host.Note('menu',A);
-    EndLine:=Host.LastLine+1;
-    Detail:='';
-    if ErrMsg<>'' then
-    begin
-      Reason:='error';
-      Detail:=ErrMsg;
-    end
-    else if Reason='halt' then
-    begin
-      if Exec.Parser.BlockedCmd<>'' then
-      begin
-        Reason:='blocked';
-        EndLine:=Exec.Parser.BlockedLine+1;
-        Detail:=LowerCase(Exec.Parser.BlockedCmd)+' is blocked: rerun with --allow '+
-          LowerCase(Exec.Parser.BlockedCmd)+' if the user agrees';
-      end
-      else if Exec.Restarted then
-      begin
-        Reason:='restart';
-        Detail:='the script reached its end and started over: it has no halt';
-      end;
-    end
-    else if Reason='timeout' then Detail:='stopped by the timeout of '+IntToStr(TimeoutSec)+' s'
-    else if Reason='client-lost' then Detail:='client '+IntToStr(ClientNr)+' is gone'
-    else if Reason='pause' then Detail:='the script paused itself, and nobody is here to press Play';
     Flush;
 
-    if Reason='timeout' then Result:=CLI_TIMEOUT
-    else if Reason='error' then Result:=CLI_ERROR
-    else if Reason='client-lost' then Result:=CLI_NO_CLIENT
-    else if Reason='blocked' then Result:=CLI_BLOCKED
-    else if Reason='restart' then Result:=CLI_RESTARTED
-    else if Reason='interrupted' then Result:=CLI_INTERRUPTED
+    // ---- how it ended --------------------------------------------------------------------
+    if Session.Reason='timeout' then Result:=CLI_TIMEOUT
+    else if Session.Reason='error' then Result:=CLI_ERROR
+    else if Session.Reason='client-lost' then Result:=CLI_NO_CLIENT
+    else if Session.Reason='blocked' then Result:=CLI_BLOCKED
+    else if Session.Reason='restart' then Result:=CLI_RESTARTED
+    else if Session.Reason='interrupted' then Result:=CLI_INTERRUPTED
     else Result:=CLI_OK;
 
     VarsObj:=TJSONObject.Create;
-    for i:=0 to Dump.Count-1 do VarsObj.Add(Dump[i],Exec.GetVar(Dump[i]));
+    for i:=0 to Dump.Count-1 do
+      if VarsObj.IndexOfName(Dump[i])<0 then VarsObj.Add(Dump[i],Session.GetVar(Dump[i]));
 
     Obj:=TJSONObject.Create;
     try
       Obj.Add('event','end');
-      Obj.Add('reason',Reason);
-      Obj.Add('detail',Detail);
-      Obj.Add('line',EndLine);
+      Obj.Add('reason',Session.Reason);
+      Obj.Add('detail',Session.Detail);
+      Obj.Add('line',Session.EndLine);
       Obj.Add('exitCode',Result);
-      Obj.Add('elapsedMs',Int64(ElapsedMs));
-      Obj.Add('client',ClientNr);
-      Obj.Add('clientLinesSkipped',Int64(Exec.Parser.ClientSkips));
+      Obj.Add('elapsedMs',Int64(Session.ElapsedMs));
+      Obj.Add('client',Opt.ClientNr);
+      Obj.Add('clientLinesSkipped',Int64(Session.ClientSkips));
       Obj.Add('vars',VarsObj);
       if Json then Emit(Output,OneLineJson(Obj))
       else begin
-        Plain:='ended: '+Reason;
-        if EndLine>0 then Plain:=Plain+' at line '+IntToStr(EndLine);
-        Plain:=Plain+' after '+FormatFloat('0.0',ElapsedMs/1000,DefaultFormatSettings)+' s';
-        if Detail<>'' then Plain:=Plain+' ('+Detail+')';
+        Plain:='ended: '+Session.Reason;
+        if Session.EndLine>0 then Plain:=Plain+' at line '+IntToStr(Session.EndLine);
+        Plain:=Plain+' after '+FormatFloat('0.0',Session.ElapsedMs/1000,DefaultFormatSettings)+' s';
+        if Session.Detail<>'' then Plain:=Plain+' ('+Session.Detail+')';
         Emit(Output,Plain);
-        if Exec.Parser.ClientSkips=1 then
+        if Session.ClientSkips=1 then
           Emit(Output,'1 line was skipped because its command needs a client')
-        else if Exec.Parser.ClientSkips>1 then
-          Emit(Output,IntToStr(Exec.Parser.ClientSkips)+' lines were skipped because their command needs a client');
+        else if Session.ClientSkips>1 then
+          Emit(Output,IntToStr(Session.ClientSkips)+' lines were skipped because their command needs a client');
         for i:=0 to Dump.Count-1 do
           Emit(Output,Dump[i]+' = '+VarsObj.Get(Dump[i],''));
       end;
@@ -650,13 +387,7 @@ begin
       Obj.Free;
     end;
   finally
-    if Exec<>nil then
-    begin
-      Exec.Parser.OnDisplay:=nil;
-      Exec.OnLine:=nil;
-      Exec.Free;
-    end;
-    Host.Free;
+    Session.Free;
     Pending.Free;
     Blocked.Free;
     Allow.Free;
@@ -665,23 +396,62 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+function ReadClientVars(Names : TStrings; Every : Boolean; var ClientNr : Integer; out Err : String) : TJSONObject;
+var
+  All     : TStringList;
+  Interp  : TEuoInterpreter;
+  VarsObj : TJSONObject;
+  i       : Integer;
+begin
+  Result:=nil;
+  Err:='';
+  All:=TStringList.Create;
+  Interp:=TEuoInterpreter.Create(0);
+  try
+    if Every then
+    begin
+      Interp.GetVariableNames(All);
+      All.Sort;
+      for i:=0 to All.Count-1 do Names.Add('#'+All[i]);
+    end;
+    if ClientNr<0 then
+    begin
+      if Interp.UOSel.Cnt>0 then ClientNr:=1 else ClientNr:=0;
+    end;
+    if ClientNr>0 then
+      if not Interp.UOSel.SelectClient(ClientNr) then
+      begin
+        Err:='there is no client number '+IntToStr(ClientNr)+' ("EUOCli clients" lists '+
+          IntToStr(Interp.UOSel.Cnt)+')';
+        Exit;
+      end;
+
+    Result:=TJSONObject.Create;
+    Result.Add('client',ClientNr);
+    VarsObj:=TJSONObject.Create;
+    for i:=0 to Names.Count-1 do
+      if VarsObj.IndexOfName(Names[i])<0 then VarsObj.Add(Names[i],Interp.GetVar(Names[i]));
+    Result.Add('vars',VarsObj);
+  finally
+    Interp.Free;
+    All.Free;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 function RunVars(Args : TStrings; Output : TStrings) : Integer;
 var
   Names    : TStringList;
-  All      : TStringList;
-  Interp   : TEuoInterpreter;
   ClientNr : Integer;
   Json     : Boolean;
   Every    : Boolean;
   i        : Integer;
-  A        : String;
+  A, Err   : String;
   Obj      : TJSONObject;
-  VarsObj  : TJSONObject;
 begin
   Result:=CLI_OK;
   Names:=TStringList.Create;
-  All:=TStringList.Create;
-  Interp:=nil;
+  Obj:=nil;
   try
     ClientNr:=-1;   // not said: 1 when a client is running
     Json:=False;
@@ -711,76 +481,41 @@ begin
     end;
     if (Names.Count=0) and not Every then Exit(Fail(Output,'vars','no variable given'));
 
-    Interp:=TEuoInterpreter.Create(0);
-    if Every then
+    Obj:=ReadClientVars(Names,Every,ClientNr,Err);
+    if Obj=nil then
     begin
-      Interp.GetVariableNames(All);
-      All.Sort;
-      for i:=0 to All.Count-1 do Names.Add('#'+All[i]);
+      Output.Add('EUOCli vars: '+Err);
+      Exit(CLI_NO_CLIENT);
     end;
-    if ClientNr<0 then
-    begin
-      if Interp.UOSel.Cnt>0 then ClientNr:=1 else ClientNr:=0;
-    end;
-    if ClientNr>0 then
-      if not Interp.UOSel.SelectClient(ClientNr) then
-      begin
-        Output.Add('EUOCli vars: there is no client number '+IntToStr(ClientNr)+' ("EUOCli clients" lists '+
-          IntToStr(Interp.UOSel.Cnt)+')');
-        Exit(CLI_NO_CLIENT);
-      end;
 
-    if Json then
-    begin
-      Obj:=TJSONObject.Create;
-      try
-        Obj.Add('client',ClientNr);
-        VarsObj:=TJSONObject.Create;
-        for i:=0 to Names.Count-1 do
-          if VarsObj.IndexOfName(Names[i])<0 then VarsObj.Add(Names[i],Interp.GetVar(Names[i]));
-        Obj.Add('vars',VarsObj);
-        Output.Text:=Obj.FormatJSON;
-      finally
-        Obj.Free;
-      end;
-    end
+    if Json then Output.Text:=Obj.FormatJSON
     else begin
       if ClientNr=0 then Output.Add('no client: variables of the client read N/A');
       for i:=0 to Names.Count-1 do
-        Output.Add(Names[i]+' = '+Interp.GetVar(Names[i]));
+        Output.Add(Names[i]+' = '+Obj.Objects['vars'].Get(Names[i],''));
     end;
   finally
-    if Interp<>nil then Interp.Free;
-    All.Free;
+    Obj.Free;
     Names.Free;
   end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-function RunClients(Args : TStrings; Output : TStrings) : Integer;
+function ListClients : TJSONObject;
 var
-  Interp  : TEuoInterpreter;
-  Json    : Boolean;
-  i, N    : Integer;
-  Obj     : TJSONObject;
-  Item    : TJSONObject;
-  Arr     : TJSONArray;
-  Name    : String;
-  Logged  : Boolean;
-  Line    : String;
+  Interp : TEuoInterpreter;
+  i, N   : Integer;
+  Item   : TJSONObject;
+  Arr    : TJSONArray;
+  Name   : String;
+  Logged : Boolean;
 begin
-  Result:=CLI_OK;
-  Json:=False;
-  for i:=0 to Args.Count-1 do
-    if Args[i]='--json' then Json:=True
-    else Exit(Fail(Output,'clients','unknown option '+Args[i]));
-
   Interp:=TEuoInterpreter.Create(0);
-  Obj:=TJSONObject.Create;
+  Result:=TJSONObject.Create;
   try
     N:=Interp.UOSel.Cnt;
     Arr:=TJSONArray.Create;
-    Obj.Add('clients',Arr);
+    Result.Add('clients',Arr);
     for i:=1 to N do
     begin
       Name:='';
@@ -798,21 +533,53 @@ begin
       Item.Add('loggedIn',Logged);
       Item.Add('character',Name);
       Arr.Add(Item);
-      Line:=IntToStr(i)+'  '+Interp.UOSel.GetVer(i)+'  "'+Interp.UOSel.GetTitle(i)+'"  ';
-      if Logged then Line:=Line+'character '+Name else Line:=Line+'nobody logged in';
-      if not Json then Output.Add(Line);
     end;
-    Obj.Add('denied',Int64(Interp.UOSel.DeniedCnt));
-    if Json then Output.Text:=Obj.FormatJSON
-    else begin
-      if N=0 then Output.Add('no UO client found');
-      if Interp.UOSel.DeniedCnt>0 then
-        Output.Add(IntToStr(Interp.UOSel.DeniedCnt)+' client(s) run as administrator and cannot be opened: '+
-          'start this program as administrator too, or the client without');
+    Result.Add('denied',Int64(Interp.UOSel.DeniedCnt));
+  finally
+    Interp.Free;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function RunClients(Args : TStrings; Output : TStrings) : Integer;
+var
+  Json   : Boolean;
+  i      : Integer;
+  Obj    : TJSONObject;
+  Item   : TJSONObject;
+  Arr    : TJSONArray;
+  Line   : String;
+  Denied : Integer;
+begin
+  Result:=CLI_OK;
+  Json:=False;
+  for i:=0 to Args.Count-1 do
+    if Args[i]='--json' then Json:=True
+    else Exit(Fail(Output,'clients','unknown option '+Args[i]));
+
+  Obj:=ListClients;
+  try
+    if Json then
+    begin
+      Output.Text:=Obj.FormatJSON;
+      Exit;
     end;
+    Arr:=Obj.Arrays['clients'];
+    for i:=0 to Arr.Count-1 do
+    begin
+      Item:=Arr.Objects[i];
+      Line:=IntToStr(Item.Get('nr',0))+'  '+Item.Get('version','')+'  "'+Item.Get('title','')+'"  ';
+      if Item.Get('loggedIn',False) then Line:=Line+'character '+Item.Get('character','')
+      else Line:=Line+'nobody logged in';
+      Output.Add(Line);
+    end;
+    if Arr.Count=0 then Output.Add('no UO client found');
+    Denied:=Obj.Get('denied',0);
+    if Denied>0 then
+      Output.Add(IntToStr(Denied)+' client(s) run as administrator and cannot be opened: '+
+        'start this program as administrator too, or the client without');
   finally
     Obj.Free;
-    Interp.Free;
   end;
 end;
 

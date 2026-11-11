@@ -21,7 +21,7 @@ unit clicheck;
 interface
 
 uses
-  Classes, SysUtils;
+  Classes, SysUtils, fpjson;
 
 const
   CLI_OK       = 0;
@@ -35,10 +35,14 @@ function RunCheck(Args : TStrings; const StdInText, ExeDir : String; Output : TS
 
 procedure CheckHelp(Output : TStrings);
 
+// One script's findings, as "check --json" gives them for one file: for the MCP server.
+// Shown is the name to report; CurPath the folder CALL lines are resolved from.
+function CheckScriptJson(const Text, Shown, CurPath : String) : TJSONObject;
+
 implementation
 
 uses
-  fpjson, EuoInterpreter, EuoLint, scriptfile, ReforgedVersion;
+  EuoInterpreter, EuoLint, scriptfile, ReforgedVersion;
 
 ////////////////////////////////////////////////////////////////////////////////
 procedure CheckHelp(Output : TStrings);
@@ -127,6 +131,39 @@ begin
   Result.Add('lines',Res.LineCount);
   Result.Add('findings',Findings);
   Result.Add('summary',Summary);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function CheckScriptJson(const Text, Shown, CurPath : String) : TJSONObject;
+var
+  Interp     : TEuoInterpreter;
+  Cmds, Vars : TStringList;
+  Lines      : TStringList;
+  Linter     : TEuoLinter;
+  Res        : TEuoLintResult;
+begin
+  Cmds:=TStringList.Create;
+  Vars:=TStringList.Create;
+  Lines:=TStringList.Create;
+  Res:=TEuoLintResult.Create;
+  Interp:=TEuoInterpreter.Create(0);
+  Linter:=nil;
+  try
+    Interp.GetCommandNames(Cmds);
+    Interp.GetVariableNames(Vars);
+    Linter:=TEuoLinter.Create(Cmds,Vars);
+    Linter.CurPath:=CurPath;
+    Lines.Text:=Text;
+    Linter.Check(Lines,Res);
+    Result:=ToJson(Shown,Res);
+  finally
+    Linter.Free;
+    Interp.Free;
+    Res.Free;
+    Lines.Free;
+    Vars.Free;
+    Cmds.Free;
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
