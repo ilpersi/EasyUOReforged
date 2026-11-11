@@ -70,7 +70,9 @@ read. The pack's `language.md`, which an agent reads in full, is three pages of 
 an agent goes on one of them. On any page, an `euo` example may say what a variable holds at the end in a
 comment starting with `=>` (`set %a 1 + 1   ; => %a = 2`): the test suite runs such examples, so they may use
 only commands that need no client and don't wait (the list is in `tests/DocsExampleTests.pas`).
-`tests/tools/CheckAgentPack.ps1` checks the rest.
+`tests/tools/CheckAgentPack.ps1` checks the rest. The site's developer page
+[`developers/agent-support.md`](src/content/docs/developers/agent-support.md) has the whole of it: what is
+hand-written, where a change goes, and how to try the pack with an agent.
 
 ## Licence
 

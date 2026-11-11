@@ -73,6 +73,90 @@ A good agent asks for what is missing, or gives you a small probe script that sh
 item, and a box shows its ID and type. An agent that hands you a script full of types and positions you never
 gave it has made them up.
 
+### Example prompts
+
+In Claude Code the pack is a skill named `euo-script`. Claude loads it by itself when your request is about
+an EasyUO script, so **say "EasyUO" or name a `.euo` file**. To be sure it is used, start the request with
+`/euo-script`. Other agents get the same instructions from `AGENTS.md`, which they read when they start in
+the folder.
+
+A new script, with the values you know:
+
+```text
+Write an EasyUO script that uses a bandage on me whenever my hits are below 70.
+Bandages are type ZLF. Save it as heal.euo.
+```
+
+A new script when you don't know the values:
+
+```text
+/euo-script I want a script that moves all the gold from my backpack into my bank box.
+I don't know the IDs. Give me a probe script first, so that I can click the bank box
+and tell you what it shows.
+```
+
+A change to a script you have:
+
+```text
+In miner.euo, stop mining and log a line when my weight is within 20 stones of the maximum.
+Change nothing else.
+```
+
+An explanation:
+
+```text
+Explain what loot.euo does, sub by sub, and tell me which lines act on my character.
+```
+
+A check of scripts you already have:
+
+```text
+Check every .euo file in this folder with EUOCli and list what it finds, file by file.
+Don't fix anything yet.
+```
+
+A bug the agent can find by stepping through the script (it needs [the tools](#with-the-tools)):
+
+```text
+count.euo logs 9 rounds and should log 10. Step through it without a client, watch %round,
+and tell me which line is wrong before you change it.
+```
+
+A script that starts from what the game shows now:
+
+```text
+Read where my character stands, then write an EasyUO script that walks from there to
+1434 1699 and logs when it has arrived.
+```
+
+A script that also has to run in the original EasyUO:
+
+```text
+Write an EasyUO script with a small window: a field for an item type, a Start button and a Stop
+button. It must also run in EasyUO 1.5, so use no command that is new in Reforged.
+```
+
+A run on your character, after you have read the script:
+
+```text
+Run heal.euo on my character for 30 seconds. Tell me first what it will do there.
+```
+
+In a chat without files, give the address first:
+
+```text
+Read https://ilpersi.github.io/EasyUOReforged/llms.txt and the language rules it lists.
+Then write an EasyUO script that ...
+```
+
+What helps in any of them:
+
+- **Name the file** to write or change, and say what must stay as it is.
+- **Give the values, or ask for a probe.** Say "I don't know the type" instead of leaving it out.
+- **Say how you will see that it works:** "log each item it moves".
+- **Ask what was not tested.** The agent can check a script and run its logic. It can't see the game, and a
+  good answer says which part only a run on your character will show.
+
 ## The agent checks and runs its own script
 
 EasyUO gives no error for a line it can't understand, so an agent can't tell by itself that it wrote one.

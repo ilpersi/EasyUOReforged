@@ -15,7 +15,7 @@ the [releases page](https://github.com/ilpersi/EasyUOReforged/releases) instead.
 | `uo.lpi` | `uo.dll` | The client engine as a DLL, for other programs ([uo.dll API](/dll/)). `EasyUOReforged.exe` does not use it. |
 | `EUOUpdtr.lpi` | `EUOUpdtr.exe` | EUOUpdater, the scan tool for new client builds ([Deriving values by hand](/developers/manual-derivation/)). |
 | `EUOMenuDesigner.lpi` | `EUOMenuDesigner.exe` | The MENU Designer, which lays out menu windows and writes their script. |
-| `EUOCli.lpi` | `EUOCli.exe` | The [command-line program](/guide/euocli/): it checks and runs scripts, and serves both to AI agents as tools. |
+| `EUOCli.lpi` | `EUOCli.exe` | The [command-line program](/guide/euocli/): it checks and runs scripts, and serves both to AI agents as tools ([The agent pack and EUOCli](/developers/agent-support/)). |
 
 ## What you need
 

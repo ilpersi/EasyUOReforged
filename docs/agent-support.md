@@ -11,6 +11,10 @@ Status: **approved 2026-11-10 with the recommended choices** (CLI with MCP on to
 | 3 `EUOCli run`, `vars`, `clients`, `log` | **Built** (2026-11-11). See [What phase 3 built](#what-phase-3-built). |
 | 4 `EUOCli mcp`, `init`, `docs` | **Built** (2026-11-11). See [What phase 4 built](#what-phase-4-built). |
 
+This file is the plan and its history. How to work on the pack and on `EUOCli` today (where a change
+goes, what checks it, what to update) is the site's developer page
+`website/src/content/docs/developers/agent-support.md`.
+
 Goal: a coding agent (Claude Code, Codex, Cursor, any tool with a shell or MCP) can write, change
 and run EasyUO scripts from a request in plain language, and see for itself whether the script
 works.
