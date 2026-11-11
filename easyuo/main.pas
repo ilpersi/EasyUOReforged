@@ -62,7 +62,7 @@ uses Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Types,
      SynEdit, SynEditMiscClasses, SynEditSearch, SynEditTypes, SynCompletion,
      SynMacroRecorder, SynEditHighlighter, SynEditKeyCmds, ShellApi,
      Registry, vartree, access, ReforgedVersion, insthandler, mainicons, eufoldsyn,
-     eucomplete, eufinddlg, EuoScriptStack, EuoCallStackFormat, EuoBlocks;
+     eucomplete, eufinddlg, EuoScriptStack, EuoCallStackFormat, EuoBlocks, euoutput;
 
 type
   TMainForm = class(TForm)
@@ -82,6 +82,8 @@ type
                 var SourceStart, SourceEnd: TPoint; KeyChar: TUTF8Char;
                 Shift: TShiftState);
     procedure CallStackListBoxDblClick(Sender: TObject);
+    procedure ShowOutputPanel(AVisible : Boolean);
+    procedure AddOutput(TabIdx : Integer; Lines : TStrings);
     procedure FormatScript;
     procedure BuildComponents;
     function  AddMenu(Parent : TMenuItem; ATag : Integer; ACaption : String;
@@ -101,6 +103,7 @@ type
     Start1,Pause1,Stop1,StopAll1,StepOver1,StepInto1,StepOut1 : TMenuItem;
     ToggleBreakpoint1,RunToCursor1,BreakpointCondition1,ClearBreakpoints1 : TMenuItem;
     CallStackPanel1 : TMenuItem;
+    OutputPanel1,ClearOutput1 : TMenuItem;
     NewClient1,SwapToNextClient1,VarDump1,UserVars1,DontMoveCursor1 : TMenuItem;
     Help2,GoToWebsite1,About1 : TMenuItem;
     Undo2,Redo2,Cut2,Copy2,Paste2,Delete2,SelectAll2,Close2,CloseAll2 : TMenuItem;
@@ -126,6 +129,8 @@ type
     ScrPanel          : TPanel;
     CallStackSplitter : TSplitter;
     CallStackListBox  : TListBox;
+    OutputSplitter    : TSplitter;  // port addition: the Output panel, see euoutput.pas
+    OutputMemo        : TMemo;
     ToolButton14, ToolButton15, ToolButton16, ToolButton24 : TToolButton;
     ToolButton4, ToolButton7, ToolButton8, ToolButton9      : TToolButton;
     FormatButton      : TToolButton;
@@ -345,6 +350,9 @@ begin
   // Tag continues the same "new debug features get tags far outside every
   // original range" convention as the breakpoint block above (200-203).
   CallStackPanel1 := AddMenu(Control1, 210, 'Show Call &Stack');
+  // Port addition (the LOG command): the Output panel, where the lines scripts log appear.
+  OutputPanel1 := AddMenu(Control1, 211, 'Show &Output');
+  ClearOutput1 := AddMenu(Control1, 212, 'Clear Out&put');
 
   ools1 := TMenuItem.Create(Self);
   ools1.Caption := '&Tools';
@@ -513,6 +521,25 @@ begin
   CallStackSplitter.Visible := False;
 
   ////////////////////////////////////////////////////////////////////////////
+  // Port addition (the LOG command, docs folder, agent-support.md, phase 3): the Output panel,
+  // where the lines scripts log appear. One panel for every tab, parented to ScrPanel
+  // like the call-stack panel above and for the same reason. Hidden until a script logs
+  // something or the user asks for it with Control > Show Output.
+  OutputMemo := TMemo.Create(Self);
+  OutputMemo.Parent := ScrPanel;
+  OutputMemo.Align := alBottom;
+  OutputMemo.Height := 100;
+  OutputMemo.ReadOnly := True;
+  OutputMemo.WordWrap := False;
+  OutputMemo.ScrollBars := ssAutoBoth;
+  OutputMemo.Visible := False;
+
+  OutputSplitter := TSplitter.Create(Self);
+  OutputSplitter.Parent := ScrPanel;
+  OutputSplitter.Align := alBottom;
+  OutputSplitter.Visible := False;
+
+  ////////////////////////////////////////////////////////////////////////////
   SynPopupMenu := TPopupMenu.Create(Self);
   SynPopupMenu.Images := ImageList;
   Undo2 := TMenuItem.Create(Self); Undo2.Caption:='&Undo'; Undo2.Tag:=20; Undo2.ShortCut:=16474; Undo2.OnClick:=MenuHandlerProc; SynPopupMenu.Items.Add(Undo2);
@@ -587,6 +614,8 @@ begin
   CallStackPanel1.Checked := Reg.ValueExists('CallStackVisible') and Reg.ReadBool('CallStackVisible');
   CallStackListBox.Visible := CallStackPanel1.Checked;
   CallStackSplitter.Visible := CallStackPanel1.Checked;
+  // Port addition: the Output panel's state, the same way.
+  ShowOutputPanel(Reg.ValueExists('OutputVisible') and Reg.ReadBool('OutputVisible'));
 
   // EUOSyn.hlr (copied verbatim from the original) can't be loaded directly:
   // it uses the original Delphi-era UniHighlighter's file schema (Keywords/
@@ -874,6 +903,11 @@ begin
            CallStackSplitter.Visible := CallStackPanel1.Checked;
            Reg.WriteBool('CallStackVisible',CallStackPanel1.Checked);
          end;
+   211 : begin // Toggle Output panel (port addition)
+           ShowOutputPanel(not OutputPanel1.Checked);
+           Reg.WriteBool('OutputVisible',OutputPanel1.Checked);
+         end;
+   212 : OutputMemo.Lines.Clear;
 
     // New additions (not present in the original app): Format Script and
     // code folding -- see BuildComponents' Edit menu.
@@ -982,6 +1016,43 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+// Port addition (the LOG command): shows or hides the Output panel. The splitter is put
+// right above the panel each time: two alBottom controls made visible together can come
+// up in either order, and a splitter under its panel resizes nothing.
+procedure TMainForm.ShowOutputPanel(AVisible : Boolean);
+begin
+  OutputPanel1.Checked := AVisible;
+  OutputMemo.Visible := AVisible;
+  OutputSplitter.Visible := AVisible;
+  if AVisible then
+    OutputSplitter.Top := OutputMemo.Top - OutputSplitter.Height;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (the LOG command): Lines are what tab TabIdx's script logged. They go to
+// the Output panel with the time, and the tab's name when there is more than one tab; the
+// panel opens by itself for the first of them and scrolls to the newest.
+procedure TMainForm.AddOutput(TabIdx : Integer; Lines : TStrings);
+var
+  Shown : TStringList;
+  i     : Integer;
+  Tab   : String;
+begin
+  Tab:='';
+  if (TabIdx>=0) and (TabIdx<TabCtrl.Tabs.Count) then Tab:=TabCtrl.Tabs[TabIdx];
+  Shown:=TStringList.Create;
+  try
+    for i:=0 to Lines.Count-1 do
+      Shown.Add(EuoOutputLine(Now,Tab,Lines[i],IH.Count>1));
+    EuoAppendOutput(OutputMemo.Lines,Shown);
+  finally
+    Shown.Free;
+  end;
+  if not OutputMemo.Visible then ShowOutputPanel(True);
+  SendMessage(OutputMemo.Handle,WM_VSCROLL,SB_BOTTOM,0);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 procedure TMainForm.UpdateTimerTimer(Sender: TObject);
 var
   PL,PAU,
@@ -990,6 +1061,7 @@ var
   i1,i2      : Integer;
   Cnt        : Integer;
   Frames     : TStringList;
+  LogLines   : TStringList;
   ErrMsg     : String;
 begin
   Inc(UpdateCnt);
@@ -1041,6 +1113,15 @@ begin
     ErrMsg:=Parser.TakeMenuNotice;
     if ErrMsg<>'' then
       ShowMessage('Script tab '+IntToStr(Cnt+1)+': '+ErrMsg);
+
+    // Port addition (the LOG command): what this tab's script logged since the last tick
+    // goes to the Output panel.
+    LogLines:=TStringList.Create;
+    try
+      if Parser.TakeLog(LogLines) then AddOutput(Cnt,LogLines);
+    finally
+      LogLines.Free;
+    end;
   end;
 
   {***Update VarList***}

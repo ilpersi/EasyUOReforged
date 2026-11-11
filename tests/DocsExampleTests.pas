@@ -44,10 +44,10 @@ const
   // First words an annotated example may use. Labels (name:), braces and '+' lines are
   // syntax and always allowed. NOSUCHCOMMAND is the word the pages use to show that an
   // unknown command is skipped: it must never become a command.
-  Allowed : array[0..19] of String = (
+  Allowed : array[0..20] of String = (
     'SET','IF','ELSE','FOR','WHILE','REPEAT','UNTIL','BREAK','CONTINUE',
     'GOSUB','SUB','RETURN','GOTO','EXIT','HALT','STOP','STR','NAMESPACE','LINESPERCYCLE',
-    'NOSUCHCOMMAND');
+    'LOG','NOSUCHCOMMAND');
   MaxSteps  = 20000;   // lines played before an example counts as never stopping
   MinToFind = 10;      // fewer annotated examples than this means the pages were not found or read
 

@@ -46,9 +46,21 @@ EasyUO wiki say so at their foot: that text is available under the GNU Free Docu
 
 ## What the agent can and can't do
 
-It writes, explains and changes scripts, and it checks them with `EUOCli.exe check` (in the EasyUO
-Reforged folder, one level up from this one), which reports what EasyUO would skip or misread. Tell
-the agent where the EasyUO Reforged folder is, or it will ask.
+It writes, explains and changes scripts, and it uses `EUOCli.exe` (in the EasyUO Reforged folder,
+one level up from this one) on them:
 
-It can't run scripts or see your game yet: you run the script in EasyUO Reforged and tell the agent
-what happened. Read a script before you run it, as with any script you didn't write.
+- `EUOCli check` reports what EasyUO would skip or misread.
+- `EUOCli run` runs a script with **no UO client**: nothing happens in your game, and the agent
+  sees whether the logic works.
+- `EUOCli vars` reads variables from your client, such as where your character stands. It changes
+  nothing.
+
+Tell the agent where the EasyUO Reforged folder is, or it will ask.
+
+The agent is told to run a script on your character (`EUOCli run --client 1`) only after you say
+yes to that script, and after telling you what it will do. Your agent program also asks before it
+runs a command: look for `--client` and `--allow` in what you approve. Without them a run can't
+touch the game or start anything on your computer.
+
+It can't see your game screen. Read a script before you let it run on your character, as with any
+script you didn't write.

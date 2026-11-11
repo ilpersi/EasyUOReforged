@@ -37,6 +37,7 @@ type
     procedure TestConditionalBreakpointOnlyPausesWhenTrue;
     procedure TestPlayChoosesMenuLogicFromTheLoadedScript;
     procedure TestWaitForEndsAtOnceOnStop;
+    procedure TestStopDuringAWaitRunsNothingMore;
     procedure TestWaitForSeesAVariableSetFromAnotherThread;
     procedure TestWaitForPauseDoesNotUseUpTheTimeout;
     procedure TestWaitForConditionMetDuringPauseCounts;
@@ -230,6 +231,31 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 // WAITFOR (port addition) on the real thread: what only the executor's Stop, Pause and stepping
 // can show. The synchronous cases are in EuoInterpreterTests.
+// Stop marks the script stopped before it breaks the wait the script is in, so the line
+// after the wait never runs (EuoExecutor.pas's header: the original did it the other way
+// round, and about one stop in four ran one more line). Twenty rounds: with the old order
+// this test failed practically every time, where a single round passed three times in four.
+procedure TEuoExecutorTests.TestStopDuringAWaitRunsNothingMore;
+var
+  Round     : Integer;
+  StartTick : Cardinal;
+begin
+  for Round := 1 to 20 do
+  begin
+    Exec.LoadScript('SET %a ' + IntToStr(Round) + #13#10 + 'WAIT 60s' + #13#10 + 'SET %after 1' + #13#10 + 'HALT');
+    Exec.State := PLAY;
+    AssertTrue('round ' + IntToStr(Round) + ' did not start', WaitForVar('%a', IntToStr(Round)));
+    Sleep(60);   // the script is inside its wait now
+    Exec.State := STOP;
+    StartTick := GetTickCount;
+    while (not Exec.Paused) and (GetTickCount - StartTick < 5000) do
+      Sleep(2);
+    AssertTrue('round ' + IntToStr(Round) + ': the thread did not leave the wait', Exec.Paused);
+    AssertEquals('round ' + IntToStr(Round) + ': the line after the wait ran', 'N/A', Exec.GetVar('%after'));
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 procedure TEuoExecutorTests.TestWaitForEndsAtOnceOnStop;
 var
   StartTick : Cardinal;

@@ -30,7 +30,8 @@ program EUOCli;
 uses
   Interfaces,
   Windows, SysUtils, Classes,
-  climain in 'tools\EUOCli\climain.pas';
+  climain in 'tools\EUOCli\climain.pas',
+  clirun in 'tools\EUOCli\clirun.pas';
 
 ////////////////////////////////////////////////////////////////////////////////
 // Standard input to its end, when it is a file or a pipe. A console nobody is typing
@@ -64,6 +65,23 @@ begin
   WriteFile(H,S[1],Length(S),Done,nil);
 end;
 
+////////////////////////////////////////////////////////////////////////////////
+// clirun.CliOnLine: "run" prints each line the moment it has it, so whoever reads the
+// output sees a long run as it goes.
+procedure WriteLineNow(const Line : String);
+begin
+  WriteStdOut(Line+LineEnding);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Ctrl+C and Ctrl+Break ask "run" to stop its script and end in order. Windows calls this
+// on a thread of its own; it only sets a flag the run loop reads.
+function CtrlHandler(CtrlType : DWORD) : BOOL; stdcall;
+begin
+  Result:=(CtrlType=CTRL_C_EVENT) or (CtrlType=CTRL_BREAK_EVENT);
+  if Result then CliInterrupted:=True;
+end;
+
 var
   Args, Output : TStringList;
   StdInText    : String;
@@ -85,6 +103,8 @@ begin
 
     // A console set to another code page would show UTF-8 as two wrong characters.
     SetConsoleOutputCP(CP_UTF8);
+    CliOnLine:=WriteLineNow;
+    SetConsoleCtrlHandler(@CtrlHandler,True);
     Code:=RunCli(Args,StdInText,ExtractFilePath(ParamStr(0)),Output);
     WriteStdOut(Output.Text);
   finally

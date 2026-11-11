@@ -24,6 +24,10 @@ unit EuoStdCommands;
   Later, at the user's request: the DISPLAY box's caption is 'Reforged Message'
   (was 'EUO Message'), held in DISPLAY_CAPTION, which EuoExecutor's
   KillDisplayBox matches on to close a stopped script's box.
+  Port addition (EUOCli run, docs\agent-support.md phase 3): OnDisplay. A host with nobody
+  to click a message box sets it, and Display then asks the handler for the answer instead
+  of opening the box. It is nil unless a host sets it, so the editor and uo.dll show the
+  box exactly as before.
 }
 
 {$mode delphi}{$H+}
@@ -35,12 +39,18 @@ const
   DISPLAY_CAPTION = 'Reforged Message';
 
 type
+  // Port addition: answers a DISPLAY in place of the message box. Text is the message with
+  // its '$' already turned into line breaks, Buttons is OK, OKCANCEL, YESNO or YESNOCANCEL.
+  // The result becomes #DispRes: Ok, Yes, No or Cancel. Called on the script's thread.
+  TDisplayHandler = function(const Text, Buttons : String) : String of object;
+
   TStdCmd       = class(TObject)
   private
     Delay       : TDelayFunc;
     function    GetVK(KeyStr : String) : Cardinal;
   public
     DispRes     : String;
+    OnDisplay   : TDisplayHandler;   // port addition; nil = show the message box
 
     constructor Create(DFunc : TDelayFunc);
     procedure   Wait(Duration, RandHi : Cardinal);
@@ -63,6 +73,7 @@ constructor TStdCmd.Create(DFunc : TDelayFunc);
 begin
   Delay:=DFunc;
   DispRes:='';
+  OnDisplay:=nil;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -194,6 +205,16 @@ begin
   if MsgType='YESNOCANCEL' then MBType:=MB_YESNOCANCEL;
 
   if Dollar then Str:=ReplaceStr(Str,'$',#13#10);
+
+  // Port addition: a host that answers DISPLAY itself (see OnDisplay). No box is opened.
+  if Assigned(OnDisplay) then
+  begin
+    if MBType=MB_OK then MsgType:='OK';
+    Result:=OnDisplay(Str,MsgType);
+    DispRes:=Result;
+    Exit;
+  end;
+
   MBType:=MessageBox(Wnd,PChar(Str),DISPLAY_CAPTION,MB_SETFOREGROUND+{MB_TOPMOST+}MBType);
   //MB_TOPMOST will only work if executed in the EUO window thread!
   //But because of the sync all other threads who use display get blocked

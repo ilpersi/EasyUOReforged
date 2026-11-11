@@ -15,6 +15,9 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 
 ## New commands and variables
 
+- **[`Log`](/commands/log/)**: write a line to the editor's new Output panel without stopping the script, to
+  follow what it does while it runs. It needs no client, and under [`EUOCli run`](/guide/euocli/#run-a-script)
+  the lines are printed.
 - **[`FindJournal`](/commands/findjournal/)**: search the journal lines since a saved [`#JIndex`](/variables/jindex/) for
   a colour and any of several texts, and wait for them up to a timeout, instead of a hand-written `scanjournal` loop.
   `*` matches any colour or any text. [`#JFound`](/variables/jfound/) gives the line's number.
@@ -81,6 +84,9 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
   Felucca's, Felucca and Trammel up to x 7167 instead of 6143, and Ter Mur from the right place in its
   files. Scripts can see different tiles there than in EasyUO 1.5. Plain `tile init` also works on installs
   that lack some of the map patch files, instead of stopping the script.
+- **Stop** ends a script that is inside a [`wait`](/commands/wait/), [`target`](/commands/target/),
+  [`waitfor`](/commands/waitfor/) or another waiting command without running anything more. In EasyUO 1.5 the
+  line after the wait could still run once.
 
 ## uo.dll
 
@@ -109,6 +115,7 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 - Format Script (**Ctrl+Shift+F**) re-indents a script in one step.
 - **Ctrl+click** the name after `gosub` or `goto` to jump to its `sub` or label, **Alt+Left** to go back.
 - Breakpoints, conditional breakpoints, step into / over / out, run to cursor and a live call stack.
+- An Output panel that shows what scripts write with [`log`](/commands/log/).
 
 See [Editing and debugging](/guide/debugging/).
 
@@ -125,6 +132,10 @@ See [Editing and debugging](/guide/debugging/).
   reports what EasyUO would skip or misread in a script, without running it: a word that is not a command,
   a `#variable` that doesn't exist, a missing space, a block left open, a `gosub` to nowhere, a missing
   `halt`. EasyUO itself gives no error for any of these.
+- **[`EUOCli run`](/guide/euocli/#run-a-script)**: runs a script with nobody watching and prints what it
+  logs, what its `display` boxes would have shown, and why and where it ended. It uses no client unless told
+  to, always ends, and refuses the commands that reach beyond the script. `EUOCli vars` and `EUOCli clients`
+  read variables and list the clients.
 - **[The agent pack](/guide/agents/)** (the `agent` folder of the release zip): the language rules, every
   command and `#variable`, and this documentation as plain files, so that Claude Code, Codex, Cursor and other
   AI coding agents write EasyUO scripts from names they looked up instead of ones they made up. The site

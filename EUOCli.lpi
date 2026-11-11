@@ -72,6 +72,10 @@
         <Filename Value="tools\EUOCli\clicheck.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
+      <Unit>
+        <Filename Value="tools\EUOCli\clirun.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

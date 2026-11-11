@@ -8,7 +8,7 @@ Status: **approved 2026-11-10 with the recommended choices** (CLI with MCP on to
 |---|---|
 | 1 Reference pack | **Built** (2026-11-10). See [What phase 1 built](#what-phase-1-built). |
 | 2 `EUOCli check` | **Built** (2026-11-10). See [What phase 2 built](#what-phase-2-built). |
-| 3 `EUOCli run`, `vars`, `clients`, `log` | Not started. |
+| 3 `EUOCli run`, `vars`, `clients`, `log` | **Built** (2026-11-11). See [What phase 3 built](#what-phase-3-built). |
 | 4 `EUOCli mcp` | Not started. |
 
 Goal: a coding agent (Claude Code, Codex, Cursor, any tool with a shell or MCP) can write, change
@@ -228,6 +228,62 @@ EUOCli clients                                    list the clients found (number
   `--allow`, and the refusal is in the output. It is a host-side filter in front of dispatch, empty
   in the GUI. The agent's own permission prompt (the shell command) is the user's approval of a
   live run.
+
+#### What phase 3 built
+
+Three choices were the owner's, made on 2026-11-11 before building:
+
+- **No client by default.** `run` drives a client only with `--client N`. The sketch above had it the
+  other way round (`--no-client` to turn it off); `--no-client` is still accepted and says the same.
+- **A blocked command stops the run** (it does not skip the line and go on).
+- **`send` is blocked too**, with `execute`, `shutdown`, `terminate` and `uoxl` (the whole command,
+  `swap` included: it moves the script to another client).
+
+What exists:
+
+- **The `log` command.** `log {text}`: the words joined by spaces, nothing translated (a `$` stays).
+  The interpreter queues the line with its script line (`TakeLog`, own lock, newest 10,000). Site
+  page `commands/log.md`; it is on the patterns page, so the gate of phase 1 is satisfied.
+- **The Output panel** in the editor (`easyuo/main.pas`, `easyuo/euoutput.pas`): one panel for all
+  tabs, under the script; opens at the first line; *Control → Show Output* / *Clear Output*; time on
+  each line, the tab's name when more than one tab is open; newest 5000 lines.
+- **`EUOCli run`** (`tools/EUOCli/clirun.pas`): text or one JSON object per line (`start`, `log`,
+  `display`, `line`, `menu`, `end`), printed as the run goes. `--client`, `--timeout` (60 s),
+  `--trace`, `--dump`, `--answer`, `--show-display`, `--allow`. Ctrl+C stops the script.
+- **Exit codes**, not the ones sketched above, because 1 and 2 were taken by `check`: 0 `halt` or
+  `pause`; 2 usage; 3 timeout; 4 error; 5 the client is not there or went away; 6 blocked;
+  7 the script started over; 8 interrupted.
+- **`EUOCli vars`** (default: client 1 when one runs; `--all`) and **`EUOCli clients`**.
+- **Hooks**, all off unless a host sets them: `TStdCmd.OnDisplay`,
+  `TEuoCommandRegistry.SetBlocked` and `ClientSkips`, `TEuoInterpreter.Restarts` / `BlockedCmd` /
+  `BlockCommands` / `TakeLog`, `TExecutor.StopOnRestart` / `OnLine` / `Restarted`.
+- **Tests:** `EuoHostHooksTests` (15), `EuoCliRunTests` (20), `EuoOutputTests` (5).
+
+Found on the way:
+
+- **A `halt` on the last line also passes through `ExitProc`**, so `Restarts` counts it.
+  `StopOnRestart` therefore only acts while the script is still running, and a test pins it.
+- **`pause` in a run** leaves nobody to press Start: the run ends with reason `pause`, exit code 0.
+- **Stop could let one more line run, and no longer does.** `TExecutor.SetState(Stop)` set
+  `Parser.Brk`, which breaks the script's current wait, then looked for a `display` box to
+  close, and only then set the state to Stop. In between, the script thread could leave the
+  wait and run the next line. The original EasyUO 1.5 source has the same order
+  (`parser\executor.pas`), so the editor's Stop button had it too, and it is why the existing
+  `TEuoExecutorTests.TestWaitForEndsAtOnceOnStop` failed now and then (1 run in 6 on the commit
+  before this phase, 4 in 12 with it). **Fixed at the owner's request (2026-11-11):** Stop now
+  sets the state first, as the original's own `Free` already did. That test then passed 20 runs
+  of 20, and `TestStopDuringAWaitRunsNothingMore` (twenty stops in a row, which the old order
+  fails at once) and `TestNothingRunsAfterATimeout` (through `EUOCli run`) pin it. It is the
+  one place where the executor now behaves differently from the original on purpose; the
+  unit's header says so.
+
+Not verified: everything with a live client (`--client`, `vars` and `clients` with a client running,
+`client-lost`), and `log` lines arriving in the Output panel during a normal Start, which needs a
+client. The panel itself was checked in the real editor without one, by stepping a script whose
+first line logs.
+
+Not built: a line trace in the editor, `--set` to give a run its starting values, and a note in
+`EUOCli check` for commands `run` would block.
 
 ### Phase 4: `EUOCli mcp`
 

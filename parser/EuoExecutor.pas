@@ -52,6 +52,25 @@ unit EuoExecutor;
   that; a list being mutated mid-scan does not) -- hence the dedicated
   TCriticalSection, matching the pattern variables.pas already uses for a
   similar frequently-read/occasionally-written shared structure.
+
+  Two more additions, for a host that runs a script with nobody watching (EUOCli run,
+  docs\agent-support.md phase 3). Both are off unless the host turns them on, so the editor
+  runs scripts exactly as before:
+  - StopOnRestart: the run stops when the main script starts over (an EXIT or its end at
+    the outermost level, a preserved quirk that makes a script without HALT run for ever).
+    Checked right after PlayLine, where the breakpoint and Step* checks are, so the first
+    line does not run a second time. Restarted then says that is why it stopped.
+  - OnLine: called on the script's thread with the 0-based line about to run, for a trace.
+
+  One deliberate change to the original's behaviour, made at the owner's request
+  (2026-11-11): Stop marks the script stopped BEFORE it breaks the script's current wait.
+  The original's SetState did it the other way round -- Parser.Brk:=True, then the search
+  for a DISPLAY box to close, and only then Stat:=Stop -- and in between the script's thread
+  could leave its wait, find the state still Play, and run the line after the wait once.
+  Stopping during a WAIT, TARGET, WAITFOR, ... therefore ran one more line about one time
+  in four (TestWaitForEndsAtOnceOnStop failed at that rate). The original's own Free
+  already used the safe order (Stat:=Stop, then Brk:=True); SetState now does the same.
+  Nothing else in the transition table changes.
 }
 
 {$mode delphi}{$H+}
@@ -78,6 +97,9 @@ type
     OneShot   : Boolean;
   end;
 
+  // Port addition: see OnLine. Line is 0-based.
+  TEuoLineEvent = procedure(Line : Integer) of object;
+
   TExecutor     = class(TObject)
   private
     Thrd        : TExeThread;
@@ -89,6 +111,7 @@ type
     BreaksCS    : TCriticalSection;
     FBreakLine  : Integer;    // 1-based line currently causing a breakpoint
                                // pause, or -1
+    FRestarted  : Boolean;    // port addition: StopOnRestart ended the run
     FLastError  : String;     // set by TExeThread.Execute when a command raises an
                                // uncaught exception (see that method's own comment);
                                // '' means no unreported error is pending.
@@ -127,6 +150,13 @@ type
     // one will fire anyway; no need for a redundant one-shot underneath).
     procedure   RunToLine(Line : Integer);
     function    BreakLine : Integer;
+  public
+    // Port additions for a host with nobody watching; see the unit header. Set them while
+    // the script is stopped.
+    StopOnRestart : Boolean;        // default False
+    OnLine        : TEuoLineEvent;  // default nil
+    // The run was stopped by StopOnRestart.
+    function    Restarted : Boolean;
   end;
 
 const
@@ -175,6 +205,9 @@ begin
   Breaks:=TList.Create;
   BreaksCS:=TCriticalSection.Create;
   FBreakLine:=-1;
+  StopOnRestart:=False;
+  FRestarted:=False;
+  OnLine:=nil;
   Thrd:=TExeThread.Create(True);
   Thrd.Parent:=self;
   Thrd.Resume;
@@ -396,6 +429,12 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+function TExecutor.Restarted : Boolean;
+begin
+  Result:=FRestarted;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 // Called from the background thread (TExeThread.Execute), right after each
 // Parser.PlayLine, exactly where Step*'s own pause checks already live.
 // Parser.NextLine has already been advanced to "the line about to run
@@ -444,7 +483,10 @@ begin
   begin
     if ScrList.Scrs[0].Count=0 then Exit;
     if (Stat=STOP)and Paused then
+    begin
       Parser.Clear;
+      FRestarted:=False;   // port addition: a new run
+    end;
     Brk:=False;
     Slp:=False;
     OldCall:=ScrList.CallLevel;
@@ -462,6 +504,9 @@ begin
 
   if Value in [Stop] then
   begin
+    // Stopped first, then the wait is broken: see the unit header. The script's thread
+    // tests Stat before every line, so once it leaves its wait it runs nothing more.
+    Stat:=Stop;
     Parser.Brk:=True;
     EnumWindows(@KillDisplayBox,Thrd.ThreadID);
   end;
@@ -511,6 +556,7 @@ begin
       // performs) turns that into the ordinary "script stopped" state instead, with the
       // message available via LastError for the GUI to surface.
       try
+        if Assigned(OnLine) then OnLine(Parser.NextLine);   // port addition, nil in the editor
         Parser.PlayLine;
       except
         on E: Exception do
@@ -528,6 +574,16 @@ begin
                       PostMessage(ParWnd,WM_CLOSE,0,0);
                       Stat:=Stop;
                     end;
+      end;
+
+      // Port addition: off in the editor. PlayLine has just put the script back on its
+      // first line; stopping here keeps that line from running a second time. A script
+      // whose last line is HALT also passes through ExitProc (and so counts in Restarts)
+      // but has stopped by now, which is not a restart.
+      if StopOnRestart and (Parser.Restarts>0) and (Stat<>Stop) then
+      begin
+        FRestarted:=True;
+        Stat:=Stop;
       end;
 
       if Stat=StepOver then

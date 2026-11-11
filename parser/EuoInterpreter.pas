@@ -87,6 +87,16 @@ unit EuoInterpreter;
   parameter-count gate it needs; the original operations, their order and quirks are untouched.
   Likewise GetCommandNames and GetVariableNames, two read-only views of the command registry and
   of VarNamesR/VarNamesRW for the script checker (EuoLint.pas). No script reaches them.
+  Likewise the LOG command (docs\agent-support.md phase 3): it hands a line of text to whoever
+  runs the script, the editor's Output panel or EUOCli's output, through a queue the host empties
+  with TakeLog. It is the one way a script can report without stopping (DISPLAY waits for a click)
+  and without a client (EVENT SYSMESSAGE needs one). A line starting with it was a silent no-op
+  before, and a sub or label called "log" keeps working.
+  Likewise four things only a host uses, none of which changes what a script does unless a host
+  asks: OnDisplay (a host answers DISPLAY instead of the message box; nil by default),
+  BlockCommands (commands that stop the run instead of running; none by default), Restarts (how
+  often the main script started over, counted in ExitProc, which restarts exactly as before) and
+  ClientSkips (how many lines were skipped for lack of a client).
 }
 
 {$mode delphi}{$H+}
@@ -177,7 +187,14 @@ type
     PathLogFile  : String;        // path set log: where the walker's decisions go, '' = nowhere
     WaitRes      : String;        // port addition (WAITFOR)
     JFound       : String;        // port addition (FINDJOURNAL)
+    FLog         : TStringList;   // port addition (LOG): lines waiting for the host; Objects = line number
+    FLogLock     : TEuoLock;      // its own lock: the host takes lines while PlayLine holds CS
+    FLogDropped  : Cardinal;      // lines thrown away because nobody took them
 
+    procedure    LogProc;
+    procedure    CommandBlocked(const Name : String);
+    function     GetOnDisplay : TDisplayHandler;
+    procedure    SetOnDisplay(Value : TDisplayHandler);
     procedure    RegisterCommands;
     function     RawLineText : String;
     function     SqlGetVar(const Name : String) : String;
@@ -309,7 +326,31 @@ type
     // for a read/write one. Read-only: nothing here is used when a script runs.
     procedure    GetCommandNames(List : TStrings);
     procedure    GetVariableNames(List : TStrings);
+  public
+    // Port additions for hosts (docs\agent-support.md phase 3). See the unit header.
+    // How often the main script started over in this run: an EXIT, or the end of the script,
+    // at the outermost level. Clear puts it back to 0. A HALT on the last line counts too
+    // (PlayLine runs ExitProc after it, as it always did), so a host that acts on a restart
+    // checks that the script is still running: TExecutor.StopOnRestart does.
+    Restarts     : Cardinal;
+    // The blocked command that stopped the run (upper-case) and its 0-based line, or '' and -1.
+    BlockedCmd   : String;
+    BlockedLine  : Integer;
+    // Moves the lines LOG has queued to List (Objects[i] = the 1-based script line) and returns
+    // whether there were any. Safe from any thread. A queue nobody empties keeps its newest
+    // LOG_QUEUE_MAX lines; the first line taken afterwards says how many were dropped.
+    function     TakeLog(List : TStrings) : Boolean;
+    // The commands (upper- or lower-case names) that stop the run instead of running, setting
+    // BlockedCmd and BlockedLine. nil or an empty list blocks nothing, which is the default.
+    procedure    BlockCommands(Names : TStrings);
+    // Lines skipped so far because their command needs a client and none is selected.
+    function     ClientSkips : Cardinal;
+    // A host's answer to DISPLAY in place of the message box (EuoStdCommands.TDisplayHandler).
+    property     OnDisplay : TDisplayHandler read GetOnDisplay write SetOnDisplay;
   end;
+
+const
+  LOG_QUEUE_MAX = 10000;
 
 implementation
 
@@ -547,6 +588,13 @@ begin
   WaitRes:='N/A';
   JFound:='N/A';
 
+  FLog:=TStringList.Create;
+  FLogLock:=TEuoLock.Create;
+  FLogDropped:=0;
+  Restarts:=0;
+  BlockedCmd:='';
+  BlockedLine:=-1;
+
   CmdRegistry:=TEuoCommandRegistry.Create;
   RegisterCommands;
 end;
@@ -575,6 +623,8 @@ begin
   ParList.Free;
   NSStack.Free;
   SpeedVar.Free;
+  FLog.Free;
+  FLogLock.Free;
   inherited Free;
 end;
 
@@ -607,6 +657,9 @@ begin
   PathReset;   // port addition (PATH): options, rules and the last path
   WaitRes:='N/A';   // port addition (WAITFOR)
   JFound:='N/A';    // port addition (FINDJOURNAL)
+  Restarts:=0;      // port additions for hosts: a new run has not restarted or been blocked.
+  BlockedCmd:='';   // (What LOG queued stays: the host has not read it yet.)
+  BlockedLine:=-1;
 
   UOVar.IgnoreCont($FFFFFFFF);
 end;
@@ -1386,6 +1439,7 @@ begin
   CmdRegistry.Register('Sql',SqlProc);   // port addition
   CmdRegistry.Register('Path',PathProc); // port addition; checks for a client itself
   CmdRegistry.Register('WaitFor',WaitForProc); // port addition
+  CmdRegistry.Register('Log',LogProc);         // port addition
 
   // Cmd2 -- client-dependent (RequiresClient=True).
   CmdRegistry.Register('Key',KeyProc,True);
@@ -1738,7 +1792,10 @@ begin
   begin
     NextLine:=ScrList.DelCall;
   end
-  else NextLine:=0;
+  else begin
+    NextLine:=0;
+    Inc(Restarts);   // port addition: counted for the host, the restart is the original's
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1978,6 +2035,79 @@ begin
   finally
     CS.EndWrite;
   end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (LOG): "log {text}". The words after the command, joined by single spaces as
+// DISPLAY joins its message, are one line for the host. Nothing in the text is translated: a
+// '$' stays a '$', so a script can log #Property or a journal line as it reads it. LOG alone
+// queues an empty line. It never waits and needs no client.
+procedure TEuoInterpreter.LogProc;
+begin
+  FLogLock.BeginWrite;
+  try
+    if FLog.Count>=LOG_QUEUE_MAX then
+    begin
+      FLog.Delete(0);
+      Inc(FLogDropped);
+    end;
+    FLog.AddObject(GetParStr(1),TObject(PtrUInt(CurLine+1)));
+  finally
+    FLogLock.EndWrite;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function TEuoInterpreter.TakeLog(List : TStrings) : Boolean;
+begin
+  FLogLock.BeginWrite;
+  try
+    Result:=(FLog.Count>0) or (FLogDropped>0);
+    if FLogDropped>0 then
+    begin
+      List.AddObject('('+IntToStr(FLogDropped)+' earlier log lines were dropped: nothing was reading them)',nil);
+      FLogDropped:=0;
+    end;
+    List.AddStrings(FLog);
+    FLog.Clear;
+  finally
+    FLogLock.EndWrite;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port additions for hosts: see the declarations. CommandBlocked is what the registry calls,
+// on the script's thread from inside Interpret, when a script reaches a blocked command: the
+// run stops there, as if the line had been HALT, and the host reads which command it was.
+procedure TEuoInterpreter.CommandBlocked(const Name : String);
+begin
+  BlockedCmd:=Name;
+  BlockedLine:=CurLine;
+  ResInt:=RES_STOP;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoInterpreter.BlockCommands(Names : TStrings);
+begin
+  CmdRegistry.SetBlocked(Names,CommandBlocked);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function TEuoInterpreter.ClientSkips : Cardinal;
+begin
+  Result:=CmdRegistry.ClientSkips;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function TEuoInterpreter.GetOnDisplay : TDisplayHandler;
+begin
+  Result:=StdCmd.OnDisplay;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoInterpreter.SetOnDisplay(Value : TDisplayHandler);
+begin
+  StdCmd.OnDisplay:=Value;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

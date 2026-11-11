@@ -34,17 +34,25 @@ uses Classes, SysUtils;
 type
   TEuoCommandProc = procedure of object;
 
+  // Port addition: told the upper-case name of a blocked command a script reached.
+  TEuoBlockedProc = procedure(const Name : String) of object;
+
   TEuoCommandEntry = class(TObject)
   public
     Handler        : TEuoCommandProc;
     RequiresClient : Boolean;
+    Blocked        : Boolean;   // port addition, see SetBlocked; False unless a host asks
     constructor Create(AHandler : TEuoCommandProc; ARequiresClient : Boolean);
   end;
 
   TEuoCommandRegistry = class(TObject)
   private
-    Names : TStringList;   // Sorted:=True; Objects[i] = a TEuoCommandEntry
+    Names      : TStringList;   // Sorted:=True; Objects[i] = a TEuoCommandEntry
+    FOnBlocked : TEuoBlockedProc;
   public
+    // Port addition: how many lines were skipped because their command needs a client and
+    // none was selected. Counted, never acted on: the skip itself is the original's.
+    ClientSkips : Cardinal;
     constructor Create;
     procedure   Free;
     procedure   Register(const Name : String; Handler : TEuoCommandProc; RequiresClient : Boolean = False);
@@ -58,6 +66,12 @@ type
     // sorted, added to List; Objects[i] is non-nil for a name registered with RequiresClient.
     // Read-only: nothing here is used when a script runs.
     procedure   GetNames(List : TStrings);
+    // Port addition (EUOCli run, docs\agent-support.md phase 3): a host that runs scripts for
+    // an AI agent names the commands it will not run (EXECUTE, SHUTDOWN, ...). Dispatch then
+    // calls OnBlocked with the name instead of the handler and returns False. Blocked replaces
+    // the earlier list; a name that is no command is ignored. Nothing is blocked until a host
+    // asks, so the editor and uo.dll dispatch exactly as before.
+    procedure   SetBlocked(Blocked : TStrings; OnBlocked : TEuoBlockedProc);
   end;
 
 implementation
@@ -68,6 +82,7 @@ begin
   inherited Create;
   Handler:=AHandler;
   RequiresClient:=ARequiresClient;
+  Blocked:=False;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -86,6 +101,8 @@ begin
   Names.UseLocale:=False;
   Names.Sorted:=True;    // safe here: only ever populated via AddObject, never
   Names.Duplicates:=dupError;  // Insert-at-a-Find-returned-index -- see EuoSortedList.pas
+  FOnBlocked:=nil;
+  ClientSkips:=0;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -114,9 +131,32 @@ begin
   Result:=False;
   if not Names.Find(UpperCase(Name),i) then Exit;
   Entry:=TEuoCommandEntry(Names.Objects[i]);
-  if Entry.RequiresClient and not ClientSelected then Exit;
+  if Entry.RequiresClient and not ClientSelected then
+  begin
+    Inc(ClientSkips);   // port addition: counted for the host, the skip is the original's
+    Exit;
+  end;
+  if Entry.Blocked then   // port addition: never True unless a host called SetBlocked
+  begin
+    if Assigned(FOnBlocked) then FOnBlocked(Names[i]);
+    Exit;
+  end;
   Entry.Handler;
   Result:=True;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoCommandRegistry.SetBlocked(Blocked : TStrings; OnBlocked : TEuoBlockedProc);
+var
+  i, j : Integer;
+begin
+  for i:=0 to Names.Count-1 do
+    TEuoCommandEntry(Names.Objects[i]).Blocked:=False;
+  if Blocked<>nil then
+    for i:=0 to Blocked.Count-1 do
+      if Names.Find(UpperCase(Trim(Blocked[i])),j) then
+        TEuoCommandEntry(Names.Objects[j]).Blocked:=True;
+  FOnBlocked:=OnBlocked;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

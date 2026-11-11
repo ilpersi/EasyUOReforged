@@ -73,7 +73,7 @@ common/   OS-facing primitives  ── package: uocommon
 | `uo.lpi` | `uo.dll` | The `uo/` engine exposed as a generic, stack-based external API. |
 | `EUOUpdtr.lpi` | `EUOUpdtr.exe` | Offset-derivation dev tool. |
 | `EUOMenuDesigner.lpi` | `EUOMenuDesigner.exe` | The MENU Designer (see [The MENU Designer](#the-menu-designer)). |
-| `EUOCli.lpi` | `EUOCli.exe` | The command-line program: `check` today (see [The script checker](#the-script-checker)). |
+| `EUOCli.lpi` | `EUOCli.exe` | The command-line program: `check` (see [The script checker](#the-script-checker)), `run`, `vars`, `clients` (see [Running a script with nobody watching](#running-a-script-with-nobody-watching)). |
 
 `common/`, `uo/`, and `parser/` are Lazarus packages (`uocommon.lpk`,
 `uoengine.lpk`, `euoparser.lpk`) so the projects — and the test project —
@@ -171,6 +171,11 @@ The GUI creates one `TExecutor` per open script tab (`easyuo/insthandler.pas`).
 Script variables (`EuoVariables`) are guarded by a critical section because the
 GUI thread polls them for the inspector while the script thread mutates them.
 
+Stop is the one transition that differs from the original on purpose: it marks the
+script stopped *before* it breaks the wait the script is in. The original broke the
+wait first, and the line after a `wait` could then run once more, about one stop in
+four. `TestStopDuringAWaitRunsNothingMore` stops twenty times in a row.
+
 ### Two MENU logics
 
 EasyUO 1.5, the published source this port starts from, and EasyUO 1.6, closed builds from
@@ -235,6 +240,32 @@ The interpreter reports no errors: a line it cannot understand is skipped. `pars
   at program start, and its finalization stops that thread with `TerminateThread`. A program that is done
   in milliseconds reaches the finalization while the thread still holds locks, and hung about every other
   run. `EUOCli.lpr`'s header has the details.
+
+### Running a script with nobody watching
+
+`EUOCli.exe run` (`tools/EUOCli/clirun.pas`) runs a script on the same `TExecutor` the editor uses, for
+a program or an AI coding agent that cannot click, press Stop or look at the game
+([agent-support.md](agent-support.md), phase 3). The main thread pumps the LCL message loop (MENU builds
+its windows there) and prints what the script's thread queues. Everything it needs from the engine is a
+hook that is off unless a host turns it on, so the editor and `uo.dll` run scripts exactly as before:
+
+| Hook | Where | What a host gets |
+|---|---|---|
+| `OnDisplay` | `TStdCmd`, through `TEuoInterpreter.OnDisplay` | It answers `display` itself; no message box opens. |
+| `BlockCommands` | `TEuoCommandRegistry.SetBlocked` | Named commands stop the run instead of running (`BlockedCmd`, `BlockedLine`). |
+| `Restarts` | `TEuoInterpreter.ExitProc` | A count of how often the main script started over; the restart itself is untouched. |
+| `StopOnRestart`, `OnLine` | `TExecutor` | The run stops when the script starts over; each line is announced before it runs. |
+| `ClientSkips` | `TEuoCommandRegistry.Dispatch` | How many lines were skipped for lack of a client. |
+
+Three rules of `run` are safety rules, decided with the project's owner: a script runs **without a client
+unless the command line says `--client N`** (the editor attaches to client 1 by itself, `run` never does);
+`execute`, `shutdown`, `terminate`, `uoxl` and `send` are blocked unless `--allow` names them, and a blocked
+command **stops** the run; and a run always ends (a timeout, and the restart of a script without `halt`).
+
+The **`log` command** is the one addition to the language here: a line of text for whoever runs the script.
+The interpreter queues it (`TakeLog`, its own lock, the newest 10,000 lines) and the host empties the queue:
+`EUOCli run` prints it, and the editor's 100 ms timer moves it to the Output panel (`easyuo/euoutput.pas`
+formats and bounds the panel's text).
 
 ### Preserved quirks
 

@@ -64,37 +64,51 @@ A good agent asks for what is missing, or gives you a small probe script that sh
 item, and a box shows its ID and type. An agent that hands you a script full of types and positions you never
 gave it has made them up.
 
-## The agent checks its own script
+## The agent checks and runs its own script
 
 EasyUO gives no error for a line it can't understand, so an agent can't tell by itself that it wrote one.
-[`EUOCli check`](/guide/euocli/) can: it reports unknown commands and `#variables`, missing spaces, open
-blocks, jumps to nowhere and a missing `halt`, without running the script. The pack tells the agent to run it
-on every script it writes and to fix what it reports.
+[`EUOCli`](/guide/euocli/), the command-line program next to `EasyUOReforged.exe`, lets it find out:
 
-`EUOCli.exe` is in the EasyUO Reforged folder, next to `EasyUOReforged.exe`. Tell the agent where that
+- **`EUOCli check`** reports unknown commands and `#variables`, missing spaces, open blocks, jumps to
+  nowhere and a missing `halt`, without running the script.
+- **`EUOCli run`** runs the script with **no UO client** and prints what it logs and how it ended. Commands
+  that need a client are skipped, so nothing happens in your game, and the agent sees whether the logic
+  works.
+- **`EUOCli vars`** reads variables from your client: where your character stands, which gump is open. It
+  changes nothing.
+
+The pack tells the agent to do the first two on every script it writes. Tell it where the EasyUO Reforged
 folder is, once, or it will ask:
 
 ```text
-EasyUO Reforged is in C:\Games\EasyUOReforged. Check your scripts with EUOCli.exe from there.
+EasyUO Reforged is in C:\Games\EasyUOReforged. Use EUOCli.exe from there.
 ```
 
-A clean check means EasyUO will read every line as written. It doesn't mean the script does what you asked:
-only running it shows that.
+A script that passes both is read by EasyUO as written and its logic runs to the end. Whether it does the
+right thing in the game is only seen in the game.
 
-## Run it yourself
+## Running on your character
 
-The agent can't run a script or see your game. You do that:
+A script acts on your character in two ways:
 
-1. **Read the script.** It controls your character, and a script can also start programs
-   ([`execute`](/commands/execute/)) or switch the computer off ([`shutdown`](/commands/shutdown/)). Ask the
-   agent what a line does if you aren't sure.
-2. Open it in EasyUO Reforged with the client running and your character logged in, and press **Start**
-   (F9). **Stop** ends it. See [Run a script](/guide/first-script/#run-a-script).
-3. When it doesn't do what you wanted, tell the agent what happened: what the character did, what the journal
-   said, and what the variables in the inspector showed. [Stepping through the script](/guide/debugging/)
-   shows which line goes wrong.
+- **You run it.** Open it in EasyUO Reforged with the client running and your character logged in, and
+  press **Start** (F9). **Stop** ends it. What the script writes with [`log`](/commands/log/) appears in the
+  Output panel. See [Run a script](/guide/first-script/#run-a-script).
+- **The agent runs it,** with `EUOCli run --client 1`. The pack tells it to ask you first, for each script,
+  and to say what the script will do. Ctrl+C in the agent's terminal stops the script.
 
-Running scripts from the agent itself is planned.
+Either way:
+
+1. **Read the script first.** It controls your character. Ask the agent what a line does if you aren't sure.
+2. **Look at the command you approve.** Your agent program asks before it runs a command. Without
+   `--client` a run can't touch the game. Without `--allow` it can't run
+   [`execute`](/commands/execute/), [`shutdown`](/commands/shutdown/), [`terminate`](/commands/terminate/),
+   [`uoxl`](/commands/uoxl/) or [`send`](/commands/send/): a script that reaches one of them is stopped.
+3. When it doesn't do what you wanted, tell the agent what happened: what the character did and what the
+   journal said. [Stepping through the script](/guide/debugging/) shows which line goes wrong.
+
+The agent can't see your screen. It knows what the script logged, the variables it asked for, and what
+you tell it.
 
 ## What is in the pack
 

@@ -22,13 +22,16 @@ item types (`ZLF`, `POF`), IDs and journal texts in them are only examples: your
 
 ## Report what the script is doing
 
-[`event sysmessage`](/commands/event/sysmessage/) shows a line in the game window and the script goes on.
+[`log`](/commands/log/) writes a line to the editor's Output panel and the script goes on. It needs no client
+and the lines stay, so it is the way to follow a script while it runs. It is new in EasyUO Reforged.
+[`event sysmessage`](/commands/event/sysmessage/) shows a line in the game window instead.
 [`display`](/commands/display/) opens a message box and the script waits until you close it: use it for a
 final result or a question, not inside a loop.
 
 ```euo
-event sysmessage Counting the gold...
+log Counting the gold...
 finditem POF C_ , #BackpackID
+log finditem found #FindCnt stacks
 display ok Stacks of gold in the backpack: #FindCnt
 halt
 ```

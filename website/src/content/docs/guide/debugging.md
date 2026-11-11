@@ -34,6 +34,21 @@ It is not a full EasyUO expression: there is no `&&`, `||` or arithmetic.
 While the script is paused, the variable inspector shows the live values. *Tools → VarDump* writes every
 variable to a text window you can copy, which is handy for bug reports.
 
+## The Output panel
+
+[`log`](/commands/log/) writes a line to the Output panel without stopping the script: put it where you want
+to know what the script saw.
+
+```euo
+finditem POF G_3
+log finditem found #FindCnt stacks
+halt
+```
+
+The panel opens by itself, under the script, at the first line a script logs. Each line has the time, and
+the tab's name when more than one tab is open. *Control → Show Output* shows or hides it and *Control → Clear
+Output* empties it. It keeps the newest 5000 lines.
+
 ## Editor features
 
 - **Ctrl+Space** opens autocomplete with the script commands, the built-in `#variables` and the variables

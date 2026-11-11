@@ -24,5 +24,9 @@ The rules that matter most, in case you read nothing else:
 - Check every script you write with `EUOCli check <file> --json --strict` and fix what it
   reports. `EUOCli.exe` is in the EasyUO Reforged folder; ask the user where that is if you don't
   know.
-- You can't run a script or see the game. The user runs it in EasyUO Reforged and tells you what
-  happened.
+- Try its logic with `EUOCli run <file> --json`. That runs it with no UO client: nothing happens
+  in the game, and commands that need a client are skipped. Use `log` lines to see what it does.
+- Never run a script on the game (`--client`) or allow a blocked command (`--allow`) without the
+  user's yes for that script, after telling them what it will do.
+- You can't see the game. `EUOCli vars #CharPosX ...` reads variables from it, and changes
+  nothing.

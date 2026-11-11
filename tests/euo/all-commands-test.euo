@@ -1477,6 +1477,15 @@ sub sec_misc
   waitFor
   gosub t_eq waitfor_with_no_condition_is_a_noop #waitres 0
 
+  ; ---- log  [Reforged]  (a line for whoever runs the script: the Output panel, or EUOCli) -------
+  ; Nothing a script can read changes; the three lines show in the Output panel.
+  set %r before
+  log all-commands-test: this line comes from the log command
+  log
+  log glued , with_a_comma and a $ that stays a $
+  set %r %r , after
+  gosub t_eq log_never_waits_and_changes_nothing %r beforeafter
+
   ; ---- deleteVar of something that does not exist ---------------------------------------------
   deleteVar v_surely_not_defined
   deleteVar
