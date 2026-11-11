@@ -245,7 +245,7 @@ What exists:
   The interpreter queues the line with its script line (`TakeLog`, own lock, newest 10,000). Site
   page `commands/log.md`; it is on the patterns page, so the gate of phase 1 is satisfied.
 - **The Output panel** in the editor (`easyuo/main.pas`, `easyuo/euoutput.pas`): one panel for all
-  tabs, under the script; opens at the first line; *Control → Show Output* / *Clear Output*; time on
+  tabs, under the script, to the right of the call stack when that is shown too; opens at the first line; *Control → Show Output* / *Clear Output*; time on
   each line, the tab's name when more than one tab is open; newest 5000 lines.
 - **`EUOCli run`** (`tools/EUOCli/clirun.pas`): text or one JSON object per line (`start`, `log`,
   `display`, `line`, `menu`, `end`), printed as the run goes. `--client`, `--timeout` (60 s),

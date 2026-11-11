@@ -61,6 +61,7 @@ The panel opens by itself, under the script, when a script logs its first line. 
 shows or hides it, and *Control → Clear Output* empties it.
 
 - There is one panel for all tabs. When more than one tab is open, each line also names its tab.
+- When the call stack is shown too (*Control → Show Call Stack*), the Output panel is to its right.
 - It keeps the newest 5000 lines.
 - Select text in it and press Ctrl+C to copy.
 

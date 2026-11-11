@@ -67,6 +67,10 @@ uses Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Types,
 type
   TMainForm = class(TForm)
   private
+    FStackShare : Double;  // port addition: the call stack's part of BottomPanel's width
+    procedure LayoutBottomPanel;
+    procedure BottomPanelResize(Sender: TObject);
+    procedure OutputSplitterMoved(Sender: TObject);
     procedure WMDropFiles(Sender: TObject; const FileNames: array of string);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure TabCtrlChange(Sender: TObject);
@@ -127,10 +131,11 @@ type
     TabPopupMenu      : TPopupMenu;
     FindDlg           : TEuoFindDialog;  // created on first use, see FindDialog
     ScrPanel          : TPanel;
-    CallStackSplitter : TSplitter;
+    BottomPanel       : TPanel;     // port addition: holds the call stack and the Output panel
+    BottomSplitter    : TSplitter;  // between the script and BottomPanel
     CallStackListBox  : TListBox;
-    OutputSplitter    : TSplitter;  // port addition: the Output panel, see euoutput.pas
-    OutputMemo        : TMemo;
+    OutputSplitter    : TSplitter;  // port addition: between the call stack and the Output panel
+    OutputMemo        : TMemo;      // port addition: the Output panel, see euoutput.pas
     ToolButton14, ToolButton15, ToolButton16, ToolButton24 : TToolButton;
     ToolButton4, ToolButton7, ToolButton8, ToolButton9      : TToolButton;
     FormatButton      : TToolButton;
@@ -500,44 +505,57 @@ begin
 
   ////////////////////////////////////////////////////////////////////////////
   // New addition (not present in the original app): a live call-stack panel.
-  // Parented to ScrPanel (not MidPanel) so it's automatically shared across
-  // every tab's TSynEdit the same way ScrPanel itself already is (see
-  // insthandler.pas's CreateSyn: every tab's editor gets
-  // Parent:=MainForm.ScrPanel with Align:=alClient) -- an alBottom sibling
-  // here shrinks whichever editor is currently visible with no per-tab
+  // It sits in BottomPanel, which is parented to ScrPanel (not MidPanel) so
+  // it's automatically shared across every tab's TSynEdit the same way
+  // ScrPanel itself already is (see insthandler.pas's CreateSyn: every tab's
+  // editor gets Parent:=MainForm.ScrPanel with Align:=alClient) -- an alBottom
+  // sibling here shrinks whichever editor is currently visible with no per-tab
   // bookkeeping needed. Hidden by default (Visible:=False here, restored
   // from the registry in FormCreate) so this doesn't change any existing
   // user's screen layout unless they opt in via Control > Show Call Stack.
+  //
+  // BottomPanel is a port addition: it holds the call stack on the left and
+  // the Output panel on the right, with OutputSplitter between them. Either
+  // of the two fills it when the other is hidden. LayoutBottomPanel arranges it.
+  FStackShare := 0.5;
+
+  BottomPanel := TPanel.Create(Self);
+  BottomPanel.Parent := ScrPanel;
+  BottomPanel.Align := alBottom;
+  BottomPanel.Height := 100;
+  BottomPanel.BevelOuter := bvNone;
+  BottomPanel.Visible := False;
+  BottomPanel.OnResize := BottomPanelResize;
+
+  BottomSplitter := TSplitter.Create(Self);
+  BottomSplitter.Parent := ScrPanel;
+  BottomSplitter.Align := alBottom;
+  BottomSplitter.Visible := False;
+
   CallStackListBox := TListBox.Create(Self);
-  CallStackListBox.Parent := ScrPanel;
-  CallStackListBox.Align := alBottom;
-  CallStackListBox.Height := 90;
+  CallStackListBox.Parent := BottomPanel;
+  CallStackListBox.Align := alLeft;
   CallStackListBox.Visible := False;
   CallStackListBox.OnDblClick := CallStackListBoxDblClick;
 
-  CallStackSplitter := TSplitter.Create(Self);
-  CallStackSplitter.Parent := ScrPanel;
-  CallStackSplitter.Align := alBottom;
-  CallStackSplitter.Visible := False;
+  OutputSplitter := TSplitter.Create(Self);
+  OutputSplitter.Parent := BottomPanel;
+  OutputSplitter.Align := alLeft;
+  OutputSplitter.Visible := False;
+  OutputSplitter.OnMoved := OutputSplitterMoved;
 
   ////////////////////////////////////////////////////////////////////////////
   // Port addition (the LOG command, docs folder, agent-support.md, phase 3): the Output panel,
-  // where the lines scripts log appear. One panel for every tab, parented to ScrPanel
-  // like the call-stack panel above and for the same reason. Hidden until a script logs
-  // something or the user asks for it with Control > Show Output.
+  // where the lines scripts log appear. One panel for every tab, to the right of the
+  // call stack in BottomPanel. Hidden until a script logs something or the user asks
+  // for it with Control > Show Output.
   OutputMemo := TMemo.Create(Self);
-  OutputMemo.Parent := ScrPanel;
-  OutputMemo.Align := alBottom;
-  OutputMemo.Height := 100;
+  OutputMemo.Parent := BottomPanel;
+  OutputMemo.Align := alClient;
   OutputMemo.ReadOnly := True;
   OutputMemo.WordWrap := False;
   OutputMemo.ScrollBars := ssAutoBoth;
   OutputMemo.Visible := False;
-
-  OutputSplitter := TSplitter.Create(Self);
-  OutputSplitter.Parent := ScrPanel;
-  OutputSplitter.Align := alBottom;
-  OutputSplitter.Visible := False;
 
   ////////////////////////////////////////////////////////////////////////////
   SynPopupMenu := TPopupMenu.Create(Self);
@@ -612,9 +630,7 @@ begin
   // silently default), hence the ValueExists guard, matching vartree.pas's
   // own defensive pattern for the same reason.
   CallStackPanel1.Checked := Reg.ValueExists('CallStackVisible') and Reg.ReadBool('CallStackVisible');
-  CallStackListBox.Visible := CallStackPanel1.Checked;
-  CallStackSplitter.Visible := CallStackPanel1.Checked;
-  // Port addition: the Output panel's state, the same way.
+  // Port addition: the Output panel's state, the same way. It lays out both panels.
   ShowOutputPanel(Reg.ValueExists('OutputVisible') and Reg.ReadBool('OutputVisible'));
 
   // EUOSyn.hlr (copied verbatim from the original) can't be loaded directly:
@@ -899,8 +915,7 @@ begin
          end;
    210 : begin // Toggle Call Stack panel
            CallStackPanel1.Checked := not CallStackPanel1.Checked;
-           CallStackListBox.Visible := CallStackPanel1.Checked;
-           CallStackSplitter.Visible := CallStackPanel1.Checked;
+           LayoutBottomPanel;
            Reg.WriteBool('CallStackVisible',CallStackPanel1.Checked);
          end;
    211 : begin // Toggle Output panel (port addition)
@@ -1016,16 +1031,68 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-// Port addition (the LOG command): shows or hides the Output panel. The splitter is put
-// right above the panel each time: two alBottom controls made visible together can come
-// up in either order, and a splitter under its panel resizes nothing.
+// Port addition: arranges BottomPanel from the two menu items, Show Call Stack and Show
+// Output. With both on, the call stack takes its share of the width on the left
+// (FStackShare, half until the user drags OutputSplitter) and the Output panel the rest;
+// with one on, that one fills the panel; with none, the panel is hidden.
+// Each splitter is put right next to its panel each time: two controls of the same Align
+// made visible together can come up in either order, and a splitter on the wrong side of
+// its panel resizes nothing.
+procedure TMainForm.LayoutBottomPanel;
+var
+  Stack,Output : Boolean;
+begin
+  Stack:=CallStackPanel1.Checked;
+  Output:=OutputPanel1.Checked;
+
+  BottomPanel.DisableAlign;
+  try
+    OutputSplitter.Visible:=False;
+    CallStackListBox.Visible:=Stack;
+    OutputMemo.Visible:=Output;
+    if Stack and Output then
+    begin
+      CallStackListBox.Align:=alLeft;
+      CallStackListBox.Left:=0;
+      CallStackListBox.Width:=Round(BottomPanel.ClientWidth*FStackShare);
+      OutputSplitter.Left:=CallStackListBox.Width;
+      OutputSplitter.Visible:=True;
+    end
+    else if Stack then
+      CallStackListBox.Align:=alClient;
+  finally
+    BottomPanel.EnableAlign;
+  end;
+
+  BottomPanel.Visible:=Stack or Output;
+  BottomSplitter.Visible:=Stack or Output;
+  if Stack or Output then
+    BottomSplitter.Top:=BottomPanel.Top-BottomSplitter.Height;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition: the two panels keep their shares of the width when the window changes size.
+procedure TMainForm.BottomPanelResize(Sender: TObject);
+begin
+  if OutputSplitter.Visible then
+    CallStackListBox.Width:=Round(BottomPanel.ClientWidth*FStackShare);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition: the user dragged the splitter between the call stack and the Output
+// panel: that is the share to keep from now on.
+procedure TMainForm.OutputSplitterMoved(Sender: TObject);
+begin
+  if BottomPanel.ClientWidth>0 then
+    FStackShare:=CallStackListBox.Width/BottomPanel.ClientWidth;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (the LOG command): shows or hides the Output panel.
 procedure TMainForm.ShowOutputPanel(AVisible : Boolean);
 begin
   OutputPanel1.Checked := AVisible;
-  OutputMemo.Visible := AVisible;
-  OutputSplitter.Visible := AVisible;
-  if AVisible then
-    OutputSplitter.Top := OutputMemo.Top - OutputSplitter.Height;
+  LayoutBottomPanel;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

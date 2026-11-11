@@ -49,6 +49,9 @@ The panel opens by itself, under the script, at the first line a script logs. Ea
 the tab's name when more than one tab is open. *Control → Show Output* shows or hides it and *Control → Clear
 Output* empties it. It keeps the newest 5000 lines.
 
+When the call stack is shown too, the two share the space under the script: the call stack on the left, the
+Output panel on the right. Drag the bar between them to give one more room.
+
 ## Editor features
 
 - **Ctrl+Space** opens autocomplete with the script commands, the built-in `#variables` and the variables
