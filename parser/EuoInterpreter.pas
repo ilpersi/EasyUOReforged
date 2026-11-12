@@ -211,6 +211,7 @@ type
     function     FindDist(var Dist : Cardinal) : Boolean;
     function     GetTileFlags : String;
     procedure    UpdateJournal;
+    function     DelayCountPause(Ms : Cardinal; var PausedMs : QWord) : Boolean;
 
     // Cmd1 (client-independent) command handlers
     procedure    PauseProc; procedure HaltProc; procedure StopCDProc; procedure PlayCDProc;
@@ -352,6 +353,10 @@ type
 const
   LOG_QUEUE_MAX = 10000;
 
+// The packet EXEVENT EQUIP sends for the words of its line (see the implementation). Here for
+// the tests: the command itself needs a client.
+function ExEventEquipPacket(Pars : TParList) : String;
+
 implementation
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -454,24 +459,32 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-// Packs Num into Len raw bytes for the EXEVENT EQUIP raw #236 packet builder.
-// UNVERIFIED against the original parser.pas's source text (that file was no longer
-// available to re-read while writing this unit) -- ported from memory of a private
-// helper of the same name/call shape used only at that one call site. Every other
-// function/behavior in this unit was re-verified against the real original source;
-// this one specifically was not, and must be checked against parser.pas's actual
-// NumStr before EXEVENT EQUIP is relied on. Big=True packs most-significant-byte
-// first, matching typical UO packet-header convention.
-function NumStr(Num : Cardinal; Len : Integer; Big : Boolean) : String;
+// The packet EXEVENT EQUIP sends for the item IDs in Pars[2..], '' when none of them is an ID.
+// The loop and the packet are the original's, from ExEventProc; they are a function of their
+// own only so that a test can pin the bytes. NumStr is access.pas', as in the original
+// parser.pas ("uses conversion, access"): its third argument is Intel, so False packs the ID
+// high byte first and True the length low byte first, the way every packet in uoevents.pas is
+// built and uowrap.pas builds this one. Port fix: this unit used to have a NumStr of its own,
+// written from memory, that read the third argument the other way round, so EXEVENT EQUIP sent
+// its length and every ID with their bytes reversed.
+function ExEventEquipPacket(Pars : TParList) : String;
 var
-  Cnt : Integer;
+  i : Integer;
+  c : Cardinal;
+  b : Boolean;
+  s : String;
 begin
-  SetLength(Result,Len);
-  for Cnt:=0 to Len-1 do
-    if Big then
-      Result[Cnt+1]:=Chr((Num shr ((Len-1-Cnt)*8)) and $FF)
-    else
-      Result[Cnt+1]:=Chr((Num shr (Cnt*8)) and $FF);
+  Result:='';
+  s:='';
+  for i:=2 to Pars.Count-1 do
+  begin
+    c:=Sys26ToCard(Pars[i].StrU,b);
+    if b then s:=s+NumStr(c,4,False);
+  end;
+  if s<>'' then Result:=#236+
+    NumStr(Length(s)  +  4,2,True)+
+    NumStr(Length(s) div 4,1,True)+
+  s;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -883,6 +896,20 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Port addition: Delay, adding to PausedMs the time it was held by Pause (a Delay that took more
+// than 250 ms longer than asked), so a timeout can leave that time out. Used by WAITFOR,
+// FINDJOURNAL and the PATH walker.
+function TEuoInterpreter.DelayCountPause(Ms : Cardinal; var PausedMs : QWord) : Boolean;
+var
+  T, E : QWord;
+begin
+  T:=GetTickCount64;
+  Result:=Delay(Ms);
+  E:=GetTickCount64-T;
+  if E>Ms+250 then Inc(PausedMs,E-Ms);   // held by Pause
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 procedure TEuoInterpreter.Eval(FP : Integer);
 begin
   EuoExpression.Eval(ParList,FP);
@@ -1266,14 +1293,11 @@ begin
   Name:=UpperCase(Name);
   Delete(Name,1,1);
 
-  iBuf:=-1;
-  for Cnt:=500 to 500+High(VarNamesRW) do
-    if UpperCase(VarNamesRW[Cnt-500])=Name then
-  begin
-    iBuf:=Cnt;
-    Break;
-  end;
-  if iBuf<0 then Goto Leave;
+  // Port: was a scan of VarNamesRW, upper-casing every entry. SpeedVar (GetVar's index) holds the
+  // same names upper-cased, the writable ones at 500 and up; the two lists share no name.
+  if not FindSortedPos(SpeedVar,Name,Cnt) then Goto Leave;
+  iBuf:=Integer(PtrInt(SpeedVar.Objects[Cnt]));
+  if iBuf<500 then Goto Leave;   // a read-only variable
 
   case iBuf of
     500..518,523,529,531,533 :
@@ -1525,15 +1549,14 @@ end;
 // (#WaitRes -1) or the timeout passes (#WaitRes 0). The condition is IF's: Eval(1) collapses it to
 // one word, leaving the timeout as word 2, where IF has its line count. Eval is destructive and
 // variables are substituted by ParseLine, so each poll parses the line again. Time held by Pause
-// does not count, the same way TEuoWalkClient.Wait leaves it out; the clock is read, not counted
-// in calls to Delay, because each call takes up to a GetTickCount step longer than asked. Stop
-// leaves #WaitRes as it was.
+// does not count (DelayCountPause, as for the walker); the clock is read, not counted in calls to
+// Delay, because each call takes up to a GetTickCount step longer than asked. Stop leaves
+// #WaitRes as it was.
 procedure TEuoInterpreter.WaitForProc;
 var
   Ticks    : Cardinal;
   Start    : QWord;
   PausedMs : QWord;
-  T, E     : QWord;
   Line     : Integer;
 begin
   if ParList.Count<2 then Exit;
@@ -1557,10 +1580,7 @@ begin
       Exit;
     end;
 
-    T:=GetTickCount64;
-    if not Delay(50) then Exit;
-    E:=GetTickCount64-T;
-    if E>50+250 then Inc(PausedMs,E-50);   // held by Pause
+    if not DelayCountPause(50,PausedMs) then Exit;
 
     Line:=NextLine;
     NextLine:=CurLine;
@@ -1803,23 +1823,13 @@ procedure TEuoInterpreter.CallProc;
 var
   Cnt   : Integer;
   sBuf  : String;
-  sBuf2 : String;
 begin
   if ParList.Count<2 then Exit;
 
-  sBuf:=ParList[1].Str;
-  if not IsAbsolutePath(sBuf) then
-    sBuf:=GetVar('#curpath')+sBuf;
-
-  if not FileExists(sBuf) then
-  repeat
-    sBuf2:=sBuf;
-    sBuf:=sBuf2+'.txt';
-    if FileExists(sBuf) then Break;
-    sBuf:=sBuf2+'.euo';
-    if FileExists(sBuf) then Break;
-    Exit;
-  until True;
+  // Port: the original's lookup (a relative name from #CurPath, then .txt and .euo) is
+  // ResolveCallFile, which the MENU logic choice uses too; '' when there is no such file.
+  sBuf:=ResolveCallFile(ParList[1].Str);
+  if sBuf='' then Exit;
 
   ScrList.AddCall(NextLine,sBuf);
   ScrList.Scr.LoadFromFile(sBuf);
@@ -1997,9 +2007,9 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-// Port addition (MENU 1.5/1.6): the file a CALL line naming Name would load, or '' --
-// for the "menu reforge includecall" scan. The lookup must stay identical to CallProc's:
-// a relative name is taken from #CurPath, then .txt and .euo are tried.
+// The file a CALL line naming Name loads, or '' when there is none: a relative name is taken
+// from #CurPath, then .txt and .euo are tried. The original's lookup, from CallProc, which calls
+// this; the "menu reforge includecall" scan uses it too (port addition, MENU 1.5/1.6).
 function TEuoInterpreter.ResolveCallFile(const Name : String) : String;
 var
   sBuf  : String;
@@ -3012,6 +3022,7 @@ type
     Interp   : TEuoInterpreter;
     Mark     : Cardinal;   // JIndex at MarkJournal
     PausedMs : QWord;
+    Rides    : Boolean;    // the character rode at the last LiveObjects
   public
     constructor Create(AInterp : TEuoInterpreter);
     function  Position(out X, Y, Z, Dir, Facet : Integer) : Boolean; override;
@@ -3090,9 +3101,11 @@ begin
     if Pos('can''t get there',LowerCase(Interp.UOCmd.JournalLine(i)))>0 then Exit(True);
 end;
 
+// The same walk of the object list also says whether the character rides: Mounted answers that.
+// The walker asks Mounted right after LiveObjects, at each refresh (TPathWalker.Refresh).
 procedure TEuoWalkClient.LiveObjects(X, Y : Integer; var Objs : TLiveObjs);
 begin
-  Interp.UOCmd.PathLiveObjects(X,Y,LIVE_RANGE,Objs);
+  Interp.UOCmd.PathLiveObjects(X,Y,LIVE_RANGE,Objs,@Rides);
 end;
 
 function TEuoWalkClient.CheckSteps(var Q : TStepChecks) : Boolean;
@@ -3106,13 +3119,8 @@ begin
 end;
 
 function TEuoWalkClient.Wait(Ms : Cardinal) : Boolean;
-var
-  T, E : QWord;
 begin
-  T:=GetTickCount64;
-  Result:=Interp.Delay(Ms);
-  E:=GetTickCount64-T;
-  if E>Ms+250 then Inc(PausedMs,E-Ms);   // held by Pause
+  Result:=Interp.DelayCountPause(Ms,PausedMs);   // Now leaves out the time held by Pause
 end;
 
 function TEuoWalkClient.CanPathFind : Boolean;
@@ -3132,10 +3140,8 @@ begin
 end;
 
 function TEuoWalkClient.Mounted : Boolean;
-var
-  ID, Typ : Cardinal;
 begin
-  Result:=Interp.UOCmd.CharMount(ID,Typ);
+  Result:=Rides;   // read by the last LiveObjects
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3206,7 +3212,6 @@ end;
 procedure TEuoInterpreter.PathProc;
 var
   Sub  : String;
-  What : String;
   N    : Integer;
   T    : Cardinal;
   P   : TPathPlanner;
@@ -3276,28 +3281,15 @@ begin
   end
   else if Sub='CLEAR' then
   begin
-    What:=ParList[2].StrU;   // not Sub: tests\tools\EuoNames.ps1 reads the sub-commands off Sub='...'
-    if (What='')or(What='ALL') then
-    begin
-      P.ClearRules(True,True,True);
-      UOCmd.PathLive.ClearLearned;
-    end
-    else if (What='BLOCKS')or(What='BLOCK') then P.ClearRules(True,False,False)
-    else if (What='AVOIDS')or(What='AVOID') then P.ClearRules(False,True,False)
-    else if (What='LINKS')or(What='LINK') then P.ClearRules(False,False,True)
-    else if What='LEARNED' then UOCmd.PathLive.ClearLearned
-    else
-    begin
-      PathState:='error: path clear [blocks|avoid|links|learned|all]';
-      Exit;
-    end;
-    PathState:='ok';
+    if UOCmd.PathClear(ParList[2].StrU) then PathState:='ok'   // the words are uo.dll's PathClear's
+    else PathState:='error: path clear [blocks|avoid|links|learned|all]';
   end
   else PathState:='error: unknown path command: '+ParList[1].Str;
 end;
 
 // PATH FIND {x} {y} [z]: plans from PathStart, on the world model plus what the client holds
-// around the character (the walker's live overlay) and the learned blocks. As SqlProc does, the
+// around the character (the walker's live overlay) and the learned blocks (TUOCmd.PathPlan, the
+// search uo.dll's GetPath runs too). As SqlProc does, the
 // lock is released while the files are opened and the search runs, so the GUI never waits on it;
 // the #Path* fields are only written once it is held again. The search stops on the Stop button
 // (Brk). The goal is kept for PATH WALK and PATH STEP, and a walk in progress ends.
@@ -3306,9 +3298,7 @@ var
   SX, SY, SZ, SDir, F : Integer;
   GX, GY, GZ          : Integer;
   HasZ, Ok            : Boolean;
-  R                   : TPathResult;
-  Src                 : TLiveOverlay;
-  Err                 : String;
+  State               : String;
   P                   : TPathPlanner;
 begin
   P:=UOCmd.PathPlanner;
@@ -3333,59 +3323,40 @@ begin
   PathGoalAcc:=P.AccuracyXY;
   PathGoalSet:=True;
 
-  Ok:=False;
-  Err:='';
-  R:=prNoPath;
   CS.EndWrite;
   try
-    try
-      Src:=UOCmd.PathSource(F);
-      if Src<>nil then
-      begin
-        UOCmd.PathRefreshLive(F);
-        // No facing (-1): with it, a first step in the facing direction saves a turn, and a
-        // character facing south-east planned a V of 11 + 11 diagonal steps instead of 22 east.
-        R:=P.Find(Src,F,SX,SY,SZ,-1,GX,GY,GZ,HasZ,@Brk);
-        Ok:=True;
-      end;
-    except
-      on E: Exception do Err:=E.Message;
-    end;
+    Ok:=UOCmd.PathPlan(F,SX,SY,SZ,GX,GY,GZ,HasZ,@Brk,State);
   finally
     CS.BeginWrite;
   end;
 
-  if Err<>'' then PathState:='error: '+Err
-  else if not Ok then PathState:='nomap'
-  else
+  PathState:=State;
+  if Ok then
   begin
-    PathState:=PathResultName(R);
-    if R=prOk then
+    PathCnt:=P.StepCount;
+    PathX:=SX;
+    PathY:=SY;
+    PathZ:=SZ;
+    PathDir:=-1;
+    if PathCnt>0 then
     begin
-      PathCnt:=P.StepCount;
-      PathX:=SX;
-      PathY:=SY;
-      PathZ:=SZ;
-      PathDir:=-1;
-      if PathCnt>0 then
-      begin
-        PathX:=P.Steps[PathCnt-1].X;
-        PathY:=P.Steps[PathCnt-1].Y;
-        PathZ:=P.Steps[PathCnt-1].Z;
-        PathDir:=P.Steps[PathCnt-1].Dir;
-      end;
-    end
-    else P.StepCount:=0;
-  end;
+      PathX:=P.Steps[PathCnt-1].X;
+      PathY:=P.Steps[PathCnt-1].Y;
+      PathZ:=P.Steps[PathCnt-1].Z;
+      PathDir:=P.Steps[PathCnt-1].Dir;
+    end;
+  end
+  else P.StepCount:=0;
 end;
 
 // PATH CAN {x} {y} [z]: can a character stand there (nearest height to z, default the start's)?
-// Asked of the world model plus what the client holds around the character, as PATH FIND.
+// Asked of the world model plus what the client holds around the character, as PATH FIND
+// (TUOCmd.PathStand, which uo.dll's PathCan asks too).
 procedure TEuoInterpreter.PathCanSub;
 var
   SX, SY, SZ, SDir, F : Integer;
-  X, Y, Z, i          : Integer;
-  Src                 : TLiveOverlay;
+  X, Y, Z             : Integer;
+  State               : String;
   Ok                  : Boolean;
 begin
   if not(ParList[2].CardValid and ParList[3].CardValid) then
@@ -3399,38 +3370,14 @@ begin
   Z:=SZ;
   if ParList[4].IntValid then Z:=ParList[4].Int;
 
-  try
-    Src:=UOCmd.PathSource(F);
-    if Src<>nil then UOCmd.PathRefreshLive(F);
-  except
-    on E: Exception do
-    begin
-      PathState:='error: '+E.Message;
-      Exit;
-    end;
-  end;
-  if Src=nil then
-  begin
-    PathState:='nomap';
-    Exit;
-  end;
-
-  Ok:=StandZ(Src,X,Y,Z);
-  with UOCmd.PathPlanner do
-    for i:=0 to High(Blocks) do
-      if (Blocks[i].Facet=F) and (X>=Blocks[i].X1) and (X<=Blocks[i].X2) and
-        (Y>=Blocks[i].Y1) and (Y<=Blocks[i].Y2) then
-        Ok:=False;
+  Ok:=UOCmd.PathStand(F,X,Y,Z,State);
+  PathState:=State;
+  if not Ok and (State<>'blocked') then Exit;   // nomap or an error: the #Path* fields stay
   PathX:=X;
   PathY:=Y;
   PathZ:=0;
   PathDir:=-1;
-  if Ok then
-  begin
-    PathZ:=Z;
-    PathState:='ok';
-  end
-  else PathState:='blocked';
+  if Ok then PathZ:=Z;
 end;
 
 // PATH CHECK {n} | {x} {y} [z] [dir]: the client's own step check (TUOEvent.StepInfo, the tile
@@ -3677,27 +3624,24 @@ begin
   end;
   V:=ParList[3].Int;
   if V>MaxInt then V:=MaxInt;
-  if Opt='ACCURACY' then P.AccuracyXY:=V
-  else if Opt='ACCURACYZ' then P.AccuracyZ:=V
-  else if Opt='MAXNODES' then P.MaxNodes:=V
-  else if Opt='MARGIN' then P.Margin:=V
-  else if Opt='TURNCOST' then P.TurnCost:=V
-  else if Opt='HEURISTIC' then P.Heuristic:=V
-  else if Opt='DOORCOST' then UOCmd.PathLive.DoorCost:=V
-  else if Opt='CHECK' then W.CheckDist:=V
-  else if Opt='LEAD' then
+  // The planner's numbers and DOORCOST are set as uo.dll's PathSet sets them; the walker's here.
+  if not UOCmd.PathSetNumber(Opt,V) then
   begin
-    if V<1 then
+    if Opt='CHECK' then W.CheckDist:=V
+    else if Opt='LEAD' then
     begin
-      PathState:='error: path set lead needs a number of 1 or more';
+      if V<1 then
+      begin
+        PathState:='error: path set lead needs a number of 1 or more';
+        Exit;
+      end;
+      W.MaxDist:=V;
+    end
+    else
+    begin
+      PathState:='error: unknown path option: '+ParList[2].Str;
       Exit;
     end;
-    W.MaxDist:=V;
-  end
-  else
-  begin
-    PathState:='error: unknown path option: '+ParList[2].Str;
-    Exit;
   end;
   PathState:='ok';
 end;
@@ -3975,9 +3919,6 @@ procedure TEuoInterpreter.ExEventProc;
 var
   iBuf  : Integer;
   iBuf2 : Integer;
-  i     : Integer;
-  c     : Cardinal;
-  b     : Boolean;
   s     : String;
 begin
   if ParList[1].StrU='DROPPD' then
@@ -4040,16 +3981,8 @@ begin
 
   if ParList[1].StrU='EQUIP' then
   begin
-    s:='';
-    for i:=2 to ParList.Count-1 do
-    begin
-      c:=Sys26ToCard(ParList[i].StrU,b);
-      if b then s:=s+NumStr(c,4,False);
-    end;
-    if s<>'' then EventObj.ExEv_Custom(#236+
-      NumStr(Length(s)  +  4,2,True)+
-      NumStr(Length(s) div 4,1,True)+
-    s);
+    s:=ExEventEquipPacket(ParList);   // port: the original's loop and packet, moved there
+    if s<>'' then EventObj.ExEv_Custom(s);
   end;
 
 end;
@@ -4338,7 +4271,6 @@ var
   Found        : Cardinal;
   Start        : QWord;
   PausedMs     : QWord;
-  T, E         : QWord;
 begin
   Found:=0;
   if ParList.Count>4 then
@@ -4361,10 +4293,7 @@ begin
       if Found>0 then Break;
       if GetTickCount64-Start-PausedMs>=QWord(Ticks)*50 then Break;
 
-      T:=GetTickCount64;
-      if not Delay(50) then Exit;
-      E:=GetTickCount64-T;
-      if E>50+250 then Inc(PausedMs,E-50);   // held by Pause
+      if not DelayCountPause(50,PausedMs) then Exit;
     until False;
   end;
 

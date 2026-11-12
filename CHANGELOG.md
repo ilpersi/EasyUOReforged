@@ -20,6 +20,7 @@ What changes for script users in each release of EasyUO Reforged. New entries go
 ### Fixed
 
 - **Stop now stops at once during a wait.** When you pressed Stop while a script was inside a `wait`, `target`, `waitfor` or another waiting command, the line after it could still run once, about one time in four. The original EasyUO did the same. Stop now ends the wait and runs nothing more.
+- **`exevent Equip` sends the right request.** In EasyUO Reforged the command built its request with the length and every item ID written backwards, so the server could not read it and nothing was equipped. It now sends the same request as the original EasyUO and as `uo.dll`'s `Equip`, which was not affected. See [exevent Equip](https://ilpersi.github.io/EasyUOReforged/commands/exevent/equip/).
 
 ## v26.11.09 - 2026-11-09
 

@@ -10,8 +10,9 @@ unit EuoLint;
   (EUOCli.exe's "check" does; the editor could). EuoInterpreter.pas is NOT touched by it. The
   script is read with the interpreter's own code wherever that code exists apart from it:
 
-  - lines: EuoScriptWords.JoinContinuation ('+' lines) and EuoMenuSelect.SplitScriptLine
-    (Parameterize's twin: spaces and tabs separate words, a word starting with ';' ends the line);
+  - lines: EuoScriptWords.JoinContinuation ('+' lines) and ScanLineWords (Parameterize's split,
+    through EuoMenuSelect.SplitScriptLine: spaces and tabs separate words, a word starting with
+    ';' ends the line);
   - what is a variable: EuoScriptWords.IsVar, the exact test ParseLine substitutes on;
   - blocks: EuoBlocks.EuoBlockStep, which the editor's folding and Format Script run;
   - where GOSUB and GOTO lead: EuoJumpTarget.EuoFindSub / EuoFindLabel;
@@ -158,28 +159,16 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Where each word of a line starts (1-based byte columns), by Parameterize's rules: the
-// same words SplitScriptLine gives for that line alone.
+// same words SplitScriptLine gives for that line alone (both are ScanLineWords).
 procedure WordColumns(const Line : String; out Columns : TEuoColumns);
 var
-  Cnt, First, N : Integer;
+  W   : TEuoWords;
+  Cnt : Integer;
 begin
-  Columns:=nil;
-  N:=0;
-  Cnt:=1;
-  while Cnt<=Length(Line) do
-  begin
-    if Line[Cnt] in [#9,#32] then
-    begin
-      Inc(Cnt);
-      Continue;
-    end;
-    First:=Cnt;
-    while (Cnt<=Length(Line)) and not (Line[Cnt] in [#9,#32]) do Inc(Cnt);
-    if Line[First]=';' then Break;
-    SetLength(Columns,N+1);
-    Columns[N]:=First;
-    Inc(N);
-  end;
+  ScanLineWords(Line,W);
+  SetLength(Columns,Length(W));
+  for Cnt:=0 to High(W) do
+    Columns[Cnt]:=W[Cnt].Start;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

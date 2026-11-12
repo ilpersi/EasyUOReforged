@@ -70,6 +70,7 @@ type
     procedure PutObj(Modern : Boolean; At, ID, Graphic, Kind, Cont, Layer, Next : Cardinal);
     procedure OpenMountWorld(Modern : Boolean);
     function  FindScanned(ID : Cardinal) : Boolean;
+    procedure CheckLiveObjectsTellTheMount(Modern : Boolean);
   protected
     procedure SetUp; override;
     procedure TearDown; override;
@@ -118,6 +119,8 @@ type
     procedure TestCharMountFindsTheMountOnAFixedBaseClient;
     procedure TestCharMountFindsTheMountOnAModernClient;
     procedure TestScanItemsKeepsTheLayerOfWornItemsOnly;
+    procedure TestLiveObjectsTellTheMountOnAFixedBaseClient;
+    procedure TestLiveObjectsTellTheMountOnAModernClient;
   end;
 
 implementation
@@ -1569,6 +1572,44 @@ begin
   AssertTrue('the other mobile''s mount', FindScanned($40000099));
   Eq('layer', 25, Cmd.ItemRes.ItemLayer);
   Eq('container: the other mobile', 2, Cmd.ItemRes.ContID);
+end;
+
+// The walker's refresh reads the object list once: PathLiveObjects says whether the character
+// rides as CharMount does, and gives the same objects as without that question.
+procedure TCstDbModernBuildTests.CheckLiveObjectsTellTheMount(Modern : Boolean);
+var
+  Plain   : TLiveObjs;
+  Objs    : TLiveObjs;
+  Rides   : Boolean;
+  ID, Typ : Cardinal;
+  i       : Integer;
+begin
+  OpenMountWorld(Modern);
+  Cmd.PathLiveObjects(0, 0, 100000, Plain);
+  Rides := False;
+  Cmd.PathLiveObjects(0, 0, 100000, Objs, @Rides);
+  AssertTrue('rides', Rides);
+  AssertTrue('as CharMount says', Cmd.CharMount(ID, Typ));
+  Eq('the same objects', Length(Plain), Length(Objs));
+  AssertTrue('the list has ground objects', Length(Objs) > 0);
+  for i := 0 to High(Objs) do
+    Eq('object ' + IntToStr(i), Plain[i].ID, Objs[i].ID);
+
+  PutObj(Modern, MGround, $40000020, $0EED, 1, 0, 0, MOther);   // dismounted
+  Rides := True;
+  Cmd.PathLiveObjects(0, 0, 100000, Objs, @Rides);
+  AssertFalse('on foot', Rides);
+  AssertFalse('CharMount agrees', Cmd.CharMount(ID, Typ));
+end;
+
+procedure TCstDbModernBuildTests.TestLiveObjectsTellTheMountOnAFixedBaseClient;
+begin
+  CheckLiveObjectsTellTheMount(False);
+end;
+
+procedure TCstDbModernBuildTests.TestLiveObjectsTellTheMountOnAModernClient;
+begin
+  CheckLiveObjectsTellTheMount(True);
 end;
 
 initialization

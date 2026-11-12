@@ -691,19 +691,8 @@ begin
            PushStrVal('ok');
          end;
     066: begin                                             // PathClear [what]
-           s:=UpperCase(GetString(3));
-           if (s='') or (s='ALL') then
-           begin
-             PathPlanner.ClearRules(True,True,True);
-             PathLive.ClearLearned;
-           end
-           else if (s='BLOCKS') or (s='BLOCK') then PathPlanner.ClearRules(True,False,False)
-           else if (s='AVOIDS') or (s='AVOID') then PathPlanner.ClearRules(False,True,False)
-           else if (s='LINKS') or (s='LINK') then PathPlanner.ClearRules(False,False,True)
-           else if s='LEARNED' then PathLive.ClearLearned
-           else s:='?';
-           if s='?' then PushStrVal('error: PathClear [blocks|avoid|links|learned|all]')
-           else PushStrVal('ok');
+           if PathClear(UpperCase(GetString(3))) then PushStrVal('ok')
+           else PushStrVal('error: PathClear [blocks|avoid|links|learned|all]');
          end;
     -01: Result:=ERR_NOTFOUND;
     -02: Result:=ERR_WRONGPAR;

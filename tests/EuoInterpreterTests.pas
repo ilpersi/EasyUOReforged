@@ -16,7 +16,8 @@ unit EuoInterpreterTests;
 interface
 
 uses
-  Classes, SysUtils, fpcunit, testregistry, EuoInterpreter, EuoJournalSearch, ReforgedVersion;
+  Classes, SysUtils, fpcunit, testregistry, EuoInterpreter, EuoJournalSearch, ReforgedVersion,
+  EuoTokens, EuoScriptWords, EuoConversion, uocommands, pathplan;
 
 type
   TEuoInterpreterTests = class(TTestCase)
@@ -113,6 +114,9 @@ type
     procedure TestSubAndLabelNamedFindJournalStillWork;
     procedure TestBareStarReachesACommandAsAWord;
     procedure TestFindJournalMatchAgreesWithIn;
+    procedure TestPathSetClearAndCanReachTheEngine;
+    procedure TestExEventEquipPacketBytes;
+    procedure TestExEventEquipPacketSkipsWhatIsNotAnID;
   end;
 
 implementation
@@ -1628,6 +1632,99 @@ begin
   finally
     Search.Free;
   end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// PATH SET's numbers, PATH CLEAR and PATH CAN run the engine functions uo.dll calls too
+// (TUOCmd.PathSetNumber, PathClear, PathStand): what the script sets lands in the planner and the
+// live overlay, a word CLEAR does not know clears nothing, and CAN with PATH FROM but no client
+// says nomap and leaves #PathX alone.
+procedure TEuoInterpreterTests.TestPathSetClearAndCanReachTheEngine;
+var
+  P : TPathPlanner;
+begin
+  P := Interp.UOCmd.PathPlanner;
+  PlayScript(
+    'path set accuracy 3' + #13#10 +
+    'path set accuracyz 4' + #13#10 +
+    'path set maxnodes 5000' + #13#10 +
+    'path set margin 7' + #13#10 +
+    'path set turncost 9' + #13#10 +
+    'path set heuristic 110' + #13#10 +
+    'path set doorcost 60' + #13#10 + 'set %s #PathState' + #13#10 +
+    'path block 10 10 12 12 0' + #13#10 +
+    'path clear bogus' + #13#10 + 'set %a #PathState' + #13#10 +
+    'path from 1 1 0' + #13#10 +
+    'path can 11 11' + #13#10 + 'set %b #PathState' + #13#10 + 'set %x #PathX' + #13#10 +
+    'HALT');
+  AssertEquals('ok', Interp.GetVar('%s'));
+  AssertEquals('accuracy', 3, P.AccuracyXY);
+  AssertEquals('accuracyz', 4, P.AccuracyZ);
+  AssertEquals('maxnodes', 5000, P.MaxNodes);
+  AssertEquals('margin', 7, P.Margin);
+  AssertEquals('turncost', 9, P.TurnCost);
+  AssertEquals('heuristic', 110, P.Heuristic);
+  AssertEquals('doorcost', 60, Interp.UOCmd.PathLive.DoorCost);
+  AssertEquals('error: path clear [blocks|avoid|links|learned|all]', Interp.GetVar('%a'));
+  AssertTrue('the bad word cleared nothing', P.BlockedAt(0, 11, 11));
+  AssertFalse('outside the block', P.BlockedAt(0, 13, 11));
+  AssertFalse('another facet', P.BlockedAt(1, 11, 11));
+  AssertEquals('nomap', Interp.GetVar('%b'));
+  AssertEquals('#PathX untouched', '0', Interp.GetVar('%x'));
+
+  Interp.ResInt := RES_OK;
+  PlayScript('path clear blocks' + #13#10 + 'set %c #PathState' + #13#10 + 'HALT');
+  AssertEquals('ok', Interp.GetVar('%c'));
+  AssertFalse('the block is gone', P.BlockedAt(0, 11, 11));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The packet of a line, as hex bytes: the words go through the interpreter's own word filling.
+function EquipPacketHex(const Words : array of String) : String;
+var
+  Par    : TStringList;
+  PList  : TParList;
+  Packet : String;
+  Cnt    : Integer;
+begin
+  Par := TStringList.Create;
+  PList := TParList.Create;
+  try
+    for Cnt := 0 to High(Words) do
+      Par.Add(Words[Cnt]);
+    WordsToParList(Par, PList);
+    Packet := ExEventEquipPacket(PList);
+    Result := '';
+    for Cnt := 1 to Length(Packet) do
+      Result := Result + IntToHex(Ord(Packet[Cnt]), 2) + ' ';
+    Result := Trim(Result);
+  finally
+    PList.Free;
+    Par.Free;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// EXEVENT EQUIP's packet, byte for byte as the original EasyUO builds it (parser.pas calls
+// access.pas' NumStr, as uowrap.pas does for uo.dll's Equip): the command $EC, the length with
+// its low byte first, the number of items, then each ID with its high byte first. The port once
+// had a NumStr of its own in EuoInterpreter.pas that reversed the length and every ID.
+procedure TEuoInterpreterTests.TestExEventEquipPacketBytes;
+begin
+  AssertEquals('one item', 'EC 08 00 01 12 34 56 78',
+    EquipPacketHex(['exevent', 'equip', CardToSys26($12345678)]));
+  AssertEquals('two items', 'EC 0C 00 02 40 00 00 01 40 AB CD EF',
+    EquipPacketHex(['exevent', 'equip', CardToSys26($40000001), CardToSys26($40ABCDEF)]));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// A word that is not an ID is left out, as in the original, and a line with no ID sends nothing.
+procedure TEuoInterpreterTests.TestExEventEquipPacketSkipsWhatIsNotAnID;
+begin
+  AssertEquals('the word that is not an ID is skipped', 'EC 08 00 01 12 34 56 78',
+    EquipPacketHex(['exevent', 'equip', '12x', CardToSys26($12345678)]));
+  AssertEquals('no ID: no packet', '', EquipPacketHex(['exevent', 'equip']));
+  AssertEquals('only a word that is not an ID: no packet', '', EquipPacketHex(['exevent', 'equip', '12x']));
 end;
 
 initialization

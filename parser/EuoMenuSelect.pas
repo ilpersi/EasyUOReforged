@@ -12,8 +12,8 @@ unit EuoMenuSelect;
      files it CALLs by a literal name are read too, and the files they call, each once.
   3. Otherwise 1.5.
 
-  Lines are split exactly as TEuoInterpreter.Parameterize splits them: on spaces and tabs, and a
-  word that starts with ';' ends the line. Nothing here touches a variable or runs anything, so
+  Lines are split exactly as TEuoInterpreter.Parameterize splits them (EuoScriptWords.ScanLineWords):
+  on spaces and tabs, and a word that starts with ';' ends the line. Nothing here touches a variable or runs anything, so
   a value or a CALL name that only a variable can supply is not seen; that is by design.
 }
 
@@ -49,34 +49,25 @@ function  ChooseMenuLogic(Main : TStrings; Resolve : TMenuCallResolver; out Forc
 
 implementation
 
+uses
+  EuoScriptWords;
+
 const
   Menu16Only : array[0..8] of String =
     ('FORM', 'PANEL', 'RADIO', 'GETPROP', 'SETPROP', 'GETDEF', 'SETDEF', 'PUSHDEF', 'POPDEF');
 
 ////////////////////////////////////////////////////////////////////////////////
-// TEuoInterpreter.Parameterize's rules, kept identical so the scan sees the same words
-// the interpreter will run.
+// TEuoInterpreter.Parameterize's rules (EuoScriptWords.ScanLineWords), so the scan sees the
+// same words the interpreter will run.
 procedure SplitScriptLine(const Line : String; Words : TStrings);
 var
-  Str  : String;
-  sBuf : String;
-  Cnt1 : Integer;
+  W   : TEuoWords;
+  Cnt : Integer;
 begin
-  Str:=Trim(Line)+' ';
-
-  for Cnt1:=1 to Length(Str) do
-    if Str[Cnt1]=#9 then Str[Cnt1]:=#32;
-
+  ScanLineWords(Line,W);
   Words.Clear;
-  repeat
-    Cnt1:=Pos(#32,Str);
-    if Cnt1<1 then Break;
-    sBuf:=Copy(Str,1,Cnt1-1);
-    Delete(Str,1,Cnt1);
-    if sBuf='' then Continue;
-    if sBuf[1]=';' then Break;
-    Words.Add(sBuf);
-  until False;
+  for Cnt:=0 to High(W) do
+    Words.Add(W[Cnt].Text);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

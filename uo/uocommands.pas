@@ -108,6 +108,19 @@ type
   // pass its memory reader; unit tests pass a stub.
   TClilocLookup = function(ID : Cardinal) : String of object;
 
+  // Port addition: a walk over the client's object list (ObjFirst / ObjNext), with the item
+  // offsets read once for the whole walk.
+  TObjBuf       = array[0..$3FF] of Byte;
+  TObjCursor    = record
+    Next        : Cardinal;      // the object the next step reads, 0 = the end
+    Count       : Integer;       // objects read so far
+    IdOfs       : Cardinal;      // BITEMID: the serial; +4 the container, +$C the next object
+    PosOfs      : Cardinal;      // BPOS: X, Y and Z; the kind byte is at BPOS-4
+    TypeOfs     : Cardinal;      // BITEMTYPE: the graphic
+    LayerOfs    : Cardinal;      // BITEMID+BCHARSTATUS+1: the layer an object is worn in
+    Buf         : TObjBuf;       // the object read last
+  end;
+
   TUOCmd        = class(TObject)
   private
     UOSel       : TUOSel;
@@ -140,6 +153,10 @@ type
     function    ReadBarHeader(out VecB : Cardinal; out Count : Integer) : Boolean;
     function    ReadBuffBar(Filter : Int64) : Boolean;
     function    BuffBarChanged : Boolean;
+    function    ObjFirst(out C : TObjCursor) : Cardinal;
+    function    ObjNext(var C : TObjCursor; Len : Cardinal; Max : Integer) : Boolean;
+    function    MountReadLen : Cardinal;
+    function    ObjIsMount(const C : TObjCursor; Me : Cardinal) : Boolean;
   protected
     // Port change: RWV (and the "is a client attached" test) are virtual so that a unit test can
     // point the buff-bar reader at a fake client process; behaviour is otherwise unchanged.
@@ -216,12 +233,19 @@ type
     function    PathMap(Facet : Integer) : TWalkMap;
     function    PathSource(Facet : Integer) : TLiveOverlay;
     procedure   PathRefreshLive(Facet : Integer);
-    procedure   PathLiveObjects(X, Y, Range : Integer; var Objs : TLiveObjs);
+    procedure   PathLiveObjects(X, Y, Range : Integer; var Objs : TLiveObjs; Mounted : PBoolean = nil);
     function    PathFindFrom(Facet, SX, SY, SZ, GX, GY, GZ : Integer; HasZ : Boolean;
                 out State : String) : Boolean;
     function    PathCanAt(Facet, X, Y : Integer; var Z : Integer; out State : String) : Boolean;
     function    PathPacked : String;
     function    PathSetOption(const Opt, Val : String) : String;
+    // Shared by PATH (EuoInterpreter) and uo.dll (the functions above), which check their own
+    // arguments and whether a client is attached, each its own way:
+    function    PathPlan(Facet, SX, SY, SZ, GX, GY, GZ : Integer; HasZ : Boolean; Stop : PBoolean;
+                out State : String) : Boolean;
+    function    PathStand(Facet, X, Y : Integer; var Z : Integer; out State : String) : Boolean;
+    function    PathSetNumber(const OptU : String; V : Int64) : Boolean;
+    function    PathClear(const WhatU : String) : Boolean;
     function    GetCont(Index : Cardinal) : Boolean;
     function    GetShopInfo : Boolean;
     function    SetShopItem(ID,Quantity : Cardinal) : Boolean;
@@ -1228,19 +1252,71 @@ end;
 const
   PATH_LIVE_MAX = 100000;   // objects read per list at most: a broken list never loops forever
   PATH_CELL_MAX = 64;       // objects read per grid cell at most
+  MOUNT_LAYER   = $19;      // the layer a mount is worn in
+  MOUNT_MAX     = 20000;    // objects CharMount reads at most
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition: a walk over the object list FindItem reads (C_CHARPTR: the character first, the
+// next object at BITEMID+$C). ObjFirst starts it and answers the first object (the character);
+// each ObjNext reads the next object's first Len bytes (at most SizeOf(C.Buf)) into C.Buf, at most
+// Max objects in all, so a broken list never loops for ever. PathLiveObjects and CharMount walk it;
+// ScanItems, HideItem and uoevents' FindID keep the original's own loops.
+function TUOCmd.ObjFirst(out C : TObjCursor) : Cardinal;
+begin
+  C.Count:=0;
+  C.IdOfs:=Cst.BITEMID;
+  C.PosOfs:=Cst.BPOS;
+  C.TypeOfs:=Cst.BITEMTYPE;
+  C.LayerOfs:=C.IdOfs+Cst.BCHARSTATUS+1;
+  RWV(Read,Cst.CHARPTR,@C.Next,4);
+  Result:=C.Next;
+end;
+
+function TUOCmd.ObjNext(var C : TObjCursor; Len : Cardinal; Max : Integer) : Boolean;
+begin
+  Result:=(C.Next<>0) and (C.Count<Max);
+  if not Result then Exit;
+  Inc(C.Count);
+  RWV(Read,C.Next,@C.Buf,Len);
+  C.Next:=Cardinal((@C.Buf[C.IdOfs+$0C])^);
+end;
+
+// The bytes of an object ObjIsMount (and CharMount's ID and type) need, 0 when the layout does not
+// fit the cursor's buffer.
+function TUOCmd.MountReadLen : Cardinal;
+begin
+  Result:=Cst.BITEMID+Cst.BCHARSTATUS+2;
+  if Result<Cst.BITEMID+$10 then Result:=Cst.BITEMID+$10;
+  if Result<Cst.BITEMTYPE+2 then Result:=Cst.BITEMTYPE+2;
+  if Result<Cst.BPOS then Result:=Cst.BPOS;
+  if Result>SizeOf(TObjBuf) then Result:=0;
+end;
+
+// Is the object C read the mount of the character Me: in a container (kind 0), worn by Me
+// (BITEMID+4) in layer $19? See CharMount.
+function TUOCmd.ObjIsMount(const C : TObjCursor; Me : Cardinal) : Boolean;
+begin
+  Result:=(C.Buf[C.PosOfs-4]=0) and (Cardinal((@C.Buf[C.IdOfs+4])^)=Me) and
+    (C.Buf[C.LayerOfs]=MOUNT_LAYER);
+end;
 
 // What the client holds within Range tiles of X,Y, for the walker's live overlay. Ground items
 // and mobiles come from the item list FindItem reads (C_CHARPTR): an item's serial has bit
 // $40000000, a mobile's has not (the protocol's split), and a kind other than 1 is in a container.
+// With Mounted, the same walk also says whether the character rides (as CharMount), so the
+// walker reads the list once per refresh.
 // House pieces come from where the build keeps the ones it has drawn (see uoclidata.pas,
 // C_MULTILIST): the list of the modern builds, or the world grid of the fixed-base ones. From the
 // grid only the static objects (C_STATICVT) with a house as their owner count: the rest are the
 // map's own statics, which the world model has already, and taking them for house pieces would
 // make the doors on them house doors. The grid wraps, so an object counts only in the cell its own
 // X,Y select. A build without these fields gives no house piece. Read only.
-procedure TUOCmd.PathLiveObjects(X, Y, Range : Integer; var Objs : TLiveObjs);
+procedure TUOCmd.PathLiveObjects(X, Y, Range : Integer; var Objs : TLiveObjs; Mounted : PBoolean);
 var
   Buf       : array[0..$3FF] of Byte;
+  Cur       : TObjCursor;
+  Me, Len   : Cardinal;
+  Mount     : Boolean;
   Grid      : array of Cardinal;
   Nxt, ID   : Cardinal;
   Size, VT  : Cardinal;
@@ -1249,7 +1325,7 @@ var
   PosOfs    : Cardinal;
   TypeOfs   : Cardinal;
   Need      : Cardinal;
-  n, i, k   : Integer;
+  n, k      : Integer;
   c         : Integer;
   O         : TLiveObj;
 
@@ -1269,22 +1345,32 @@ var
 begin
   n:=0;
   SetLength(Objs,0);
+  if Mounted<>nil then Mounted^:=False;
   if not ClientAttached then Exit;
 
-  RWV(Read,Cst.CHARPTR,@Nxt,4);
-  i:=0;
-  while (Nxt>0) and (i<PATH_LIVE_MAX) do
+  Me:=ObjFirst(Cur);
+  Len:=Cur.IdOfs+$10;
+  Mount:=False;
+  if Mounted<>nil then
   begin
-    RWV(Read,Nxt,@Buf,Cst.BITEMID+$10);
-    Nxt:=Cardinal((@Buf[Cst.BITEMID+$0C])^);
-    Inc(i);
-    if Buf[Cst.BPOS-4]<>1 then Continue;
-    ID:=Cardinal((@Buf[Cst.BITEMID])^);
+    Need:=MountReadLen;
+    Mount:=Need>0;
+    if Need>Len then Len:=Need;
+  end;
+  while ObjNext(Cur,Len,PATH_LIVE_MAX) do
+  begin
+    if Mount and ObjIsMount(Cur,Me) then
+    begin
+      Mounted^:=True;
+      Mount:=False;
+    end;
+    if Cur.Buf[Cur.PosOfs-4]<>1 then Continue;
+    ID:=Cardinal((@Cur.Buf[Cur.IdOfs])^);
     O.ID:=ID;
-    O.X:=SmallInt((@Buf[Cst.BPOS])^);
-    O.Y:=SmallInt((@Buf[Cst.BPOS+2])^);
-    O.Z:=SmallInt((@Buf[Cst.BPOS+4])^);
-    O.Graphic:=Word((@Buf[Cst.BITEMTYPE])^);
+    O.X:=SmallInt((@Cur.Buf[Cur.PosOfs])^);
+    O.Y:=SmallInt((@Cur.Buf[Cur.PosOfs+2])^);
+    O.Z:=SmallInt((@Cur.Buf[Cur.PosOfs+4])^);
+    O.Graphic:=Word((@Cur.Buf[Cur.TypeOfs])^);
     if (ID and $40000000)<>0 then O.Kind:=lkItem
     else O.Kind:=lkMobile;
     Add;
@@ -1358,24 +1444,17 @@ begin
   SetLength(Objs,n);
 end;
 
-// For uo.dll (uowrap.pas, GetPath): plans from SX,SY,SZ on Facet to GX,GY (and GZ when HasZ), as
-// PATH FIND does: on the world model, what the client holds around the character and the learned
-// blocks. State is PATH FIND's #PathState: ok, nopath, budget, timeout, noclient, nomap or
-// 'error: ...'. The route is the planner's (PathPacked). There is no Stop button to listen to; the
-// planner's TimeoutMs bounds the search.
-function TUOCmd.PathFindFrom(Facet, SX, SY, SZ, GX, GY, GZ : Integer; HasZ : Boolean;
+// PATH FIND's search (EuoInterpreter) and uo.dll's GetPath: plans from SX,SY,SZ on Facet to GX,GY
+// (and GZ when HasZ), on the world model, what the client holds around the character and the
+// learned blocks. Stop, when not nil, interrupts it. State: a search result (PathResultName: ok,
+// nopath, budget, timeout, stopped), nomap, or 'error: ...'. The route is the planner's.
+function TUOCmd.PathPlan(Facet, SX, SY, SZ, GX, GY, GZ : Integer; HasZ : Boolean; Stop : PBoolean;
   out State : String) : Boolean;
 var
   Src : TLiveOverlay;
   R   : TPathResult;
 begin
   Result:=False;
-  PathPlanner.StepCount:=0;
-  if UOSel.Nr=0 then
-  begin
-    State:='noclient';
-    Exit;
-  end;
   try
     Src:=PathSource(Facet);
     if Src=nil then
@@ -1384,34 +1463,28 @@ begin
       Exit;
     end;
     PathRefreshLive(Facet);
-    R:=PathPlanner.Find(Src,Facet,SX,SY,SZ,-1,GX,GY,GZ,HasZ,nil);
+    // No facing (-1): with it, a first step in the facing direction saves a turn, and a
+    // character facing south-east planned a V of 11 + 11 diagonal steps instead of 22 east.
+    R:=PathPlanner.Find(Src,Facet,SX,SY,SZ,-1,GX,GY,GZ,HasZ,Stop);
   except
     on E: Exception do
     begin
-      PathPlanner.StepCount:=0;
       State:='error: '+E.Message;
       Exit;
     end;
   end;
   State:=PathResultName(R);
   Result:=R=prOk;
-  if not Result then PathPlanner.StepCount:=0;
 end;
 
-// For uo.dll (PathCan): can a character stand on X,Y on Facet, and at what height (the floor nearest
-// Z; Z becomes it)? As PATH CAN: the world model, what the client holds, and PATH BLOCK's blocks.
-// State: ok, blocked, noclient, nomap or 'error: ...'.
-function TUOCmd.PathCanAt(Facet, X, Y : Integer; var Z : Integer; out State : String) : Boolean;
+// PATH CAN and uo.dll's PathCan: can a character stand on X,Y on Facet, and at what height (the
+// floor nearest Z; Z becomes it)? The world model, what the client holds, and PATH BLOCK's blocks.
+// State: ok, blocked, nomap or 'error: ...'.
+function TUOCmd.PathStand(Facet, X, Y : Integer; var Z : Integer; out State : String) : Boolean;
 var
   Src : TLiveOverlay;
-  i   : Integer;
 begin
   Result:=False;
-  if UOSel.Nr=0 then
-  begin
-    State:='noclient';
-    Exit;
-  end;
   try
     Src:=PathSource(Facet);
     if Src=nil then
@@ -1428,13 +1501,88 @@ begin
       Exit;
     end;
   end;
-  for i:=0 to High(PathPlanner.Blocks) do
-    if (PathPlanner.Blocks[i].Facet=Facet) and
-      (X>=PathPlanner.Blocks[i].X1) and (X<=PathPlanner.Blocks[i].X2) and
-      (Y>=PathPlanner.Blocks[i].Y1) and (Y<=PathPlanner.Blocks[i].Y2) then
-      Result:=False;
+  if PathPlanner.BlockedAt(Facet,X,Y) then Result:=False;
   if Result then State:='ok'
   else State:='blocked';
+end;
+
+const
+  // PATH SET's number options that the script and uo.dll share, in PathSetNumber's order.
+  PATH_NUMBER_OPTS : array[0..6] of String =
+    ('ACCURACY','ACCURACYZ','MAXNODES','MARGIN','TURNCOST','HEURISTIC','DOORCOST');
+
+// The index of an upper-case option name in PATH_NUMBER_OPTS, -1 when it is not there.
+function PathNumberOpt(const OptU : String) : Integer;
+begin
+  Result:=High(PATH_NUMBER_OPTS);
+  while (Result>=0) and (PATH_NUMBER_OPTS[Result]<>OptU) do Dec(Result);
+end;
+
+// One of PATH SET's number options, by its upper-case name: the planner's (the timeout aside, which
+// the script takes in ticks and uo.dll in milliseconds) and the live overlay's door cost. False for
+// another name. V is 0 or more; it is held to MaxInt.
+function TUOCmd.PathSetNumber(const OptU : String; V : Int64) : Boolean;
+var
+  i : Integer;
+begin
+  i:=PathNumberOpt(OptU);
+  Result:=i>=0;
+  if V>MaxInt then V:=MaxInt;
+  case i of
+    0: PathPlanner.AccuracyXY:=V;
+    1: PathPlanner.AccuracyZ:=V;
+    2: PathPlanner.MaxNodes:=V;
+    3: PathPlanner.Margin:=V;
+    4: PathPlanner.TurnCost:=V;
+    5: PathPlanner.Heuristic:=V;
+    6: PathLive.DoorCost:=V;
+  end;
+end;
+
+// PATH CLEAR and uo.dll's PathClear, by the upper-case word: '' or ALL (the rules and the learned
+// blocks), BLOCKS, AVOIDS (AVOID), LINKS (LINK) or LEARNED; the singular names work too. False,
+// clearing nothing, for another word.
+function TUOCmd.PathClear(const WhatU : String) : Boolean;
+begin
+  Result:=True;
+  if (WhatU='') or (WhatU='ALL') then
+  begin
+    PathPlanner.ClearRules(True,True,True);
+    PathLive.ClearLearned;
+  end
+  else if (WhatU='BLOCKS') or (WhatU='BLOCK') then PathPlanner.ClearRules(True,False,False)
+  else if (WhatU='AVOIDS') or (WhatU='AVOID') then PathPlanner.ClearRules(False,True,False)
+  else if (WhatU='LINKS') or (WhatU='LINK') then PathPlanner.ClearRules(False,False,True)
+  else if WhatU='LEARNED' then PathLive.ClearLearned
+  else Result:=False;
+end;
+
+// For uo.dll (uowrap.pas, GetPath): PathPlan from SX,SY,SZ, with State noclient when no client is
+// attached. There is no Stop button to listen to; the planner's TimeoutMs bounds the search.
+function TUOCmd.PathFindFrom(Facet, SX, SY, SZ, GX, GY, GZ : Integer; HasZ : Boolean;
+  out State : String) : Boolean;
+begin
+  Result:=False;
+  PathPlanner.StepCount:=0;
+  if UOSel.Nr=0 then
+  begin
+    State:='noclient';
+    Exit;
+  end;
+  Result:=PathPlan(Facet,SX,SY,SZ,GX,GY,GZ,HasZ,nil,State);
+  if not Result then PathPlanner.StepCount:=0;
+end;
+
+// For uo.dll (PathCan): PathStand, with State noclient when no client is attached.
+function TUOCmd.PathCanAt(Facet, X, Y : Integer; var Z : Integer; out State : String) : Boolean;
+begin
+  Result:=False;
+  if UOSel.Nr=0 then
+  begin
+    State:='noclient';
+    Exit;
+  end;
+  Result:=PathStand(Facet,X,Y,Z,State);
 end;
 
 // For uo.dll (GetPath): the last plan's steps, 6 bytes each: X and Y (2 bytes each, low byte
@@ -1500,22 +1648,15 @@ begin
   end
   else if (O='MODE') or (O='LEAD') or (O='BLOCKTIME') or (O='LOG') or (O='CHECK') then
     Result:='error: '+LowerCase(O)+' is a walking option, and uo.dll doesn''t walk'
-  else if (O<>'ACCURACY') and (O<>'ACCURACYZ') and (O<>'MAXNODES') and (O<>'TIMEOUT') and
-    (O<>'MARGIN') and (O<>'TURNCOST') and (O<>'HEURISTIC') and (O<>'DOORCOST') then
+  else if (O<>'TIMEOUT') and (PathNumberOpt(O)<0) then
     Result:='error: unknown path option: '+Opt
   else if not TryStrToInt64(V,N) or (N<0) then
     Result:='error: '+LowerCase(O)+' needs a number of 0 or more'
   else
   begin
     if N>MaxInt then N:=MaxInt;
-    if O='ACCURACY' then PathPlanner.AccuracyXY:=N
-    else if O='ACCURACYZ' then PathPlanner.AccuracyZ:=N
-    else if O='MAXNODES' then PathPlanner.MaxNodes:=N
-    else if O='TIMEOUT' then PathPlanner.TimeoutMs:=N
-    else if O='MARGIN' then PathPlanner.Margin:=N
-    else if O='TURNCOST' then PathPlanner.TurnCost:=N
-    else if O='HEURISTIC' then PathPlanner.Heuristic:=N
-    else PathLive.DoorCost:=N;
+    if O='TIMEOUT' then PathPlanner.TimeoutMs:=N
+    else PathSetNumber(O,N);
   end;
 end;
 
@@ -1900,41 +2041,25 @@ end;
 // container, and the layer in the byte after the status byte #CharStatus reads
 // (BITEMID+BCHARSTATUS+1). False, with ID and Typ 0, when the character rides nothing.
 function TUOCmd.CharMount(out ID, Typ : Cardinal) : Boolean;
-const
-  MOUNT_LAYER = $19;
-  MAX_OBJECTS = 20000;
 var
-  Buf     : Array[0..$3FF] of Byte;
-  Me, Nxt : Cardinal;
-  Len     : Cardinal;
-  n       : Integer;
+  C       : TObjCursor;
+  Me, Len : Cardinal;
 begin
   Result:=False;
   ID:=0;
   Typ:=0;
   if not ClientAttached then Exit;
-  Len:=Cst.BITEMID+Cst.BCHARSTATUS+2;
-  if Len<Cst.BITEMID+$10 then Len:=Cst.BITEMID+$10;
-  if Len<Cst.BITEMTYPE+2 then Len:=Cst.BITEMTYPE+2;
-  if Len<Cst.BPOS then Len:=Cst.BPOS;
-  if Len>SizeOf(Buf) then Exit;
+  Len:=MountReadLen;
+  if Len=0 then Exit;
 
-  RWV(Read,Cst.CHARPTR,@Me,4);
-  Nxt:=Me;
-  n:=0;
-  while (Nxt<>0) and (n<MAX_OBJECTS) do
-  begin
-    Inc(n);
-    RWV(Read,Nxt,@Buf,Len);
-    if (Buf[Cst.BPOS-4]=0) and (Cardinal((@Buf[Cst.BITEMID+4])^)=Me) and
-      (Buf[Cst.BITEMID+Cst.BCHARSTATUS+1]=MOUNT_LAYER) then
+  Me:=ObjFirst(C);
+  while ObjNext(C,Len,MOUNT_MAX) do
+    if ObjIsMount(C,Me) then
     begin
-      ID:=Cardinal((@Buf[Cst.BITEMID])^);
-      Typ:=Word((@Buf[Cst.BITEMTYPE])^);
+      ID:=Cardinal((@C.Buf[C.IdOfs])^);
+      Typ:=Word((@C.Buf[C.TypeOfs])^);
       Exit(True);
     end;
-    Nxt:=Cardinal((@Buf[Cst.BITEMID+$0C])^);
-  end;
 end;
 
 // Port addition (uo.dll's MountID / MountType): the mount's ID and type, 0 while the character

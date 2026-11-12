@@ -5,8 +5,12 @@ unit EuoScriptWords;
   TEuoInterpreter.ParseLine (and IsVar out of EuoInterpreter.pas) so that the MENU designer
   (tools/EUOMenuDesigner) reads a line exactly as the interpreter does, from the same code
   rather than a copy (docs/menu-designer.md, section 3.2). ParseLine calls these; what it does
-  is unchanged. Splitting a line into words stays in TEuoInterpreter.Parameterize and its twin
-  EuoMenuSelect.SplitScriptLine.
+  is unchanged. Splitting a line into words stays in TEuoInterpreter.Parameterize, the
+  original's code.
+
+  - ScanLineWords: Parameterize's split, for everything outside the interpreter, with where each
+    word starts. EuoMenuSelect.SplitScriptLine, the jump target, the script checker and
+    autocomplete all split with it (each had a copy of its own before).
 
   - JoinContinuation: a line with the '+' continuation lines that follow it, each trimmed and
     appended without its '+' (and without a space).
@@ -28,12 +32,57 @@ uses
 type
   TWordSubst = function(Str : String) : String of object;
 
+  TEuoWord = record
+    Text  : String;
+    Start : Integer;   // 1-based byte column of its first character in the line
+  end;
+  TEuoWords = array of TEuoWord;
+
+// The words of one line as TEuoInterpreter.Parameterize splits them: the line is trimmed as Trim
+// does (every character up to a space, at both ends), spaces and tabs separate words, and a word
+// that starts with ';' ends the line. Returns False when such a word ended it.
+function  ScanLineWords(const Line : String; out Words : TEuoWords) : Boolean;
 function  IsVar(Str : String) : Boolean;
 function  JoinContinuation(Lines : TStrings; var Index : Integer) : String;
 procedure GlueWords(Par : TStrings; Subst : TWordSubst; KeepFirstArg : Boolean);
 procedure WordsToParList(Par : TStrings; PList : TParList);
 
 implementation
+
+////////////////////////////////////////////////////////////////////////////////
+function ScanLineWords(const Line : String; out Words : TEuoWords) : Boolean;
+var
+  L, R, Cnt, First, N : Integer;
+begin
+  Words:=nil;
+  Result:=True;
+  L:=1;
+  R:=Length(Line);
+  while (L<=R) and (Line[L]<=' ') do Inc(L);
+  while (R>=L) and (Line[R]<=' ') do Dec(R);
+  N:=0;
+  Cnt:=L;
+  while Cnt<=R do
+  begin
+    if Line[Cnt] in [#9,#32] then
+    begin
+      Inc(Cnt);
+      Continue;
+    end;
+    First:=Cnt;
+    while (Cnt<=R) and not (Line[Cnt] in [#9,#32]) do Inc(Cnt);
+    if Line[First]=';' then
+    begin
+      Result:=False;
+      Break;
+    end;
+    if N>=Length(Words) then SetLength(Words,N*2+8);
+    Words[N].Text:=Copy(Line,First,Cnt-First);
+    Words[N].Start:=First;
+    Inc(N);
+  end;
+  SetLength(Words,N);
+end;
 
 ////////////////////////////////////////////////////////////////////////////////
 function IsVar(Str : String) : Boolean;

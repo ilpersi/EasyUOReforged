@@ -16,9 +16,9 @@ unit EuoJumpTarget;
   here: a variable (IsVar, the exact test ParseLine substitutes on), a word glued to the next by
   '.' or ',', or a line continued by '+' lines.
 
-  Words are split by Parameterize's rules (EuoMenuSelect.SplitScriptLine is its twin): spaces
-  and tabs separate words, and a word that starts with ';' ends the line. LineWords below keeps
-  each word's position in the line too, which SplitScriptLine does not.
+  Words are split by Parameterize's rules (EuoScriptWords.ScanLineWords, which
+  EuoMenuSelect.SplitScriptLine calls too): spaces and tabs separate words, and a word that
+  starts with ';' ends the line. ScanLineWords keeps each word's position in the line.
 }
 
 {$mode delphi}{$H+}
@@ -43,39 +43,6 @@ implementation
 
 uses
   SysUtils, EuoBlocks, EuoScriptWords, EuoMenuSelect;
-
-type
-  TLineWord = record
-    Text  : String;
-    Start : Integer; // 1-based byte column of the first character
-  end;
-  TLineWords = array of TLineWord;
-
-////////////////////////////////////////////////////////////////////////////////
-// Parameterize's split, keeping where each word starts.
-function LineWords(const Line : String) : TLineWords;
-var
-  Cnt, First, N : Integer;
-begin
-  Result:=nil;
-  N:=0;
-  Cnt:=1;
-  while Cnt<=Length(Line) do
-  begin
-    if Line[Cnt] in [#9,#32] then
-    begin
-      Inc(Cnt);
-      Continue;
-    end;
-    First:=Cnt;
-    while (Cnt<=Length(Line)) and not (Line[Cnt] in [#9,#32]) do Inc(Cnt);
-    if Line[First]=';' then Break;
-    SetLength(Result,N+1);
-    Result[N].Text:=Copy(Line,First,Cnt-First);
-    Result[N].Start:=First;
-    Inc(N);
-  end;
-end;
 
 ////////////////////////////////////////////////////////////////////////////////
 function EuoFindSub(Lines : TStrings; const Name : String) : Integer;
@@ -139,13 +106,13 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 function EuoJumpTargetAt(Lines : TStrings; LineIdx, Col : Integer) : Integer;
 var
-  W   : TLineWords;
+  W   : TEuoWords;
   Cmd : String;
 begin
   Result:=-1;
   if (LineIdx<0) or (LineIdx>=Lines.Count) then Exit;
 
-  W:=LineWords(Lines[LineIdx]);
+  ScanLineWords(Lines[LineIdx],W);
   if Length(W)<2 then Exit;
   Cmd:=UpperCase(W[0].Text);
   if (Cmd<>'GOSUB') and (Cmd<>'GOTO') then Exit;

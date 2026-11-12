@@ -135,6 +135,8 @@ type
     procedure AddAvoid(Facet, X1, Y1, X2, Y2, Cost : Integer);
     procedure AddLink(Facet, X1, Y1, Z1, X2, Y2, Z2, Cost : Integer);
     procedure ClearRules(ClearBlocks, ClearAvoids, ClearLinks : Boolean);
+    // Is X,Y on Facet inside one of the Blocks? (PATH CAN asks it; a search uses its own copy.)
+    function  BlockedAt(Facet, X, Y : Integer) : Boolean;
     // Plans from SX,SY,SZ (facing SDir, -1 if unknown) to GX,GY (and GZ when HasGZ) on the facet
     // Src answers for; Facet only picks the rules. Stop, when not nil, interrupts the search when
     // it becomes True.
@@ -243,6 +245,16 @@ begin
   if ClearBlocks then SetLength(Blocks, 0);
   if ClearAvoids then SetLength(Avoids, 0);
   if ClearLinks then SetLength(Links, 0);
+end;
+
+function TPathPlanner.BlockedAt(Facet, X, Y : Integer) : Boolean;
+var
+  i : Integer;
+begin
+  Result := True;
+  for i := 0 to High(Blocks) do
+    if (Blocks[i].Facet = Facet) and Inside(Blocks[i], X, Y) then Exit;
+  Result := False;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

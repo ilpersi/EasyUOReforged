@@ -113,7 +113,9 @@ type
     function  CanPathFind : Boolean; virtual;                  // client mode works (True here)
     procedure Busy(On : Boolean); virtual;                     // a search starts / ends (nothing here)
     function  StopFlag : PBoolean; virtual;                    // interrupts a search (nil here)
-    function  Mounted : Boolean; virtual;                      // the character rides (False here)
+    // The character rides (False here). Asked right after LiveObjects, at each refresh, so a
+    // client may answer it from the same read.
+    function  Mounted : Boolean; virtual;
   end;
 
   TPathWalker = class

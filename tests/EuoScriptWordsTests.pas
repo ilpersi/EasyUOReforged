@@ -36,6 +36,9 @@ type
     procedure TestCommaAfterSubstitution;
     procedure TestSubstitutedDotIsNotGlued;
     procedure TestWordsToParList;
+    procedure TestScanLineWordsColumns;
+    procedure TestScanLineWordsStopsAtAComment;
+    procedure TestScanLineWordsAgreesWithParameterize;
   end;
 
 implementation
@@ -201,6 +204,84 @@ begin
     P.Free;
     Words.Free;
   end;
+end;
+
+// The words of ScanLineWords, joined by '|'.
+function ScanJoined(const Line : String) : String;
+var
+  W : TEuoWords;
+  i : Integer;
+begin
+  ScanLineWords(Line,W);
+  Result:='';
+  for i:=0 to High(W) do
+  begin
+    if i>0 then Result:=Result+'|';
+    Result:=Result+W[i].Text;
+  end;
+end;
+
+// TEuoInterpreter.Parameterize's split as the original writes it (private to the interpreter):
+// the oracle ScanLineWords must agree with.
+function ParameterizeJoined(Str : String) : String;
+var
+  sBuf : String;
+  Cnt1 : Integer;
+begin
+  Result:='';
+  Str:=Trim(Str)+' ';
+  for Cnt1:=1 to Length(Str) do
+    if Str[Cnt1]=#9 then Str[Cnt1]:=#32;
+  repeat
+    Cnt1:=Pos(#32,Str);
+    if Cnt1<1 then Break;
+    sBuf:=Copy(Str,1,Cnt1-1);
+    Delete(Str,1,Cnt1);
+    if sBuf='' then Continue;
+    if sBuf[1]=';' then Break;
+    if Result<>'' then Result:=Result+'|';
+    Result:=Result+sBuf;
+  until False;
+end;
+
+procedure TEuoScriptWordsTests.TestScanLineWordsColumns;
+var
+  W : TEuoWords;
+begin
+  AssertTrue(ScanLineWords('  gosub'#9'  mySub  1', W));
+  AssertEquals(3, Length(W));
+  AssertEquals('gosub', W[0].Text);
+  AssertEquals(3, W[0].Start);
+  AssertEquals('mySub', W[1].Text);
+  AssertEquals(11, W[1].Start);
+  AssertEquals('1', W[2].Text);
+  AssertEquals(18, W[2].Start);
+end;
+
+procedure TEuoScriptWordsTests.TestScanLineWordsStopsAtAComment;
+var
+  W : TEuoWords;
+begin
+  AssertFalse('a ; word ends the line', ScanLineWords('set %a 1 ;comment here', W));
+  AssertEquals(3, Length(W));
+  AssertTrue('a ; inside a word does not', ScanLineWords('set %a b;c', W));
+  AssertEquals('b;c', W[2].Text);
+  AssertTrue('an empty line', ScanLineWords('', W));
+  AssertEquals(0, Length(W));
+  AssertFalse('a whole-line comment', ScanLineWords('  ; only a comment', W));
+  AssertEquals(0, Length(W));
+end;
+
+procedure TEuoScriptWordsTests.TestScanLineWordsAgreesWithParameterize;
+const
+  Lines : array[0..10] of String = (
+    '', '   ', 'halt', '  set %a 1  ', #9'if'#9'%a'#9'>'#9'1'#9, 'set %a 1 ; c', ';x',
+    #1'event'#13, 'a'#13'b c', 'menu text t 1 1 a;b ;c d', '{');
+var
+  i : Integer;
+begin
+  for i:=0 to High(Lines) do
+    AssertEquals('line '+IntToStr(i), ParameterizeJoined(Lines[i]), ScanJoined(Lines[i]));
 end;
 
 initialization

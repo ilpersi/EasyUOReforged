@@ -85,40 +85,25 @@ procedure AdjustCompletionSpan(Editor : TSynEdit; const Value : String;
 implementation
 
 uses
-  SysUtils, EuoVocabulary;
+  SysUtils, EuoVocabulary, EuoScriptWords;
 
 const
   VarSigils = ['#', '%', '*', '!'];
   VarNameChars = ['A'..'Z', 'a'..'z', '0'..'9', '_'];
 
 ////////////////////////////////////////////////////////////////////////////////
-// Splits S into AWords at spaces and tabs, as Parameterize does, stopping at
-// a word that starts with ';' (the rest is a comment). Returns False if it
-// stopped there.
+// Splits S into AWords as Parameterize does (EuoScriptWords.ScanLineWords),
+// stopping at a word that starts with ';' (the rest is a comment). Returns
+// False if it stopped there.
 function SplitWords(const S : String; AWords : TStrings) : Boolean;
 var
-  i, Start : Integer;
+  W : TEuoWords;
+  i : Integer;
 begin
-  Result := True;
+  Result := ScanLineWords(S, W);
   AWords.Clear;
-  i := 1;
-  while i <= Length(S) do
-  begin
-    while (i <= Length(S)) and (S[i] in [#9, #32]) do
-      Inc(i);
-    Start := i;
-    while (i <= Length(S)) and not (S[i] in [#9, #32]) do
-      Inc(i);
-    if i > Start then
-    begin
-      if S[Start] = ';' then
-      begin
-        Result := False;
-        Exit;
-      end;
-      AWords.Add(Copy(S, Start, i - Start));
-    end;
-  end;
+  for i := 0 to High(W) do
+    AWords.Add(W[i].Text);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
