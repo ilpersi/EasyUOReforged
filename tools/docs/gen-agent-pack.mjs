@@ -318,14 +318,22 @@ function renderPage(p, pages, bySlug, fromFile) {
 // ---------------------------------------------------------------------------------- the two lists
 // Rows such as "| `str len {text}` | The number of characters. |" on a command's page: the forms
 // of a command whose operations have no page of their own. A row without a {parameter} is an
-// example, not a form. Links in the description are reduced to their text.
+// example, not a form. Links in the description are reduced to their text. A third column, "EasyUO
+// 1.5" (commands/str.md), says "new in Reforged" on a form EasyUO 1.5 does not have: that form gets [new].
 function formsOf(p) {
 	const name = nameOf(p);
 	const forms = [];
 	for (const line of p.body.split('\n')) {
 		const m = line.match(/^\|\s*`([^`]+)`\s*\|\s*(.*?)\s*\|\s*$/);
-		if (m && m[1].includes('{') && m[1].toLowerCase().startsWith(`${name} `))
-			forms.push([m[1], m[2].replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')]);
+		if (!(m && m[1].includes('{') && m[1].toLowerCase().startsWith(`${name} `))) continue;
+		let what = m[2];
+		let isNew = false;
+		const cols = what.match(/^(.*?)\s*\|\s*([^|`]*)$/);
+		if (cols) {
+			what = cols[1];
+			isNew = /new in Reforged/i.test(cols[2]);
+		}
+		forms.push([m[1], what.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1') + (isNew ? ' [new]' : '')]);
 	}
 	return forms;
 }
@@ -342,7 +350,8 @@ function commandsMd(pages, version) {
 		'',
 		'- `{x}` is a parameter you fill in, `[x]` is optional, `a|b` is a choice.',
 		'- `[client]` works only with a UO client attached; without one the line does nothing.',
-		'- `[new]` was added by EasyUO Reforged: the original EasyUO 1.5 ignores the line.',
+		'- `[new]` was added by EasyUO Reforged: the original EasyUO 1.5 ignores the line. On a form listed',
+		'  under a command, such as `str replace`, only that form is new: EasyUO 1.5 has the command.',
 		'- `[changed]` behaves differently from EasyUO 1.5: read its "Reforged notes".',
 		'- `[menu 1.5 only]` / `[menu 1.6 only]` exists in only one of the two MENU logics (see `reference/commands/menu/versions.md`).',
 		'',

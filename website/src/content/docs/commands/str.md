@@ -13,23 +13,29 @@ source: wiki
 
 `str` works on a piece of text and puts the result in [`#StrRes`](/variables/strres/).
 
-| Operation | Result in `#StrRes` |
-|---|---|
-| `str len {text}` | The number of characters. |
-| `str pos {text} {part} [n]` | Where `part` starts in `text`, counting from 1; with `n`, where its `n`-th occurrence starts. `0` when it is not there. |
-| `str count {text} {part}` | How many times `part` occurs in `text`. |
-| `str left {text} {n}` | The first `n` characters. |
-| `str right {text} {n}` | The last `n` characters. |
-| `str mid {text} {start} {n}` | `n` characters starting at character `start`. |
-| `str lower {text}` | The text in lower case. |
-| `str upper {text}` | The text in upper case. |
-| `str ins {text} {part} {start}` | The text with `part` inserted at character `start`. |
-| `str del {text} {start} {n}` | The text with `n` characters removed, starting at character `start`. |
-| `str replace {text} {search} [with]` | The text with every `search` replaced by `with`, or removed when `with` is left out. |
-| `str part {text} {separator} {n}` | The `n`-th field between separators, counting from 1. `N/A` when there is no such field. |
-| `str trim {text} [chars]` | The text without those characters at either end. Without `chars`: spaces and `_`. |
-| `str join {separator} {text} [text...]` | The texts in order, with the separator between them. |
-| `str concat {text} [text...]` | The texts in order, with nothing between them. |
+| Operation | Result in `#StrRes` | EasyUO 1.5 |
+|---|---|---|
+| `str len {text}` | The number of characters. | Yes |
+| `str pos {text} {part} [n]` | Where `part` starts in `text`, counting from 1; with `n`, where its `n`-th occurrence starts. `0` when it is not there. | Yes |
+| `str count {text} {part}` | How many times `part` occurs in `text`. | Yes |
+| `str left {text} {n}` | The first `n` characters. | Yes |
+| `str right {text} {n}` | The last `n` characters. | Yes |
+| `str mid {text} {start} {n}` | `n` characters starting at character `start`. | Yes |
+| `str lower {text}` | The text in lower case. | Yes |
+| `str upper {text}` | The text in upper case. | Yes |
+| `str ins {text} {part} {start}` | The text with `part` inserted at character `start`. | Yes |
+| `str del {text} {start} {n}` | The text with `n` characters removed, starting at character `start`. | Yes |
+| `str replace {text} {search} [with]` | The text with every `search` replaced by `with`, or removed when `with` is left out. | **No:** new in Reforged |
+| `str part {text} {separator} {n}` | The `n`-th field between separators, counting from 1. `N/A` when there is no such field. | **No:** new in Reforged |
+| `str trim {text} [chars]` | The text without those characters at either end. Without `chars`: spaces and `_`. | **No:** new in Reforged |
+| `str join {separator} {text} [text...]` | The texts in order, with the separator between them. | **No:** new in Reforged |
+| `str concat {text} [text...]` | The texts in order, with nothing between them. | **No:** new in Reforged |
+
+:::note[Writing for EasyUO 1.5 too]
+`replace`, `part`, `trim`, `join` and `concat` are new in EasyUO Reforged. EasyUO 1.5 knows only the other ten:
+there, these five set `#StrRes` to `N/A` and do nothing else, with no error. A script that must also run on
+EasyUO 1.5 uses only the operations marked *Yes*, and does the rest with `pos`, `left`, `mid` and `del`.
+:::
 
 `pos`, `count`, `replace`, `part` and `trim` ignore case when they look for something, and the result keeps the
 case of the text. When parameters are missing, `#StrRes` is `N/A`.
@@ -52,7 +58,7 @@ display ok #StrRes
 halt
 ```
 
-### Replace
+### Replace (Reforged)
 
 ```euo
 str replace red_red_blue RED green   ; green_green_blue
@@ -65,7 +71,7 @@ halt
 A replacement may contain what it replaces: `str replace a_b _ __` gives `a__b`. When `search` isn't in the text,
 or is empty, the result is the text unchanged.
 
-### Split
+### Split (Reforged)
 
 `str part` takes one field out of a text. Use it with `for` and `str count` to go through all of them: a text has one
 field more than it has separators.
@@ -96,7 +102,7 @@ display ok #StrRes
 halt
 ```
 
-### Trim
+### Trim (Reforged)
 
 ```euo
 str trim __hello_world__     ; hello_world
@@ -126,7 +132,7 @@ display ok %name              ; MyShard
 halt
 ```
 
-### Join and concat
+### Join and concat (Reforged)
 
 ```euo
 str join _ iron gold agapite  ; iron_gold_agapite
