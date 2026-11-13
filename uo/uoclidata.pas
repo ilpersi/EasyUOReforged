@@ -488,7 +488,14 @@ const
 // were the next house's, and the 832 without one were the map's statics. The layout values are not
 // listed here: their getters answer this layout when zero, so older builds the patterns match get
 // it too (7.0.108.0: the scan found $0075D898 / $006C1D84 in the running client).
-SysVarMS0 : array[0..36] of TSysVarList = (
+//
+// B_LANG (port addition, 2026-11-13): the client language string ("ENU") is at $00A01B94 =
+// C_LHANDID - $240. $58C620 (7.0.117.1) writes its four bytes; the language check ($58CA20 on
+// 7.0.117.33: copy, uppercase, compare with ENU/KOR/...) and the cliloc loader read it. The $60 inherited from 6.0.6.2
+// lands at $00A01D74, inside the RecordDress4 macro arrays, so #CliLang read empty. Same layout on
+// 7.0.117.1 and 7.0.117.33 (static); read live on 7.0.117.33: $A01B94 'ENU', $A01D74 zeros.
+SysVarMS0 : array[0..37] of TSysVarList = (
+  (Expr: B_LANG; Val: $00000240),
   (Expr: C_BLOCKINFO; Val: $005A74B0),
   (Expr: C_CHARDIR; Val: $00A02C90),
   (Expr: C_CHARPTR; Val: $00A590C4),

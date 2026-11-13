@@ -321,10 +321,14 @@ begin
     AssertEquals('7.0.117.1 BJCOL', $00000800, Integer(Cst.BJCOL));
     AssertEquals('7.0.117.1 BJKIND', $00000804, Integer(Cst.BJKIND));
     AssertEquals('7.0.117.1 BJNEXTPTR', $00000818, Integer(Cst.BJNEXTPTR));
+    // The language string sits at C_LHANDID - $240 on this build; the $60 inherited from
+    // 6.0.6.2 pointed into the RecordDress4 arrays and #CliLang read empty.
+    AssertEquals('7.0.117.1 BLANG', Cardinal($240), Cst.BLANG);
 
     Cst.Update('7.0.108.0');
     AssertEquals('7.0.108.0 BLOCKINFO unchanged', $005A5A70, Integer(Cst.BLOCKINFO));
     AssertEquals('7.0.108.0 SYSMSG unchanged', $008DAC34, Integer(Cst.SYSMSG));
+    AssertEquals('7.0.108.0 BLANG still inherited', Cardinal($60), Cst.BLANG);
   finally Cst.Free; end;
 end;
 

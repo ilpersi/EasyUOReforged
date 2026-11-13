@@ -23,6 +23,7 @@ What changes for script users in each release of EasyUO Reforged. New entries go
 
 - **Stop now stops at once during a wait.** When you pressed Stop while a script was inside a `wait`, `target`, `waitfor` or another waiting command, the line after it could still run once, about one time in four. The original EasyUO did the same. Stop now ends the wait and runs nothing more.
 - **`exevent Equip` sends the right request.** In EasyUO Reforged the command built its request with the length and every item ID written backwards, so the server could not read it and nothing was equipped. It now sends the same request as the original EasyUO and as `uo.dll`'s `Equip`, which was not affected. See [exevent Equip](https://ilpersi.github.io/EasyUOReforged/commands/exevent/equip/).
+- **`#CliLang` reads the client language on `client.exe` 7.0.117.1 and 7.0.117.33.** On these clients it was always empty, because EasyUO Reforged looked for the language where the client keeps something else. It now reads `ENU`, or your client's own language code, as on older clients and on `client_beta.exe`. `uo.dll`'s `CliLang` is fixed the same way. See [#CliLang](https://ilpersi.github.io/EasyUOReforged/variables/clilang/).
 
 ## v26.11.09 - 2026-11-09
 
