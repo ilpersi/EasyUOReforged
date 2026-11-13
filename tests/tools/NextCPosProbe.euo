@@ -1,0 +1,525 @@
+; ============================================================================
+;  NextCPosProbe: where the client opens a container gump, and when it uses
+;  #NextCPosX / #NextCPosY (the nextcpos command).
+;
+;  What the client does (client.exe 7.0.117.33, see docs/nextcpos-analysis.md):
+;  where a container gump opens depends on the client option "Offset interface
+;  windows rather than perfectly stacking them" (OffsetGumps):
+;    ON   it opens at #NextCPosX / #NextCPosY, then both go up by 16. When the
+;         gump would cross the game area's edge less 16, that value starts
+;         again: the gump opens at 16 and the value reads 32 afterwards.
+;    OFF  it opens at the top right (Y 10, 10 pixels from the right edge), and
+;         #NextCPosX / #NextCPosY are neither read nor changed.
+;  (The client keeps the position less 16 and adds 16 before it opens a gump;
+;  #NextCPosX / #NextCPosY add those 16 back, as in EasyUO 1.5.) The paperdoll
+;  has a place of its own and never uses #NextCPos.
+;
+;  This probe checks that in the running client. It reads everything itself and
+;  writes one log line per gump it opens, with a verdict:
+;    rule=ON      opened at #NextCPos (or at 16 past the edge), which went up by 16
+;    rule=OFF     opened at the top right, #NextCPos unchanged
+;    rule=FRONT   a container already open came to the front without moving
+;    rule=UNUSED  the paperdoll: #NextCPos not used and not changed
+;    rule=?       none of these: look at the numbers
+;  For a container that is already open (cases 3 and 8), rule=ON means that the
+;  client opened it again at #NextCPos instead of only bringing it to the front.
+;  The last line says "OffsetGumps looks ON / OFF / mixed".
+;
+;  WHAT IT DOES IN THE GAME (a GM on a ModernUO shard, staff prefix below):
+;    - makes up to 4 bags in your backpack with [self addtopack Bag, opens them
+;      (Last Object), and deletes them at the end with [serial <n> delete
+;    - closes and reopens the backpack, moves it to 400,300 for a moment, and
+;      uses it while it is open (case 8)
+;    - closes and reopens the paperdoll (event macro 9 1 / 8 1, never a double
+;      click on the character, so a pet is never mounted)
+;    - at the end puts the backpack, the paperdoll and #NextCPosX/Y back where
+;      they were when it started
+;  It never changes the client option itself: toggle it in the game's options
+;  between two runs. Don't touch the client while it runs (about a minute).
+;
+;  Run: EUOCli.exe run tests/tools/NextCPosProbe.euo --client 1 --timeout 180
+;  Without --client it runs with no client: every case times out and is logged.
+; ============================================================================
+set %case 0          ; 0: every case; else the cases to run, as digits (38: cases 3 and 8)
+set %pfx [           ; the shard's staff command prefix
+set %bagtype CKF     ; a bag (graphic 3702, $0E76): what [self addtopack Bag makes
+set %tw 60           ; ticks to wait for a gump (60 = 3 seconds)
+set %watch 0         ; 1: in cases 3 and 8, a system message and 3 s pauses around each use
+set %alpha ABCDEFGHIJKLMNOPQRSTUVWXYZ
+
+set %nbag 0
+set %non 0
+set %noff 0
+set %nfront 0
+set %nunused 0
+set %nq 0
+
+gosub np_start
+if %case = 0 || 1 in %case
+  gosub np_case1
+if %case = 0 || 2 in %case
+  gosub np_case2
+if %case = 0 || 3 in %case
+  gosub np_case3
+if %case = 0 || 4 in %case
+  gosub np_case4
+if %case = 0 || 5 in %case
+  gosub np_case5
+if %case = 0 || 6 in %case
+  gosub np_case6
+if %case = 0 || 7 in %case
+  gosub np_case7
+if %case = 0 || 8 in %case
+  gosub np_case8
+gosub np_cleanup
+gosub np_summary
+halt
+
+; ---- the cases ---------------------------------------------------------------
+
+; 1: a new bag after nextcpos 300 150 (self-test check 5.08)
+sub np_case1
+  log case 1: a new bag after nextcpos 300 150
+  gosub np_newbag
+  if %newid = N/A
+    return
+  set %bagA %newid
+  nextcpos 300 150
+  gosub np_use %bagA
+  gosub np_after 1_new_bag new
+  set %apx %px
+  set %apy %py
+return
+
+; 2: two more new bags, without nextcpos (the cascade)
+sub np_case2
+  log case 2: two more new bags, no nextcpos
+  for %k 1 2
+  {
+    gosub np_newbag
+    if %newid <> N/A
+    {
+      gosub np_use %newid
+      set %lab 2_ , %k , _new_bag
+      gosub np_after %lab new
+    }
+  }
+return
+
+; 3: use a bag that is already open: does it only come to the front?
+sub np_case3
+  log case 3: use a bag that is already open
+  if %bagA = N/A
+  {
+    gosub np_newbag
+    if %newid = N/A
+      return
+    set %bagA %newid
+    gosub np_use %bagA
+    gosub np_after 3_setup_new_bag new
+    set %apx %px
+    set %apy %py
+  }
+  ; use it once (other gumps may be in front of it) to read where it is
+  set %fx %apx
+  set %fy %apy
+  gosub np_watch the_bag_is_used_again,_while_it_is_on_top
+  gosub np_use %bagA
+  gosub np_after 3_first_use front
+  gosub np_watched
+  set %fx #ContPosX
+  set %fy #ContPosY
+  ; put the backpack in front of it, then ask for a place it has never been
+  event macro 8 7
+  wait 10
+  nextcpos 500 250
+  gosub np_watch the_bag_is_used_again,_behind_the_backpack,_after_nextcpos_500_250
+  gosub np_use %bagA
+  gosub np_after 3_bag_already_open front
+  gosub np_watched
+return
+
+; 4: close the backpack, nextcpos 300 150, open it again
+sub np_case4
+  log case 4: the backpack, closed and opened again after nextcpos 300 150
+  event macro 9 7
+  wait 10
+  nextcpos 300 150
+  gosub np_before
+  event macro 8 7
+  waitfor #ContID = #BackpackID %tw
+  set %ok #WaitRes
+  wait 5
+  gosub np_after 4_backpack new
+return
+
+; 5: move the backpack, close it, open it again: does the client remember the place?
+sub np_case5
+  log case 5: the backpack moved to 400,300, closed and opened again
+  gosub np_bp_front
+  contpos 400 300
+  wait 5
+  set %mx #ContPosX
+  set %my #ContPosY
+  log case 5: the backpack is now at %mx %my
+  event macro 9 7
+  wait 10
+  nextcpos 300 150
+  gosub np_before
+  event macro 8 7
+  waitfor #ContID = #BackpackID %tw
+  set %ok #WaitRes
+  wait 5
+  gosub np_after 5_moved_backpack new
+  if %px = 400 && %py = 300
+    log case 5: the client put it back where it was moved (remembered)
+  else
+    log case 5: the client did not put it back at 400,300
+return
+
+; 6: the paperdoll, closed and opened again after nextcpos 300 150
+sub np_case6
+  log case 6: the paperdoll, closed and opened again after nextcpos 300 150
+  event macro 8 1
+  waitfor paperdoll in #ContName %tw
+  set %qx #ContPosX
+  set %qy #ContPosY
+  log case 6: the paperdoll is at %qx %qy - named #ContName
+  event macro 9 1
+  wait 10
+  nextcpos 300 150
+  gosub np_before
+  event macro 8 1
+  waitfor paperdoll in #ContName %tw
+  set %ok #WaitRes
+  wait 5
+  gosub np_after 6_paperdoll pd
+  if %ok = #true && paperdoll in #ContName
+  {
+    contpos %qx %qy
+    wait 5
+  }
+return
+
+; 8: use the backpack while it is open, with another gump in front of it
+sub np_case8
+  log case 8: the backpack used while it is open, after nextcpos 500 250
+  gosub np_bp_front
+  set %fx #ContPosX
+  set %fy #ContPosY
+  event macro 8 1
+  waitfor paperdoll in #ContName %tw
+  nextcpos 500 250
+  gosub np_watch the_open_backpack_is_used,_behind_the_paperdoll,_after_nextcpos_500_250
+  gosub np_before
+  event macro 8 7
+  waitfor #ContID = #BackpackID %tw
+  set %ok #WaitRes
+  wait 5
+  gosub np_after 8_open_backpack front
+  gosub np_watched
+return
+
+; 7: a new bag after nextcpos 5000 5000 (past the edge: ON wraps to 16,16)
+sub np_case7
+  log case 7: a new bag after nextcpos 5000 5000
+  gosub np_newbag
+  if %newid = N/A
+    return
+  nextcpos 5000 5000
+  gosub np_use %newid
+  gosub np_after 7_new_bag_past_the_edge new
+return
+
+; ---- measuring ---------------------------------------------------------------
+
+; watch mode: say in the game what comes next (%1, _ for spaces), then pause
+sub np_watch
+  if %watch <> 1
+    return
+  event sysmessage NextCPosProbe: next, %1
+  wait 3s
+return
+
+sub np_watched
+  if %watch <> 1
+    return
+  wait 3s
+return
+
+; #NextCPos before an open -> %bx %by
+sub np_before
+  set %bx #NextCPosX
+  set %by #NextCPosY
+return
+
+; use (double click) an object through Last Object and wait for its gump on top
+sub np_use
+  set %oid %1
+  gosub np_before
+  set #LObjectID %oid
+  event macro 17 0
+  waitfor #ContID = %oid %tw
+  set %ok #WaitRes
+  wait 5
+return
+
+;  gosub np_after <label> <new|front|pd>: reads the gump on top, decides, logs
+sub np_after
+  set %alab %1
+  set %akind %2
+  set %ax #NextCPosX
+  set %ay #NextCPosY
+  set %px #ContPosX
+  set %py #ContPosY
+  set %w #ContSizeX
+  set %h #ContSizeY
+  set %rule ?
+  if %ok <> #true
+    set %rule timeout
+  else
+  {
+    if %akind = new
+      gosub np_rule_new
+    if %akind = front
+    {
+      if %px = %fx && %py = %fy && %ax = %bx && %ay = %by
+        set %rule FRONT
+      else
+        gosub np_rule_new
+    }
+    if %akind = pd
+    {
+      if %ax = %bx && %ay = %by
+        set %rule UNUSED
+    }
+  }
+  if %rule = ON
+    set %non %non + 1
+  if %rule = OFF
+    set %noff %noff + 1
+  if %rule = FRONT
+    set %nfront %nfront + 1
+  if %rule = UNUSED
+    set %nunused %nunused + 1
+  if %rule = ? || %rule = timeout
+    set %nq %nq + 1
+  set %right %px + %w + 10
+  set %l1 before= , %bx , / , %by
+  set %l2 after= , %ax , / , %ay
+  set %l3 pos= , %px , / , %py
+  set %l4 size= , %w , / , %h
+  set %l5 edge= , %right
+  log %alab rule= , %rule %l1 %l2 %l3 %l4 %l5 id= , #ContID name= , #ContName kind= , #ContKind
+return
+
+; ON: the gump at #NextCPos as it was (or at 16 past the edge), and both values
+; now 16 past the gump. OFF: both values unchanged and the gump at Y 10.
+sub np_rule_new
+  set %ex %px + 16
+  set %ey %py + 16
+  if %ax = %ex && %ay = %ey
+  {
+    if %px = %bx || %px = 16
+    {
+      if %py = %by || %py = 16
+        set %rule ON
+    }
+  }
+  if %rule = ?
+  {
+    if %ax = %bx && %ay = %by && %py = 10
+      set %rule OFF
+  }
+return
+
+; ---- start and clean-up --------------------------------------------------------
+
+sub np_start
+  ; put back at the end: the values before this run opened anything
+  set %sx0 #NextCPosX
+  set %sy0 #NextCPosY
+  log NextCPosProbe: case %case - client #CliNr - #CharName - backpack #BackpackID
+  log start: NextCPos %sx0 %sy0 - CliXRes #CliXRes CliYRes #CliYRes
+  ; where the paperdoll and the backpack are now, to put them back at the end
+  set %pdok 0
+  event macro 8 1
+  waitfor paperdoll in #ContName %tw
+  if #WaitRes = #true
+  {
+    set %pdok 1
+    set %pdx #ContPosX
+    set %pdy #ContPosY
+  }
+  set %bpok 0
+  gosub np_bp_front
+  if #ContID = #BackpackID && #BackpackID <> N/A
+  {
+    set %bpok 1
+    set %bpx #ContPosX
+    set %bpy #ContPosY
+  }
+  log start: paperdoll %pdok at %pdx %pdy - backpack %bpok at %bpx %bpy
+  ; opening the two may have moved #NextCPos (ON)
+  set %sx #NextCPosX
+  set %sy #NextCPosY
+  finditem %bagtype CA_ , #BackpackID
+  set %bags0 #FindCnt
+  log start: NextCPos %sx %sy - bags in the backpack %bags0
+  set %bagA N/A
+return
+
+; the backpack open and on top
+sub np_bp_front
+  event macro 8 7
+  waitfor #ContID = #BackpackID %tw
+return
+
+sub np_cleanup
+  log clean-up
+  ; delete every bag this run made (their gumps close with them)
+  if %nbag > 0
+  {
+    for %k 1 %nbag
+    {
+      set %in %made . %k
+      gosub np_id2ser
+      set %cmd %pfx , serial , #spc , %ser , #spc , delete
+      log clean-up: %cmd ( %in )
+      msg %cmd , $
+      wait 10
+    }
+  }
+  wait 10
+  finditem %bagtype CA_ , #BackpackID
+  set %bags1 #FindCnt
+  if %bags1 = %bags0
+    log clean-up: bags in the backpack %bags1 - as at the start
+  else
+    log clean-up: WARNING bags in the backpack %bags1 - at the start %bags0
+  if %pdok = 1
+  {
+    event macro 8 1
+    waitfor paperdoll in #ContName %tw
+    if #WaitRes = #true
+      contpos %pdx %pdy
+    wait 5
+    set %rx #ContPosX
+    set %ry #ContPosY
+    log clean-up: paperdoll at %rx %ry - at the start %pdx %pdy
+  }
+  if %bpok = 1
+  {
+    gosub np_bp_front
+    if #ContID = #BackpackID
+      contpos %bpx %bpy
+    wait 5
+    set %rx #ContPosX
+    set %ry #ContPosY
+    log clean-up: backpack at %rx %ry - at the start %bpx %bpy
+  }
+  ; last, because reopening a gump can move it again
+  set #NextCPosX %sx0
+  set #NextCPosY %sy0
+  set %rx #NextCPosX
+  set %ry #NextCPosY
+  log clean-up: NextCPos %rx %ry - at the start %sx0 %sy0
+return
+
+sub np_summary
+  set %verdict mixed_or_unknown
+  if %non > 0 && %noff = 0
+    set %verdict ON
+  if %noff > 0 && %non = 0
+    set %verdict OFF
+  log summary: ON %non - OFF %noff - FRONT %nfront - UNUSED %nunused - unclear %nq
+  log OffsetGumps looks %verdict
+return
+
+; ---- making a bag --------------------------------------------------------------
+
+; [self addtopack Bag -> %newid (N/A: none appeared), remembered for the clean-up
+sub np_newbag
+  set %newid N/A
+  gosub np_baglist
+  set %old %list
+  set %cmd %pfx , self , #spc , addtopack , #spc , Bag
+  log %cmd
+  msg %cmd , $
+  set %try 0
+  repeat
+    wait 5
+    gosub np_baglist
+    if %nfound > 0
+    {
+      for %j 1 %nfound
+      {
+        set #FindIndex %j
+        set %key | , #FindID , |
+        if %key notin %old && %newid = N/A
+          set %newid #FindID
+      }
+    }
+    set %try %try + 1
+  until %newid <> N/A || %try > 12
+  if %newid = N/A
+  {
+    log no new bag appeared: the case is skipped
+    return
+  }
+  set %nbag %nbag + 1
+  set %made . %nbag %newid
+  log made bag %newid
+return
+
+; every bag in the backpack -> %list |ID|ID|..., %nfound
+sub np_baglist
+  set %list |
+  finditem %bagtype CA_ , #BackpackID
+  set %nfound #FindCnt
+  if %nfound > 0
+  {
+    for %j 1 %nfound
+    {
+      set #FindIndex %j
+      set %list %list , #FindID , |
+    }
+  }
+return
+
+; ---- EasyUO ID -> serial (copied from the self-test's st_id2ser) ----------------
+;  EasyUO writes a number n as ((n xor 69) + 7) in base 26, A = 0, lowest digit first.
+sub np_id2ser
+  set %ser 0
+  str len %in
+  set %il #StrRes
+  if %il = 0
+    return
+  for %ij %il 1
+  {
+    str mid %in %ij 1
+    str pos %alpha #StrRes
+    set %ser %ser * 26 + #StrRes - 1
+  }
+  set %ser %ser - 7
+  gosub np_xor69
+return
+
+; xor 69 flips the bits 1, 4 and 64
+sub np_xor69
+  set %b ( %ser / 1 ) % 2
+  if %b = 1
+    set %ser %ser - 1
+  else
+    set %ser %ser + 1
+  set %b ( %ser / 4 ) % 2
+  if %b = 1
+    set %ser %ser - 4
+  else
+    set %ser %ser + 4
+  set %b ( %ser / 64 ) % 2
+  if %b = 1
+    set %ser %ser - 64
+  else
+    set %ser %ser + 64
+return
