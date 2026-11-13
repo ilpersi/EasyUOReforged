@@ -23,8 +23,9 @@ unit mainicons;
   Neither is the original any more. The toolbar/menu icons have since been redrawn
   in the MENU Designer's style: they are in mainiconsdata.pas, written by
   make_toolbar_icons.py. The window icon is now a multi-size one that keeps the
-  original's emblem: it is in appicondata.pas, written by make_app_icon.py, which
-  also writes the executables' appicon.res (all in this folder).
+  original's emblem, with a gear for its ring: it is in appicondata.pas, written by
+  make_app_icon.py, which also writes the executables' appicon.res (all in this
+  folder) and the documentation site's favicon and home-page image.
 
   ImageIndex assignments below are copied directly from the original DFM's own
   TToolButton/TMenuItem ImageIndex properties, cross-referenced by Tag (every

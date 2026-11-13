@@ -17,6 +17,8 @@ What changes for script users in each release of EasyUO Reforged. New entries go
 
 ### Changed
 
+- **A new icon.** EasyUO Reforged, the MENU Designer, `EUOCli` and the documentation site now share one icon: the EasyUO emblem, its ring turned into a gear with a run button in the middle, engraved in black and cream on a green tile. The small sizes of the taskbar and title bar are drawn pixel by pixel so they stay sharp.
+
 ### Fixed
 
 - **Stop now stops at once during a wait.** When you pressed Stop while a script was inside a `wait`, `target`, `waitfor` or another waiting command, the line after it could still run once, about one time in four. The original EasyUO did the same. Stop now ends the wait and runs nothing more.

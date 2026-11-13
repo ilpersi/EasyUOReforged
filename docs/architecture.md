@@ -120,8 +120,10 @@ LCL's streaming format. Rather than risk a subtly-broken hand-converted `.lfm`,
 `easyuo/main.pas` constructs and wires every control in code. The toolbar/menu
 icons are in the MENU Designer's style: `easyuo/make_toolbar_icons.py` writes them
 into `mainiconsdata.pas` as base64 PNGs. The application icon keeps the original's
-emblem: `easyuo/make_app_icon.py` writes `appicon.ico`, `appicon.res` (the
-executables' icon, and the taskbar's) and `appicondata.pas` (the windows' copy).
+emblem, engraved, with a gear for its ring: `easyuo/make_app_icon.py` writes
+`appicon.ico`, `appicon.res` (the executables' icon, and the taskbar's),
+`appicondata.pas` (the windows' copy) and the documentation site's
+`website/public/favicon.ico` and home-page image `website/src/assets/icon.png`.
 
 ### Syntax highlighter
 
