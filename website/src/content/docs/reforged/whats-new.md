@@ -66,7 +66,9 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
   mount item your character rides, `N/A` on foot.
 - **[`#FindLayer`](/variables/findlayer/)**: the layer a character wears the object
   [`FindItem`](/commands/finditem/) selected in.
-- **[`menu Memo`](/commands/menu/memo/)**: a multi-line, scrollable text field for menu windows.
+- **[`menu Memo`](/commands/menu/memo/)**: a multi-line, scrollable text field for menu windows. Under the
+  1.6 `menu`, its own properties `wordwrap` (break long lines at the right edge) and `scrollbars` (which bars
+  it has) are set with [`menu SetProp`](/commands/menu/setprop/).
 - **[`#ReforgedVer`](/variables/reforgedver/)**: the build version of EasyUO Reforged.
   [`#EUOVer`](/variables/euover/) still returns `1_50_00`, so existing version checks keep working.
 

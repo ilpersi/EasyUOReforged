@@ -71,6 +71,8 @@ type
     Stretch      : Boolean;
     Ops          : array of TMdDrawOp;
     Transparency : Integer;        // form0: -1 none, else 0..100 as "window transparent" takes it
+    ScrollBars   : Integer;        // memo: 0 none, 1 horizontal, 2 vertical, 3 both, as setprop takes it
+    WordWrap     : Boolean;        // memo
     constructor Create(AType : TMdType);
     destructor  Destroy; override;
     function    Row : TMdTypeRow;
@@ -143,6 +145,7 @@ begin
   BitmapW:=Width;
   BitmapH:=Height;
   Transparency:=-1;
+  ScrollBars:=MdDefScrollBars;
 end;
 
 destructor TMdComponent.Destroy;
@@ -233,6 +236,8 @@ begin
   Stretch:=Src.Stretch;
   Ops:=Copy(Src.Ops);
   Transparency:=Src.Transparency;
+  ScrollBars:=Src.ScrollBars;
+  WordWrap:=Src.WordWrap;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -515,6 +520,8 @@ begin
   if MdTypeHasProp(C.TypeId,'fontname') then
     Result:=Result+Format(' font=%s,%d,%d,%d',[Quoted(C.FontName),C.FontSize,C.FontStyle,C.FontColor]);
   if R.Align<>maNone then Result:=Result+' align='+IntToStr(C.Alignment);
+  if MdTypeHasProp(C.TypeId,'scrollbars') then Result:=Result+' scrollbars='+IntToStr(C.ScrollBars);
+  if MdTypeHasProp(C.TypeId,'wordwrap') then Result:=Result+' wordwrap='+BoolStr(C.WordWrap);
   if R.Items then
   begin
     Result:=Result+' items=';

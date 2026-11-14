@@ -30,6 +30,8 @@ credits: ['scriptuo']
 - **`parent`** moves the control into another window or panel by its name, keeping its `left` and `top`.
   A label or an image cannot hold controls; neither can the control itself.
 - **`width` and `height` of a form** set the size of its inside, exactly.
+- **A memo** ([`menu Memo`](/commands/menu/memo/), Reforged only) also has `wordwrap` and `scrollbars`:
+  `menu SetProp notes wordwrap #true` breaks its long lines at the right edge.
 
 ## Example
 

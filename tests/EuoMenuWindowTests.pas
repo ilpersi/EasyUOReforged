@@ -20,6 +20,12 @@ unit EuoMenuWindowTests;
   MENU LIST SELECT under the 1.5 logic: an index outside the list must leave the
   selection as it was (LB_SETCURSEL), not stop the script with LCL's out-of-bounds
   error; 0 clears it. These need no shown window.
+
+  The memo's "wordwrap" and "scrollbars" (MENU 1.6, Reforged additions), in the real window:
+  a wrapping Windows edit control counts its visual lines (EM_GETLINECOUNT, and LCL's Lines
+  with it), so what MENU GET and GETPROP TEXT read must stay the text the script wrote, with
+  no "$" for a line the window broke, also across the window rebuilds both properties cause.
+  The memo's window is made with HandleNeeded; its form stays hidden.
 }
 
 {$mode delphi}{$H+}
@@ -27,13 +33,16 @@ unit EuoMenuWindowTests;
 interface
 
 uses
-  Windows, Classes, SysUtils, Forms, Controls, fpcunit, testregistry, EuoMenu, EuoMenuSelect,
-  EuoMenuCommon, EuoInterpreter;
+  Windows, Classes, SysUtils, Forms, Controls, StdCtrls, fpcunit, testregistry, EuoMenu,
+  EuoMenuSelect, EuoMenuCommon, EuoInterpreter, EuoMenu16, mdscript;
 
 type
   TEuoMenuWindowTests = class(TTestCase)
   private
     function  ListSelect(const Ind : String) : String;
+    function  Res16(M : TMenu16; const Line : String) : String;
+    function  Memo16(M : TMenu16; const Name : String) : TMemo;
+    function  Bars(Memo : TMemo) : String;
   published
     procedure TestRepaintHoldLeavesWindowVisible;
     procedure TestSetDoesNotStartRepaintHold;
@@ -42,6 +51,8 @@ type
     procedure TestListSelectPastTheEndKeepsSelection;
     procedure TestListSelectZeroClears;
     procedure TestListSelectBelowZeroKeepsSelection;
+    procedure TestMemoWordWrapKeepsTheTypedText;
+    procedure TestMemoScrollBars;
   end;
 
 implementation
@@ -260,6 +271,140 @@ end;
 procedure TEuoMenuWindowTests.TestListSelectBelowZeroKeepsSelection;
 begin
   AssertEquals('index below 0 is ignored', '1', ListSelect('-1'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// MENU 1.6: runs Line and returns #MenuRes, '<unchanged>' when the line left it alone.
+function TEuoMenuWindowTests.Res16(M : TMenu16; const Line : String) : String;
+begin
+  M.MenuRes := '<unchanged>';
+  RunMenuLine(M, Line);
+  Result := M.MenuRes;
+end;
+
+// The memo registered as Name, with its window made (a hidden form makes none by itself).
+function TEuoMenuWindowTests.Memo16(M : TMenu16; const Name : String) : TMemo;
+var
+  Cnt : Integer;
+begin
+  Result := nil;
+  for Cnt := 0 to M.RegistryCount-1 do
+    if (M.RegistryName(Cnt) = Name) and (M.RegistryCtrl(Cnt) is TMemo) then
+      Result := TMemo(M.RegistryCtrl(Cnt));
+  AssertNotNull(Name + ' is a memo', Result);
+  Result.HandleNeeded;
+end;
+
+function TEuoMenuWindowTests.Bars(Memo : TMemo) : String;
+var
+  Style : LongInt;
+begin
+  Style := GetWindowLong(Memo.Handle, GWL_STYLE);
+  Result := '';
+  if (Style and WS_HSCROLL) <> 0 then Result := Result + 'H';
+  if (Style and WS_VSCROLL) <> 0 then Result := Result + 'V';
+  if Result = '' then Result := 'none';
+end;
+
+// "wordwrap" wraps the memo's lines in the real window; what the script reads back is the text
+// it wrote, with no "$" for a line the window broke, also after the window is rebuilt (each
+// wordwrap and scrollbars change) or moved into a panel.
+procedure TEuoMenuWindowTests.TestMemoWordWrapKeepsTheTypedText;
+const
+  Typed = 'This line is much too long for a memo a hundred pixels wide so it wraps$second';
+var
+  M    : TMenu16;
+  Memo : TMemo;
+begin
+  Application.Initialize;
+  M := TMenu16.Create;
+  try
+    M.ScriptStart;
+    RunMenuLine(M, 'menu memo m 10 10 100 120 ' + Typed);
+    RunMenuLine(M, 'menu panel p 120 10 150 150');
+    Memo := Memo16(M, 'm');
+    AssertEquals('no wrap at first', '0', Res16(M, 'menu getprop m wordwrap'));
+    AssertEquals('two lines unwrapped', 2, SendMessage(Memo.Handle, EM_GETLINECOUNT, 0, 0));
+
+    RunMenuLine(M, 'menu setprop m wordwrap #true');
+    AssertEquals('wrapping', '-1', Res16(M, 'menu getprop m wordwrap'));
+    Memo := Memo16(M, 'm');
+    AssertTrue('the window wraps the long line',
+      SendMessage(Memo.Handle, EM_GETLINECOUNT, 0, 0) > 3);
+    AssertEquals('no horizontal bar while wrapping', 'V', Bars(Memo));
+    AssertEquals('menu get: only the $ written', Typed, Res16(M, 'menu get m'));
+    AssertEquals('getprop text: only the $ written', Typed, Res16(M, 'menu getprop m text'));
+
+    RunMenuLine(M, 'menu set m one$' + Typed);
+    AssertEquals('after menu set', 'one$' + Typed, Res16(M, 'menu get m'));
+    RunMenuLine(M, 'menu setprop m text ' + Typed);
+    AssertEquals('after setprop text', Typed, Res16(M, 'menu getprop m text'));
+
+    RunMenuLine(M, 'menu setprop m scrollbars 2');
+    AssertEquals('rebuilt for scrollbars, still wrapping', Typed, Res16(M, 'menu get m'));
+    Memo := Memo16(M, 'm');
+    AssertEquals('and once its window is back', Typed, Res16(M, 'menu get m'));
+
+    RunMenuLine(M, 'menu setprop m parent p');
+    AssertEquals('moved into the panel', 'p', Res16(M, 'menu getprop m parent'));
+    Memo := Memo16(M, 'm');
+    AssertEquals('moved, still the text written', Typed, Res16(M, 'menu get m'));
+
+    RunMenuLine(M, 'menu setprop m wordwrap #false');
+    AssertEquals('unwrapped: the text written', Typed, Res16(M, 'menu get m'));
+    Memo := Memo16(M, 'm');
+    AssertEquals('unwrapped: two lines again', 2, SendMessage(Memo.Handle, EM_GETLINECOUNT, 0, 0));
+    AssertEquals('and again with its window back', Typed, Res16(M, 'menu get m'));
+  finally
+    M.Free;
+  end;
+end;
+
+// "scrollbars" 0 none, 1 horizontal, 2 vertical, 3 both (as created); other numbers ignored.
+// Neither property exists on an edit.
+procedure TEuoMenuWindowTests.TestMemoScrollBars;
+var
+  M    : TMenu16;
+  Memo : TMemo;
+begin
+  Application.Initialize;
+  M := TMenu16.Create;
+  try
+    M.ScriptStart;
+    RunMenuLine(M, 'menu memo m 10 10 100 120 a$b');
+    Memo := Memo16(M, 'm');
+    AssertEquals('both as created', '3', Res16(M, 'menu getprop m scrollbars'));
+    AssertEquals('both bars in the window', 'HV', Bars(Memo));
+
+    RunMenuLine(M, 'menu setprop m scrollbars 0');
+    AssertEquals('0', Res16(M, 'menu getprop m scrollbars'));
+    AssertEquals('none', Bars(Memo16(M, 'm')));
+    RunMenuLine(M, 'menu setprop m scrollbars 1');
+    AssertEquals('1', Res16(M, 'menu getprop m scrollbars'));
+    AssertEquals('H', Bars(Memo16(M, 'm')));
+    RunMenuLine(M, 'menu setprop m scrollbars 2');
+    AssertEquals('2', Res16(M, 'menu getprop m scrollbars'));
+    AssertEquals('V', Bars(Memo16(M, 'm')));
+    RunMenuLine(M, 'menu setprop m scrollbars 3');
+    AssertEquals('3', Res16(M, 'menu getprop m scrollbars'));
+    AssertEquals('HV', Bars(Memo16(M, 'm')));
+    RunMenuLine(M, 'menu setprop m scrollbars 4');
+    AssertEquals('4 is ignored', '3', Res16(M, 'menu getprop m scrollbars'));
+    RunMenuLine(M, 'menu setprop m scrollbars -1');
+    AssertEquals('-1 is ignored', '3', Res16(M, 'menu getprop m scrollbars'));
+    RunMenuLine(M, 'menu setprop m wordwrap #true');
+    AssertEquals('wrapping: still reads 3', '3', Res16(M, 'menu getprop m scrollbars'));
+    AssertEquals('wrapping: the vertical bar only', 'V', Bars(Memo16(M, 'm')));
+    AssertEquals('the text', 'a$b', Res16(M, 'menu get m'));
+
+    RunMenuLine(M, 'menu edit e 10 140 100 hi');
+    AssertEquals('an edit does not wrap', '<unchanged>', Res16(M, 'menu getprop e wordwrap'));
+    AssertEquals('an edit has no scrollbars', '<unchanged>', Res16(M, 'menu getprop e scrollbars'));
+    RunMenuLine(M, 'menu setprop e wordwrap #true');
+    AssertEquals('setprop on an edit changes nothing', 'hi', Res16(M, 'menu get e'));
+  finally
+    M.Free;
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

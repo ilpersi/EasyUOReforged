@@ -233,6 +233,11 @@ begin
   AssertTrue(MdTypeHasProp(mdtRadio,'checked'));
   AssertFalse(MdTypeHasProp(mdtButton,'checked'));
   AssertFalse(MdTypeHasProp(mdtCombo,'text'));
+  AssertTrue('a memo has scroll bars', MdTypeHasProp(mdtMemo,'scrollbars'));
+  AssertTrue('a memo wraps', MdTypeHasProp(mdtMemo,'wordwrap'));
+  AssertFalse('an edit has no scroll bars', MdTypeHasProp(mdtEdit,'scrollbars'));
+  AssertFalse('an edit does not wrap', MdTypeHasProp(mdtEdit,'wordwrap'));
+  AssertFalse('a form does not wrap', MdTypeHasProp(mdtForm,'wordwrap'));
 end;
 
 // Every property in EuoMenu16's table has a row in the designer's, and every MT_* kind but

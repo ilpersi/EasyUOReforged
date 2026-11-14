@@ -63,7 +63,12 @@ unit EuoMenu16;
     where 1.6's OLE loader lost the last column of a bitmap to its HIMETRIC rounding.
 
   Reforged addition: "menu memo", with the 1.5 syntax, as a control type of its own (MT_MEMO)
-  that has the properties of an edit; its text turns "$" into line breaks and back.
+  that has the properties of an edit; its text turns "$" into line breaks and back. It also has
+  two properties of its own, the last rows of Props: "scrollbars" (0 none, 1 horizontal,
+  2 vertical, 3 both, the order of Delphi's TScrollStyle; 3 as created) and "wordwrap" (off as
+  created). With wordwrap on, LCL leaves out the horizontal bar whatever scrollbars says. The
+  wrapped display adds no "$": TMemo.Text is the window's text (WM_GETTEXT), not its visual
+  lines, and a window rebuilt for either property keeps it.
 
   Not done here: the repaint bursts TMenuObj holds while a script rebuilds a visible window.
 
@@ -214,9 +219,11 @@ const
   PI_FONTNAME = 5;  PI_FONTSIZE = 6;  PI_FONTSTYLE = 7;  PI_CLIENTHEIGHT = 8;  PI_HEIGHT = 9;
   PI_LEFT = 10;  PI_PARENT = 11;  PI_CAPTION = 12;  PI_TEXT = 13;  PI_TOOLTIP = 14;  PI_TOP = 15;
   PI_VISIBLE = 16;  PI_CLIENTWIDTH = 17;  PI_WIDTH = 18;
+  PI_SCROLLBARS = 19;  PI_WORDWRAP = 20;
 
-  // The table at $4cd9d0, plus MT_MEMO wherever edit has the property.
-  Props : array[0..18] of TPropRow = (
+  // The table at $4cd9d0, plus MT_MEMO wherever edit has the property, plus the memo's own
+  // rows (Reforged additions) at the end.
+  Props : array[0..20] of TPropRow = (
     (Name:'alignment'; Id:PI_ALIGNMENT;    PType:PT_INT;  Mask:$464),
     (Name:'checked';   Id:PI_CHECKED;      PType:PT_BOOL; Mask:$060),
     (Name:'color';     Id:PI_COLOR;        PType:PT_INT;  Mask:$5FF or MT_MEMO),
@@ -235,7 +242,12 @@ const
     (Name:'top';       Id:PI_TOP;          PType:PT_INT;  Mask:$3FF or MT_MEMO),
     (Name:'visible';   Id:PI_VISIBLE;      PType:PT_BOOL; Mask:$3FF or MT_MEMO),
     (Name:'width';     Id:PI_CLIENTWIDTH;  PType:PT_INT;  Mask:MT_FORM),
-    (Name:'width';     Id:PI_WIDTH;        PType:PT_INT;  Mask:$3FE or MT_MEMO));
+    (Name:'width';     Id:PI_WIDTH;        PType:PT_INT;  Mask:$3FE or MT_MEMO),
+    (Name:'scrollbars'; Id:PI_SCROLLBARS;  PType:PT_INT;  Mask:MT_MEMO),
+    (Name:'wordwrap';  Id:PI_WORDWRAP;     PType:PT_BOOL; Mask:MT_MEMO));
+
+  // "scrollbars" 0..3 as set; 3 is what MemoCreate gives a memo.
+  MemoBars : array[0..3] of TScrollStyle = (ssNone, ssAutoHorizontal, ssAutoVertical, ssAutoBoth);
 
 ////////////////////////////////////////////////////////////////////////////////
 function FindProp(const PName : String; Kind : Integer) : Integer;
@@ -755,6 +767,13 @@ begin
     PI_VISIBLE:      BVal:=C.Visible;
     PI_CLIENTWIDTH:  IVal:=TCustomForm(C).ClientWidth;
     PI_WIDTH:        IVal:=C.Width;
+    PI_SCROLLBARS:
+      case TMemo(C).ScrollBars of
+        ssHorizontal, ssAutoHorizontal: IVal:=1;
+        ssVertical, ssAutoVertical:     IVal:=2;
+        ssBoth, ssAutoBoth:             IVal:=3;
+      end;
+    PI_WORDWRAP:     BVal:=TMemo(C).WordWrap;
   end;
 end;
 
@@ -811,6 +830,8 @@ begin
     PI_VISIBLE:      C.Visible:=B;
     PI_CLIENTWIDTH:  SetFormClientWidth(TCustomForm(C),V);
     PI_WIDTH:        C.Width:=V;
+    PI_SCROLLBARS:   if (V>=0) and (V<=3) then TMemo(C).ScrollBars:=MemoBars[V];
+    PI_WORDWRAP:     TMemo(C).WordWrap:=B;
   end;
 
   // VCL refits a label and an edit whenever their font changes
@@ -1056,7 +1077,7 @@ begin
   NewMemo.Height:=H;
   NewMemo.Font.Assign(Def.Font);
   NewMemo.Color:=Def.Color;
-  NewMemo.ScrollBars:=ssAutoBoth;
+  NewMemo.ScrollBars:=MemoBars[3];
   NewMemo.WordWrap:=False;
   NewMemo.WantTabs:=False;
   NewMemo.Text:=ReplaceStr(Str,'$',#13#10);

@@ -226,6 +226,8 @@ begin
   C.Text:='first'#13#10'second';
   C.Width:=100;
   C.Height:=50;
+  C.ScrollBars:=2;
+  C.WordWrap:=True;
   C:=Doc.Add(mdtList,F,120,65,'l');
   C.Width:=90;
   C.Height:=50;
@@ -284,6 +286,8 @@ begin
   end
   else if Prop='tooltip' then V:=C.Tooltip
   else if Prop='visible' then V:=B(C.Visible)
+  else if Prop='scrollbars' then V:=IntToStr(C.ScrollBars)
+  else if Prop='wordwrap' then V:=B(C.WordWrap)
   else raise Exception.Create('no expectation for '+Prop);
 end;
 

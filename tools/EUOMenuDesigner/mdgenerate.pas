@@ -408,6 +408,10 @@ begin
   if (R.H=szAuto) and C.FixedH then Emit('menu setprop '+C.Name+' height '+IntToStr(C.Height));
   if (R.Align=maText) and (C.Alignment=1) then
     Emit('menu setprop '+C.Name+' left '+IntToStr(C.Left));
+  if MdTypeHasProp(C.TypeId,'scrollbars') and (C.ScrollBars<>MdDefScrollBars) then
+    Emit('menu setprop '+C.Name+' scrollbars '+IntToStr(C.ScrollBars));
+  if MdTypeHasProp(C.TypeId,'wordwrap') and C.WordWrap then
+    Emit('menu setprop '+C.Name+' wordwrap #true');
 
   if C.Tooltip<>'' then
     Emit('menu setprop '+C.Name+' tooltip '+Written(C,'tooltip',C.Tooltip,False));

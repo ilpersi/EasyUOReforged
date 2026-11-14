@@ -323,6 +323,13 @@ begin
   M.Text:='a'#13#10'b';
   Lines(Doc.Form0);
   AssertHas('menu memo m 0 0 150 60 a$b');
+  AssertTrue('both bars and no wrap are the defaults: nothing written',
+    (Pos('scrollbars',Got.Text)=0) and (Pos('wordwrap',Got.Text)=0));
+  M.ScrollBars:=2;
+  M.WordWrap:=True;
+  Lines(Doc.Form0);
+  AssertHas('menu setprop m scrollbars 2');
+  AssertHas('menu setprop m wordwrap #true');
 end;
 
 procedure TMenuDesignerGenerateTests.TestCheckAlignmentInverted;

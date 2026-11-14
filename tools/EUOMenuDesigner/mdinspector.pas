@@ -92,6 +92,7 @@ const
     '4 rectangle', '5 square', '6 nothing');
   YesNo : array[0..1] of String = ('yes', 'no');
   AlignNames : array[0..2] of String = ('left', 'right', 'centre');
+  ScrollNames : array[0..3] of String = ('0 none', '1 horizontal', '2 vertical', '3 both');
   LineMark = '¶';   // a line break, as the cell shows it
 
 function YN(B : Boolean) : String;
@@ -400,6 +401,10 @@ begin
       AddRow('fontstyle','Font style',StyleText(C.FontStyle),esEllipsis,[]);
       AddRow('fontcolor','Font colour',ColorText(C.FontColor),esEllipsis,[]);
     end;
+    if Has('scrollbars') then
+      AddRow('scrollbars','Scroll bars',ScrollNames[Max(0,Min(3,C.ScrollBars))],esPickList,
+        ScrollNames);
+    if Has('wordwrap') then AddRow('wordwrap','Word wrap',YN(C.WordWrap),esPickList,YesNo);
     if R.Items then
     begin
       S:='';
@@ -691,6 +696,17 @@ begin
   else if Key='fixedh' then C.FixedH:=Yes
   else if Key='lineon' then C.LineOn:=Yes
   else if Key='fillon' then C.FillOn:=Yes
+  else if Key='wordwrap' then C.WordWrap:=Yes
+  else if Key='scrollbars' then
+  begin
+    I:=StrToIntDef(Copy(Trim(V),1,1),-1);
+    if (I<0) or (I>3) then
+    begin
+      Problem:='Scroll bars is 0 none, 1 horizontal, 2 vertical or 3 both.';
+      Exit;
+    end;
+    C.ScrollBars:=I;
+  end
   else if Key='stretch' then
   begin
     C.Stretch:=Yes;

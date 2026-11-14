@@ -92,7 +92,8 @@ const
      DollarBreak:False; HasText:False; Align:maNone; Reforged:False));
 
 type
-  TMdEditor = (edText, edInt, edBool, edColor, edFontName, edFontStyle, edAlign, edParent);
+  TMdEditor = (edText, edInt, edBool, edColor, edFontName, edFontStyle, edAlign, edParent,
+               edScrollBars);
 
   TMdPropRow = record
     Name    : String;   // the property's name in EuoMenu16's table (getprop/setprop)
@@ -102,8 +103,8 @@ type
 
 const
   // One row per property name in EuoMenu16's table; which types have it comes from that
-  // table's masks (Menu16PropRow).
-  MdProps : array[0..15] of TMdPropRow = (
+  // table's masks (Menu16PropRow). The last two are the memo's own (Reforged additions).
+  MdProps : array[0..17] of TMdPropRow = (
     (Name:'alignment'; Caption:'Alignment';   Editor:edAlign),
     (Name:'checked';   Caption:'Checked';     Editor:edBool),
     (Name:'color';     Caption:'Colour';      Editor:edColor),
@@ -119,7 +120,9 @@ const
     (Name:'tooltip';   Caption:'Tooltip';     Editor:edText),
     (Name:'top';       Caption:'Top';         Editor:edInt),
     (Name:'visible';   Caption:'Visible';     Editor:edBool),
-    (Name:'width';     Caption:'Width';       Editor:edInt));
+    (Name:'width';     Caption:'Width';       Editor:edInt),
+    (Name:'scrollbars'; Caption:'Scroll bars'; Editor:edScrollBars),
+    (Name:'wordwrap';  Caption:'Word wrap';   Editor:edBool));
 
   // Every sub-command TMenu16.Run dispatches is in one of these three lists.
   // Written by the generator (and read by the importer):
@@ -148,6 +151,7 @@ const
   MdDefFontSize  = 10;
   MdDefFontColor = 0;
   MdDefColor     = -16777201;   // clBtnFace as a Delphi 7 number
+  MdDefScrollBars = 3;          // a memo as "menu memo" makes it: both bars
   MdForm0Name    = 'form0';
   MdForm0Title   = 'EUO Menu';
 

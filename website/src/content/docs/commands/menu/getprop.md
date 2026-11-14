@@ -40,9 +40,14 @@ does not exist, `#MenuRes` is left as it was.
 | `height`, `width` | Size; for a form, of its inside | number | all |
 | `left`, `top` | Position, inside the parent (on the screen for a form) | number | all |
 | `parent` | Name of the window or panel it is in | text | all but form |
-| `text` | The label, caption or title; an edit's contents | text | form, text, button, edit, check, radio |
+| `scrollbars` | Its scroll bars: 0 none, 1 horizontal, 2 vertical, 3 both (as created). Reforged only | number | memo |
+| `text` | The label, caption or title; an edit's or a memo's contents (a memo's line breaks as `$`) | text | form, text, button, edit, memo, check, radio |
 | `tooltip` | The hint shown when the mouse rests on it | text | all |
 | `visible` | Shown or hidden | yes/no | all |
+| `wordwrap` | Long lines break at the right edge instead of scrolling sideways (off as created). Reforged only | yes/no | memo |
+
+`scrollbars` and `wordwrap` belong to [`menu Memo`](/commands/menu/memo/), a Reforged addition that EasyUO 1.6
+does not have. A memo that wraps shows no horizontal bar, whatever `scrollbars` says.
 
 Colours are numbers in Windows' order, `$BBGGRR`. System colours come back as negative numbers:
 the standard button colour, `btnface`, is `-16777201`.

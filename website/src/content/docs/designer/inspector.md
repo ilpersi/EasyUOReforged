@@ -36,6 +36,7 @@ created:
 | Font, Font size, Font style, Font colour, Colour, Alignment / Text side | before the creating line: [`menu Font Name`](/commands/menu/font/name/), [`menu Font Color`](/commands/menu/font/color/) and [`menu Font BgColor`](/commands/menu/font/bgcolor/) (colours by name where there is one), and [`menu SetDef`](/commands/menu/setdef/) for the size, style and alignment |
 | Checked | the creating line of a check box or a radio button |
 | Tooltip, Enabled, Visible | `menu SetProp` after the creating line |
+| Scroll bars, Word wrap (memo) | `menu SetProp` `scrollbars` / `wordwrap` after the creating line, when not the default (both bars, no wrap) |
 | Parent | which form or panel the control is created in ([`menu SetDef parent`](/commands/menu/setdef/)) |
 | Items, Selected | [`menu Combo`](/commands/menu/combo/) or [`menu List`](/commands/menu/list/) `add` and `select` |
 | Shape, Line, Fill and their colours | the [`menu Shape`](/commands/menu/shape/) line |

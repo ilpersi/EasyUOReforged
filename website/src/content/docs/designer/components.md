@@ -42,7 +42,10 @@ comes from the font, unless you fix it.
 
 A text field of several lines: [`menu Memo`](/commands/menu/memo/). It is a Reforged addition: real EasyUO
 1.6 ignores the line, so a script with a memo shows it only in EasyUO Reforged. The palette marks it
-*Reforged only*.
+*Reforged only*. **Scroll bars** picks none, horizontal, vertical or both (the default), and **Word wrap**
+breaks long lines at the right edge instead of scrolling sideways; the designer writes them with
+[`menu SetProp`](/commands/menu/setprop/) when they differ from the default. A memo that wraps has no
+horizontal bar.
 
 ## Check
 

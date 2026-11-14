@@ -52,6 +52,7 @@ type
     procedure TestNewDesignStartsANewHistory;
     procedure TestPaletteIsAlphabetical;
     procedure TestEveryCommandHasAnIcon;
+    procedure TestMemoScrollBarsAndWordWrap;
   end;
 
 implementation
@@ -573,6 +574,50 @@ begin
     if Bar.Buttons[Cnt].Style<>tbsSeparator then
       AssertTrue(Bar.Buttons[Cnt].Caption+' has an icon', (Bar.Buttons[Cnt].ImageIndex>=0) and
         (Bar.Buttons[Cnt].ImageIndex<Imgs));
+end;
+
+// A memo's Scroll bars and Word wrap rows change the model, and the canvas, which runs the
+// generated lines through a real TMenu16, shows the memo that way.
+procedure TMenuDesignerMainTests.TestMemoScrollBarsAndWordWrap;
+
+  function FindMemo(W : TWinControl) : TMemo;
+  var
+    I : Integer;
+  begin
+    for I:=0 to W.ControlCount-1 do
+    begin
+      if W.Controls[I] is TMemo then Exit(TMemo(W.Controls[I]));
+      if W.Controls[I] is TWinControl then
+      begin
+        Result:=FindMemo(TWinControl(W.Controls[I]));
+        if Result<>nil then Exit;
+      end;
+    end;
+    Result:=nil;
+  end;
+
+var
+  M : TMemo;
+begin
+  Place(0,mdtMemo,20,20);
+  Pick('memo1');
+  AssertEquals('both bars at first', 3, Picked.ScrollBars);
+  AssertFalse('no wrap at first', Picked.WordWrap);
+  AssertTrue('the memo has a Word wrap row', Insp.Strings.IndexOfName('Word wrap')>=0);
+  PickInList('Scroll bars','2 vertical');
+  Pick('memo1');
+  PickInList('Word wrap','yes');
+  Pick('memo1');
+  AssertEquals('scroll bars', 2, Picked.ScrollBars);
+  AssertTrue('word wrap', Picked.WordWrap);
+  M:=FindMemo(View(0));
+  AssertTrue('the canvas has the memo', M<>nil);
+  AssertTrue('the canvas memo wraps', M.WordWrap);
+  AssertTrue('the canvas memo has the vertical bar only', M.ScrollBars in [ssVertical,ssAutoVertical]);
+  Place(0,mdtEdit,20,120);
+  Pick('edit1');
+  AssertTrue('an edit has no Scroll bars row', Insp.Strings.IndexOfName('Scroll bars')<0);
+  AssertTrue('an edit has no Word wrap row', Insp.Strings.IndexOfName('Word wrap')<0);
 end;
 
 initialization

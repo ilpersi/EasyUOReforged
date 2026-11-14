@@ -608,6 +608,8 @@ begin
     Result.FontStyle:=Prop('fontstyle',0);
     Result.FontColor:=Prop('fontcolor',0);
   end;
+  if MdTypeHasProp(Ty,'scrollbars') then Result.ScrollBars:=Prop('scrollbars',MdDefScrollBars);
+  if MdTypeHasProp(Ty,'wordwrap') then Result.WordWrap:=Prop('wordwrap',0)<>0;
   case MdTypeRows[Ty].Align of
     maText:  Result.Alignment:=Prop('alignment',0);
     maCheck:

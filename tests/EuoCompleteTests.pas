@@ -106,7 +106,7 @@ begin
   AssertEquals('GLOBAL,LOCAL',Words('namespace copy * to '));
   AssertEquals('only FROM/TO lead on','',Words('namespace copy * into '));
   AssertEquals('ALIGNMENT,CHECKED,COLOR,ENABLED,FONTCOLOR,FONTNAME,FONTSIZE,FONTSTYLE,HEIGHT,'+
-    'LEFT,PARENT,TEXT,TOOLTIP,TOP,VISIBLE,WIDTH',Words('menu getprop ok '));
+    'LEFT,PARENT,SCROLLBARS,TEXT,TOOLTIP,TOP,VISIBLE,WIDTH,WORDWRAP',Words('menu getprop ok '));
   AssertEquals(Words('menu getprop ok '),Words('menu SetProp %btn '));
 end;
 
