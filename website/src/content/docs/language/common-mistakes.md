@@ -35,6 +35,9 @@ examples are run through the interpreter every time EasyUO Reforged is tested, s
 10. **Game values are your own.** Item types (`POF`), IDs (`YKLMNOP`), gump names, journal texts and screen
     positions differ between shards, clients and characters. Don't take them from someone else's script
     without checking: [Finding IDs and types](/guides/finding-ids/) shows how to read yours.
+11. **The client holds back speech that comes too fast.** Lines sent with [`msg`](/commands/msg/) or the
+    speech macros past its spam limit arrive late, and so do their answers in the journal. Allow about a
+    second for every 12 characters: see [the spam limit](/commands/msg/#the-spam-limit).
 
 Each rule in a script:
 

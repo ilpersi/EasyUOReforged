@@ -40,7 +40,8 @@ known, it does nothing.
 | 3 | 0 | text | Whisper |
 | 4 | 0 | text | Yell |
 
-The parameter is not used.
+The parameter is not used. The client sends these lines no faster than typed speech: see
+[the spam limit](/commands/msg/#the-spam-limit).
 
 ### Movement
 
