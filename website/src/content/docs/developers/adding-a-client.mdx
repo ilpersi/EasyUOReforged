@@ -9,7 +9,9 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 This page takes a client build EasyUO Reforged does not know and ends with a tested entry for it in
 `uo/uoclidata.pas`. [EUOMigrate](/developers/euomigrate/) does the searching; your part is to check its
-work, paste it in and test it.
+work, paste it in and test it. The last test is in the game, with the self-test script
+[`tools/EUOSelfTest/EUOSelfTest.euo`](https://github.com/ilpersi/EasyUOReforged/blob/main/tools/EUOSelfTest/EUOSelfTest.euo): it tries every command and
+variable on the new client and lists the table fields whose checks fail.
 
 If the terms below are new, read [How client support works](/developers/client-tables/) first. It takes a
 few minutes and makes every step here easier to follow.
@@ -23,7 +25,7 @@ few minutes and makes every step here easier to follow.
 5. [Review the report](#5-review-the-report)
 6. [Paste the snippet into uoclidata.pas](#6-paste-the-snippet-into-uoclidatapas)
 7. [Add a unit test](#7-add-a-unit-test)
-8. [Build and test](#8-build-and-test)
+8. [Build and test](#8-build-and-test), then run [the self-test](#the-self-test-in-the-game) in the game
 9. [Add the build to the knowledge base](#9-add-the-build-to-the-knowledge-base)
 
 ## 1. Identify the build
@@ -327,7 +329,14 @@ pwsh ./tests/run_tests.ps1
 runs against it. If this is your first build, set up Lazarus as in [Build from source](/developers/building/)
 first.
 
-Then test in the game:
+### The self-test in the game
+
+Apart from a few reads in `LiveClientTests`, the unit tests never touch a running client.
+[`tools/EUOSelfTest/EUOSelfTest.euo`](https://github.com/ilpersi/EasyUOReforged/blob/main/tools/EUOSelfTest/EUOSelfTest.euo)
+does: an EasyUO script that tests every client command and `#variable` through the new entry, chaining them so
+one confirms another, and asks you only about what no variable can show. Its
+[README](https://github.com/ilpersi/EasyUOReforged/blob/main/tools/EUOSelfTest/README.md) lists the 121 checks, the table fields each one depends on, and what it
+changes in the game (and puts back afterwards).
 
 1. Start the new `EasyUOReforged.exe` with the client running and logged in. A GM character on your own
    [ModernUO](https://github.com/modernuo/ModernUO) shard is best: the self-test then makes values known with
@@ -345,6 +354,16 @@ Then test in the game:
 
 The self-test is the only check of the inherited layout values (status flags, stat gump, and the shop and
 bill in its opt-in vendor stage), so do not skip it.
+
+A few things to know before a run:
+
+- A full run takes a while: the script types its staff commands no faster than the client's spam limit lets
+  them through (see [Msg](/commands/msg/#the-spam-limit)), so the clean-up alone takes a few minutes.
+- A FAIL on a client that works elsewhere can also be the shard or a client setting: the report's NOTE lines
+  name the known cases (a vendor's cliloc names, the *Offset interface windows* option, ModernUO's missing
+  Equip Last Weapon), and the README's notes for authors list more.
+- To repeat one stage while you fix a value, its developer switches run it without the panel, also from
+  `EUOCli run --client 1` (README, *Developer switches and dry runs*).
 
 ## 9. Add the build to the knowledge base
 
@@ -380,5 +399,6 @@ derived data only, never any part of the executable.
 | One event does nothing | Its `E_` address is `0`, or its calling convention (`F_` flag) is wrong. |
 | [`#Skill`](/variables/skill/) reads `0` | `C_SKILLSPOS`, `B_SKILLDIST`. |
 | [`ScanBuffs`](/commands/scanbuffs/) finds nothing | `C_CLILOC`, `C_BUFFTIMERS`, `B_BUFFVEC` and the other buff-bar values. |
+| Any other variable or command | Run the self-test: its **TABLE_FIELDS_WITH_FAILING_CHECKS** names the fields, and the README's field map the checks behind each. |
 
 [Deriving values by hand](/developers/manual-derivation/) explains how to find each of these yourself.

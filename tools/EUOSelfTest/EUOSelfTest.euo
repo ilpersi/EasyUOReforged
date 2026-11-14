@@ -53,7 +53,7 @@
 ; ============================================================================
 menu Reforge Mode 1.6
 ; this file's revision, in the report header: raise it with every change, so a report shows which copy ran
-set %st_rev 2026.11.14.21
+set %st_rev 2026.11.14.22
 
 ; ---------------------------------------------------------------------------
 ;  DEVELOPER SWITCHES (no game values here: the script finds or asks for them)
@@ -368,6 +368,7 @@ sub st_shard_load
   }
 return
 
+; the options that are the same on every shard (sql save) and this shard's row (staff, prefix, spot)
 sub st_opts_save
   if %st_db = 0
     return
@@ -513,6 +514,7 @@ sub st_run
   gosub st_pan_close
 return
 
+; runs stage %1: one st_sN sub per stage, in the order the run chose
 sub st_stage_run
   set %st_sr %1
   if %st_sr = 1
@@ -613,6 +615,7 @@ sub st_poll_stop
   }
 return
 
+; stops the run once, with the reason %1 as an INFO line; the clean-up still runs after it
 sub st_do_stop
   if %st_stop = 1
     return
@@ -644,6 +647,7 @@ return
 ;  Every check sub: gosub st_xxx <id> <what> <fields>, with %st_a = observed and
 ;  %st_e = expected set before. Fields: table fields joined with /, or none.
 
+; PASS when %st_a = %st_e (compared as text, case ignored), else FAIL
 sub st_eq
   set %st_x1 %1
   set %st_x2 %2
@@ -714,6 +718,7 @@ sub st_known
   gosub st_rec FAIL AUTO %st_x1 %st_x2 %st_x3
 return
 
+; an INFO line: %st_a written down for comparison, nothing expected
 sub st_info
   set %st_x1 %1
   set %st_x2 %2
@@ -722,6 +727,7 @@ sub st_info
   gosub st_rec INFO AUTO %st_x1 %st_x2 %st_x3
 return
 
+; a NOTE: a known difference or a setting explains %st_a (the caller puts the reason in %st_e)
 sub st_note
   set %st_x1 %1
   set %st_x2 %2
@@ -1059,6 +1065,7 @@ sub st_finish
   log %st_sum
 return
 
+; the end of the script: #LPC back as it was, the database closed
 sub st_quit
   set #LPC %st_lpc_orig
   if %st_db = 1
@@ -1270,6 +1277,7 @@ sub st_pan_build
   menu SetProp st_pan visible #true
 return
 
+; Pass, Fail, Skip and Repeat on (%1 #true) or off (#false); the What did you see? box hidden
 sub st_pan_buttons
   if %ST_UNATTENDED = 1
     return
@@ -1280,12 +1288,14 @@ sub st_pan_buttons
   menu SetProp st_pl3 visible #false
 return
 
+; hides the running panel at the end of a run
 sub st_pan_close
   if %ST_UNATTENDED = 1
     return
   menu SetProp st_pan visible #false
 return
 
+; the panel's stage line (Stage N (i of n): name) and an empty stage bar
 sub st_pan_stage
   if %ST_UNATTENDED = 1
     return
@@ -1300,6 +1310,7 @@ sub st_pan_stage
   menu SetProp st_bsf width 0
 return
 
+; the panel's check line and both progress bars (378 pixels wide when full)
 sub st_pan_case
   if %ST_UNATTENDED = 1
     return
@@ -1315,6 +1326,7 @@ sub st_pan_case
   menu SetProp st_bsf width %st_w
 return
 
+; the panel's PASS / FAIL / NOTE / SKIP counts
 sub st_pan_counts
   if %ST_UNATTENDED = 1
     return
@@ -1368,6 +1380,7 @@ sub st_s1
     gosub st_do_stop stage_1_failed:_nothing_after_it_would_mean_anything
 return
 
+; versions and clients: #ReforgedVer, the original #EUOVer, #CliCnt, #CliNr, #CliVer
 sub st_c101
   gosub st_case 1.01 Versions_and_clients
   if %st_run = 0
@@ -1388,6 +1401,7 @@ sub st_c101
   gosub st_has 1.01.cliver CliVer_is_read_from_the_client none
 return
 
+; logged in: #CliLogged 1 while a character is in the world
 sub st_c102
   gosub st_case 1.02 Logged_in
   if %st_run = 0
@@ -1397,6 +1411,7 @@ sub st_c102
   gosub st_eq 1.02 CliLogged_is_1_with_a_character_in_the_world %fx_logged
 return
 
+; #CharID: the character pointer and its ID; nothing after it means anything without it
 sub st_c103
   gosub st_case 1.03 Character_ID
   if %st_run = 0
@@ -1406,6 +1421,7 @@ sub st_c103
   set %st_charid #CharID
 return
 
+; #CharName from the status block (B_STATNAME)
 sub st_c104
   gosub st_case 1.04 Character_name
   if %st_run = 0
@@ -1425,6 +1441,7 @@ sub st_c104
   gosub st_has 1.04 CharName_is_read_from_the_status %fx_name
 return
 
+; #CharPosX/Y/Z in the map's range
 sub st_c105
   gosub st_case 1.05 Position
   if %st_run = 0
@@ -1442,6 +1459,7 @@ sub st_c105
   gosub st_rng 1.05.z CharPosZ_is_a_height %fx_pos
 return
 
+; #BackpackID: the item in the character's backpack layer
 sub st_c106
   gosub st_case 1.06 Backpack
   if %st_run = 0
@@ -1451,6 +1469,7 @@ sub st_c106
   set %st_bpid #BackpackID
 return
 
+; #Shard, and #CliLang as a three-letter code
 sub st_c107
   gosub st_case 1.07 Shard_and_client_language
   if %st_run = 0
@@ -1487,6 +1506,7 @@ sub st_s2
   gosub st_c216
 return
 
+; #CharDir, the #CharStatus letters, #CharGhost, #CharType and #Sex: ranges only
 sub st_c201
   gosub st_case 2.01 Character_state
   if %st_run = 0
@@ -1542,6 +1562,7 @@ sub st_c201
   gosub st_rng 2.01.sex Sex_is_0_or_1 %fx_stat
 return
 
+; finditem on #CharID: every #Find... value of a character against the #Char... variables
 sub st_c202
   gosub st_case 2.02 FindItem_on_yourself
   if %st_run = 0
@@ -1588,6 +1609,7 @@ sub st_c202
   gosub st_info 2.02.col FindCol_of_your_character %fx_col
 return
 
+; finditem on #BackpackID: a worn item has #FindKind 0, #FindBagID you, layer 21
 sub st_c203
   gosub st_case 2.03 FindItem_on_the_worn_backpack
   if %st_run = 0
@@ -1622,6 +1644,7 @@ sub st_c203
   gosub st_ok 2.03.type FindType_is_a_backpack_graphic %fx_find
 return
 
+; the status values: ranges, and the ones that limit each other (hits not above max, weight follows Str)
 sub st_c204
   gosub st_case 2.04 Status_values:_ranges_and_consistency
   if %st_run = 0
@@ -1694,6 +1717,7 @@ sub st_c204
   gosub st_rng 2.04.tp TP_is_not_negative %fx_tp
 return
 
+; the client window: size, place and title, and getuotitle against #CliTitle
 sub st_c205
   gosub st_case 2.05 Client_window
   if %st_run = 0
@@ -1718,6 +1742,7 @@ sub st_c205
   gosub st_eq 2.05.getuotitle getuotitle_gives_#CliTitle none
 return
 
+; #CursKind is the facet (0 to 5) and #LShard a number
 sub st_c206
   gosub st_case 2.06 Facet_and_last_shard
   if %st_run = 0
@@ -1733,6 +1758,7 @@ sub st_c206
   gosub st_rng 2.06.lshard LShard_is_a_shard_number %fx_lshard
 return
 
+; chooseskill anat: base, value and cap in tenths, and the lock
 sub st_c207
   gosub st_case 2.07 Skill_variables
   if %st_run = 0
@@ -1755,6 +1781,7 @@ sub st_c207
   gosub st_ok 2.07.lock SkillLock_is_a_lock %fx_sklock
 return
 
+; the journal: scanjournal and findjournal read the same newest line, #JIndex runs above 500
 sub st_c208
   gosub st_case 2.08 Journal_variables
   if %st_run = 0
@@ -1782,6 +1809,7 @@ sub st_c208
   gosub st_eq 2.08.same findjournal_and_scanjournal_read_the_same_line %fx_jour
 return
 
+; the last-action variables, written down; #LTargetKind, #LLiftedKind and #TargCurs in range
 sub st_c209
   gosub st_case 2.09 Last-action_variables
   if %st_run = 0
@@ -1820,6 +1848,7 @@ sub st_c209
   gosub st_info 2.09.sysmsg SysMsg %fx_sysmsg
 return
 
+; the gump on top: #ContSize is #ContSizeX #ContSizeY, the other #Cont... values written down
 sub st_c210
   gosub st_case 2.10 The_gump_on_top
   if %st_run = 0
@@ -1848,6 +1877,7 @@ sub st_c210
   gosub st_info 2.10.item ContID/#ContType/#ContHP %fx_contid
 return
 
+; #CursorX/Y, and savepix / cmppix agree on the same pixel
 sub st_c211
   gosub st_case 2.11 Cursor_and_pixels
   if %st_run = 0
@@ -1872,6 +1902,7 @@ sub st_c211
   gosub st_eq 2.11.cmppix cmppix_at_once_matches_what_savepix_read none
 return
 
+; tile cnt where you stand: a layer at #CharPosZ
 sub st_c212
   gosub st_case 2.12 Tiles_under_the_character
   if %st_run = 0
@@ -1913,6 +1944,7 @@ sub st_c212
   }
 return
 
+; path can on your own tile: ok, at #CharPosZ
 sub st_c213
   gosub st_case 2.13 Path_can_where_you_stand
   if %st_run = 0
@@ -1940,6 +1972,7 @@ sub st_c213
   gosub st_eq 2.13.z PathZ_is_#CharPosZ %fx_pathc
 return
 
+; #BuffBarOpen is #true or #false, and scanbuffs counts
 sub st_c214
   gosub st_case 2.14 Buff_bar_state
   if %st_run = 0
@@ -1962,6 +1995,7 @@ sub st_c214
   gosub st_rng 2.14.cnt scanbuffs_#BuffCnt_(0_with_the_bar_closed) %fx_buff
 return
 
+; #MountID / #MountType; when riding, the mount item is worn in layer 25
 sub st_c215
   gosub st_case 2.15 Mount
   if %st_run = 0
@@ -1980,6 +2014,7 @@ sub st_c215
   gosub st_eq 2.15.layer the_mount_item_is_worn_in_layer_25 %fx_layer
 return
 
+; uoXL swap through the running clients and back (only with two or more clients)
 sub st_c216
   gosub st_case 2.16 uoXL_swap
   if %st_run = 0
@@ -2061,6 +2096,7 @@ sub st_rw
   gosub st_eq %st_wid %st_ww %st_w4
 return
 
+; #SysMsgCol: write, read back, put back
 sub st_c301
   gosub st_case 3.01 SysMsgCol
   if %st_run = 0
@@ -2068,6 +2104,7 @@ sub st_c301
   gosub st_rw 3.01 SysMsgCol 33 none
 return
 
+; #LObjectID: write, read back, put back
 sub st_c302
   gosub st_case 3.02 LObjectID
   if %st_run = 0
@@ -2076,6 +2113,7 @@ sub st_c302
   gosub st_rw 3.02 LObjectID #CharID %fx_lobj
 return
 
+; the last-target variables: write, read back, put back, one by one
 sub st_c303
   gosub st_case 3.03 Last-target_variables
   if %st_run = 0
@@ -2089,6 +2127,7 @@ sub st_c303
   gosub st_rw 3.03.tile LTargetTile 100 %fx_lttile
 return
 
+; #LHandID / #RHandID: write, read back, put back
 sub st_c304
   gosub st_case 3.04 Arm-disarm_hands
   if %st_run = 0
@@ -2098,6 +2137,7 @@ sub st_c304
   gosub st_rw 3.04.r RHandID #BackpackID %fx_rhand
 return
 
+; #LSpell, #LSkill and #LShard: write, read back, put back
 sub st_c305
   gosub st_case 3.05 Last_spell,_skill_and_shard
   if %st_run = 0
@@ -2107,6 +2147,7 @@ sub st_c305
   gosub st_rw 3.05.shard LShard 5 %fx_lshard
 return
 
+; #NextCPosX/Y written, and the nextcpos command: read back, put back
 sub st_c306
   gosub st_case 3.06 Next_gump_position
   if %st_run = 0
@@ -2124,6 +2165,7 @@ sub st_c306
   set #NextCPosY %st_n2
 return
 
+; the game area: #CliXRes/#CliYRes/#CliLeft/#CliTop written and read back; you say whether it moved
 sub st_c307
   gosub st_case 3.07 Game_area_size_and_position
   if %st_run = 0
@@ -2165,6 +2207,7 @@ sub st_c307
   gosub st_eq 3.07.restore the_game_area_is_back_as_it_was %fx_xres
 return
 
+; the window title: setuotitle and set #CliTitle, each read back the other way, then put back
 sub st_c308
   gosub st_case 3.08 Window_title
   if %st_run = 0
@@ -2191,6 +2234,7 @@ sub st_c308
   gosub st_eq 3.08.restore the_title_is_back_as_it_was none
 return
 
+; #FindIndex and #FindMod: written, read back, put back
 sub st_c309
   gosub st_case 3.09 FindIndex_and_FindMod
   if %st_run = 0
@@ -2252,6 +2296,7 @@ sub st_s4
   gosub st_c418
 return
 
+; click n mc moves the real cursor: #CursorX/Y read where it went
 sub st_c401
   gosub st_case 4.01 click_n_mc_moves_the_cursor
   if %st_run = 0
@@ -2270,6 +2315,7 @@ sub st_c401
   gosub st_eq 4.01.b click_to_the_game_area_corner_moves_the_cursor_there none
 return
 
+; are staff commands answered? [self get AccessLevel, then its line in the journal
 sub st_c402
   gosub st_case 4.02 Staff_commands_answer
   if %st_run = 0
@@ -2295,6 +2341,7 @@ sub st_c402
   }
 return
 
+; the test spot: after the shard's [go, #CharPosX/Y/Z, #CursKind and finditem all agree
 sub st_c403
   gosub st_case 4.03 Test_spot
   if %st_run = 0
@@ -2330,6 +2377,7 @@ sub st_c403
     gosub st_note 4.03.tiles some_tiles_round_the_spot_are_blocked:_those_walks_are_skipped %fx_pathc
 return
 
+; move two tiles each way and back: the position and #CharDir after each
 sub st_c404
   gosub st_case 4.04 move_two_tiles_each_way
   if %st_run = 0
@@ -2392,6 +2440,7 @@ sub st_movetest
     gosub st_eq %st_wid CharDir_is_the_way_walked %fx_dir
 return
 
+; msg a fresh token: findjournal and scanjournal find the same line with the same #JColor
 sub st_c405
   gosub st_case 4.05 msg_and_the_journal
   if %st_run = 0
@@ -2473,6 +2522,7 @@ sub st_c406
   gosub st_eq 4.06.notext findjournal_with_no_text_finds_nothing %fx_jour
 return
 
+; deletejournal hides the lines read so far; a newer line is read again
 sub st_c407
   gosub st_case 4.07 deletejournal
   if %st_run = 0
@@ -2510,6 +2560,7 @@ sub st_c407
   gosub st_ok 4.07.newer a_newer_line_is_read_again %fx_jour
 return
 
+; a staff get raises a target cursor (#TargCurs 1), key esc takes it away
 sub st_c408
   gosub st_case 4.08 key_esc_and_the_target_cursor
   if %st_run = 0
@@ -2531,6 +2582,7 @@ sub st_c408
   gosub st_eq 4.08.esc key_esc_cancels_it:_#TargCurs_0 %fx_targ
 return
 
+; key j alt opens the journal gump; a right click in its middle closes it
 sub st_c409
   gosub st_case 4.09 key_with_alt_and_a_right_click
   if %st_run = 0
@@ -2559,6 +2611,7 @@ sub st_c409
   gosub st_ok 4.09.rclick click_r_in_the_middle_closes_the_journal %fx_contpos
 return
 
+; a double click on yourself opens the paperdoll; skipped when riding (it would dismount you)
 sub st_c410
   gosub st_case 4.10 Double-click_on_yourself
   if %st_run = 0
@@ -2787,6 +2840,7 @@ sub st_sval
   gosub st_eq %st_v1 %st_v2 %st_v3
 return
 
+; Str/Dex/Int set by the shard to known values: the variables follow, and so do the maxima
 sub st_c412
   gosub st_case 4.12 Known_stats:_Str_77,_Dex_63,_Int_41
   if %st_run = 0
@@ -2848,6 +2902,7 @@ sub st_c412
   gosub st_sval 4.12.maxmana MaxMana_after_the_change %fx_stat
 return
 
+; hits, stamina and mana set to 37/29/23: the variables follow
 sub st_c413
   gosub st_case 4.13 Known_hits,_stamina_and_mana
   if %st_run = 0
@@ -2877,6 +2932,7 @@ sub st_c413
   waitfor #Hits = %st_t1 %st_tw3
 return
 
+; a gold pile of 1234 made in the backpack: #Gold grows by exactly that, the pile is found
 sub st_c414
   gosub st_case 4.14 Gold:_exactly_1234_more
   if %st_run = 0
@@ -2914,6 +2970,7 @@ sub st_c414
   gosub st_eq 4.14.bag FindBagID_of_the_new_pile_is_the_backpack %fx_find
 return
 
+; 5 logs (10 stones) made in the backpack: #Weight grows by 10, as the shard's TotalWeight does
 sub st_c415
   gosub st_case 4.15 Weight:_exactly_10_stones_more
   if %st_run = 0
@@ -2954,6 +3011,7 @@ sub st_c415
   }
 return
 
+; Anatomy set to 47.0: base and value 470, cap and lock as the shard says
 sub st_c416
   gosub st_case 4.16 Known_skill:_Anatomy_47
   if %st_run = 0
@@ -3084,6 +3142,7 @@ sub st_flagtest
   gosub st_ok %st_fid the_letter_goes_back %fx_statusc
 return
 
+; tithing points, stat cap and followers max set to known values: #TP, #MaxStats, #MaxFol follow
 sub st_c418
   gosub st_case 4.18 Other_known_values
   if %st_run = 0
@@ -3164,6 +3223,7 @@ sub st_s5
   gosub st_c516
 return
 
+; event SysMessage: #SysMsg, the journal and #JColor all show the text
 sub st_c501
   gosub st_case 5.01 event_SysMessage
   if %st_run = 0
@@ -3190,6 +3250,7 @@ sub st_c501
   set #SysMsgCol %st_col0
 return
 
+; event ExMsg over your head: you say whether you saw it
 sub st_c502
   gosub st_case 5.02 event_ExMsg_over_your_head
   if %st_run = 0
@@ -3208,6 +3269,7 @@ sub st_c502
     goto st_rp_502
 return
 
+; macros 8 1 and 9 1: the paperdoll opens (#ContID you) and closes
 sub st_c503
   gosub st_case 5.03 Macros_8_and_9:_paperdoll
   if %st_run = 0
@@ -3232,6 +3294,7 @@ sub st_c503
   gosub st_ok 5.03.close event_macro_9_1_closes_it %st_f
 return
 
+; macros 10 1 and 11 1 minimize and maximize the paperdoll: you say whether they did
 sub st_c504
   gosub st_case 5.04 Macros_10_and_11:_minimize_and_maximize
   if %st_run = 0
@@ -3270,6 +3333,7 @@ sub st_c504
   event macro 9 1
 return
 
+; macros 8 and 9 on the skills and status gumps: a new gump on top, then gone
 sub st_c505
   gosub st_case 5.05 Macros_8_and_9:_skills_and_status_gumps
   if %st_run = 0
@@ -3305,6 +3369,7 @@ sub st_c505
   gosub st_status_keep
 return
 
+; macro 8 7 opens the backpack: #ContID, #ContType, #ContSize and #ContKind of its gump
 sub st_c506
   gosub st_case 5.06 The_backpack_gump
   if %st_run = 0
@@ -3336,6 +3401,7 @@ sub st_c506
   gosub st_has 5.06.kind ContKind_of_the_backpack_gump %fx_cont
 return
 
+; the backpack gump moved with #ContPosX/Y and contpos: read back, its items' #FindX/Y move with it
 sub st_c507
   gosub st_case 5.07 Moving_the_backpack_gump
   if %st_run = 0
@@ -3384,6 +3450,7 @@ sub st_c507
   gosub st_eq 5.07.back the_gump_is_back_where_it_was %fx_contpos
 return
 
+; nextcpos 300 150, then a new bag opens there with the client option on (a NOTE when it is off)
 sub st_c508
   gosub st_case 5.08 nextcpos_places_the_next_container
   if %st_run = 0
@@ -3453,6 +3520,7 @@ sub st_nextc_judge
   gosub st_rec FAIL AUTO 5.08 %1 %st_f
 return
 
+; event ContTop brings the backpack in front of the paperdoll
 sub st_c509
   gosub st_case 5.09 event_ContTop
   if %st_run = 0
@@ -3472,6 +3540,7 @@ sub st_c509
   event macro 9 1
 return
 
+; ignorecont by name and by #ContKind skips the backpack's gump; reset sees it again
 sub st_c510
   gosub st_case 5.10 ignorecont
   if %st_run = 0
@@ -3512,6 +3581,7 @@ sub st_ign_defaults
   }
 return
 
+; event StatBar opens your health bar; #ContHP is #Hits in percent
 sub st_c511
   gosub st_case 5.11 event_StatBar_and_#ContHP
   if %st_run = 0
@@ -3537,6 +3607,7 @@ sub st_c511
   gosub st_status_keep
 return
 
+; speech macros 1 to 4 each say a token the journal shows
 sub st_c512
   gosub st_case 5.12 Speech_macros_1_to_4
   if %st_run = 0
@@ -3547,6 +3618,7 @@ sub st_c512
   gosub st_speech 5.12.yell 4
 return
 
+; speech macro %2 says a fresh token; the journal must show it (%1 = the check ID)
 sub st_speech
   set %st_sp1 %1
   set %st_sp2 %2
@@ -3563,6 +3635,7 @@ sub st_speech
   gosub st_ok %st_sp1 %st_sw %fx_macro
 return
 
+; event Property of yourself and of the backpack: the tooltip names them
 sub st_c513
   gosub st_case 5.13 event_Property
   if %st_run = 0
@@ -3583,6 +3656,7 @@ sub st_c513
   gosub st_ok 5.13.bp event_Property_#BackpackID_names_the_backpack %fx_prop
 return
 
+; macro 57 toggles the buff bar: #BuffBarOpen flips, and back
 sub st_c514
   gosub st_case 5.14 Macro_57_and_#BuffBarOpen
   if %st_run = 0
@@ -3609,6 +3683,7 @@ sub st_c514
   gosub st_eq 5.14.back event_macro_57_again_puts_it_back %st_f
 return
 
+; macros 19, 18 and 21 (salute, bow, all names): you say whether you saw them
 sub st_c515
   gosub st_case 5.15 Macros_18,_19_and_21
   if %st_run = 0
@@ -3642,6 +3717,7 @@ sub st_c515
     goto st_rp_515c
 return
 
+; macro 31 closes every gump: no paperdoll, no backpack on top after it
 sub st_c516
   gosub st_case 5.16 Macro_31_closes_the_gumps
   if %st_run = 0
@@ -3690,6 +3766,7 @@ sub st_s6
   gosub st_c618
 return
 
+; target returns at once with a cursor up and waits its timeout without; macros 13 and 14 use a skill
 sub st_c601
   gosub st_case 6.01 target_and_a_skill's_cursor
   if %st_run = 0
@@ -3738,6 +3815,7 @@ sub st_c601
   set #LSkill %st_ls0
 return
 
+; set #TargCurs 1 shows a cursor whose handler fills #LTargetID/Kind; you click an item with it
 sub st_c602
   gosub st_case 6.02 Writing_#TargCurs_installs_a_target_handler
   if %st_run = 0
@@ -3792,6 +3870,7 @@ sub st_c602
   set #LTargetKind %st_lk0
 return
 
+; the test dagger made with [addtopack: macro 22 answers the cursor on #LTargetID, then its #Find... values
 sub st_c603
   gosub st_case 6.03 Test_weapon_made_through_the_target_cursor
   if %st_run = 0
@@ -3860,6 +3939,7 @@ sub st_c603
   gosub st_eq 6.03.col FindCol_after_Hue_33 %fx_col
 return
 
+; a ground target: #LTargetX/Y/Z and kind 2 answered by macro 22, the item lies there
 sub st_c604
   gosub st_case 6.04 Ground_target:_#LTargetKind_2
   if %st_run = 0
@@ -3906,6 +3986,7 @@ sub st_c604
   gosub st_eq 6.04.ltkind LTargetKind_still_2 %fx_ltkind
 return
 
+; a static target: #LTargetTile and kind 3 answered by macro 22, the item lies on the static
 sub st_c605
   gosub st_case 6.05 Static_target:_#LTargetKind_3
   if %st_run = 0
@@ -3969,6 +4050,7 @@ sub st_c605
   }
 return
 
+; Target Self (macro 23) and Last Target (macro 22) answer a staff get's cursor
 sub st_c606
   gosub st_case 6.06 Target_Self_and_Last_Target_through_the_server
   if %st_run = 0
@@ -4019,6 +4101,7 @@ sub st_c606
   gosub st_eq 6.06.last Last_Target_(macro_22)_targets_#LTargetID %st_f
 return
 
+; macro 17 opens #LObjectID; #LObjectType is the used object's type
 sub st_c607
   gosub st_case 6.07 Last_object
   if %st_run = 0
@@ -4050,6 +4133,7 @@ sub st_c607
   gosub st_cancel_cursor
 return
 
+; exevent Drag, then DropG on the ground, DropC into the backpack and to a place in it
 sub st_c608
   gosub st_case 6.08 exevent_Drag,_DropG,_DropC
   if %st_run = 0
@@ -4098,6 +4182,7 @@ sub st_c608
   gosub st_soft 6.08.dropxy exevent_DropC_80_90_places_it_there %st_f
 return
 
+; exevent Drag 100 splits the gold pile: 100 lifted, the rest stays
 sub st_c609
   gosub st_case 6.09 Part_of_a_stack
   if %st_run = 0
@@ -4140,6 +4225,7 @@ sub st_c609
     set %st_goldid %st_newid
 return
 
+; event Drag lifts the dagger (#LLifted... follow it); a click drops it back
 sub st_c610
   gosub st_case 6.10 event_Drag
   if %st_run = 0
@@ -4188,6 +4274,7 @@ sub st_c610
   gosub st_eq 6.10.dropped click_p_drops_it_back_into_the_backpack %fx_drag
 return
 
+; exevent Equip puts the dagger on; #FindLayer is 1 for a one-handed weapon
 sub st_c611
   gosub st_case 6.11 exevent_Equip_and_#FindLayer
   if %st_run = 0
@@ -4210,6 +4297,7 @@ sub st_c611
   gosub st_eq 6.11.layer FindLayer_of_a_one-handed_weapon_is_1 %fx_layer
 return
 
+; macro 24 2 disarms into the backpack (#RHandID keeps it) and arms again, also from a written #RHandID
 sub st_c612
   gosub st_case 6.12 Macro_24:_arm_and_disarm
   if %st_run = 0
@@ -4313,6 +4401,7 @@ sub st_wait_bag
   until #FindBagID = %2 || %st_wbi > 20
 return
 
+; exevent DropPD puts the held dagger on you
 sub st_c613
   gosub st_case 6.13 exevent_DropPD
   if %st_run = 0
@@ -4343,6 +4432,7 @@ sub st_c613
   gosub st_eq 6.13 exevent_DropPD_puts_the_held_item_on %fx_drop
 return
 
+; a ring with Anatomy +5 and Luck +77: the skill value grows, the base stays, #Luck grows
 sub st_c614
   gosub st_case 6.14 Skill_bonus:_#Skill_with_and_without_it
   if %st_run = 0
@@ -4460,6 +4550,7 @@ sub st_c614
     gosub st_skip 6.14.luck Luck not_compared_with_the_status_window
 return
 
+; ignoreitem hides an ID from finditem; again, or reset, brings it back
 sub st_c615
   gosub st_case 6.15 ignoreitem
   if %st_run = 0
@@ -4488,6 +4579,7 @@ sub st_c615
   gosub st_eq 6.15.reset ignoreitem_reset_list_brings_it_back none
 return
 
+; hideitem removes an item on the ground from the client's own list
 sub st_c616
   gosub st_case 6.16 hideitem
   if %st_run = 0
@@ -4540,6 +4632,7 @@ sub st_c616
   }
 return
 
+; event Property of the dagger names it
 sub st_c617
   gosub st_case 6.17 event_Property_of_an_item
   if %st_run = 0
@@ -4564,6 +4657,7 @@ sub st_c617
   gosub st_ok 6.17 event_Property_of_the_test_weapon %fx_prop
 return
 
+; exevent PopUp asks for your context menu: you say whether it showed
 sub st_c618
   gosub st_case 6.18 exevent_PopUp
   if %st_run = 0
@@ -4630,6 +4724,7 @@ sub st_s7
   gosub st_c715
 return
 
+; macro 6 flips war mode (letter G) and back
 sub st_c701
   gosub st_case 7.01 Macro_6:_war_and_peace
   if %st_run = 0
@@ -4665,6 +4760,7 @@ sub st_c701
   gosub st_cl_forget war_mode
 return
 
+; macro 14 uses the skill written to #LSkill (Anatomy: its cursor comes up)
 sub st_c702
   gosub st_case 7.02 Macro_14:_last_skill
   if %st_run = 0
@@ -4681,6 +4777,7 @@ sub st_c702
   gosub st_cancel_cursor
 return
 
+; macro 15 casts Magic Arrow (cursor, words) and leaves #LSpell; macro 16 casts the #LSpell written
 sub st_c703
   gosub st_case 7.03 Macros_15_and_16:_spells
   if %st_run = 0
@@ -4726,6 +4823,7 @@ sub st_c703
   set #LSpell %st_ls0
 return
 
+; skill locks through exevent and event: read back, the shard agrees, put back
 sub st_c704
   gosub st_case 7.04 Skill_locks
   if %st_run = 0
@@ -4762,6 +4860,7 @@ sub st_c704
   gosub st_eq 7.04.back the_lock_is_back_as_it_was %st_f
 return
 
+; a stat lock sent with exevent StatLock reaches the shard
 sub st_c705
   gosub st_case 7.05 Stat_lock
   if %st_run = 0
@@ -4807,6 +4906,7 @@ sub st_c705
   gosub st_cl_restore str
 return
 
+; macro 32 toggles Always Run: the client says so, and back
 sub st_c706
   gosub st_case 7.06 Macro_32:_Always_Run
   if %st_run = 0
@@ -4828,6 +4928,7 @@ sub st_c706
   gosub st_ok 7.06.back event_macro_32_again_toggles_it_back %fx_macro
 return
 
+; the targeting macros 52, 50 and 51 select mobiles near you (two chickens are made for it)
 sub st_c707
   gosub st_case 7.07 Macros_50,_51,_52:_the_targeting_system
   if %st_run = 0
@@ -4891,6 +4992,7 @@ sub st_c707
   }
 return
 
+; macro 58 bandages you (hits lowered first): the journal line, one bandage fewer
 sub st_c708
   gosub st_case 7.08 Macro_58:_bandage_yourself
   if %st_run = 0
@@ -4952,6 +5054,7 @@ sub st_c708
   }
 return
 
+; macro 12 opens the door you face: the shard's Opening door... (without it, you say whether it opened)
 sub st_c709
   gosub st_case 7.09 Macro_12:_open_door
   if %st_run = 0
@@ -4989,6 +5092,7 @@ sub st_c709
     goto st_rp_709
 return
 
+; macros 35 and 36 ready the weapon abilities: you say whether they did
 sub st_c710
   gosub st_case 7.10 Macros_35_and_36:_weapon_abilities
   if %st_run = 0
@@ -5032,6 +5136,7 @@ sub st_c710
   wait 10
 return
 
+; macro 37 equips the last weapon again after a disarm (on ModernUO: a NOTE)
 sub st_c711
   gosub st_case 7.11 Macro_37:_equip_last_weapon
   if %st_run = 0
@@ -5073,6 +5178,7 @@ sub st_c711
   gosub st_eq 7.11 event_macro_37_equips_the_last_weapon_again %fx_macro
 return
 
+; macro 56 toggles the targeting system: you say whether it did
 sub st_c712
   gosub st_case 7.12 Macro_56:_targeting_system_on/off
   if %st_run = 0
@@ -5098,6 +5204,7 @@ sub st_c712
     goto st_rp_712
 return
 
+; the macros this script does not run, in one INFO line (the reasons are in the README)
 sub st_c713
   gosub st_case 7.13 Macros_this_script_does_not_run
   if %st_run = 0
@@ -5107,6 +5214,7 @@ sub st_c713
   gosub st_info 7.13 event_macros_not_run_by_this_self-test none
 return
 
+; macro 55 targets the selected chicken: a staff get's cursor answers with its name
 sub st_c714
   gosub st_case 7.14 Macro_55:_current_target
   if %st_run = 0
@@ -5145,6 +5253,7 @@ sub st_c714
   gosub st_cl_restore %st_ch1
 return
 
+; macro 59 bandages the selected chicken (its hits lowered first)
 sub st_c715
   gosub st_case 7.15 Macro_59:_bandage_target
   if %st_run = 0
@@ -5227,6 +5336,7 @@ sub st_s8
   gosub st_c806
 return
 
+; macro 5 walks two tiles each way: the position and #CharDir after each
 sub st_c801
   gosub st_case 8.01 Macro_5:_walk
   if %st_run = 0
@@ -5273,6 +5383,7 @@ sub st_macwalk
   gosub st_eq %st_wid CharDir_is_the_direction_walked %fx_dir
 return
 
+; event PathFind two tiles east and back (client_beta may stop next to it: a NOTE)
 sub st_c802
   gosub st_case 8.02 event_PathFind
   if %st_run = 0
@@ -5313,6 +5424,7 @@ sub st_c802
   gosub st_eq 8.02.back and_back %fx_pf
 return
 
+; path find plans the two tiles south, path walk walks them
 sub st_c803
   gosub st_case 8.03 path_find_and_path_walk
   if %st_run = 0
@@ -5341,6 +5453,7 @@ sub st_c803
   gosub st_eq 8.03.walk path_walk_arrives_there %st_f
 return
 
+; path go back to the test spot
 sub st_c804
   gosub st_case 8.04 path_go
   if %st_run = 0
@@ -5362,6 +5475,7 @@ sub st_c804
   gosub st_eq 8.04 path_go_back_to_the_test_spot %st_f
 return
 
+; path step in a loop until it arrives
 sub st_c805
   gosub st_case 8.05 path_step
   if %st_run = 0
@@ -5391,6 +5505,7 @@ sub st_c805
   path go %st_px %st_py %st_pz 0 %st_tw10
 return
 
+; path check (the client's own step check) on your tile and to the east agrees with path can
 sub st_c806
   gosub st_case 8.06 path_check:_the_client's_own_step_check
   if %st_run = 0
@@ -5432,6 +5547,7 @@ sub st_s9
     gosub st_cl_restore %st_mob
 return
 
+; macro 27 attacks #LTargetID (a rat with 120 hits, or a monster you pick): #EnemyID is it
 sub st_c901
   gosub st_case 9.01 Macro_27:_attack_last
   if %st_run = 0
@@ -5480,6 +5596,7 @@ sub st_c901
   gosub st_eq 9.01 event_macro_27_attacks_#LTargetID:_#EnemyID %st_f
 return
 
+; #EnemyHits is a percentage, and falls as you hit the rat
 sub st_c902
   gosub st_case 9.02 EnemyHits_falls
   if %st_run = 0
@@ -5497,6 +5614,7 @@ sub st_c902
   gosub st_ok 9.02.falls EnemyHits_falls_as_you_hit_it %fx_enemyhp
 return
 
+; macros 52/50 select the rat, macro 53 attacks it: #EnemyID
 sub st_c903
   gosub st_case 9.03 Macros_52_and_53:_attack_selected
   if %st_run = 0
@@ -5537,6 +5655,7 @@ sub st_s10
     gosub st_cl_restore %st_vendor
 return
 
+; a vendor's buy window: getshopinfo and every #Shop... variable of its first entry
 sub st_c1001
   gosub st_case 10.01 getshopinfo_and_the_shop_variables
   if %st_run = 0
@@ -5616,6 +5735,7 @@ sub st_c1001
   set %st_shopprice #ShopItemPrice
 return
 
+; finditem on #ShopItemID finds it with #ShopItemType
 sub st_c1002
   gosub st_case 10.02 The_shop_entry_is_an_item_FindItem_sees
   if %st_run = 0
@@ -5631,6 +5751,7 @@ sub st_c1002
   gosub st_eq 10.02 finditem_#ShopItemID_has_the_#ShopItemType %fx_shop
 return
 
+; setshopitem 3 and Accept: 3 arrive in the backpack; the gold falls without staff (staff buy for free)
 sub st_c1003
   gosub st_case 10.03 setshopitem_and_buying
   if %st_run = 0
@@ -5762,6 +5883,7 @@ sub st_s11
     gosub st_cl_restore %st_own
 return
 
+; a horse made your pet with the shard's ControlMaster (or one of yours you click): #Followers grows
 sub st_c1101
   gosub st_case 11.01 A_pet_and_#Followers
   if %st_run = 0
@@ -5803,6 +5925,7 @@ sub st_c1101
   gosub st_info 11.01 the_pet_you_picked %fx_ext
 return
 
+; exevent RenamePet: the shard and the tooltip both have the new name
 sub st_c1102
   gosub st_case 11.02 exevent_RenamePet
   if %st_run = 0
@@ -5841,6 +5964,7 @@ sub st_c1102
     gosub st_cl_restore %st_pet
 return
 
+; event StatBar on the pet: a new status gump with #ContHP 1 to 100
 sub st_c1103
   gosub st_case 11.03 event_StatBar_of_the_pet
   if %st_run = 0
@@ -5875,6 +5999,7 @@ sub st_c1103
   gosub st_status_keep
 return
 
+; a double click mounts the horse: #MountID, #MountType, layer 25 (off your own mount first)
 sub st_c1104
   gosub st_case 11.04 Mounting:_#MountID_and_#MountType
   if %st_run = 0
@@ -5934,6 +6059,7 @@ sub st_c1104
   gosub st_eq 11.04.layer the_mount_item_is_in_layer_25 %fx_layer
 return
 
+; a double click on yourself dismounts (only after 11.04 put you on the horse)
 sub st_c1105
   gosub st_case 11.05 Dismounting
   if %st_run = 0
@@ -6012,6 +6138,7 @@ sub st_s12
   }
 return
 
+; Bless and Protection cast on you (Protection kept as it was): the bar is open, scanbuffs finds them
 sub st_c1201
   gosub st_case 12.01 Buffs_on_the_character
   if %st_run = 0
@@ -6124,6 +6251,7 @@ sub st_c1201
   }
 return
 
+; every buff through #BuffIndex: icon, cliloc, name, time, description; you compare the tooltips
 sub st_c1202
   gosub st_case 12.02 Every_buff_through_#BuffIndex
   if %st_run = 0
@@ -6199,6 +6327,7 @@ sub st_buff_one
   }
 return
 
+; a buff with a timer: #BuffTime 15 seconds later is lower
 sub st_c1203
   gosub st_case 12.03 BuffTime_counts_down
   if %st_run = 0
@@ -6223,6 +6352,7 @@ sub st_c1203
   gosub st_ok 12.03 BuffTime_goes_down %fx_bufftime
 return
 
+; scanbuffs with an icon ID keeps that buff, with an unknown one finds nothing, without one finds all
 sub st_c1204
   gosub st_case 12.04 scanbuffs_with_an_icon_ID
   if %st_run = 0
@@ -6249,6 +6379,7 @@ sub st_c1204
   gosub st_soft 12.04.all scanbuffs_without_an_ID_finds_them_all_again %fx_buff
 return
 
+; macro 57 closes the bar (scanbuffs 0) and opens it again (the buffs come back)
 sub st_c1205
   gosub st_case 12.05 The_buff_bar_closed
   if %st_run = 0
@@ -6333,6 +6464,7 @@ sub st_hands_warn
   gosub st_pan_hold
 return
 
+; the warning before the first event-hook check (once a run): a wrong E_ value can crash the client
 sub st_hook_warn
   gosub st_hands_warn
   if %st_hookwarned = 1 || %st_stop = 1
@@ -6406,7 +6538,7 @@ sub st_pace
   if %ST_FAST = 1
     return
   str len %st_say
-  set %st_pn #StrRes
+  set %st_plen #StrRes
   repeat
     set %st_pnow #SCnt2
     set %st_pd %st_pnow - %st_plast
@@ -6419,7 +6551,7 @@ sub st_pace
     if %st_pm > %st_pmax
       wait 2
   until %st_pm <= %st_pmax
-  set %st_pm %st_pm + %st_pn
+  set %st_pm %st_pm + %st_plen
 return
 
 ; is the shard answering staff commands? -> %st_staffok, %st_stafflvl
@@ -6450,6 +6582,7 @@ sub st_sget
   gosub st_sget_read
 return
 
+; reads the shard's answer Prop = value from the journal after %st_sj -> %st_gv (all), %st_gn (first word)
 sub st_sget_read
   set %st_gt %st_gp , _=_
   findjournal %st_sj * %st_tw3 %st_gt
@@ -6576,6 +6709,8 @@ sub st_num2id
   until %st_nn = 0
 return
 
+; flips bits 0, 2 and 6 of %st_ser: an EasyUO ID is the serial XOR 69, plus 7, in base 26 (st_id2ser,
+; st_num2id)
 sub st_xor69
   set %st_b ( %st_ser / 1 ) % 2
   if %st_b = 1
@@ -6630,6 +6765,7 @@ sub st_wait_cursor
   waitfor #TargCurs = 1 %st_tw3
 return
 
+; Esc away a target cursor that is still up
 sub st_cancel_cursor
   if #TargCurs = 1
   {
@@ -6681,6 +6817,7 @@ sub st_newitem_begin
   set %st_niold %st_nilist
 return
 
+; the IDs of type %st_nit on the ground (3 tiles) or in the backpack -> %st_nilist, %st_nic
 sub st_newitem_scan
   set %st_nilist |
   if %st_niw = G
@@ -6698,6 +6835,8 @@ sub st_newitem_scan
   }
 return
 
+; the first object of %st_nit that was not there at st_newitem_begin -> %st_newid, recorded for the clean-up
+; as %1
 sub st_newitem_end
   set %st_niwhat %1
   set %st_newid N/A
@@ -6977,6 +7116,7 @@ sub st_spot_go
   }
 return
 
+; facet number %1 -> its name for [go (%st_fname)
 sub st_facetname
   set %st_fname Felucca
   if %1 = 1
@@ -7396,6 +7536,7 @@ sub st_startup
   gosub st_first_run
 return
 
+; rows an earlier run left in the clean-up table: list them, then undo or forget them (you choose)
 sub st_pending_cleanup
   sql query SELECT c.rowid AS st_q_rid, c.kind AS st_q_kind, c.target AS st_q_target, c.detail AS st_q_detail, c.old_value AS st_q_old, r.shard AS st_q_shard, r.charid AS st_q_char FROM cleanup c LEFT JOIN runs r ON r.id = c.run WHERE c.done = 0 ORDER BY c.rowid DESC
   set %st_pn #SqlCnt
@@ -7559,6 +7700,7 @@ sub st_optin_on
     set %st_oi %st_opt_buffs
 return
 
+; waits for a button of the main window and acts on it: run, one check, settings or quit
 sub st_mw_wait
   set #MenuButton N/A
   while #MenuButton = N/A

@@ -477,6 +477,15 @@ It stops after stage 1, as it must with no client. With `ST_NOSTOP 1`, `ST_FAST 
 111111111111` it walks every stage (about 35 s) and logs a `DEV:` line if a stage's check count in
 `st_counts` is out of date: the progress bar's total comes from that table.
 
+One stage on a client, while you fix a table value: a copy with `ST_UNATTENDED 1`, `ST_REPORT 0` (so it needs
+no `execute`) and `ST_STAGES` set to that stage (`000100000000` for stage 4), run on the client:
+
+    EUOCli run <the copy> --client 1 --timeout 600
+
+The report lines come out as `log` lines, and the HUMAN checks are SKIPs. The copy uses a `:memory:`
+database, so a run that crashes leaves no clean-up rows behind: to keep them, make its `sql open` open
+`EUOSelfTest.db`.
+
 ## Keeping it complete
 
 - `tests\tools\CheckSelfTestCoverage.ps1` (run by `tests\run_tests.ps1`) fails when a variable or command of

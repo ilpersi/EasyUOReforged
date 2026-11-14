@@ -54,3 +54,58 @@ wait 3s                               ; 31 characters: about 3 seconds before th
 msg Ask me for a price$
 halt
 ```
+
+### A sub that keeps to the limit
+
+Copy `say_paced` to the end of your script, after its `halt`, and say every line through it. It keeps its own
+copy of the client's meter and waits only as long as the line needs, so a few short lines still go out at
+once. Write the spaces of the text as `_`.
+
+```euo
+gosub say_paced Selling_arrows_for_10_gold_each
+gosub say_paced Ask_me_for_a_price
+gosub say_paced Open_until_sunset
+halt
+
+; say_paced: says %1 (spaces written as _) as soon as the client's spam meter has room for it.
+; %say_meter is the script's copy of the meter. It goes down by %say_rate characters a second:
+; 12 is safe on the clients measured. It counts time with #SCnt2: don't set #SCnt2 in the script.
+sub say_paced
+  if %say_rate = N/A
+    set %say_rate 12
+  if %say_last = N/A
+  {
+    set %say_meter 0
+    set %say_last #SCnt2
+  }
+  str replace %1 _ #spc
+  set %say_text #StrRes
+  str len %say_text
+  set %say_len #StrRes
+  repeat
+    ; how far the meter has gone down since the last look (#SCnt2 counts tenths of a second)
+    set %say_now #SCnt2
+    set %say_down %say_now - %say_last
+    set %say_down %say_down * %say_rate
+    set %say_down %say_down / 10
+    if %say_down > 0
+    {
+      set %say_meter %say_meter - %say_down
+      set %say_last %say_now
+    }
+    if %say_meter < 0
+      set %say_meter 0
+    ; wait while the meter is high: 10 leaves room for what you type yourself
+    if %say_meter > 10
+      wait 2
+  until %say_meter <= 10
+  set %say_meter %say_meter + %say_len
+  msg %say_text , $
+return
+```
+
+- The client's own limit is 30, and the sub waits until its copy is down to 10. A line typed by you, or by
+  another script on the same client, counts too, and the sub can't see it.
+- To pace staff commands too, say them through the sub: `gosub say_paced [set_Str_100`.
+- [`str replace`](/commands/str/#replace-reforged) is new in EasyUO Reforged. For EasyUO 1.5, drop the
+  `str replace` line and its `set`, and set `%say_text` before the `gosub`: `set %say_text Hello , #spc , there`.
