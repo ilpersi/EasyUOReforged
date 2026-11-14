@@ -117,7 +117,8 @@ The script:
 
 Most tests need no game client. `tests/LiveClientTests.pas` runs against a client if one is running and
 logged in, and reports its tests as ignored otherwise. Anything else that needs a live client is checked
-by hand, with the [self-test](https://github.com/ilpersi/EasyUOReforged/blob/main/tools/EUOSelfTest/README.md).
+in the game with the [self-test](https://github.com/ilpersi/EasyUOReforged/blob/main/tools/EUOSelfTest/README.md),
+a script that checks by itself what a script can see and asks you about the rest.
 
 To run part of the suite, call the runner the script built:
 

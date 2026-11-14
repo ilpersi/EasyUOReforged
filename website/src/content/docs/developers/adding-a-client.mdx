@@ -329,14 +329,22 @@ first.
 
 Then test in the game:
 
-1. Start the new `EasyUOReforged.exe` with the client running and logged in.
-2. Run [`tools/EUOSelfTest/EUOSelfTest.euo`](https://github.com/ilpersi/EasyUOReforged/blob/main/tools/EUOSelfTest/README.md).
-   It walks through every variable, event and command, checks what it can by itself, asks you about the
-   rest, and writes a report.
-3. Run it on a client that already works too, and compare the two reports.
+1. Start the new `EasyUOReforged.exe` with the client running and logged in. A GM character on your own
+   [ModernUO](https://github.com/modernuo/ModernUO) shard is best: the self-test then makes values known with
+   staff commands (stats, gold, a skill, status letters) and creates what it needs. Any character works; the
+   checks that need staff commands then ask you or are skipped.
+2. Run [`tools/EUOSelfTest/EUOSelfTest.euo`](https://github.com/ilpersi/EasyUOReforged/blob/main/tools/EUOSelfTest/README.md)
+   and tick the stages to run. They go from the safest (reading variables) to the riskiest (code run through
+   the event hook), and the script warns you before the first event-hook stage. The report is written as it
+   goes, so if a wrong `E_` value crashes the client, start again: it offers to resume after the last stage
+   that finished and to clean up what the crashed run left.
+3. Read the end of the report: **TABLE_FIELDS_WITH_FAILING_CHECKS** lists each field with failing checks,
+   for example `C_CONTPOS: 3 of 4 checks fail`. That is the list of what to fix in `uoclidata.pas`.
+4. Run it on a client that already works too, and compare the two reports: check IDs are stable, so the
+   lines match up. There every check should pass, or be a NOTE or a SKIP with a reason.
 
-The self-test is the only check of the inherited layout values (shop, status flags, stat gump), so do not
-skip it.
+The self-test is the only check of the inherited layout values (status flags, stat gump, and the shop and
+bill in its opt-in vendor stage), so do not skip it.
 
 ## 9. Add the build to the knowledge base
 

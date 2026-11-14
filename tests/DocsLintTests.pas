@@ -52,7 +52,7 @@ type
 const
   MinToFind = 300;   // fewer scripts than this means the pages were not found or read
 
-  Excepted : array[0..15] of TExcepted = (
+  Excepted : array[0..14] of TExcepted = (
     // ---- the site: examples that show a mistake, and one that is not a script -------------
     (Place: 'guides/execution-speed.md#1'; Rule: 'unknown-command';
      Why: 'pseudo-code of what EasyUO does each cycle ("run #LPC lines of the script"), marked as such'),
@@ -84,9 +84,7 @@ const
     (Place: 'tests/euo/all-commands-test.euo'; Rule: 'unknown-subcommand';
      Why: 'tests that event sleep is accepted and does nothing'),
     (Place: 'tests/euo/call-helper.euo'; Rule: 'missing-sub';
-     Why: 'tests that a called script cannot gosub a sub of the script that called it'),
-    (Place: 'tools/EUOSelfTest/EUOSelfTest.euo'; Rule: 'unknown-subcommand';
-     Why: 'tests that event sleep is accepted and does nothing')
+     Why: 'tests that a called script cannot gosub a sub of the script that called it')
   );
 
 ////////////////////////////////////////////////////////////////////////////////

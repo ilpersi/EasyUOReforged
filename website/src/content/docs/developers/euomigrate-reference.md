@@ -278,7 +278,8 @@ Measured on the builds at hand:
   form cannot be inferred. The report flags them, and the `E_` comments in `uoclidata.pas` say what each
   form needs. Do these [by hand](/developers/manual-derivation/).
 - **Layouts without a probe** stay inherited and are listed as such in the report: shop and bill,
-  `B_CHARSTATUS`, `B_FINDREP` and the stat-gump fields. The self-test exercises all of them.
+  `B_CHARSTATUS`, `B_FINDREP` and the stat-gump fields. The self-test exercises all of them (the shop
+  and bill in its opt-in vendor stage).
 - **Live checks need something to look at.** Many globals are empty until something happens (no enemy,
   nothing on the cursor, no popup). `verify` then has nothing to confirm and leaves the static status.
 - **Identical copies of a function.** When the client has two copies (the beta has two tick functions),

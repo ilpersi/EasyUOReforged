@@ -189,7 +189,8 @@ To find them for a new generation: the client names its buff functions in its st
 (`CBuffIconsGump::AddIcon`, `RemoveIcon`, `GetToolTipString`, ...). Follow those strings to the functions
 and read the offsets off the disassembly; the tooltip function shows the entry fields, the timer map and
 the cliloc lookup in one place. Then check in a client with a few buffs on (Bless, Curse and Hiding are
-enough), and run stage 9 of the self-test (below). EUOMigrate's `verify` and `probe` check all six values.
+enough), and run stage 12 of the self-test (below), *Buffs*. EUOMigrate's `verify` and `probe` check all six
+values.
 
 ## House pieces
 
@@ -233,7 +234,7 @@ The live test `TestPathLiveObjectsSeeTheCharacter` prints how many house pieces 
   (relocatable) that resolves the new build and checks the values you care about. See
   [Add a new client](/developers/adding-a-client/#7-add-a-unit-test).
 - **The self-test** in the running client: [`tools/EUOSelfTest`](https://github.com/ilpersi/EasyUOReforged/blob/main/tools/EUOSelfTest/README.md)
-  walks through every variable, event and command and writes a report. Run it on the new client and on a
-  known one, and compare the two reports.
+  tests every client command and variable and writes a report that ends with the table fields whose checks
+  fail. Run it on the new client and on a known one, and compare the two reports.
 - **Live tests**: `tests/LiveClientTests.pas` runs against a client if one is running when you run the
   test suite.

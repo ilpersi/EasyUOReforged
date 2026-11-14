@@ -227,7 +227,8 @@ cache.
   - `B_FINDREP`;
   - the stat-gump fields.
 
-  `tools\EUOSelfTest` exercises all of them.
+  `tools\EUOSelfTest` exercises all of them (shop and bill in its opt-in vendor stage), and its report
+  ends with the fields whose checks fail.
 - **Live checks need state.** Many globals are null until something happens (no enemy, nothing on
   the cursor, no popup). `verify` then has nothing to confirm and leaves the static status.
 - **Identical copies of a function.** When two copies exist (the beta has two tick functions), only a
