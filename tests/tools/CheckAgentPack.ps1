@@ -43,6 +43,7 @@ $NoRuleNeeded = @{
   '#MountID'     = 'a plain value to read; nothing to get wrong'
   '#MountType'   = 'a plain value to read; nothing to get wrong'
   '#ReforgedVer' = 'the version of the program; scripts rarely need it'
+  '#EnemyHits'   = 'a value fix (a percentage on every shard); scripts read it as before'
 }
 # command -> why its page's needsClient differs from how the interpreter registers it
 $ClientDiffers = @{

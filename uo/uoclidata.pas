@@ -5614,7 +5614,7 @@ SysVarModernLayout : array[0..39] of TSysVarList = (
   (Expr: B_LTARGID;   Val: $00000024),   // $B01844: id the click handler stores (not for a click on yourself)
   (Expr: B_LTARGTILE; Val: $00000020),   // $B01840: tile/type for a static
   (Expr: B_LTARGKIND; Val: $00000030),   // $B01850: 1 object, 2 ground, 3 static
-  (Expr: B_ENEMYHPVAL; Val: $00000154),  // in the enemy status gump (serial at +$150, current/max at +$154/+$158)
+  (Expr: B_ENEMYHPVAL; Val: $00000158),  // current hits in the enemy status gump (serial +$150, maximum +$154)
   (Expr: B_LSPELL;    Val: $FFFFFE34),   // $B01654: dword, written by the cast routine (macro "last spell" reads it)
   (Expr: B_LSKILL;    Val: $FFFFFE4C),   // $B0166C: dword, macro "last skill" reads it
   (Expr: B_LTARGX;    Val: $01588E68),   // $208A688: X, Y words then Z word, as in the old build

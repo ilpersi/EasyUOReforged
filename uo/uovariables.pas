@@ -24,6 +24,9 @@ unit uovariables;
   interpreter-core phase's test stubs relied on, and now true of the real
   engine too.
 
+  Port change: RWV is protected and virtual (as in uocommands.pas's TUOCmd) so that a unit
+  test can point an accessor at a fake client process; behaviour is otherwise unchanged.
+
   Kept verbatim, not "fixed": the WriteTargCurs code-caving payload (TargetHandler)
   is raw x86-32 machine code as byte-literal DATA, not a Delphi asm block -- it
   runs on the always-32-bit remote client, so it needs no changes for a 64-bit
@@ -51,7 +54,9 @@ type
     BPID          : Cardinal;
     BPIDChar      : Cardinal;
     function      GetStat(var Addr : Cardinal) : Boolean;
-    procedure     RWV(RW : Cardinal; MemPos : Cardinal; Buf : PChar; Length : Cardinal);
+  protected
+    procedure     RWV(RW : Cardinal; MemPos : Cardinal; Buf : PChar; Length : Cardinal); virtual;
+  private
     ////////////////////////////////////////////////////////////////////////////
     function      ReadLShard : Cardinal;      procedure     WriteLShard(Value : Cardinal);
     function      ReadContPosX : Integer;     procedure     WriteContPosX(Value : Integer);
@@ -883,6 +888,7 @@ function TUOVar.EnemyHits : Cardinal;
 var
   Buf  : Cardinal;
   Buf2 : Cardinal;
+  HMax : Cardinal;
 begin
   VarRes:=False;
   Result:=0;
@@ -890,11 +896,18 @@ begin
   if Buf=0 then Exit;
   RWV(Read,Buf+4,@Buf2,4);
   if Buf2<>$FEEDBEEF then Exit;
+  RWV(Read,Buf+Cst.BENEMYHPVAL-4,@HMax,2);
   RWV(Read,Buf+Cst.BENEMYHPVAL,@Buf,2);
-  Result:=Word(Buf)*4;
-  // Port addition: the old builds keep the bar length (0..25) there; the relocated builds
-  // keep the percentage itself (a full-health dragon read 100, max 100).
-  if Cst.ISMODERN then Result:=Word(Buf);
+  // Port change: the original returns the word times 4. The gump keeps the current and the
+  // maximum hits exactly as the shard sent them (maximum in the dword right before the current
+  // one; the client draws the bar as current / maximum: 4.0.0c $B0/$AC, 4.0.11c to 7.0.117.33
+  // $C4/$C0, the beta $158/$154), and times 4 is only right on shards that send them out of 25
+  // (RunUO). ModernUO sends them out of 100, where times 4 read 400 at full health. Dividing by
+  // the maximum gives the percentage on every shard and the original numbers out of 25
+  // (Cur*100 div 25 = Cur*4); no maximum yet falls back to the original formula.
+  HMax:=Word(HMax);
+  if HMax>0 then Result:=Word(Buf)*100 div HMax
+  else Result:=Word(Buf)*4;
   VarRes:=True;
 end;
 

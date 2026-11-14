@@ -89,6 +89,9 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 - **Stop** ends a script that is inside a [`wait`](/commands/wait/), [`target`](/commands/target/),
   [`waitfor`](/commands/waitfor/) or another waiting command without running anything more. In EasyUO 1.5 the
   line after the wait could still run once.
+- **[`#EnemyHits`](/variables/enemyhits/)** is a percentage on every shard. EasyUO 1.5 multiplied the
+  client's number by 4, which is right only on shards that send health out of 25, and read up to 400 on
+  ModernUO shards. On shards that count out of 25 the numbers are the same as before.
 
 ## uo.dll
 

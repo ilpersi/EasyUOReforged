@@ -29,6 +29,14 @@ type
     function  ClientAttached : Boolean; override;
   end;
 
+  // The same for TUOVar: lets #EnemyHits read a fake enemy gump.
+  TFakeClientVar = class(TUOVar)
+  public
+    FakeHandle : Cardinal;
+  protected
+    procedure RWV(RW : Cardinal; MemPos : Cardinal; Buf : PChar; Length : Cardinal); override;
+  end;
+
   // Opens up TUOEvent's protected cave builders so the code they generate can be inspected.
   TCaveEvent = class(TUOEvent)
   public
@@ -71,6 +79,8 @@ type
     procedure OpenMountWorld(Modern : Boolean);
     function  FindScanned(ID : Cardinal) : Boolean;
     procedure CheckLiveObjectsTellTheMount(Modern : Boolean);
+    function  OpenEnemyGump(Modern : Boolean) : TFakeClientVar;
+    procedure PutEnemyHits(Modern : Boolean; Max, Cur : Cardinal);
   protected
     procedure SetUp; override;
     procedure TearDown; override;
@@ -121,6 +131,10 @@ type
     procedure TestScanItemsKeepsTheLayerOfWornItemsOnly;
     procedure TestLiveObjectsTellTheMountOnAFixedBaseClient;
     procedure TestLiveObjectsTellTheMountOnAModernClient;
+    // #EnemyHits: current hits / maximum hits, as the shard sent them
+    procedure TestEnemyHitsIsAPercentOnAFixedBaseClient;
+    procedure TestEnemyHitsIsAPercentOnAModernClient;
+    procedure TestEnemyHitsIsNAWithoutAnEnemyGump;
   end;
 
 implementation
@@ -135,6 +149,16 @@ begin
   else WriteMem(FakeHandle, MemPos, Buf, Length);
 end;
 function TFakeClientCmd.ClientAttached : Boolean; begin Result:=True; end;
+
+procedure TFakeClientVar.RWV(RW : Cardinal; MemPos : Cardinal; Buf : PChar; Length : Cardinal);
+begin
+  if RW=Read then
+  begin
+    ZeroMemory(Buf, Length);
+    ReadMem(FakeHandle, MemPos, Buf, Length);
+  end
+  else WriteMem(FakeHandle, MemPos, Buf, Length);
+end;
 
 procedure TCaveEvent.CavePrepare(Base : Cardinal);
 begin
@@ -1610,6 +1634,113 @@ end;
 procedure TCstDbModernBuildTests.TestLiveObjectsTellTheMountOnAModernClient;
 begin
   CheckLiveObjectsTellTheMount(True);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// #EnemyHits. The enemy gump keeps the current and the maximum hits as the shard sent them, and
+// the client draws its bar as current / maximum (client.exe 7.0.117.33 $5432CA: current +$C4,
+// maximum +$C0, serial +$C8; beta 7.0.117.31 $613A7D: current +$158, maximum +$154, serial +$150).
+// ModernUO sends them out of 100, RunUO out of 25.
+const
+  EnemyGump      = $04000000;      // fake heap
+  FixedEnemyPtr  = $009A564C;      // C_ENEMYHITS of client.exe 7.0.117.1 (milestone 0)
+  ModernEnemyPtr = $00C8B858;      // C_ENEMYHITS of the first beta, beyond the fake image
+  EnemySerial    = $00001234;
+
+function TCstDbModernBuildTests.OpenEnemyGump(Modern : Boolean) : TFakeClientVar;
+var
+  Ptr : Cardinal;
+begin
+  if not Ready then Ignore(Why);
+  if Modern then WriteHeader(KnownStamp, $8140, $2000)
+  else WriteHeader(KnownStamp, $0000, $2000);
+  if VirtualAllocEx(PHnd, Pointer(EnemyGump), $1000, MEM_RESERVE or MEM_COMMIT, PAGE_READWRITE) = nil then
+    Ignore('Cannot map the fake heap (Win32 error ' + IntToStr(GetLastError) + ').');
+  if Modern and (VirtualAllocEx(PHnd, Pointer(ModernEnemyPtr and $FFFFF000), $1000,
+    MEM_RESERVE or MEM_COMMIT, PAGE_READWRITE) = nil) then
+    Ignore('Cannot map the fake C_ENEMYHITS (Win32 error ' + IntToStr(GetLastError) + ').');
+  Sel := TUOSel.Create;
+  Sel.CstDB.Update('7.0.117.1', PHnd);
+  Result := TFakeClientVar.Create(Sel);
+  Result.FakeHandle := PHnd;
+  Vr := Result;
+  AssertEquals('layout', Modern, Sel.CstDB.ISMODERN);
+  if Modern then Ptr := ModernEnemyPtr else Ptr := FixedEnemyPtr;
+  Eq('C_ENEMYHITS', Ptr, Sel.CstDB.ENEMYHITS);
+
+  PutDWord(Ptr, EnemyGump);
+  PutDWord(EnemyGump, $00777777);                      // vtable
+  PutDWord(EnemyGump + 4, $FEEDBEEF);
+  if Modern then PutDWord(EnemyGump + $150, EnemySerial)
+  else PutDWord(EnemyGump + $C8, EnemySerial);
+end;
+
+procedure TCstDbModernBuildTests.PutEnemyHits(Modern : Boolean; Max, Cur : Cardinal);
+begin
+  if Modern then
+  begin
+    PutDWord(EnemyGump + $154, Max);
+    PutDWord(EnemyGump + $158, Cur);
+  end
+  else
+  begin
+    PutDWord(EnemyGump + $C0, Max);
+    PutDWord(EnemyGump + $C4, Cur);
+  end;
+end;
+
+procedure TCstDbModernBuildTests.TestEnemyHitsIsAPercentOnAFixedBaseClient;
+var
+  V : TFakeClientVar;
+begin
+  V := OpenEnemyGump(False);
+  Eq('B_ENEMYHPVAL: the current hits', $C4, Sel.CstDB.BENEMYHPVAL);
+
+  PutEnemyHits(False, 100, 94);                        // ModernUO; times 4 read 376 here
+  Eq('ModernUO, out of 100', 94, V.EnemyHits);
+  AssertTrue('VarRes', V.VarRes);
+  PutEnemyHits(False, 25, 24);                         // RunUO: the same as EasyUO's times 4
+  Eq('RunUO, out of 25', 96, V.EnemyHits);
+  PutEnemyHits(False, 25, 25);
+  Eq('full health', 100, V.EnemyHits);
+  PutEnemyHits(False, 120, 113);                       // a shard that sends the real hits
+  Eq('real hits', 94, V.EnemyHits);
+  PutEnemyHits(False, 0, 5);                           // no maximum: the original formula
+  Eq('no maximum', 20, V.EnemyHits);
+  AssertTrue('VarRes', V.VarRes);
+end;
+
+procedure TCstDbModernBuildTests.TestEnemyHitsIsAPercentOnAModernClient;
+var
+  V : TFakeClientVar;
+begin
+  V := OpenEnemyGump(True);
+  Eq('B_ENEMYHPVAL: the current hits', $158, Sel.CstDB.BENEMYHPVAL);
+
+  PutEnemyHits(True, 100, 94);                         // the old reading gave the maximum, 100
+  Eq('ModernUO, out of 100', 94, V.EnemyHits);
+  AssertTrue('VarRes', V.VarRes);
+  PutEnemyHits(True, 25, 6);
+  Eq('RunUO, out of 25', 24, V.EnemyHits);
+end;
+
+procedure TCstDbModernBuildTests.TestEnemyHitsIsNAWithoutAnEnemyGump;
+var
+  V : TFakeClientVar;
+begin
+  V := OpenEnemyGump(False);
+  PutEnemyHits(False, 100, 50);
+  Eq('the gump', 50, V.EnemyHits);
+  AssertTrue('VarRes', V.VarRes);
+
+  PutDWord(EnemyGump + 4, 0);                          // not a gump any more
+  Eq('not a gump', 0, V.EnemyHits);
+  AssertFalse('VarRes: not a gump', V.VarRes);
+
+  PutDWord(EnemyGump + 4, $FEEDBEEF);
+  PutDWord(FixedEnemyPtr, 0);                          // no enemy
+  Eq('no enemy', 0, V.EnemyHits);
+  AssertFalse('VarRes: no enemy', V.VarRes);
 end;
 
 initialization
