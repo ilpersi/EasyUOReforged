@@ -1,0 +1,197 @@
+; ============================================================================
+;  EnemyHitsProbe: #EnemyHits and #EnemyID in combat on client_beta.exe
+;  7.0.117.31 (docs/beta-31-variables.md, sections 4 and 6).
+;
+;  Before the fix #EnemyHits read N/A in combat: C_ENEMYHITS pointed at the
+;  targeting system's bar, not at the bar the client opens for the enemy you
+;  attack. Expected now (a ModernUO shard sends other mobiles' hits out of 100):
+;    after attacking a rat with 120 of 120 hits   90 to 100 (your blows count)
+;    after [set Hits 60 on it                     35 to 50
+;  Then it attacks the same rat again with the targeting macros (52/50 select,
+;  53 attack selected) and only LOGS #EnemyID for a few seconds: in the
+;  self-test it read N/A one second after macro 53 on this client.
+;
+;  WHAT IT DOES IN THE GAME (a GM on a ModernUO shard, staff prefix below):
+;    - [self add Rat on your tile, held in place (CantWalk), 120 hits
+;    - attacks it (event macro 27, attack last; you go into war mode and hit it)
+;    - [serial <n> set Hits 60 on the rat
+;    - selects it (event macro 52 5, then 50 5) and attacks it (event macro 53)
+;    - puts your war mode back as it was and deletes the rat
+;  Don't touch the client while it runs (about 15 seconds).
+;
+;  Run: EUOCli.exe run tests/tools/EnemyHitsProbe.euo --client 1 --timeout 90
+; ============================================================================
+set %pfx [           ; the shard's staff command prefix
+set %tw 60           ; ticks to wait (60 = 3 seconds)
+set %alpha ABCDEFGHIJKLMNOPQRSTUVWXYZ
+set %npass 0
+set %nfail 0
+
+set %war0 0
+if G in #CharStatus
+  set %war0 1
+set %eh #EnemyHits
+set %ei #EnemyID
+log before: EnemyID %ei EnemyHits %eh war %war0
+
+; a rat
+gosub eh_list
+set %old %list
+set %cmd %pfx , self , #spc , add , #spc , Rat
+log %cmd
+msg %cmd , $
+set %rat N/A
+set %try 0
+repeat
+  wait 5
+  gosub eh_list
+  if %nfound > 0
+  {
+    for %j 1 %nfound
+    {
+      set #FindIndex %j
+      set %key | , #FindID , |
+      if %key notin %old && %rat = N/A
+        set %rat #FindID
+    }
+  }
+  set %try %try + 1
+until %rat <> N/A || %try > 12
+if %rat = N/A
+{
+  log no new rat appeared: stopped
+  halt
+}
+set %in %rat
+gosub eh_id2ser
+set %cmd %pfx , serial , #spc , %ser , #spc , set , #spc , CantWalk , #spc , true
+msg %cmd , $
+wait 5
+set %cmd %pfx , serial , #spc , %ser , #spc , set , #spc , HitsMaxSeed , #spc , 120 , #spc , Hits , #spc , 120
+msg %cmd , $
+wait 10
+log rat %rat ( serial %ser )
+
+; attack it
+set #LTargetID %rat
+set #LTargetKind 1
+event macro 27 0
+waitfor #EnemyID = %rat %tw
+set %ei #EnemyID
+log after macro 27: EnemyID %ei
+wait 5
+set %obs #EnemyHits
+set %lo 90
+set %hi 100
+gosub eh_range attack.full
+
+set %cmd %pfx , serial , #spc , %ser , #spc , set , #spc , Hits , #spc , 60
+log %cmd
+msg %cmd , $
+waitfor #EnemyHits <= 50 %tw
+set %obs #EnemyHits
+set %lo 35
+set %hi 50
+gosub eh_range attack.half
+
+; the self-test's 9.03: select it, then attack selected, and watch #EnemyID
+set %n 0
+event macro 52 5
+wait 10
+while #LTargetID <> %rat && %n < 8
+{
+  event macro 50 5
+  wait 10
+  set %n %n + 1
+}
+set %lt #LTargetID
+log selected: LTargetID %lt ( rat %rat )
+event macro 53 0
+for %k 1 8
+{
+  wait 10
+  set %ei #EnemyID
+  set %eh #EnemyHits
+  finditem %rat G_5
+  set %alive #FindCnt
+  set %war 0
+  if G in #CharStatus
+    set %war 1
+  log macro 53 then %k half-seconds: EnemyID %ei EnemyHits %eh rat_seen %alive war %war
+}
+
+; clean-up
+set %war 0
+if G in #CharStatus
+  set %war 1
+if %war <> %war0
+{
+  event macro 6 0
+  wait 10
+}
+set %cmd %pfx , serial , #spc , %ser , #spc , delete
+log clean-up: %cmd
+msg %cmd , $
+wait 10
+log summary: pass %npass - fail %nfail
+halt
+
+; %obs in %lo..%hi, named %1
+sub eh_range
+  if %obs <> N/A && %obs >= %lo && %obs <= %hi
+  {
+    set %npass %npass + 1
+    log PASS %1 EnemyHits %obs expected %lo to %hi
+  }
+  else
+  {
+    set %nfail %nfail + 1
+    log FAIL %1 EnemyHits %obs expected %lo to %hi
+  }
+return
+
+sub eh_list
+  set %list |
+  finditem * G_2
+  set %nfound #FindCnt
+  if %nfound > 0
+  {
+    for %j 1 %nfound
+    {
+      set #FindIndex %j
+      set %list %list , #FindID , |
+    }
+  }
+return
+
+; ---- EasyUO ID -> serial (as the self-test's st_id2ser) -----------------------
+sub eh_id2ser
+  set %ser 0
+  str len %in
+  set %il #StrRes
+  if %il = 0
+    return
+  for %ij %il 1
+  {
+    str mid %in %ij 1
+    str pos %alpha #StrRes
+    set %ser %ser * 26 + #StrRes - 1
+  }
+  set %ser %ser - 7
+  ; xor 69 flips the bits 1, 4 and 64
+  set %b ( %ser / 1 ) % 2
+  if %b = 1
+    set %ser %ser - 1
+  else
+    set %ser %ser + 1
+  set %b ( %ser / 4 ) % 2
+  if %b = 1
+    set %ser %ser - 4
+  else
+    set %ser %ser + 4
+  set %b ( %ser / 64 ) % 2
+  if %b = 1
+    set %ser %ser - 64
+  else
+    set %ser %ser + 64
+return

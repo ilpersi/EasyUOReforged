@@ -81,6 +81,7 @@ type
     procedure CheckLiveObjectsTellTheMount(Modern : Boolean);
     function  OpenEnemyGump(Modern : Boolean) : TFakeClientVar;
     procedure PutEnemyHits(Modern : Boolean; Max, Cur : Cardinal);
+    procedure OpenStatusGump(Modern : Boolean);
   protected
     procedure SetUp; override;
     procedure TearDown; override;
@@ -135,6 +136,11 @@ type
     procedure TestEnemyHitsIsAPercentOnAFixedBaseClient;
     procedure TestEnemyHitsIsAPercentOnAModernClient;
     procedure TestEnemyHitsIsNAWithoutAnEnemyGump;
+    procedure TestNextBetaFindsTheAttackBarByScanning;
+    // beta 7.0.117.31: the lifted item, the notoriety, the status gump's hits
+    procedure TestNextBetaReadsTheLiftedItem;
+    procedure TestContHPOnAFixedBaseClient;
+    procedure TestContHPOnAModernClient;
   end;
 
 implementation
@@ -310,6 +316,9 @@ begin
   AssertEquals('bill gump: first entry', Cardinal($170), Cst.BBILLFIRST);
   AssertEquals('gump list link is inherited', Cardinal($58), Cst.BCONTNEXT);
   AssertEquals('notoriety byte', Cardinal($20C), Cst.BFINDREP);
+  AssertEquals('lifted type: layout', Cardinal($FFFFFFDC), Cst.BLLIFTEDTYPE);
+  AssertEquals('lifted flag: layout', Cardinal($34), Cst.BLLIFTEDKIND);
+  AssertEquals('enemy bar: current hits', Cardinal($154), Cst.BENEMYHPVAL);
   AssertEquals('client language string', Cardinal($200), Cst.BLANG);
   AssertEquals('left hand item for macro 24', Cardinal($18), Cst.BLHAND);
   AssertEquals('right hand item for macro 24', Cardinal($1C), Cst.BRHAND);
@@ -335,6 +344,11 @@ begin
   AssertEquals('last target X/Y/Z', Cardinal($01588F20), Cst.BLTARGX);
   AssertEquals('next-container X is declared before its Y', Cardinal($FFFFFFFC), Cst.BNEXTCX);
   AssertEquals('target callback pointer', Cardinal($678), Cst.BTARGPROC);
+  AssertEquals('lifted type $30 after the id', Cardinal($FFFFFFD0), Cst.BLLIFTEDTYPE);
+  AssertEquals('lifted flag', Cardinal($44), Cst.BLLIFTEDKIND);
+  AssertEquals('notoriety at object + $32C', Cardinal($214), Cst.BFINDREP);
+  AssertEquals('enemy bar: layout', Cardinal($154), Cst.BENEMYHPVAL);
+  AssertEquals('status gump name: layout', Cardinal($154), Cst.BSTATNAME);
   AssertEquals('last target id: layout', Cardinal($24), Cst.BLTARGID);
   AssertEquals('last target tile: layout', Cardinal($20), Cst.BLTARGTILE);
   AssertEquals('last target kind: layout', Cardinal($30), Cst.BLTARGKIND);
@@ -1639,8 +1653,10 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 // #EnemyHits. The enemy gump keeps the current and the maximum hits as the shard sent them, and
 // the client draws its bar as current / maximum (client.exe 7.0.117.33 $5432CA: current +$C4,
-// maximum +$C0, serial +$C8; beta 7.0.117.31 $613A7D: current +$158, maximum +$154, serial +$150).
-// ModernUO sends them out of 100, RunUO out of 25.
+// maximum +$C0, serial +$C8). On beta 7.0.117.31 the bar the client opens for a new enemy (0xAA,
+// constructor $610420) keeps current +$154, maximum +$150, serial +$158; its targeting-system bar
+// (+$158 / +$154 / +$150) is not the one C_ENEMYHITS points at. ModernUO sends them out of 100,
+// RunUO out of 25.
 const
   EnemyGump      = $04000000;      // fake heap
   FixedEnemyPtr  = $009A564C;      // C_ENEMYHITS of client.exe 7.0.117.1 (milestone 0)
@@ -1671,7 +1687,7 @@ begin
   PutDWord(Ptr, EnemyGump);
   PutDWord(EnemyGump, $00777777);                      // vtable
   PutDWord(EnemyGump + 4, $FEEDBEEF);
-  if Modern then PutDWord(EnemyGump + $150, EnemySerial)
+  if Modern then PutDWord(EnemyGump + $158, EnemySerial)
   else PutDWord(EnemyGump + $C8, EnemySerial);
 end;
 
@@ -1679,8 +1695,8 @@ procedure TCstDbModernBuildTests.PutEnemyHits(Modern : Boolean; Max, Cur : Cardi
 begin
   if Modern then
   begin
-    PutDWord(EnemyGump + $154, Max);
-    PutDWord(EnemyGump + $158, Cur);
+    PutDWord(EnemyGump + $150, Max);
+    PutDWord(EnemyGump + $154, Cur);
   end
   else
   begin
@@ -1715,9 +1731,9 @@ var
   V : TFakeClientVar;
 begin
   V := OpenEnemyGump(True);
-  Eq('B_ENEMYHPVAL: the current hits', $158, Sel.CstDB.BENEMYHPVAL);
+  Eq('B_ENEMYHPVAL: the current hits', $154, Sel.CstDB.BENEMYHPVAL);
 
-  PutEnemyHits(True, 100, 94);                         // the old reading gave the maximum, 100
+  PutEnemyHits(True, 100, 94);
   Eq('ModernUO, out of 100', 94, V.EnemyHits);
   AssertTrue('VarRes', V.VarRes);
   PutEnemyHits(True, 25, 6);
@@ -1741,6 +1757,120 @@ begin
   PutDWord(FixedEnemyPtr, 0);                          // no enemy
   Eq('no enemy', 0, V.EnemyHits);
   AssertFalse('VarRes: no enemy', V.VarRes);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// C_ENEMYHITS on the beta stamped $6AD6CEB3, byte for byte from it: the creator of the bar the 0xAA
+// handler opens for a new enemy ($612AB3, global $CB2FA0), its twin for the last target ($612983,
+// $CB2F9C, tagged 1 instead of 2) and the targeting system's bar ($613118, $CB2F90). The attack bar's
+// pattern is last in the table, so it decides wherever it sits in memory; the twin matches nothing.
+procedure TCstDbModernBuildTests.TestNextBetaFindsTheAttackBarByScanning;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader($6AD6CEB3, $8140, $2000);               // code = $401000..$403000
+  PutBytes($401100, [$A1,$68,$A8,$90,$00,$89,$0D,$A0,$2F,$CB,$00,$C7,$41,$64,$00,$00,
+                $00,$00,$C7,$41,$5C,$00,$00,$00,$00,$89,$41,$58,$85,$C0,$74,$03,
+                $89,$48,$5C,$A1,$38,$A8,$90,$00,$85,$C0,$89,$0D,$68,$A8,$90,$00,
+                $0F,$44,$C1,$C7,$81,$4C,$01,$00,$00,$02,$00,$00,$00]);
+  PutBytes($401200, [$A1,$68,$A8,$90,$00,$89,$0D,$9C,$2F,$CB,$00,$C7,$41,$64,$00,$00,
+                $00,$00,$C7,$41,$5C,$00,$00,$00,$00,$89,$41,$58,$85,$C0,$74,$03,
+                $89,$48,$5C,$A1,$38,$A8,$90,$00,$85,$C0,$C7,$81,$4C,$01,$00,$00,
+                $01,$00,$00,$00,$0F,$44,$C1,$89,$0D,$68,$A8,$90,$00]);
+  PutBytes($401300, [$C7,$87,$54,$01,$00,$00,$00,$00,$00,$00,$FF,$B7,$6C,$01,$00,$00,
+                $C7,$05,$90,$2F,$CB,$00,$00,$00,$00,$00]);
+
+  Cst.Update('7.0.117.31', PHnd);
+
+  AssertEquals('C_ENEMYHITS: the attack bar', Cardinal($00CB2FA0), Cst.ENEMYHITS);
+  AssertEquals('B_ENEMYHPVAL: its current hits', Cardinal($154), Cst.BENEMYHPVAL);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The lifted item on the beta stamped $6AD6CEB3. Its pick-up function ($5AB043, byte for byte) gives
+// C_LLIFTEDID; it stores the type $30 after the id, the amount at +$34 and sets the dword at +$44 to 1.
+// The first beta's +$34 read the amount word and the option byte after it: 65536 with nothing lifted,
+// which also made `event Drag` give up.
+procedure TCstDbModernBuildTests.TestNextBetaReadsTheLiftedItem;
+const
+  Lifted = $00B5B700;
+var
+  V : TFakeClientVar;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader($6AD6CEB3, $8140, $2000);
+  PutBytes($401100, [$8B,$86,$18,$01,$00,$00,$A3,$00,$B7,$B5,$00,$8B,$C1,$25,$00,$80,
+                $00,$00,$66,$89,$3D,$30,$B7,$B5,$00,$81,$E1,$FF,$3F,$00,$00]);
+  if VirtualAllocEx(PHnd, Pointer(Lifted and $FFFFF000), $1000, MEM_RESERVE or MEM_COMMIT,
+    PAGE_READWRITE) = nil then
+    Ignore('Cannot map the fake C_LLIFTEDID (Win32 error ' + IntToStr(GetLastError) + ').');
+  Sel := TUOSel.Create;
+  Sel.CstDB.Update('7.0.117.31', PHnd);
+  V := TFakeClientVar.Create(Sel);
+  V.FakeHandle := PHnd;
+  Vr := V;
+  Eq('C_LLIFTEDID', Lifted, Sel.CstDB.LLIFTEDID);
+
+  PutBytes(Lifted + $34, [$00,$00,$01,$00]);           // no amount, then the option byte that is 1
+  Eq('nothing lifted', 0, V.LLiftedKind);
+
+  PutDWord(Lifted, $4000ABCD);
+  PutBytes(Lifted + $30, [$52,$0F]);                   // a dagger
+  PutBytes(Lifted + $34, [$01,$00]);
+  PutDWord(Lifted + $44, 1);
+  Eq('#LLiftedID', $4000ABCD, V.LLiftedID);
+  Eq('#LLiftedType', $0F52, V.LLiftedType);
+  Eq('#LLiftedKind', 1, V.LLiftedKind);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// #ContHP: the status gump keeps the current and the maximum hits in two words, at B_CONTNEXT+$92 on
+// the fixed-base builds (as in EasyUO) and at B_STATNAME+$26 on the modern ones (+$17A on the beta
+// stamped $6AD6CEB3, where its hits handler writes them; the same word #Hits reads).
+const
+  StatHeap = $05000000;
+
+procedure TCstDbModernBuildTests.OpenStatusGump(Modern : Boolean);
+var
+  V : TFakeClientVar;
+begin
+  if not Ready then Ignore(Why);
+  if Modern then WriteHeader(KnownStamp, $8140, $2000)
+  else WriteHeader(KnownStamp, $0000, $2000);
+  if VirtualAllocEx(PHnd, Pointer(StatHeap), $1000, MEM_RESERVE or MEM_COMMIT, PAGE_READWRITE) = nil then
+    Ignore('Cannot map the fake heap (Win32 error ' + IntToStr(GetLastError) + ').');
+  Sel := TUOSel.Create;
+  Sel.CstDB.Update('7.0.117.1', PHnd);
+  AssertEquals('layout', Modern, Sel.CstDB.ISMODERN);
+  V := TFakeClientVar.Create(Sel);
+  V.FakeHandle := PHnd;
+  Vr := V;
+  Cmd := TFakeClientCmd.Create(Sel, Vr, nil);
+  Cmd.FakeHandle := PHnd;
+
+  PutDWord(Sel.CstDB.CONTPOS, StatHeap + $100);        // the only gump in the list
+  PutDWord(StatHeap + $100, $0001);                    // a gump kind
+  PutDWord(StatHeap + $100 + 8, StatHeap + $800);
+  PutStr(StatHeap + $800, 'status gump');
+end;
+
+procedure TCstDbModernBuildTests.TestContHPOnAFixedBaseClient;
+begin
+  OpenStatusGump(False);
+  Eq('B_CONTNEXT', $58, Sel.CstDB.BCONTNEXT);
+  PutBytes(StatHeap + $100 + $EA, [75, 0, 150, 0]);    // 75 of 150
+  AssertTrue('GetCont', Cmd.GetCont(0));
+  AssertEquals('#ContName', 'status gump', Cmd.ContName);
+  Eq('#ContHP', 50, Cmd.ContHP);
+end;
+
+procedure TCstDbModernBuildTests.TestContHPOnAModernClient;
+begin
+  OpenStatusGump(True);
+  Eq('B_STATNAME', $154, Sel.CstDB.BSTATNAME);
+  PutBytes(StatHeap + $100 + $EA, [$4A, $A9, $FF, $FF]);  // what the old offset read there
+  PutBytes(StatHeap + $100 + $17A, [75, 0, 150, 0]);
+  AssertTrue('GetCont', Cmd.GetCont(0));
+  Eq('#ContHP', 50, Cmd.ContHP);
 end;
 
 initialization

@@ -5614,7 +5614,11 @@ SysVarModernLayout : array[0..39] of TSysVarList = (
   (Expr: B_LTARGID;   Val: $00000024),   // $B01844: id the click handler stores (not for a click on yourself)
   (Expr: B_LTARGTILE; Val: $00000020),   // $B01840: tile/type for a static
   (Expr: B_LTARGKIND; Val: $00000030),   // $B01850: 1 object, 2 ground, 3 static
-  (Expr: B_ENEMYHPVAL; Val: $00000158),  // current hits in the enemy status gump (serial +$150, maximum +$154)
+  // Current hits in the bar C_ENEMYHITS points at: the bar the client opens for a new enemy (0xAA), current
+  // +$154, maximum +$150 (the getter reads it at -4), serial +$158. Read in the beta stamped $6AD6CEB3:
+  // constructor $610420 sets both to 1, the hits handler $5C0F84 updates them. Its targeting-system bar
+  // (the other global, $CB2F90) keeps them at +$158 / +$154 instead; C_ENEMYHITS does not point there.
+  (Expr: B_ENEMYHPVAL; Val: $00000154),
   (Expr: B_LSPELL;    Val: $FFFFFE34),   // $B01654: dword, written by the cast routine (macro "last spell" reads it)
   (Expr: B_LSKILL;    Val: $FFFFFE4C),   // $B0166C: dword, macro "last skill" reads it
   (Expr: B_LTARGX;    Val: $01588E68),   // $208A688: X, Y words then Z word, as in the old build
@@ -5783,13 +5787,23 @@ SysVarModernAddrs : array[0..47] of TSysVarList = (
 // With this list, all six read the right values in the running client, a write to #NextCPosX
 // placed the next bag there, and `set #targCurs 1` plus a click on a bag set #LTargetID to the
 // bag's id (#LTargetKind 1, #TargCurs back to 0).
-SysVarModernAddrs_6AD6CEB3 : array[0..6] of TSysVarList = (
+// Added on 2026-11-14 from the code (docs/beta-31-variables.md):
+//   B_LLIFTEDTYPE / B_LLIFTEDKIND  the pick-up function ($5AAE90) stores the item's type at C_LLIFTEDID
+//               + $30 and sets the dword at + $44 to 1; the macro executor tests that dword before every
+//               item macro, as client.exe's tests its own (+$38). The layout's + $34 is the lifted amount
+//               word followed by an option byte: #LLiftedKind read 65536 and `event Drag` never lifted.
+//   B_FINDREP   the notoriety is the dword at object + $32C (the client's getter takes it mod 100,
+//               as client.exe's does at + $25C), so id + $214, not the first beta's $20C
+SysVarModernAddrs_6AD6CEB3 : array[0..9] of TSysVarList = (
   (Expr: B_LANG;      Val: $000001E8),   // $B28E40 = C_LHANDID - $1E8
   (Expr: B_LSPELL;    Val: $000001B0),   // $B291D8: after the cluster now, not before it
   (Expr: B_LSKILL;    Val: $000001A8),   // $B291D0
   (Expr: B_LTARGX;    Val: $01588F20),   // $20B1F48
   (Expr: B_NEXTCX;    Val: $FFFFFFFC),   // $909E28: X is declared right BEFORE Y
   (Expr: B_TARGPROC;  Val: $00000678),   // $B2DBE0
+  (Expr: B_LLIFTEDTYPE; Val: $FFFFFFD0), // $B5B730: the type sits $30 after the id
+  (Expr: B_LLIFTEDKIND; Val: $00000044), // $B5B744: 1 while an item is on the cursor
+  (Expr: B_FINDREP;   Val: $00000214),   // object + $32C
   (Expr: LISTEND;     Val: 0)
 );
 
@@ -5800,9 +5814,9 @@ ModernBuilds : array[0..1] of TModernBuild = (
 
 // Runtime signature scan for the relocatable ("modern") builds. Mirrors
 // tools\EUOUpdater\"EUO Updtr Strings modern.txt" line for line (see that file's header for how the
-// patterns were built and verified): 83 patterns for 47 fields, each unique in the 7.0.117.1 beta's
+// patterns were built and verified): 85 patterns for 48 fields, each unique in the 7.0.117.1 beta's
 // code section and resolving to the hand-verified address, statically and live (the C_SKILLSPOS and
-// B_SKILLDIST ones, and the six marked $6AD6CEB3 below, in the beta stamped $6AD6CEB3, which
+// B_SKILLDIST ones, and those marked $6AD6CEB3 below, in the beta stamped $6AD6CEB3, which
 // replaced it). Address operands, rel32 targets and ebp/esp displacements are wildcards; the joker
 // is picked per pattern so it never collides with a fixed byte. They apply to the same compiler's code across rebuilds, so an unknown
 // beta of it fills in its own addresses here; nothing else is ever guessed for an unknown build.
@@ -5810,7 +5824,7 @@ ModernBuilds : array[0..1] of TModernBuild = (
 // of a field match, the LAST one's result is kept (ScanMemory overwrites, EUO Updtr replaces its
 // line): a $6AD6CEB3 pattern for a function that changed sits before the older beta's, so that one
 // still decides on that beta.
-ScannerTable_Modern : array[0..84] of TScannerEntry = (
+ScannerTable_Modern : array[0..85] of TScannerEntry = (
     // E_REDIR
     (Joker: $11; Unused: (0,0,0); AddOffset1: 12; Mode: 1; AddOffset2: 0; Expr: E_REDIR;
      Pattern: '6A0068E8030000FF75C86A00E8111111118BF0B85917B7D1F765C4'),
@@ -6005,6 +6019,12 @@ ScannerTable_Modern : array[0..84] of TScannerEntry = (
      Pattern: 'C7875401000000000000FFB76C010000C7051111111100000000'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 2; Mode: 3; AddOffset2: 0; Expr: C_ENEMYHITS;
      Pattern: '8B3D111111118B8750010000C7875801000000000000C7875401000000000000'),
+    // $6AD6CEB3: the two patterns above find the targeting system's bar, which only exists while a mobile
+    // is selected. The bar EasyUO means is the one the 0xAA handler opens for a new enemy, as client.exe's
+    // C_ENEMYHITS is: `mov [g],ecx` in its creator ($6129F0), up to the `mov [ecx+14Ch],2` that tags it as
+    // the attack bar (its twin for the last target stores 1, in another order). Last of its field: decides.
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 7; Mode: 3; AddOffset2: 0; Expr: C_ENEMYHITS;
+     Pattern: 'A111111111890D11111111C7416400000000C7415C0000000089415885C0740389485CA11111111185C0890D111111110F44C1C7814C01000002000000'),
     // C_TARGETCURS
     (Joker: $11; Unused: (0,0,0); AddOffset1: 2; Mode: 3; AddOffset2: 0; Expr: C_TARGETCURS;
      Pattern: '833D1111111100C7877001000000000000751183BF8000000000'),

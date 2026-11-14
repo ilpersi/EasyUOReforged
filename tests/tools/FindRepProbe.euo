@@ -1,0 +1,182 @@
+; ============================================================================
+;  FindRepProbe: #FindRep on client_beta.exe 7.0.117.31
+;  (docs/beta-31-variables.md, section 2).
+;
+;  Before the fix #FindRep read 255 for every character. Expected now:
+;    your character   1 to 7 (client.exe 7.0.117.33 reads 3 for the owner's GM)
+;    a Provisioner    7 (invulnerable, yellow)
+;    a Rat            3 (attackable, grey)
+;
+;  WHAT IT DOES IN THE GAME (a GM on a ModernUO shard, staff prefix below):
+;    - [self add Provisioner and [self add Rat on your tile, each held in place
+;      with [serial <n> set CantWalk true
+;    - deletes both at the end with [serial <n> delete
+;  Don't touch the client while it runs (about 10 seconds).
+;
+;  Run: EUOCli.exe run tests/tools/FindRepProbe.euo --client 1 --timeout 60
+; ============================================================================
+set %pfx [           ; the shard's staff command prefix
+set %alpha ABCDEFGHIJKLMNOPQRSTUVWXYZ
+set %npass 0
+set %nfail 0
+
+; finditem #CharID also matches items whose TYPE has the same number (graphic 1 tiles
+; lie around on some spots): take the match that is you
+finditem #CharID
+set %obs N/A
+set %nm #FindCnt
+if %nm > 0
+{
+  for %j 1 %nm
+  {
+    set #FindIndex %j
+    if #FindID = #CharID
+      set %obs #FindRep
+  }
+}
+log your character: FindRep %obs ( %nm matches for finditem #CharID )
+if %obs >= 1 && %obs <= 7
+  gosub fr_pass self.rep 1_to_7
+else
+  gosub fr_fail self.rep 1_to_7
+
+set %what Provisioner
+gosub fr_spawn
+set %vendor %new
+if %vendor <> N/A
+{
+  finditem %vendor G_5
+  set %obs #FindRep
+  if %obs = 7
+    gosub fr_pass vendor.rep 7
+  else
+    gosub fr_fail vendor.rep 7
+}
+
+set %what Rat
+gosub fr_spawn
+set %rat %new
+if %rat <> N/A
+{
+  finditem %rat G_5
+  set %obs #FindRep
+  if %obs = 3
+    gosub fr_pass rat.rep 3
+  else
+    gosub fr_fail rat.rep 3
+}
+
+; clean-up
+if %vendor <> N/A
+{
+  set %in %vendor
+  gosub fr_delete
+}
+if %rat <> N/A
+{
+  set %in %rat
+  gosub fr_delete
+}
+log summary: pass %npass - fail %nfail
+halt
+
+sub fr_pass
+  set %npass %npass + 1
+  log PASS %1 observed %obs expected %2
+return
+
+sub fr_fail
+  set %nfail %nfail + 1
+  log FAIL %1 observed %obs expected %2
+return
+
+; [self add %what -> %new (N/A: nothing new appeared within 2 tiles)
+sub fr_spawn
+  set %new N/A
+  gosub fr_list
+  set %old %list
+  set %cmd %pfx , self , #spc , add , #spc , %what
+  log %cmd
+  msg %cmd , $
+  set %try 0
+  repeat
+    wait 5
+    gosub fr_list
+    if %nfound > 0
+    {
+      for %j 1 %nfound
+      {
+        set #FindIndex %j
+        set %key | , #FindID , |
+        if %key notin %old && %new = N/A
+          set %new #FindID
+      }
+    }
+    set %try %try + 1
+  until %new <> N/A || %try > 12
+  if %new = N/A
+  {
+    log no new %what appeared
+    return
+  }
+  set %in %new
+  gosub fr_id2ser
+  set %cmd %pfx , serial , #spc , %ser , #spc , set , #spc , CantWalk , #spc , true
+  msg %cmd , $
+  wait 5
+  log %what %new
+return
+
+sub fr_list
+  set %list |
+  finditem * G_2
+  set %nfound #FindCnt
+  if %nfound > 0
+  {
+    for %j 1 %nfound
+    {
+      set #FindIndex %j
+      set %list %list , #FindID , |
+    }
+  }
+return
+
+sub fr_delete
+  gosub fr_id2ser
+  set %cmd %pfx , serial , #spc , %ser , #spc , delete
+  log clean-up: %cmd ( %in )
+  msg %cmd , $
+  wait 10
+return
+
+; ---- EasyUO ID -> serial (as the self-test's st_id2ser) -----------------------
+sub fr_id2ser
+  set %ser 0
+  str len %in
+  set %il #StrRes
+  if %il = 0
+    return
+  for %ij %il 1
+  {
+    str mid %in %ij 1
+    str pos %alpha #StrRes
+    set %ser %ser * 26 + #StrRes - 1
+  }
+  set %ser %ser - 7
+  ; xor 69 flips the bits 1, 4 and 64
+  set %b ( %ser / 1 ) % 2
+  if %b = 1
+    set %ser %ser - 1
+  else
+    set %ser %ser + 1
+  set %b ( %ser / 4 ) % 2
+  if %b = 1
+    set %ser %ser - 4
+  else
+    set %ser %ser + 4
+  set %b ( %ser / 64 ) % 2
+  if %b = 1
+    set %ser %ser - 64
+  else
+    set %ser %ser + 64
+return

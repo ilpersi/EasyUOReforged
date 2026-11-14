@@ -1,0 +1,165 @@
+; ============================================================================
+;  LiftProbe: #LLiftedKind, #LLiftedID, #LLiftedType and event Drag on
+;  client_beta.exe 7.0.117.31 (docs/beta-31-variables.md, section 1).
+;
+;  Before the fix #LLiftedKind read 65536 with nothing on the cursor, so
+;  event Drag gave up at once and the three values never changed. Expected now:
+;    before   #LLiftedKind 0
+;    during   #LLiftedKind 1, #LLiftedID = the dagger, #LLiftedType WSF
+;    after    #LLiftedKind 0, the dagger back in the backpack
+;
+;  WHAT IT DOES IN THE GAME (a GM on a ModernUO shard, staff prefix below):
+;    - [self addtopack Dagger, then opens the backpack (event macro 8 7)
+;    - picks the dagger up with event Drag and drops it with a click in the
+;      middle of the backpack gump
+;    - deletes the dagger with [serial <n> delete
+;  Don't touch the client while it runs (about 10 seconds).
+;
+;  Run: EUOCli.exe run tests/tools/LiftProbe.euo --client 1 --timeout 60
+; ============================================================================
+set %pfx [           ; the shard's staff command prefix
+set %dagtype WSF     ; a dagger (graphic 3922, $0F52): what [self addtopack Dagger makes
+set %tw 60           ; ticks to wait (60 = 3 seconds)
+set %alpha ABCDEFGHIJKLMNOPQRSTUVWXYZ
+set %npass 0
+set %nfail 0
+
+set %obs #LLiftedKind
+gosub lp_check before.kind 0
+set %li #LLiftedID
+set %lt #LLiftedType
+log before: LLiftedID %li LLiftedType %lt
+
+event macro 8 7
+waitfor #ContID = #BackpackID %tw
+if #WaitRes <> #true
+{
+  log the backpack did not open: stopped
+  halt
+}
+; the drop point, the middle of the backpack gump
+set %gx #ContSizeX / 2
+set %gx %gx + #ContPosX
+set %gy #ContSizeY / 2
+set %gy %gy + #ContPosY
+
+; a new dagger
+gosub lp_daglist
+set %old %list
+set %cmd %pfx , self , #spc , addtopack , #spc , Dagger
+log %cmd
+msg %cmd , $
+set %dag N/A
+set %try 0
+repeat
+  wait 5
+  gosub lp_daglist
+  if %nfound > 0
+  {
+    for %j 1 %nfound
+    {
+      set #FindIndex %j
+      set %key | , #FindID , |
+      if %key notin %old && %dag = N/A
+        set %dag #FindID
+    }
+  }
+  set %try %try + 1
+until %dag <> N/A || %try > 12
+if %dag = N/A
+{
+  log no new dagger appeared: stopped
+  halt
+}
+log dagger %dag
+
+event drag %dag
+waitfor #LLiftedKind = 1 %tw
+set %obs #LLiftedKind
+gosub lp_check during.kind 1
+set %obs #LLiftedID
+gosub lp_check during.id %dag
+set %obs #LLiftedType
+gosub lp_check during.type %dagtype
+
+click %gx %gy p mc
+waitfor #LLiftedKind = 0 %tw
+wait 10
+set %obs #LLiftedKind
+gosub lp_check after.kind 0
+finditem %dag C_ , #BackpackID
+set %obs N/A
+if #FindCnt > 0
+  set %obs #FindBagID
+gosub lp_check after.in_backpack #BackpackID
+
+; clean-up
+set %in %dag
+gosub lp_id2ser
+set %cmd %pfx , serial , #spc , %ser , #spc , delete
+log clean-up: %cmd
+msg %cmd , $
+wait 10
+log summary: pass %npass - fail %nfail
+halt
+
+; %obs against the expected value %2, named %1
+sub lp_check
+  if %obs = %2
+  {
+    set %npass %npass + 1
+    log PASS %1 observed %obs expected %2
+  }
+  else
+  {
+    set %nfail %nfail + 1
+    log FAIL %1 observed %obs expected %2
+  }
+return
+
+sub lp_daglist
+  set %list |
+  finditem %dagtype C_ , #BackpackID
+  set %nfound #FindCnt
+  if %nfound > 0
+  {
+    for %j 1 %nfound
+    {
+      set #FindIndex %j
+      set %list %list , #FindID , |
+    }
+  }
+return
+
+; ---- EasyUO ID -> serial (as the self-test's st_id2ser) -----------------------
+;  EasyUO writes a number n as ((n xor 69) + 7) in base 26, A = 0, lowest digit first.
+sub lp_id2ser
+  set %ser 0
+  str len %in
+  set %il #StrRes
+  if %il = 0
+    return
+  for %ij %il 1
+  {
+    str mid %in %ij 1
+    str pos %alpha #StrRes
+    set %ser %ser * 26 + #StrRes - 1
+  }
+  set %ser %ser - 7
+  ; xor 69 flips the bits 1, 4 and 64
+  set %b ( %ser / 1 ) % 2
+  if %b = 1
+    set %ser %ser - 1
+  else
+    set %ser %ser + 1
+  set %b ( %ser / 4 ) % 2
+  if %b = 1
+    set %ser %ser - 4
+  else
+    set %ser %ser + 4
+  set %b ( %ser / 64 ) % 2
+  if %b = 1
+    set %ser %ser - 64
+  else
+    set %ser %ser + 64
+return

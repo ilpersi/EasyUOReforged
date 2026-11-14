@@ -64,6 +64,12 @@ unit uocommands;
   character rides (#MountID, #MountType, the walker's pace). Both read only fields
   the original already used: the client stores the layer next to the status byte #CharStatus
   reads. ScanItems' filtering and every other TItemRes field are unchanged.
+
+  Port change: GetCont reads #ContHP at B_STATNAME+$26 on the relocated ("modern") builds, where the
+  status gump keeps its hits $90 further on than the original's fixed B_CONTNEXT+$92. Both point at
+  the status gump's current hits word (the one #Hits reads in the same object): on every fixed-base
+  table since 4.0.0c B_CONTNEXT+$92 = B_STATNAME+$26, and the fixed-base builds keep the original
+  expression byte for byte (docs/beta-31-variables.md).
 }
 
 {$mode delphi}{$H+}
@@ -1136,6 +1142,10 @@ begin
 
   if ContName='status gump' then
   begin
+    // Port change: the modern builds' status gump keeps the hits at B_STATNAME+$26 (+$17A on the
+    // beta stamped $6AD6CEB3), the word #Hits reads; the original's offset is kept for the others.
+    if Cst.ISMODERN then RWV(Read,Buf+Cst.BSTATNAME+$26,@ContHP,4)
+    else
     RWV(Read,Buf+Cst.BCONTNEXT+$92,@ContHP,4);
     if ContHP shr 16 > 0 then
       ContHP:=Word(ContHP)*100 div (ContHP shr 16);

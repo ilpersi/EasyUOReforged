@@ -901,7 +901,7 @@ begin
   // Port change: the original returns the word times 4. The gump keeps the current and the
   // maximum hits exactly as the shard sent them (maximum in the dword right before the current
   // one; the client draws the bar as current / maximum: 4.0.0c $B0/$AC, 4.0.11c to 7.0.117.33
-  // $C4/$C0, the beta $158/$154), and times 4 is only right on shards that send them out of 25
+  // $C4/$C0, the beta's attack bar $154/$150), and times 4 is only right on shards that send them out of 25
   // (RunUO). ModernUO sends them out of 100, where times 4 read 400 at full health. Dividing by
   // the maximum gives the percentage on every shard and the original numbers out of 25
   // (Cur*100 div 25 = Cur*4); no maximum yet falls back to the original formula.

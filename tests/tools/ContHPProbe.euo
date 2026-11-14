@@ -1,0 +1,77 @@
+; ============================================================================
+;  ContHPProbe: #ContHP of a health bar on client_beta.exe 7.0.117.31
+;  (docs/beta-31-variables.md, section 3).
+;
+;  Before the fix #ContHP read 0 on your own health bar (and numbers like 43338
+;  on a pet's). Expected now: #ContHP = #Hits * 100 / #MaxHits, give or take 1,
+;  at full health and after your hits are set to half.
+;
+;  WHAT IT DOES IN THE GAME (a GM on a ModernUO shard, staff prefix below):
+;    - opens your own health bar (event StatBar #CharID) and leaves it open
+;    - [self set Hits <half of your maximum>, then puts your hits back as they were
+;  Don't touch the client while it runs (about 5 seconds).
+;
+;  Run: EUOCli.exe run tests/tools/ContHPProbe.euo --client 1 --timeout 60
+; ============================================================================
+set %pfx [           ; the shard's staff command prefix
+set %tw 60           ; ticks to wait (60 = 3 seconds)
+set %npass 0
+set %nfail 0
+
+set %hits0 #Hits
+event StatBar #CharID
+waitfor #ContName = status_gump %tw
+if #WaitRes <> #true
+{
+  log no health bar on top: stopped
+  halt
+}
+wait 10
+gosub ch_check full
+
+set %half #MaxHits / 2
+set %cmd %pfx , self , #spc , set , #spc , Hits , #spc , %half
+log %cmd
+msg %cmd , $
+waitfor #Hits = %half %tw
+wait 10
+gosub ch_check half
+
+set %cmd %pfx , self , #spc , set , #spc , Hits , #spc , %hits0
+log clean-up: %cmd
+msg %cmd , $
+wait 10
+log summary: pass %npass - fail %nfail
+halt
+
+; #ContHP of the bar on top against #Hits in percent, named %1
+sub ch_check
+  ; a staff command can leave a gump on top of the health bar (a normal_gump): skip it,
+  ; since #ContHP describes the gump on top
+  set %n 0
+  while #ContName <> status_gump && %n < 5
+  {
+    set %skip #ContName
+    log skipping the gump on top: %skip
+    ignorecont %skip
+    set %n %n + 1
+  }
+  set %name #ContName
+  set %obs #ContHP
+  set %h #Hits
+  set %m #MaxHits
+  set %exp %h * 100
+  set %exp %exp / %m
+  set %lo %exp - 1
+  set %hi %exp + 1
+  if %name = status_gump && %obs >= %lo && %obs <= %hi
+  {
+    set %npass %npass + 1
+    log PASS %1 ContHP %obs expected %exp ( Hits %h of %m )
+  }
+  else
+  {
+    set %nfail %nfail + 1
+    log FAIL %1 ContHP %obs expected %exp ( Hits %h of %m - top gump %name )
+  }
+return

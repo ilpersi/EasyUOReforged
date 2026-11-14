@@ -32,5 +32,6 @@ halt
 - EasyUO multiplies the client's number by 4, which gives a percentage only on shards that send health out
   of 25. On ModernUO shards it read up to 400. Reforged divides by the maximum the shard sent, so it reads
   a percentage on every shard, and the same numbers as EasyUO on shards that count out of 25.
-- On `client_beta.exe` it used to stay at the maximum, whatever the enemy's health. It now goes down with
-  the enemy's health, as on the other clients.
+- On `client_beta.exe` 7.0.117.31 it used to read `N/A` in combat, or the maximum after you selected a
+  mobile with the targeting macros. It now reads the health bar the client opens for the enemy you attack,
+  as on the other clients.
