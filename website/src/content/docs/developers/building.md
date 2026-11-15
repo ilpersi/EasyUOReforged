@@ -17,6 +17,11 @@ the [releases page](https://github.com/ilpersi/EasyUOReforged/releases) instead.
 | `EUOMenuDesigner.lpi` | `EUOMenuDesigner.exe` | The MENU Designer, which lays out menu windows and writes their script. |
 | `EUOCli.lpi` | `EUOCli.exe` | The [command-line program](/guide/euocli/): it checks and runs scripts, and serves both to AI agents as tools ([The agent pack and EUOCli](/developers/agent-support/)). |
 
+A sixth project, `EUOClientArchiver.lpi`, builds `EUOClientArchiver.exe`, a developer tool that keeps a
+copy of each client build before the patcher overwrites it ([Archive a client before
+patching](/developers/archiving-clients/)). It is not in the release zip; CI builds it only so that it
+keeps compiling.
+
 ## What you need
 
 - **Windows, 64-bit.** Everything builds for `x86_64-win64` only.
@@ -80,7 +85,8 @@ lazbuild --build-mode=Release EUOCli.lpi
 ```
 
 Build any of them, in any order. The programs land in the repository folder, next to the `.lpi` files.
-From a fresh clone, all five together take about a minute.
+From a fresh clone, all five together take about a minute. The client archiver builds the same way:
+`lazbuild --build-mode=Release EUOClientArchiver.lpi`.
 
 Each project has two build modes. Both write the same file name, so the last build wins.
 
@@ -91,7 +97,7 @@ Each project has two build modes. Both write the same file name, so the last bui
 
 The modes keep their compiled units in separate folders (`lib\x86_64-win64\` and
 `lib\x86_64-win64-release\`). EUOUpdater has folders of its own, because its `main` unit has the same name
-as the GUI's, and so do the MENU Designer and EUOCli.
+as the GUI's, and so do the MENU Designer, EUOCli and the client archiver.
 
 ### The version string
 
@@ -133,7 +139,7 @@ Without `--format=plain` the runner prints XML.
 ## Build in the Lazarus IDE
 
 1. Register the packages first ([step 3](#3-register-the-packages)).
-2. *Project → Open Project*, and pick `EasyUOReforged.lpi` (or `uo.lpi`, `EUOUpdtr.lpi`, `EUOMenuDesigner.lpi`, `EUOCli.lpi`).
+2. *Project → Open Project*, and pick `EasyUOReforged.lpi` (or `uo.lpi`, `EUOUpdtr.lpi`, `EUOMenuDesigner.lpi`, `EUOCli.lpi`, `EUOClientArchiver.lpi`).
 3. Pick the build mode: *Project → Project Options → Compiler Options*, the *Build modes* list at the top.
 4. *Run → Build* (Shift+F9) builds it. *Run → Run* (F9) starts it under the debugger; use the `Default`
    mode for that.
@@ -167,8 +173,9 @@ check workflow does for every pull request and every push to `main`. The pages a
 ## What CI and releases do
 
 - **`.github/workflows/ci.yml`** runs the steps above on a clean `windows-latest` machine for every push
-  and pull request: the version file, the package links, the five Release builds, `run_tests.ps1`, and the
-  EUOMigrate tests. It keeps the programs as a build artifact.
+  and pull request: the version file, the package links, the Release builds (the five programs and the
+  client archiver), `run_tests.ps1`, and the EUOMigrate tests. It keeps the five programs as a build
+  artifact.
 - **`.github/workflows/release.yml`** does the same for a `v*` tag, then publishes a GitHub release: a zip
   with the five programs, the [agent pack](/guide/agents/), `LICENSE`, `NOTICE`, `README.md` and
   `CHANGELOG.md`, and SHA-256 checksums. The

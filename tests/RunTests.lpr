@@ -20,7 +20,7 @@ uses
   MenuDesignerRoundTripTests, MenuDesignerImportTests, MenuDesignerFileTests,
   MenuDesignerGeometryTests, MenuDesignerInspectorTests, MenuDesignerMainTests,
   MainIconsTests, PathWalkTests, UoWrapPathTests, EuoJournalSearchTests, DocsExampleTests, EuoLintTests, EuoCliCheckTests, DocsLintTests, EuoHostHooksTests, EuoCliRunTests, EuoOutputTests,
-  EuoCliMcpTests, EuoCliInitTests;
+  EuoCliMcpTests, EuoCliInitTests, ClientArchiverTests;
 
 type
   TEasyUOTestRunner = class(TTestRunner)
