@@ -181,6 +181,7 @@ var
    '#DISPRES'#13#10+
    '#MENUBUTTON'#13#10+
    '#MENURES'#13#10+
+   '#MOVERES'#13#10+
    '#PIXCOL'#13#10+
    '#PROPERTY'#13#10+
    '#RESULT'#13#10+

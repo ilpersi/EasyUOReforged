@@ -159,6 +159,8 @@ begin
     AssertTrue('the full list has #WAITRES',L.IndexOf('#WAITRES')>=0);
     AssertTrue('the full list has FINDJOURNAL',L.IndexOf('FINDJOURNAL')>=0);
     AssertTrue('the full list has #JFOUND',L.IndexOf('#JFOUND')>=0);
+    AssertTrue('the full list has MOVEITEM',L.IndexOf('MOVEITEM')>=0);
+    AssertTrue('the full list has #MOVERES',L.IndexOf('#MOVERES')>=0);
 
     Ed.LogicalCaretXY:=Point(12,3);
     BuildCompletionList(L,Ed);

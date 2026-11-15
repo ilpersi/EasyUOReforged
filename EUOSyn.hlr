@@ -67,6 +67,7 @@
       <word value="KEY"/>
       <word value="MENU"/>
       <word value="MOVE"/>
+      <word value="MOVEITEM"/>
       <word value="MSG"/>
       <word value="NAMESPACE"/>
       <word value="NEXTCPOS"/>
@@ -197,6 +198,7 @@
       <word value="#MENUBUTTON"/>
       <word value="#MENURES"/>
       <word value="#MINDMG"/>
+      <word value="#MOVERES"/>
       <word value="#NEXTCPOSX"/>
       <word value="#NEXTCPOSY"/>
       <word value="#NSNAME"/>

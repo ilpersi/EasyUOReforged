@@ -72,19 +72,19 @@ uses
 // vocabulary -- see this unit's header comment -- no reason to also risk a
 // second, independent copy for completion).
 const
-  CommandKeywords : array[0..60] of String = (
+  CommandKeywords : array[0..61] of String = (
     'BREAK', 'CALL', 'CHOOSESKILL', 'CLICK', 'CMPPIX', 'CONTINUE', 'CONTPOS',
     'DELETEJOURNAL', 'DELETEVAR', 'DISPLAY', 'ELSE', 'EVENT', 'EXECUTE',
     'EXEVENT', 'EXIT', 'FINDITEM', 'FINDJOURNAL', 'FOR', 'GETSHOPINFO', 'GETUOTITLE',
     'GOSUB', 'GOTO', 'HALT', 'HIDEITEM', 'IF', 'IGNORECONT', 'IGNOREITEM',
-    'KEY', 'LOG', 'MENU', 'MOVE', 'MSG', 'NAMESPACE', 'NEXTCPOS', 'ONHOTKEY',
+    'KEY', 'LOG', 'MENU', 'MOVE', 'MOVEITEM', 'MSG', 'NAMESPACE', 'NEXTCPOS', 'ONHOTKEY',
     'PATH', 'PAUSE', 'REPEAT', 'RETURN', 'SAVEPIX', 'SCANBUFFS', 'SCANJOURNAL', 'SEND', 'SET',
     'SETSHOPITEM', 'SETUOTITLE', 'SHUTDOWN', 'SLEEP', 'SOUND', 'SQL', 'STOP',
     'STR', 'SUB', 'TARGET', 'TERMINATE', 'TILE', 'UNTIL', 'UOXL', 'WAIT',
     'WAITFOR', 'WHILE'
   );
 
-  SystemKeywords : array[0..160] of String = (
+  SystemKeywords : array[0..161] of String = (
     '#AR', '#BACKPACKID', '#BUFFBAROPEN', '#BUFFCLILOC', '#BUFFCNT', '#BUFFDESC', '#BUFFID',
     '#BUFFINDEX', '#BUFFNAME', '#BUFFTIME', '#CHARDIR', '#CHARGHOST', '#CHARID', '#CHARNAME',
     '#CHARPOSX', '#CHARPOSY', '#CHARPOSZ', '#CHARSTATUS', '#CLICNT',
@@ -101,7 +101,7 @@ const
     '#LOBJECTTYPE', '#LPC', '#LSHARD', '#LSKILL', '#LSPELL', '#LTARGETID',
     '#LTARGETKIND', '#LTARGETTILE', '#LTARGETX', '#LTARGETY', '#LTARGETZ',
     '#LUCK', '#MANA', '#MAXDMG', '#MAXFOL', '#MAXHITS', '#MAXMANA',
-    '#MAXSTAM', '#MAXSTATS', '#MENUBUTTON', '#MENURES', '#MINDMG', '#MOUNTID', '#MOUNTTYPE',
+    '#MAXSTAM', '#MAXSTATS', '#MENUBUTTON', '#MENURES', '#MINDMG', '#MOUNTID', '#MOUNTTYPE', '#MOVERES',
     '#NEXTCPOSX', '#NEXTCPOSY', '#NSNAME', '#NSTYPE', '#OPTS', '#OSVER',
     '#PATHCNT', '#PATHDIR', '#PATHSTATE', '#PATHX', '#PATHY', '#PATHZ',
     '#PIXCOL', '#PR', '#PROPERTY', '#RANDOM', '#REFORGEDVER', '#RESULT',

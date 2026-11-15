@@ -1,8 +1,10 @@
 # ModernUO reference for EasyUO probes and tests
 
-Status: written on 2026-11-14 from ModernUO's source and the self-test hand test (2026-11-13/14). No code was
-changed. Its purpose: someone (or an agent) building a probe (`tests/tools/*.euo`) or a feature test against a
-ModernUO shard should not have to rediscover how the shard behaves.
+Status: written on 2026-11-14 from ModernUO's source and the self-test hand test (2026-11-13/14). Extended on
+2026-11-15 with item moves, containers, houses and playing as a Player, from the source and the item-move probe
+(`tests/tools/MoveItemProbe.euo`, five unattended runs). No code was changed. Its purpose: someone (or an agent)
+building a probe (`tests/tools/*.euo`) or a feature test against a ModernUO shard should not have to rediscover
+how the shard behaves.
 
 ## How to use this
 
@@ -12,6 +14,8 @@ Find the behaviour your check depends on before you write the check. Every claim
   (checkout at commit `c9875e7f`, 2026-08-31). The owner's shard build was **not** compared with this checkout.
 - **live _id_**: seen on the owner's client.exe 7.0.117.33 on the local shard, in self-test check _id_ (the report
   lines are in the self-test session's transcript; the IDs are those of `tools/EUOSelfTest/README.md`).
+- **live mp _id_**: seen on client.exe 7.0.118.46 on the same shard, in case _id_ of `tests/tools/MoveItemProbe.euo`
+  (run with `EUOCli run <probe> --client 1`; A, H and P cases, 2026-11-15).
 - **inferred**: follows from the two above, but nobody saw it directly.
 - **client**: belongs to the client, not to ModernUO (section 6).
 
@@ -19,7 +23,7 @@ The test set-up those live results come from: a local ModernUO shard, a staff ch
 `#CharID` = `XC`) whose `AccessLevel` is **Owner** (live 4.02; everything this page says of "GameMaster or
 above" applies to it), test spot 1057/520/-90 on Malas (facet 3), a giant beetle the character rides (3
 control slots). Most results below hold only for a staff character; section 3.1 lists what changes for a
-player.
+player, and `[StaffAccess` (1.2) lets the same character check it as a Player.
 
 Two house rules for anything that runs on the owner's client: a script handed over for a hand test ends with
 `halt` (reaching the end restarts it), and nothing runs on the live client without the owner's yes for that
@@ -62,6 +66,18 @@ src: the `[CommandProperty]` attributes in `Server/Mobiles/Mobile.cs`, `Server/S
 needs Administrator or more (`Properties.SetDirect`), and nobody may change a mobile of a higher level
 (`You cannot modify a higher privileged mobile.`).
 
+**Playing as a Player with a staff character: `[StaffAccess`.** `[StaffAccess player` (or any level at or below
+your own: `counselor`, `gm`, `seer`, `admin`, `dev`) sets your level; `[StaffAccess` with no argument, or with your
+real level, puts it back. The command is registered at `Player` level, so the way back always works, and your real
+level is kept on the account (tag `OriginalStaffAccess:<serial>`), so it survives a logout and a shard restart;
+`[ResetStaffDress` restores it too (src `UOContent/Commands/StaffAccess.cs` `StaffAccess_OnCommand`,
+`ResetStaffAccess`; `UOContent/Commands/ResetStaffDress.cs`). Answers: `Your access level has been changed. You are
+now a player.` and `Staff access set to Player.`; back: `Restoring original staff access...`, `... You are now an
+owner.`, `Staff access set to Owner.` (live mp P, and a lone check before it). While you are a Player, a staff line
+such as `[self get AccessLevel` is **said aloud** (1.1), so make every test object first, lower the level, run the
+checks, restore it and check `AccessLevel = <your level>` before the clean-up. If a run stops in between, type
+`[StaffAccess` in the game. Setting `AccessLevel` with `[self set` instead has no way back for a Player.
+
 **`[self get Luck` does not work**: `PlayerMobile.Luck` has no `[CommandProperty]`, so the answer is
 `Property 'Luck' not found.` (src `UOContent/Mobiles/PlayerMobile.cs` `PlayerMobile.Luck`; live 4.11.luck SKIP
 "the shard did not answer the get"). The character's luck can only be read from the status (`#Luck`). An item's
@@ -89,6 +105,13 @@ waits 10 ticks). "Live" names a check that used it on 7.0.117.33.
 | `[self dismount` | GameMaster | `They have been dismounted.` / `They were not mounted.` | - (4.10's fallback when its double click mounted something; not seen run) |
 | `[go <x> <y> <z>` | Counselor | none; you stand there | 4.03, clean-up (position `restored`) |
 | `[go <map name>` (`Felucca`, `Trammel`, `Ilshenar`, `Malas`, `Tokuno`, `TerMur`) | Counselor | none; same X/Y on that map | - (used when the facet differs; not seen run) |
+| `[self add WoodenChest set Locked true` | GameMaster | `1 object generated in ...`; a locked chest at your feet | mp setup (C2) |
+| `[serial <container> addtopack <Type> [ctor args]` | GameMaster | `1 object generated in ...`; the object inside that container (`AddToCont` is the same command) | mp A0 (`Log 5` into a bag) |
+| `[serial <n> set X <x>` | GameMaster | `Property has been set.`; the object moves to that X (`Y`, `Z` the same) | mp P (a log and a chest 4 tiles away), H (`Z` of a chest) |
+| `[serial <n> set Movable false` | GameMaster | `Property has been set.`; nobody can lift it, staff included (3.3) | mp A5 |
+| `[StaffAccess player` / `[StaffAccess` | Player | see 1.2 | mp P |
+| `[global delete where <Type> <Prop> = <v> [<Prop> = <v> ...]` | Administrator | `The item has been deleted.` for each match; `No type with that name (<Type>) was found.` for a wrong type | mp clean-up (the house: `SmallOldHouse X = <x> Y = <y>`) |
+| `I wish to lock this down` (plain speech, standing in your house) | house co-owner | `Lock what down?` and a target cursor; answer it with `event macro 22` on the item | mp H.lock1, H.lock2 |
 
 Sources: `UOContent/Commands/Generic/Commands/Commands.cs` (`GetCommand`, `SetCommand`, `AddCommand`,
 `AddToPackCommand`, `DeleteCommand`, `DismountCommand`), `UOContent/Commands/Generic/Implementors/`
@@ -107,7 +130,13 @@ Details that matter:
   `18446744073709551615` (`ulong.MaxValue`) sets all 64 Magery spells (src the `[Constructible]` constructors in
   `UOContent/Items/...`).
 - `[add <Type> ... set <Prop> <v> ...` sets properties while it makes the object (src `Add.Invoke`, the `set`
-  keyword). Not tried live: it would save the separate `[serial ... set CantWalk true`.
+  keyword). Live with `[self add WoodenChest set Locked true` (mp setup); it would also save the separate
+  `[serial ... set CantWalk true`.
+- `[global <command> where <Type> <conditions>` runs the command on every object of that type in the world whose
+  properties match; several `<Prop> = <v>` in a row must all match (`or` / `||` separates alternatives, `not` / `!`
+  inverts one). The type must be the object's own class name (src `UOContent/Commands/Generic/Implementors/
+  GlobalCommandImplementor.cs`, Administrator; `ObjectConditional.ParseDirect`). Match on exact coordinates so
+  nothing else is hit.
 - An unknown type: `No type with that name was found.` (src `Add.Invoke`, `AddCommand.ValidateArgs`).
 
 ### 1.4 Reading an answer
@@ -171,6 +200,11 @@ A hexadecimal value (`Serial`, `Body`, `Backpack`) needs its `0x` taken off and 
 | Put a value back | `get` it first and record it, then `[self set <Prop> <old>` and look for `Property has been set.` | `st_cl_undo` (`staffset`) |
 | Put gold back | `[self addtopack Gold <amount>` (only when gold was really spent). | `st_cl_undo` (`gold`) |
 | Put the character back | `[go <map name>` if the facet changed, then `[go <x> <y> <z>`, and wait for `#CharPosX/Y`. | `st_cl_undo` (`pos`) |
+| Something out of a player's reach | Make it at your feet (`[self add Log 5`, `[self add WoodenChest`), then `[serial <n> set X <x+4>`. | live mp P2, P4 |
+| A house | `[self addtopack SmallBrickHouseDeed`, use it (`set #LObjectID`, `event macro 17`), wait for the target cursor, then answer it on the ground (`#LTargetKind 2`, `event macro 22`). Staff may place a house **anywhere**, over anything (`HousePlacement.Check` returns `Valid` at once). The deed's target reaches **10 tiles** (`MultiTarget`, default range 10; farther gives `That is too far away.`, 500446). The house's centre is the target minus the deed's offset (`(0, 4, 0)` for the small houses), its owner is you, and on AOS rules no keys are made. The deed is deleted when the house stands. | src `UOContent/Multis/HouseDeed.cs` `OnDoubleClick`, `OnPlacement`; `Server/Targeting/MultiTarget.cs`; `UOContent/Multis/Houses/HousePlacement.cs`; `BaseHouse.CreateKeys`; live mp H (16 tiles: too far; 9 tiles: placed) |
+| Stand in the house | `[go <centre x> <centre y> <target z + 7>`: the small brick house's floor was 7 above the ground the deed targeted. `[self add WoodenChest` there makes a chest on the floor. | live mp H.floor (-83 on -90 ground) |
+| Lock something down | Stand inside, say `I wish to lock this down`, answer `Lock what down?` with the item. It must be in the house, on the floor or in a locked-down container. Check with `[serial <n> get Movable` (`Movable = False`). `IsLockedDown` has no `[CommandProperty]`, so `get` can't read it. | src `HouseRegion.OnSpeech` (keyword `0x23`), `BaseHouse.LockDown`, `SetLockdown`; `Server/Items/Item.cs` `IsLockedDown`; live mp H.lock1 |
+| Remove a house | `[global delete where SmallOldHouse X = <centre x> Y = <centre y>`. **`SmallBrickHouseDeed` builds a `SmallOldHouse`** (with the brick multi `0x68`), so `where SmallBrickHouse` finds nothing. The probe deletes what it put in the house first; what deleting the house does to things locked down in it was not checked. | src `UOContent/Multis/Deeds.cs` `SmallBrickHouseDeed.GetHouse`; live mp clean-up (`No type with that name (SmallBrickHouse) was found.`, then `The item has been deleted.`) |
 
 The self-test keeps every created object and changed value in its `cleanup` table **before** the change
 (`tools/EUOSelfTest/README.md`, "Options and saved data"), so a crashed run can still be cleaned up. A probe that
@@ -183,6 +217,7 @@ makes objects should at least log their IDs.
 | Behaviour | Source | Live | How a probe copes |
 |---|---|---|---|
 | A double click (`0x06`) from Counselor or above is never throttled; from a player it waits `Mobile.ActionDelay` (500 ms) after the last one, else `You must wait to perform another action.` (500119). Lifting an item: GameMaster or above skip both the delay and the 2-tile range. Dropping into a container: GameMaster skip the range. Bandage-target requests: Counselor skip the delay. | src `UOContent/Network/Packets/IncomingEntityPackets.cs` `UseReq`; `Server/Mobiles/Mobile.cs` `Mobile.Lift`, `SendActionMessage`; `Server/Items/Item.cs` `Item.DropToItem`; `IncomingExtendedCommandPackets.BandageTarget` | - | A check that passes with a GM may fail with a player. Wait at least 0.5 s between item actions, and stay within 2 tiles. |
+| **Item moves, staff against players.** Lifting: GameMaster or above skip the action delay and the 2-tile range, not line of sight, `Movable` or a house's lock-down. Dropping into or onto an item: GameMaster skip the 2-tile range. A locked container stops only players (`It appears to be locked.`, 501747); staff open it `with your godly powers` (502502) and drop into it. A house's locked-down items are accessible to GameMaster. | src `Mobile.Lift`, `Item.DropToItem`, `LockableContainer.CheckLocked`, `LockableContainer.CheckLift`, `BaseHouse.CheckAccessibility` | as a Player (`[StaffAccess player`, 1.2): mp P1 (second lift refused, `You must wait to perform another action.`; one 700 ms later taken), P2 (4 tiles: `That is too far away.`), P3 (locked chest: the drop bounced back, `It appears to be locked.`), P4 (chest 4 tiles away: the drop bounced back); as Owner: mp A10 | Test refusals as a Player with `[StaffAccess`; wait 0.7 s between lifts. |
 | With a GM, `You must wait to perform another action.` still appeared when `event macro 24` re-armed right after a disarm. The three places the shard sends it all skip staff, so this was the **client's** own message. | inferred from the row above | 6.12, 7.11 (2026-11-13) | Retry while the journal says so (`st_arm_try`). |
 | Staff stay hidden when they cast, fight or use a bandage: `RevealingAction` unhides only a Player. | src `Server/Mobiles/Mobile.cs` `Mobile.RevealingAction`; `PlayerMobile.RevealingAction` | 12.02.b1 (the Hidden buff was still there after Bless and Protection) | Don't expect an action to unhide a GM; a player is unhidden by it. |
 | An NPC does not hear a mobile it cannot see, and a Player-level mobile (every NPC) cannot see a hidden one. | src `Mobile.DoSpeech` (`heard.CanSee(this)`), `Mobile.CanSee` | 10.01: no shop while hidden (12:28), 53 entries after `[self set Hidden false` (12:29) | Unhide before speaking to an NPC, record it, hide again in the clean-up. |
@@ -212,6 +247,16 @@ makes objects should at least log their IDs.
 | Lifting part of a stack: **the lifted part keeps the old serial**; the rest becomes a new item with a new serial, left where the pile was. | src `Mobile.Lift`, `Mobile.LiftItemDupe` | 6.09.split (100 and 1134) | After a split, the original ID is the part you hold. |
 | Dropped into a container **without a position**, the item joins a pile of the same kind there: the pile already there keeps its serial and the dropped item is deleted. With a position (`exevent dropc <bag> 40 40`) it never stacks. | src `Item.DropToItem` (`p.m_X != -1` chooses), `Container.OnDragDrop`, `Container.TryDropItem`, `Item.StackWith` (`dropped.Delete()`) | 6.09 (drops at 40 40 to keep two piles) | Drop at a position when you need two piles; after a merge, look for the pile's ID, not the one you dropped. |
 | `addtopack` never stacks (3.2 above). | src `Container.DropItem` | 4.14 | - |
+| **A lift that works removes the item from everyone's view, yours too**: the lifted item goes to the internal map, which sends `0x1D` to every client in range. So after `exevent drag` the ID is gone from `finditem` until it is dropped. | src `Mobile.Lift` (`item.Internalize()`), `Item.RemoveItem` → `SendRemovePacket` (no exclusion) | mp A1 (186 ms, 10 of 50: the old ID left the list, the rest 40 came under a new ID) | Wait for the ID to leave the list to know the lift worked. |
+| **A refused lift sends `0x27` and the item again**, so it never leaves your view. | src `Mobile.Lift` (`SendLiftReject`, then `SendContainerContentUpdate` / `SendEquipUpdate` / `SendInfoTo`) | mp A5 (30 polls, never gone), H.d, P1, P2 | An ID that stays in the list means the lift was refused. |
+| **A drop ignores the ID in the packet**: the shard drops whatever you hold. After a refused lift, a drop moves the item you were already holding, not the one you named. | src `UOContent/Network/Packets/IncomingItemPackets.cs` `DropReq` (`reader.ReadInt32(); // serial, ignored`), `Mobile.Drop` (`from.Holding`) | mp A6 (holding X, a lift of L3 refused with `You are already holding an item.`, then a drop naming L3 put X in the bag) | Never send a drop after a lift you didn't see work. |
+| A held item that is never dropped stays held, invisible to you, until you log out, die or are deleted; then it goes to your backpack. While you hold it every other lift is refused (`You are already holding an item.`). | src `Mobile.DropHolding` (called on a net state change, death, deletion) | mp A6 | Drop what you lifted, or log out to get it back. |
+| A refused drop **bounces**: the item goes back where it was lifted from. If that container is gone or no longer accessible, it lands at your feet. | src `Mobile.Drop` → `Item.Bounce` | mp A7 (onto a dagger: back in its bag, 217 ms), A8 (its bag deleted while held: on the ground at your tile), P3, P4 | A refused drop reappears in the list; look for it where it was, then on the ground. |
+| Dropped onto an item that is neither a container nor a matching pile, the drop is refused. | src `Item.DropToItem` → `OnDroppedOnto` → `Item.OnDragDrop` (`Container.OnStackAttempt` / `StackWith`) | mp A7 | - |
+| **Who sees an item land in a container**: the owner of the container's root (your backpack, every bag in it, your bank box) always; anyone else only if they opened that container and stayed in range (`Openers`). A public container (`IsPublicContainer`) tells everyone in range. | src `Item.ProcessDelta` | mp A0, A4 (a bag in the backpack never opened: seen, 215 ms), A9 (a chest on the ground never opened: not seen; seen once opened), A10, H.c / H.f (the same in a house) | Open a container that isn't yours before you check what went into it. |
+| A merge shows later than a move: the pile's new amount came 624 to 693 ms after the drop, a move into a bag 215 to 280 ms. The pile that grows is one of that type in the container (`TryDropItem` stacks with the first that takes it). | src `Container.TryDropItem`, `Item.StackWith` | mp A2, A3 (LP 30 → 40) | Allow about a second for a merge. |
+| **Whatever is dropped into a locked-down container is locked down with it** (`Movable = False`) and counts against the house's limit. Nobody can lift it, staff included (`VerifyMove` is `Movable`), until it is released (`I wish to release this`, keyword `0x24`). A drop by someone who isn't a co-owner is refused (`LockDown` needs a co-owner). | src `UOContent/Items/Containers/Container.cs` `TryDropItem`, `OnDragDropInto` (`house.LockDown(from, dropped, false)`); `BaseHouse.LockDown`, `SetLockdown`; `Server/Items/Item.cs` `VerifyMove`; `HouseRegion.OnSpeech` | mp H.e (`Movable = False`; lifting refused twice: `You can not pick that up.`) | Release an item before you test taking it out of a locked-down container. |
+| A locked-down item itself can't be lifted (`Movable = False`), staff included. | src `BaseHouse.SetLockdown`, `Item.VerifyMove` | mp H.d (`You can not pick that up.`) | - |
 
 ### 3.4 Skills
 
@@ -296,6 +341,17 @@ source; the cliloc numbers' English text is the comment next to them there.
 | `More reagents are needed for this spell.` (over your head) | 502630 | `Spell.CheckSequence` | - |
 | `I would not presume to charge thee anything.  Here are the goods you requested.` (the vendor says it; two spaces) | - | `BaseVendor.OnBuyItems` | - |
 | `Begging thy pardon, but thou canst not afford that.` (the vendor) | 500192 | `BaseVendor.OnBuyItems` | - |
+| `You can not pick that up.` | - | the client's text for a refused lift (`0x27`, reason `CannotLift`); the shard sends only the reason (`LRReason`, `Mobile.Lift`) | mp A5, H.d, H.e |
+| `You are already holding an item.` | - | the client's text for `0x27` reason `AreHolding` | mp A6 |
+| `That is too far away.` | - | the client's text for `0x27` reason `OutOfRange` (a lift) | mp P2 |
+| `That is too far away.` | 500446 | `Target` out of range (the house deed's target) | mp H, first run |
+| `It appears to be locked.` | 501747 | `LockableContainer.CheckLocked` (players) | mp P3 |
+| `House placement cancellation could result in a 60 second delay in the return of your deed.` | 1010433 | `HouseDeed.OnDoubleClick` | mp H |
+| `Lock what down?` | 502097 | `HouseRegion.OnSpeech` | mp H.lock1 |
+| `Your access level has been changed. You are now a player.` / `... now an owner.` | - | the access level change | mp P |
+| `Staff access set to Player.`, `Restoring original staff access...`, `Staff access set to Owner.` | - | `StaffAccess_OnCommand` | mp P |
+| `No type with that name (<Type>) was found.` | - | `ObjectConditional.ParseDirect` (`[global ... where <Type>`) | mp clean-up |
+| `The world is saving, please wait.`, `World save completed in 0.01 seconds.` | - | the world save | mp H.d (it fell in a case: allow for it) |
 
 Buff clilocs (`#BuffCliloc`) with the icons the client showed (`#BuffID`, live 12.02):
 
@@ -330,13 +386,26 @@ Listed so nobody looks for them in the shard:
   typing.
 - A vendor's `#ShopItemName` being a number is **not** only the client: the shard sends the number (3.2).
 - The client's own `You must wait to perform another action.` for item moves in a row (3.1).
+- `exevent drag` / `exevent dropc` only send packets: the client doesn't know about the lift, so `#LLiftedKind`
+  stays 0 and `#LLiftedID` doesn't change (mp A1, A5, P1; self-test 6.08). Check a move in the item list instead (3.3).
+- The texts for a refused lift (`You can not pick that up.`, `You are already holding an item.`, `That is too far
+  away.`) are the client's: the shard sends only the reason in `0x27` (section 4).
+- The client keeps the contents of bags in your backpack it has never opened: an item the shard adds to one is in
+  `finditem` at once (mp A0, A4).
+- client.exe 7.0.118.46 crashed once (access violation at client.exe+0x2f8c3, inside the client's own crash
+  handler, which maps an address to its module with `VirtualQuery` / `GetModuleFileNameA`) right after a refused
+  `exevent drag`. It did not happen again in 11 more refused lifts (a 10-round repeat and two full runs). Windows
+  kept no dump, so the first fault is unknown.
 
 ## 7. Open questions
 
 - Which `0xBF` sub-command (if any) does client 7.0.117.33 send for Equip Last Weapon? The `0x1E` in the
   self-test was not checked in client.exe; ModernUO uses `0x1E` for the house design query.
 - Where the ~100-character cut happens (the client's input line, or EasyUO's typing) and its exact length.
-- Whether `c9875e7f` matches the owner's shard build.
+- Whether `c9875e7f` matches the owner's shard build. (Everything checked in the item-move probe behaved as this
+  checkout says, `[StaffAccess` included, so the item, container, house and access code at least match.)
+- What deleting a house does to the items locked down in it (the probe deletes them first).
+- What crashed client.exe 7.0.118.46 once after a refused `exevent drag` (section 6).
 - Not seen live: the merged `Property has been set. (3)`; `[add ... set ...`; the notoriety of a GM's own pet (3);
   Protection lost at a shard restart; whether the client journals `LocalOverheadMessage` lines (502625, 502630)
   and spell words; what follows 500948 in macro 58's journal.

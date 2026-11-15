@@ -5,7 +5,7 @@ kind: subcommand
 category: exevent
 syntax: "exevent Drag {id} [amount]"
 needsClient: true
-related: ["exevent DropC", "exevent DropG", "exevent DropPD", "event Drag"]
+related: ["exevent DropC", "exevent DropG", "exevent DropPD", "event Drag", "MoveItem"]
 aliases: ["pick up", "drag item", "move item"]
 dll: Drag
 source: wiki
@@ -14,6 +14,9 @@ source: wiki
 `exevent Drag` asks the server to pick up an item. Follow it with
 [`exevent DropC`](/commands/exevent/dropc/), [`DropG`](/commands/exevent/dropg/) or
 [`DropPD`](/commands/exevent/droppd/) to put it down again.
+
+To move an item into a container and know whether it arrived, [`moveitem`](/commands/moveitem/) does the
+drag, the drop, the waiting and the checks in one line.
 
 ## Parameters
 

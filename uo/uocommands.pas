@@ -65,6 +65,11 @@ unit uocommands;
   the original already used: the client stores the layer next to the status byte #CharStatus
   reads. ScanItems' filtering and every other TItemRes field are unchanged.
 
+  Port addition (MOVEITEM): ItemSnapshot reads every object of the list FindItem reads (ID, type,
+  kind, container ID, stack) into the caller's array, on the ObjFirst/ObjNext walk, from the fields
+  ScanItems reads. Unlike ScanItems it keeps items in containers that have no gump, skips no
+  IgnoreItem entry, and leaves ItemList, FilterList and ItemRes (a script's FINDITEM results) alone.
+
   Port change: GetCont reads #ContHP at B_STATNAME+$26 on the relocated ("modern") builds, where the
   status gump keeps its hits $90 further on than the original's fixed B_CONTNEXT+$92. Both point at
   the status gump's current hits word (the one #Hits reads in the same object): on every fixed-base
@@ -99,6 +104,16 @@ type
     ItemLayer   : Integer;   // port addition (#FindLayer): the equip layer, -1 = not equipped
   end;
   PItemRes      = ^TItemRes;
+
+  // Port addition (MOVEITEM): one object as ItemSnapshot reads it.
+  TItemSnap     = record
+    ID          : Cardinal;
+    Typ         : Cardinal;
+    Kind        : Integer;       // the kind byte ScanItems reads: 0 = in a container, 1 = on the ground
+    Cont        : Cardinal;      // the container's (or wearer's) ID when Kind = 0, else 0
+    Stack       : Cardinal;
+  end;
+  TItemSnaps    = array of TItemSnap;
 
   // One buff of the buff bar as ScanBuffs reports it (a port addition, see the BUFF BAR section).
   TBuffInfo     = record
@@ -222,6 +237,7 @@ type
     function    GetPix(X,Y : Cardinal) : Cardinal;
     procedure   ScanItems(VisibleOnly : Boolean = True);
     function    CharMount(out ID, Typ : Cardinal) : Boolean;
+    function    ItemSnapshot(var Items : TItemSnaps) : Boolean;
     function    MountID : Cardinal;
     function    MountType : Cardinal;
     procedure   FilterItems(Filter : Cardinal; Value : Cardinal = $FFFFFFFF);
@@ -2086,6 +2102,77 @@ var
   ID : Cardinal;
 begin
   CharMount(ID,Result);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (MOVEITEM): every object of the list FindItem reads, the character first, into Items
+// (resized to the count). The fields are ScanItems': the serial at BITEMID, the graphic at BITEMTYPE,
+// the kind byte at BPOS-4, the stack at BITEMSTACK, and for kind 0 the container through the pointer
+// at BITEMID+4, whose own BITEMID is the container's (or wearer's) ID; ScanItems skips an object
+// whose pointer is 0, and so does this. Items in a container with no gump are kept (ScanItems drops
+// them when VisibleOnly), the IgnoreItem lists are not applied, and ItemList, FilterList and ItemRes
+// are not touched. False, with Items empty, without a client or when the layout doesn't fit the
+// cursor's buffer. Read only.
+function TUOCmd.ItemSnapshot(var Items : TItemSnaps) : Boolean;
+const
+  ITEM_SNAP_MAX = 100000;   // objects read at most: a broken list never loops for ever
+var
+  C        : TObjCursor;
+  Len      : Cardinal;
+  n, i     : Integer;
+  P, CID   : Cardinal;
+  Ptrs     : array of Cardinal;   // container pointers seen, and their IDs
+  PtrIDs   : array of Cardinal;
+  Found    : Boolean;
+begin
+  Result:=False;
+  SetLength(Items,0);
+  if not ClientAttached then Exit;
+  Len:=Cst.BITEMID+$10;
+  if Len<Cst.BITEMTYPE+2 then Len:=Cst.BITEMTYPE+2;
+  if Len<Cst.BPOS then Len:=Cst.BPOS;
+  if Len<Cst.BITEMSTACK+2 then Len:=Cst.BITEMSTACK+2;
+  if Len>SizeOf(TObjBuf) then Exit;
+
+  n:=0;
+  SetLength(Ptrs,0);
+  SetLength(PtrIDs,0);
+  ObjFirst(C);
+  while ObjNext(C,Len,ITEM_SNAP_MAX) do
+  begin
+    if n>=Length(Items) then SetLength(Items,n+256);
+    Items[n].ID:=Cardinal((@C.Buf[C.IdOfs])^);
+    Items[n].Typ:=Word((@C.Buf[C.TypeOfs])^);
+    Items[n].Kind:=C.Buf[C.PosOfs-4];
+    Items[n].Stack:=Word((@C.Buf[Cst.BITEMSTACK])^);
+    Items[n].Cont:=0;
+    if Items[n].Kind=0 then
+    begin
+      P:=Cardinal((@C.Buf[C.IdOfs+4])^);
+      if P=0 then Continue;
+      Found:=False;
+      CID:=0;
+      for i:=0 to High(Ptrs) do
+        if Ptrs[i]=P then
+        begin
+          CID:=PtrIDs[i];
+          Found:=True;
+          Break;
+        end;
+      if not Found then
+      begin
+        RWV(Read,P+Cst.BITEMID,@CID,4);
+        SetLength(Ptrs,Length(Ptrs)+1);
+        SetLength(PtrIDs,Length(PtrIDs)+1);
+        Ptrs[High(Ptrs)]:=P;
+        PtrIDs[High(PtrIDs)]:=CID;
+      end;
+      Items[n].Cont:=CID;
+    end;
+    Inc(n);
+  end;
+  SetLength(Items,n);
+  Result:=True;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

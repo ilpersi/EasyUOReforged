@@ -79,6 +79,7 @@ type
     procedure OpenMountWorld(Modern : Boolean);
     function  FindScanned(ID : Cardinal) : Boolean;
     procedure CheckLiveObjectsTellTheMount(Modern : Boolean);
+    procedure CheckItemSnapshot(Modern : Boolean);
     function  OpenEnemyGump(Modern : Boolean) : TFakeClientVar;
     procedure PutEnemyHits(Modern : Boolean; Max, Cur : Cardinal);
     procedure OpenStatusGump(Modern : Boolean);
@@ -130,6 +131,8 @@ type
     procedure TestCharMountFindsTheMountOnAFixedBaseClient;
     procedure TestCharMountFindsTheMountOnAModernClient;
     procedure TestScanItemsKeepsTheLayerOfWornItemsOnly;
+    procedure TestItemSnapshotOnAFixedBaseClient;
+    procedure TestItemSnapshotOnAModernClient;
     procedure TestLiveObjectsTellTheMountOnAFixedBaseClient;
     procedure TestLiveObjectsTellTheMountOnAModernClient;
     // #EnemyHits: current hits / maximum hits, as the shard sent them
@@ -1610,6 +1613,71 @@ begin
   AssertTrue('the other mobile''s mount', FindScanned($40000099));
   Eq('layer', 25, Cmd.ItemRes.ItemLayer);
   Eq('container: the other mobile', 2, Cmd.ItemRes.ContID);
+end;
+
+// MOVEITEM's view of the list (TUOCmd.ItemSnapshot): every object with its kind, container and stack,
+// the character first; an item FindItem would skip (no gump, IgnoreItem) is there; and a script's
+// FINDITEM results (ItemCnt, ItemRes) are as they were.
+procedure TCstDbModernBuildTests.CheckItemSnapshot(Modern : Boolean);
+var
+  Items   : TItemSnaps;
+  i, k    : Integer;
+  Cnt     : Cardinal;
+  Res     : TItemRes;
+
+  function At(ID : Cardinal) : Integer;
+  var
+    j : Integer;
+  begin
+    for j := 0 to High(Items) do
+      if Items[j].ID = ID then Exit(j);
+    Result := -1;
+  end;
+
+begin
+  OpenMountWorld(Modern);
+  PutBytes(MInBag + Sel.CstDB.BITEMSTACK, [42, 0]);
+  PutBytes(MGround + Sel.CstDB.BITEMSTACK, [7, 1]);
+  Cmd.IgnoreItem($40000010);
+  Cmd.ScanItems(False);
+  AssertFalse('FindItem skips the ignored item', FindScanned($40000010));
+  Cmd.GetItem(0);
+  Cnt := Cmd.ItemCnt;
+  Res := Cmd.ItemRes;
+
+  AssertTrue('read', Cmd.ItemSnapshot(Items));
+  Eq('every object', 7, Length(Items));
+  Eq('the character first', 1, Items[0].ID);
+
+  k := At($40000010);
+  AssertTrue('the ignored item, in a bag with no gump', k >= 0);
+  Eq('kind', 0, Items[k].Kind);
+  Eq('container: the backpack', $40000003, Items[k].Cont);
+  Eq('stack', 42, Items[k].Stack);
+  Eq('type', $0F7A, Items[k].Typ);
+
+  k := At($40000020);
+  Eq('on the ground', 1, Items[k].Kind);
+  Eq('no container', 0, Items[k].Cont);
+  Eq('stack', 263, Items[k].Stack);
+
+  Eq('the backpack is the character''s', 1, Items[At($40000003)].Cont);
+  Eq('the other mount is the other mobile''s', 2, Items[At($40000099)].Cont);
+
+  Eq('FINDITEM''s count is as it was', Cnt, Cmd.ItemCnt);
+  Eq('FINDITEM''s item is as it was', Res.ItemID, Cmd.ItemRes.ItemID);
+  for i := 0 to High(Items) do
+    AssertTrue('a real ID', Items[i].ID <> 0);
+end;
+
+procedure TCstDbModernBuildTests.TestItemSnapshotOnAFixedBaseClient;
+begin
+  CheckItemSnapshot(False);
+end;
+
+procedure TCstDbModernBuildTests.TestItemSnapshotOnAModernClient;
+begin
+  CheckItemSnapshot(True);
 end;
 
 // The walker's refresh reads the object list once: PathLiveObjects says whether the character

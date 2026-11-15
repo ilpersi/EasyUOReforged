@@ -5,7 +5,7 @@ kind: subcommand
 category: exevent
 syntax: "exevent DropC {container id} [x y]"
 needsClient: true
-related: ["exevent Drag", "exevent DropG", "#BackpackID"]
+related: ["exevent Drag", "exevent DropG", "#BackpackID", "MoveItem"]
 aliases: ["drop in container"]
 dll: DropC
 source: wiki
@@ -22,6 +22,9 @@ source: wiki
 
 Pick the item up with `exevent Drag`, not [`event Drag`](/commands/event/drag/): mixing `event Drag` with
 the `exevent Drop…` commands can leave a ghost item on the cursor.
+
+[`moveitem`](/commands/moveitem/) does the drag and this drop in one line, waits for them and says in
+[`#MoveRes`](/variables/moveres/) whether the item arrived.
 
 ## Example
 

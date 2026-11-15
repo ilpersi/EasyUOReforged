@@ -117,6 +117,11 @@ type
     procedure TestPathSetClearAndCanReachTheEngine;
     procedure TestExEventEquipPacketBytes;
     procedure TestExEventEquipPacketSkipsWhatIsNotAnID;
+    procedure TestMoveItemWithNoClientIsANoOp;
+    procedure TestMoveResReadsNAAfterClear;
+    procedure TestSubAndLabelNamedMoveItemStillWork;
+    procedure TestMoveItemArgsReadsItsWords;
+    procedure TestMoveItemArgsRefusesBadWords;
   end;
 
 implementation
@@ -1725,6 +1730,105 @@ begin
     EquipPacketHex(['exevent', 'equip', '12x', CardToSys26($12345678)]));
   AssertEquals('no ID: no packet', '', EquipPacketHex(['exevent', 'equip']));
   AssertEquals('only a word that is not an ID: no packet', '', EquipPacketHex(['exevent', 'equip', '12x']));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// MOVEITEM needs a client: without one the line is skipped (ClientSkips), the script goes on at once
+// and #MoveRes stays as it was.
+procedure TEuoInterpreterTests.TestMoveItemWithNoClientIsANoOp;
+var
+  T : QWord;
+begin
+  T := GetTickCount64;
+  PlayScript('moveitem ' + CardToSys26($40000100) + ' ' + CardToSys26($40000020) + #13#10 +
+    'set %after yes' + #13#10 + 'HALT');
+  AssertEquals('it goes on', 'yes', Interp.GetVar('%after'));
+  AssertEquals('N/A', Interp.GetVar('#MoveRes'));
+  AssertTrue('nothing waits', GetTickCount64 - T < 1000);
+end;
+
+procedure TEuoInterpreterTests.TestMoveResReadsNAAfterClear;
+begin
+  AssertEquals('N/A', Interp.GetVar('#MoveRes'));
+  Interp.Clear;
+  AssertEquals('N/A', Interp.GetVar('#MoveRes'));
+end;
+
+procedure TEuoInterpreterTests.TestSubAndLabelNamedMoveItemStillWork;
+begin
+  PlayScript(
+    'gosub moveitem 7' + #13#10 +
+    'set %res #result' + #13#10 +
+    'goto moveitem' + #13#10 +
+    'set %skipped yes' + #13#10 +
+    'moveitem:' + #13#10 +
+    'set %label reached' + #13#10 +
+    'HALT' + #13#10 +
+    'sub moveitem' + #13#10 +
+    '  set %sub %1' + #13#10 +
+    'return done');
+  AssertEquals('7', Interp.GetVar('%sub'));
+  AssertEquals('done', Interp.GetVar('%res'));
+  AssertEquals('N/A', Interp.GetVar('%skipped'));
+  AssertEquals('reached', Interp.GetVar('%label'));
+end;
+
+// MOVEITEM's words through the interpreter's own word filling -> 'ID Dest Amount X Y', or 'bad'.
+function MoveArgs(const Words : array of String) : String;
+var
+  Par   : TStringList;
+  PList : TParList;
+  Cnt   : Integer;
+  ID, Dest, Amount : Cardinal;
+  X, Y  : Integer;
+begin
+  Par := TStringList.Create;
+  PList := TParList.Create;
+  try
+    for Cnt := 0 to High(Words) do
+      Par.Add(Words[Cnt]);
+    WordsToParList(Par, PList);
+    if MoveItemArgs(PList, ID, Dest, Amount, X, Y) then
+      Result := Format('%x %x %d %d %d', [ID, Dest, Amount, X, Y])
+    else Result := 'bad';
+  finally
+    PList.Free;
+    Par.Free;
+  end;
+end;
+
+procedure TEuoInterpreterTests.TestMoveItemArgsReadsItsWords;
+var
+  I, D : String;
+begin
+  I := CardToSys26($40000100);
+  D := CardToSys26($40000020);
+  AssertEquals('no amount: the whole stack', '40000100 40000020 0 -1 -1', MoveArgs(['moveitem', I, D]));
+  AssertEquals('all: the whole stack', '40000100 40000020 0 -1 -1', MoveArgs(['moveitem', I, D, 'all']));
+  AssertEquals('ALL', '40000100 40000020 0 -1 -1', MoveArgs(['moveitem', I, D, 'ALL']));
+  AssertEquals('an amount', '40000100 40000020 10 -1 -1', MoveArgs(['moveitem', I, D, '10']));
+  AssertEquals('more than a stack holds', '40000100 40000020 65535 -1 -1', MoveArgs(['moveitem', I, D, '100000']));
+  AssertEquals('a position', '40000100 40000020 5 40 60', MoveArgs(['moveitem', I, D, '5', '40', '60']));
+  AssertEquals('all and a position', '40000100 40000020 0 0 0', MoveArgs(['moveitem', I, D, 'all', '0', '0']));
+end;
+
+procedure TEuoInterpreterTests.TestMoveItemArgsRefusesBadWords;
+var
+  I, D : String;
+begin
+  I := CardToSys26($40000100);
+  D := CardToSys26($40000020);
+  AssertEquals('no destination', 'bad', MoveArgs(['moveitem', I]));
+  AssertEquals('nothing', 'bad', MoveArgs(['moveitem']));
+  AssertEquals('an unset variable as the ID', 'bad', MoveArgs(['moveitem', 'N/A', D]));
+  AssertEquals('an unset variable as the destination', 'bad', MoveArgs(['moveitem', I, 'N/A']));
+  AssertEquals('amount 0', 'bad', MoveArgs(['moveitem', I, D, '0']));
+  AssertEquals('a negative amount', 'bad', MoveArgs(['moveitem', I, D, '-5']));
+  AssertEquals('an amount that is no number', 'bad', MoveArgs(['moveitem', I, D, 'N/A']));
+  AssertEquals('x without y', 'bad', MoveArgs(['moveitem', I, D, '5', '40']));
+  AssertEquals('y no number', 'bad', MoveArgs(['moveitem', I, D, '5', '40', 'abc']));
+  AssertEquals('a negative x', 'bad', MoveArgs(['moveitem', I, D, '5', '-1', '40']));
+  AssertEquals('a word too many', 'bad', MoveArgs(['moveitem', I, D, '5', '40', '40', 'x']));
 end;
 
 initialization

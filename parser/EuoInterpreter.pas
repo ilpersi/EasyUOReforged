@@ -92,6 +92,12 @@ unit EuoInterpreter;
   with TakeLog. It is the one way a script can report without stopping (DISPLAY waits for a click)
   and without a client (EVENT SYSMESSAGE needs one). A line starting with it was a silent no-op
   before, and a sub or label called "log" keeps working.
+  Likewise the MOVEITEM command plus the read-only #MoveRes (index 130): moves an item, or an amount of
+  a stack, into a destination through the server (the packets of EXEVENT DRAG and DROPC) and says what
+  happened, read from the client's object list, never the journal (EuoItemMove.pas holds the stages;
+  TEuoMoveClient below is its view of the client). A line starting with it was a silent no-op before.
+  Like WAITFOR it waits only through Delay, and Stop leaves #MoveRes as it was. TUOCmd.ItemSnapshot
+  reads the list without touching FINDITEM's results.
   Likewise four things only a host uses, none of which changes what a script does unless a host
   asks: OnDisplay (a host answers DISPLAY instead of the message box; nil by default),
   BlockCommands (commands that stop the run instead of running; none by default), Restarts (how
@@ -108,7 +114,7 @@ uses
   EuoSortedList, EuoCommandRegistry, EuoStdCommands, EuoComm, EuoMenu, EuoMenu16, EuoMenuSelect,
   EuoScriptWords,
   uotypes, access, ReforgedVersion, uoselector, uovariables, uocommands, uoevents, EuoLock,
-  EuoSql, walkrules, walkmap, pathplan, walklive, pathwalk, EuoJournalSearch, EuoStrOps;
+  EuoSql, walkrules, walkmap, pathplan, walklive, pathwalk, EuoJournalSearch, EuoStrOps, EuoItemMove;
 
 const
   RES_OK    = 0;
@@ -187,6 +193,7 @@ type
     PathLogFile  : String;        // path set log: where the walker's decisions go, '' = nowhere
     WaitRes      : String;        // port addition (WAITFOR)
     JFound       : String;        // port addition (FINDJOURNAL)
+    MoveRes      : String;        // port addition (MOVEITEM)
     FLog         : TStringList;   // port addition (LOG): lines waiting for the host; Objects = line number
     FLogLock     : TEuoLock;      // its own lock: the host takes lines while PlayLine holds CS
     FLogDropped  : Cardinal;      // lines thrown away because nobody took them
@@ -278,6 +285,7 @@ type
     procedure    DeleteJournalProc;
     procedure    ScanJournalProc;
     procedure    FindJournalProc;
+    procedure    MoveItemProc;
     procedure    ScanBuffsProc;
     procedure    NextCPosProc;
     procedure    ChooseSkillProc;
@@ -356,6 +364,9 @@ const
 // The packet EXEVENT EQUIP sends for the words of its line (see the implementation). Here for
 // the tests: the command itself needs a client.
 function ExEventEquipPacket(Pars : TParList) : String;
+// MOVEITEM's words (MoveItem {id} {destination} [amount|all] [x y]): False for bad ones. Amount 0 = the
+// whole stack; X, Y -1 without a position. Here for the tests: the command itself needs a client.
+function MoveItemArgs(Pars : TParList; out ID, Dest, Amount : Cardinal; out X, Y : Integer) : Boolean;
 
 implementation
 
@@ -488,11 +499,49 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Port addition (MOVEITEM): the words of a MOVEITEM line. The IDs are Sys26 IDs (not 0); the amount
+// is ALL or a whole number from 1 (above 65535, the most a stack holds, counts as 65535); x and y
+// come only after an amount, both whole numbers. Anything else, or a missing destination, is False.
+function MoveItemArgs(Pars : TParList; out ID, Dest, Amount : Cardinal; out X, Y : Integer) : Boolean;
+var
+  b : Boolean;
+begin
+  Result:=False;
+  ID:=0;
+  Dest:=0;
+  Amount:=0;
+  X:=-1;
+  Y:=-1;
+  if (Pars.Count<3) or (Pars.Count=5) or (Pars.Count>6) then Exit;
+  ID:=Sys26ToCard(Pars[1].StrU,b);
+  if not b or (ID=0) then Exit;
+  Dest:=Sys26ToCard(Pars[2].StrU,b);
+  if not b or (Dest=0) then Exit;
+  if Pars.Count>3 then
+  begin
+    if Pars[3].StrU<>'ALL' then
+    begin
+      if not (Pars[3].CardValid and (Pars[3].Int>=1)) then Exit;
+      Amount:=$FFFF;
+      if Pars[3].Int<$FFFF then Amount:=Pars[3].Int;
+    end;
+  end;
+  if Pars.Count=6 then
+  begin
+    if not (Pars[4].CardValid and Pars[5].CardValid) then Exit;
+    if (Pars[4].Int>$7FFF) or (Pars[5].Int>$7FFF) then Exit;
+    X:=Pars[4].Int;
+    Y:=Pars[5].Int;
+  end;
+  Result:=True;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 /// Interpreter ////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
 const
-  VarNamesR : Array[0..129] of String = (
+  VarNamesR : Array[0..130] of String = (
     'CliCnt','CliNr','Time','Date','SysTime','Random','OSVer','CharPosX',
     'CharPosY','CharPosZ','CharID','CharGhost','CharStatus','CharDir',
     'CharName','Sex','Str','MaxWeight','Dex','Int','Hits','MaxHits',
@@ -521,7 +570,9 @@ const
     // Port addition (WAITFOR): index 128.
     'WaitRes',
     // Port addition (FINDJOURNAL): index 129.
-    'JFound');
+    'JFound',
+    // Port addition (MOVEITEM): index 130.
+    'MoveRes');
 
   VarNamesRW : Array[0..33] of String = (
     'SCnt','SCnt2','LShard','ContPosX','ContPosY','NextCPosX','NextCPosY',
@@ -600,6 +651,7 @@ begin
   PathReset;
   WaitRes:='N/A';
   JFound:='N/A';
+  MoveRes:='N/A';
 
   FLog:=TStringList.Create;
   FLogLock:=TEuoLock.Create;
@@ -670,6 +722,7 @@ begin
   PathReset;   // port addition (PATH): options, rules and the last path
   WaitRes:='N/A';   // port addition (WAITFOR)
   JFound:='N/A';    // port addition (FINDJOURNAL)
+  MoveRes:='N/A';   // port addition (MOVEITEM)
   Restarts:=0;      // port additions for hosts: a new run has not restarted or been blocked.
   BlockedCmd:='';   // (What LOG queued stays: the host has not read it yet.)
   BlockedLine:=-1;
@@ -1026,6 +1079,8 @@ begin
     128: Result:=            WaitRes       ;
     // Port addition (FINDJOURNAL).
     129: Result:=            JFound        ;
+    // Port addition (MOVEITEM).
+    130: Result:=            MoveRes       ;
     500: Result:=IntToStr   (GetTickCount div 1000 - SCntBase);
     501: Result:=IntToStr   (GetTickCount div 100 - SCnt2Base);
     525: Result:=            _Result       ;
@@ -1478,6 +1533,7 @@ begin
   CmdRegistry.Register('NextCPos',NextCPosProc,True);
   CmdRegistry.Register('ScanJournal',ScanJournalProc,True);
   CmdRegistry.Register('FindJournal',FindJournalProc,True);   // port addition
+  CmdRegistry.Register('MoveItem',MoveItemProc,True);         // port addition
   CmdRegistry.Register('ScanBuffs',ScanBuffsProc,True);   // port addition
   CmdRegistry.Register('DeleteJournal',DeleteJournalProc,True);
   CmdRegistry.Register('HideItem',HideItemProc,True);
@@ -4304,6 +4360,118 @@ begin
     UOCmd.GetJournal(JIndex-Found);
   end
   else UOCmd.GetJournal(High(Cardinal));   // past the end: clears #Journal and #JColor
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (MOVEITEM): the mover's view of the client (EuoItemMove.TMoveClient), through this
+// interpreter: the object list (TUOCmd.ItemSnapshot, which leaves FINDITEM's results alone), the
+// cursor (#LLiftedKind), the drag and drop packets of EXEVENT DRAG and DROPC, and Delay (so Stop and
+// Pause work). Time spent paused is left out of Now. Nothing here reads the journal.
+type
+  TEuoMoveClient = class(TMoveClient)
+  private
+    Interp   : TEuoInterpreter;
+    PausedMs : QWord;
+    Snap     : TItemSnaps;
+  public
+    constructor Create(AInterp : TEuoInterpreter);
+    function  Snapshot(var Objs : TMoveObjs) : Boolean; override;
+    function  Holding : Boolean; override;
+    function  CharID : Cardinal; override;
+    function  Lift(ID, Amount : Cardinal) : Boolean; override;
+    procedure Drop(ID, Dest : Cardinal; X, Y : Integer); override;
+    function  Now : QWord; override;
+    function  Wait(Ms : Cardinal) : Boolean; override;
+  end;
+
+constructor TEuoMoveClient.Create(AInterp : TEuoInterpreter);
+begin
+  inherited Create;
+  Interp:=AInterp;
+  PausedMs:=0;
+end;
+
+function TEuoMoveClient.Snapshot(var Objs : TMoveObjs) : Boolean;
+var
+  i : Integer;
+begin
+  SetLength(Objs,0);
+  Result:=(Interp.UOSel.Nr>0) and Interp.UOCmd.ItemSnapshot(Snap);
+  if not Result then Exit;
+  SetLength(Objs,Length(Snap));
+  for i:=0 to High(Snap) do
+  begin
+    Objs[i].ID:=Snap[i].ID;
+    Objs[i].Typ:=Snap[i].Typ;
+    Objs[i].Kind:=Snap[i].Kind;
+    Objs[i].Cont:=Snap[i].Cont;
+    Objs[i].Stack:=Snap[i].Stack;
+  end;
+end;
+
+// Anything but 0 counts: a drop would move what hangs on the cursor, so in doubt nothing starts.
+function TEuoMoveClient.Holding : Boolean;
+begin
+  Result:=Interp.UOVar.LLiftedKind<>0;
+end;
+
+function TEuoMoveClient.CharID : Cardinal;
+begin
+  Result:=Interp.UOVar.CharID;
+end;
+
+// ExEv_Drag sets the drag ID only once it has found the item in the client's list; cleared first, it
+// says whether the drag was sent for this item.
+function TEuoMoveClient.Lift(ID, Amount : Cardinal) : Boolean;
+begin
+  Interp.EventObj.LastDragID:=0;
+  Interp.EventObj.ExEv_Drag(ID,Amount);
+  Result:=Interp.EventObj.LastDragID=ID;
+end;
+
+// The drop packet names the item (the shard drops what it holds whatever the name; see EuoItemMove).
+procedure TEuoMoveClient.Drop(ID, Dest : Cardinal; X, Y : Integer);
+begin
+  Interp.EventObj.LastDragID:=ID;
+  Interp.EventObj.ExEv_DropC(Dest,X,Y);
+end;
+
+function TEuoMoveClient.Now : QWord;
+begin
+  Result:=GetTickCount64-PausedMs;
+end;
+
+function TEuoMoveClient.Wait(Ms : Cardinal) : Boolean;
+begin
+  Result:=Interp.DelayCountPause(Ms,PausedMs);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition. MoveItem {id} {destination} [amount|all] [x y]: moves the item (without an amount, or
+// with ALL, the whole stack) into the destination, at x,y inside it when given (after an amount), and
+// sets #MoveRes to what happened (EuoItemMove.MoveResText). Bad words set 'error' and send nothing.
+// Stop leaves #MoveRes as it was, as for WAITFOR.
+procedure TEuoInterpreter.MoveItemProc;
+var
+  ID, Dest : Cardinal;
+  Amount   : Cardinal;
+  X, Y     : Integer;
+  Cli      : TEuoMoveClient;
+  Res      : TMoveRes;
+  Was      : String;
+begin
+  Was:=MoveRes;
+  MoveRes:='error';
+  if not MoveItemArgs(ParList,ID,Dest,Amount,X,Y) then Exit;
+
+  Cli:=TEuoMoveClient.Create(Self);
+  try
+    Res:=RunMove(Cli,ID,Dest,Amount,X,Y);
+  finally
+    Cli.Free;
+  end;
+  if Res=mrStopped then MoveRes:=Was
+  else MoveRes:=MoveResText(Res);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

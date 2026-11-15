@@ -1,0 +1,1146 @@
+; MoveItemProbe.euo -- checks on a live client the facts the planned MOVEITEM command rests on.
+;
+; Needs: a staff character (GameMaster or above) on your own ModernUO shard, logged in, nothing on the cursor.
+; Run it unattended:
+;   EUOCli run tests/tools/MoveItemProbe.euo --client 1 --timeout 1200
+; Each result is one log line: RESULT <case> <PASS|FAIL|INFO> <what> observed=... expected=...
+; CREATED lines name every object it makes, CLEANUP lines say what happened to each at the end.
+;
+; It makes its own test objects with staff commands and moves only those:
+;   in the backpack: logs L1 (50), LP (30), L3 (10, set Movable false), LH (20), bags B1, B2, B3 (with log L4),
+;   a dagger D1; at your feet: chest C1, chest C2 (Locked); a house (SmallBrickHouseDeed, placed 9 tiles
+;   east: the deed's target reaches 10) with two chests H1, H2 locked down in it.
+; Case A8 is the one ground case: the SERVER bounces log L4 to your feet because its bag was deleted while
+; it was held. The clean-up deletes L4 and every other object made here, the house too, and puts you back.
+; The staff character skips the action delay, the 2-tile range and locks. Cases P1-P4 see them as a Player:
+; [StaffAccess player lowers the level (ModernUO UOContent/Commands/StaffAccess.cs; the real level is kept on
+; the account), and [StaffAccess, which a Player may use, restores it right after P4. The clean-up restores it
+; first if needed. If a run stops while it says "now a PLAYER", type [StaffAccess in the game.
+; Movable false (A5, H.d) is refused for staff too.
+; Ends in halt.
+
+set %alpha ABCDEFGHIJKLMNOPQRSTUVWXYZ
+set %pfx [
+set %prate 10
+set %pmax 10
+set %pm 0
+set %plast #SCnt2
+set %created |
+set %passes 0
+set %fails 0
+set %house 0
+set %L1 N/A
+set %L1r N/A
+set %LP N/A
+set %L3 N/A
+set %L4 N/A
+set %LH N/A
+set %LHr N/A
+set %LHr2 N/A
+set %B1 N/A
+set %B2 N/A
+set %B3 N/A
+set %D1 N/A
+set %C1 N/A
+set %C2 N/A
+set %H1 N/A
+set %H2 N/A
+set %X N/A
+set %Xr N/A
+set %deed N/A
+set %logt N/A
+set %PL N/A
+set %PLr N/A
+set %PF N/A
+set %CF N/A
+set %lowered 0
+
+log PROBE moveitem probe started on #CliVer as #CharName at #CharPosX #CharPosY #CharPosZ facet #CursKind
+
+; ---- preconditions -----------------------------------------------------------
+if #CliLogged <> 1
+{
+  log ABORT not logged in
+  halt
+}
+if #LLiftedKind <> 0
+{
+  log ABORT something hangs on the cursor
+  halt
+}
+gosub mp_staff self get AccessLevel
+findjournal %sj * 60 AccessLevel_=_
+if #JFound = 0
+{
+  log ABORT the shard did not answer a staff command
+  halt
+}
+str part #Journal _=_ 2
+set %lvl #StrRes
+log PROBE access level %lvl
+if %lvl = Player || %lvl = Counselor
+{
+  log ABORT needs GameMaster or above
+  halt
+}
+
+set %x0 #CharPosX
+set %y0 #CharPosY
+set %z0 #CharPosZ
+
+; the backpack open
+if #ContID <> #BackpackID
+{
+  event macro 8 7
+  waitfor #ContID = #BackpackID 60
+}
+
+; ---- the test objects ---------------------------------------------------------
+; what the containers held before: the final sweep deletes only logs that were not there
+gosub mp_snap CA_
+set %start %snap
+gosub mp_snapold CA_
+gosub mp_staff self addtopack Log 50
+gosub mp_newid CA_
+set %L1 %newid
+gosub mp_created %L1 L1_log_50
+
+gosub mp_snapold CA_
+gosub mp_staff self addtopack Log 30
+gosub mp_newid CA_
+set %LP %newid
+gosub mp_created %LP LP_log_30
+
+gosub mp_snapold CA_
+gosub mp_staff self addtopack Log 10
+gosub mp_newid CA_
+set %L3 %newid
+gosub mp_created %L3 L3_log_10_not_movable
+
+gosub mp_snapold CA_
+gosub mp_staff self addtopack Log 20
+gosub mp_newid CA_
+set %LH %newid
+gosub mp_created %LH LH_log_20
+
+gosub mp_snapold CA_
+gosub mp_staff self addtopack Bag
+gosub mp_newid CA_
+set %B1 %newid
+gosub mp_created %B1 B1_bag
+
+gosub mp_snapold CA_
+gosub mp_staff self addtopack Bag
+gosub mp_newid CA_
+set %B2 %newid
+gosub mp_created %B2 B2_bag_never_opened
+
+gosub mp_snapold CA_
+gosub mp_staff self addtopack Bag
+gosub mp_newid CA_
+set %B3 %newid
+gosub mp_created %B3 B3_bag
+
+gosub mp_snapold CA_
+gosub mp_staff self addtopack Dagger
+gosub mp_newid CA_
+set %D1 %newid
+gosub mp_created %D1 D1_dagger
+
+gosub mp_snapold G_2
+gosub mp_staff self add WoodenChest
+gosub mp_newid G_2
+set %C1 %newid
+gosub mp_created %C1 C1_chest_never_opened
+
+gosub mp_snapold G_2
+gosub mp_staff self add WoodenChest set Locked true
+gosub mp_newid G_2
+set %C2 %newid
+gosub mp_created %C2 C2_chest_locked
+
+if %L1 = N/A || %LP = N/A || %L3 = N/A || %LH = N/A || %B1 = N/A || %B2 = N/A || %B3 = N/A || %D1 = N/A
+{
+  log ABORT a test object was not made
+  goto mp_cleanup
+}
+
+gosub mp_where %L1
+finditem %L1 A
+set %logt #FindType
+log PROBE log type %logt
+gosub mp_oset %L3 Movable false
+gosub mp_oget %L3 Movable
+gosub mp_eq S.movable %gn False L3_is_not_movable
+
+; 1 here runs only the house cases (H)
+set %houseonly 0
+if %houseonly = 1
+  goto mp_house
+
+; ---- A0: an item added to a bag nobody opened (B3) reaches the client ----------
+gosub mp_snapold CA_
+gosub mp_oaddtopack %B3 Log 5
+gosub mp_newid CA_
+set %L4 %newid
+gosub mp_created %L4 L4_log_5_in_B3
+set %a0 0
+if %L4 <> N/A
+  set %a0 1
+gosub mp_info A0 a_log_added_to_a_bag_never_opened_is_in_the_client's_list %a0
+if %L4 = N/A
+{
+  ; open B3 and look again
+  set #LObjectID %B3
+  event macro 17 0
+  waitfor #ContID = %B3 60
+  gosub mp_newid CA_
+  set %L4 %newid
+  gosub mp_created %L4 L4_log_5_in_B3_after_opening
+}
+
+; ---- A1: a lift that works removes the item from the client; part of a stack --
+gosub mp_where %L1
+gosub mp_eq A1.before %ws 50 L1_holds_50
+gosub mp_snapold CA_
+gosub mp_lift %L1 10
+gosub mp_eq A1.gone %lifted 1 exevent_drag_10_of_50:_the_ID_leaves_the_client's_list
+gosub mp_info A1.ms ms_from_the_drag_to_the_ID_leaving %liftms
+gosub mp_eq A1.cursor #LLiftedKind 0 LLiftedKind_stays_0_with_the_server_route
+gosub mp_newid CA_
+set %L1r %newid
+gosub mp_created %L1r L1r_rest_of_L1
+gosub mp_where %L1r
+gosub mp_eq A1.rest %ws 40 the_rest_stays_under_a_NEW_ID_with_40
+gosub mp_eq A1.restbag %wc #BackpackID the_rest_stays_in_the_backpack
+
+; ---- A2: the drop into an open bag at a position --------------------------------
+set #LObjectID %B1
+event macro 17 0
+waitfor #ContID = %B1 60
+gosub mp_drop %B1 40 40
+gosub mp_wait_in %L1 %B1 40
+gosub mp_eq A2.in %in 1 exevent_dropc_B1_40_40:_the_old_ID_appears_in_B1
+gosub mp_info A2.ms ms_from_the_drop_to_the_ID_in_B1 %inms
+gosub mp_eq A2.stack %ws 10 the_old_ID_is_the_lifted_part_(10)
+
+; ---- A3: dropped without a position onto a matching pile: merge -----------------
+gosub mp_where %LP
+set %s_lp %ws
+gosub mp_where %L1r
+set %s_r %ws
+gosub mp_where %L3
+set %s_3 %ws
+gosub mp_where %LH
+set %s_h %ws
+gosub mp_lift %L1 10
+gosub mp_eq A3.gone %lifted 1 the_whole_10_lifted:_the_ID_leaves_the_list
+gosub mp_drop #BackpackID
+set %merged 0
+set %m_n 0
+repeat
+  gosub mp_where %L1
+  set %m_l1 %wk
+  gosub mp_where %LP
+  set %m_lp %ws
+  gosub mp_where %L1r
+  set %m_r %ws
+  gosub mp_where %L3
+  set %m_3 %ws
+  gosub mp_where %LH
+  set %m_h %ws
+  if %m_l1 = -1 && ( %m_lp > %s_lp || %m_r > %s_r || %m_3 > %s_3 || %m_h > %s_h )
+    set %merged 1
+  else
+  {
+    wait 1
+    set %m_n %m_n + 1
+  }
+until %merged = 1 || %m_n >= 40
+set %a3ms #SysTime - %d_t0
+gosub mp_eq A3.merged %merged 1 exevent_dropc_backpack_(no_position):_ID_gone_and_a_log_pile_grew_by_10
+gosub mp_info A3.ms ms_from_the_drop_to_the_merge %a3ms
+set %a3 LP_ , %s_lp , > , %m_lp , _L1r_ , %s_r , > , %m_r , _L3_ , %s_3 , > , %m_3 , _LH_ , %s_h , > , %m_h
+gosub mp_info A3.which pile_stacks_before>after %a3
+gosub mp_where %L1
+gosub mp_info A3.L1 where_L1_is_now_(kind/bag) %wk , / , %wc
+
+; ---- A4: the drop into a bag in the backpack nobody opened (B2) -------------------
+gosub mp_where %LP
+set %a4amt %ws
+gosub mp_lift %LP %a4amt
+gosub mp_eq A4.gone %lifted 1 LP_lifted_whole
+gosub mp_drop %B2
+gosub mp_wait_in %LP %B2 40
+gosub mp_info A4.in LP_seen_in_B2_(never_opened)_1=yes %in
+gosub mp_info A4.ms ms_from_the_drop %inms
+set %X %LP
+if %in = 0
+{
+  gosub mp_where %LP
+  gosub mp_info A4.where where_LP_is_(kind/bag) %wk , / , %wc
+  set %X %L1r
+}
+
+; ---- A5: a refused lift (L3 not movable): the item never leaves the list ---------
+set %jm #JIndex
+set %t0 #SysTime
+exevent drag %L3 1
+set %a5gone 0
+set %a5n 0
+repeat
+  gosub mp_where %L3
+  if %wk = -1
+    set %a5gone %a5gone + 1
+  wait 1
+  set %a5n %a5n + 1
+until %a5n >= 30
+gosub mp_eq A5.stays %a5gone 0 a_refused_lift_never_takes_the_ID_out_of_the_list_(polls_without_it)
+gosub mp_eq A5.cursor #LLiftedKind 0 LLiftedKind_stays_0
+gosub mp_journal A5
+
+; ---- A6: a drop moves what the SERVER holds, whatever ID it names ----------------
+; X is lifted (held by the server, invisible), then a lift of L3 is refused (already holding),
+; then exevent dropc B1: the drop packet names L3, the server drops X.
+gosub mp_where %X
+set %a6amt %ws
+set %a6from %wc
+gosub mp_lift %X %a6amt
+gosub mp_eq A6.gone %lifted 1 X_lifted_whole
+set %jm #JIndex
+exevent drag %L3 1
+wait 10
+gosub mp_drop %B1
+gosub mp_wait_in %X %B1 40
+gosub mp_eq A6.held %in 1 the_drop_after_a_refused_lift_of_L3_put_X_(held)_into_B1
+gosub mp_where %L3
+gosub mp_eq A6.L3 %wc #BackpackID L3_is_still_in_the_backpack
+gosub mp_journal A6
+
+; ---- A7: a refused drop (onto a dagger): the item comes back where it was ---------
+gosub mp_where %X
+set %a7amt %ws
+gosub mp_lift %X %a7amt
+gosub mp_eq A7.gone %lifted 1 X_lifted_whole_from_B1
+set %jm #JIndex
+gosub mp_drop %D1
+gosub mp_wait_seen %X 40
+gosub mp_eq A7.back %seen 1 a_drop_onto_a_dagger_bounces:_X_is_in_the_list_again
+gosub mp_eq A7.where %wc %B1 it_is_back_in_B1,_where_it_was_lifted
+gosub mp_info A7.ms ms_from_the_drop_to_the_bounce %seenms
+gosub mp_journal A7
+
+; ---- A8 (GROUND, by the server): the origin bag deleted while held: bounce to your feet --
+if %L4 <> N/A
+{
+  gosub mp_lift %L4 5
+  gosub mp_eq A8.gone %lifted 1 L4_lifted_from_B3
+  gosub mp_odelete %B3
+  wait 20
+  gosub mp_drop %D1
+  gosub mp_wait_seen %L4 60
+  gosub mp_eq A8.back %seen 1 L4_is_in_the_list_again
+  gosub mp_eq A8.ground %wk 1 with_its_bag_gone_the_bounce_puts_it_on_the_ground
+  set %a8 %wx , / , %wy , _char_ , #CharPosX , / , #CharPosY
+  gosub mp_info A8.pos where_it_landed %a8
+}
+
+; ---- A9: a chest on the ground nobody opened (C1) -------------------------------
+gosub mp_snapold CA_
+gosub mp_lift %X 5
+gosub mp_eq A9.gone %lifted 1 5_of_X_lifted
+gosub mp_newid CA_
+set %Xr %newid
+gosub mp_created %Xr Xr_rest_of_X
+gosub mp_drop %C1
+gosub mp_wait_in %X %C1 40
+gosub mp_eq A9.unseen %in 0 not_seen_in_a_chest_you_never_opened_(only_openers_are_told)
+gosub mp_where %X
+gosub mp_info A9.where where_X_is_(kind/bag) %wk , / , %wc
+set #LObjectID %C1
+event macro 17 0
+waitfor #ContID = %C1 60
+gosub mp_wait_in %X %C1 40
+gosub mp_eq A9.opened %in 1 seen_once_the_chest_is_opened
+
+; ---- A10: a locked chest (C2), as staff ---------------------------------------------
+if %C2 <> N/A && %Xr <> N/A
+{
+  gosub mp_lift %Xr 5
+  gosub mp_eq A10.gone %lifted 1 5_of_Xr_lifted
+  set %X10 %Xr
+  set %jm #JIndex
+  gosub mp_drop %C2
+  gosub mp_wait_in %X10 %C2 40
+  gosub mp_info A10.unseen seen_in_the_locked_chest_before_opening_1=yes %in
+  gosub mp_journal A10.drop
+  set %jm #JIndex
+  set #LObjectID %C2
+  event macro 17 0
+  waitfor #ContID = %C2 60
+  gosub mp_wait_in %X10 %C2 40
+  gosub mp_info A10.opened seen_after_opening_it_as_staff_1=yes %in
+  gosub mp_journal A10.open
+}
+
+; ---- P: as a Player ([StaffAccess player), the refusals staff skip -----------------
+; The objects are made as staff first: staff commands don't work for a Player. [StaffAccess (allowed for a
+; Player) puts the real level back right after the cases, and again in the clean-up if needed.
+gosub mp_snapold CA_
+gosub mp_staff self addtopack Log 20
+gosub mp_newid CA_
+set %PL %newid
+gosub mp_created %PL PL_log_20
+gosub mp_snapold G_2
+gosub mp_staff self add Log 5
+gosub mp_newid G_2
+set %PF %newid
+gosub mp_created %PF PF_log_5_on_the_ground_moved_4_tiles_east
+gosub mp_snapold G_2
+gosub mp_staff self add WoodenChest
+gosub mp_newid G_2
+set %CF %newid
+gosub mp_created %CF CF_chest_moved_4_tiles_east
+set %p4x #CharPosX + 4
+if %PF <> N/A
+  gosub mp_oset %PF X %p4x
+if %CF <> N/A
+  gosub mp_oset %CF X %p4x
+wait 20
+if %PL = N/A || %PF = N/A || %CF = N/A
+{
+  log RESULT P INFO player_objects_not_made:_player_cases_skipped
+  goto mp_house
+}
+set %jm #JIndex
+gosub mp_staff StaffAccess player
+findjournal %jm * 60 Staff_access_set_to_Player
+if #JFound = 0
+{
+  log RESULT P INFO StaffAccess_did_not_lower_the_level:_player_cases_skipped
+  gosub mp_journal P.lower
+  goto mp_house
+}
+set %lowered 1
+log PROBE now a PLAYER. If this run stops before the restore, type [StaffAccess in the game.
+wait 20
+
+; P1: the action delay: a second lift right after the first is refused, one 700 ms later is not
+gosub mp_snapold CA_
+gosub mp_lift %PL 5
+gosub mp_eq P1.first %lifted 1 first_lift_as_a_player
+set %p1t #SysTime
+gosub mp_drop #BackpackID 70 70
+set %jm #JIndex
+gosub mp_lift %PL 5
+set %p1ms #SysTime - %p1t
+gosub mp_eq P1.delay %lifted 0 a_lift_sent_right_after_the_first_is_refused_(action_delay)
+gosub mp_info P1.after ms_from_the_first_lift_seen_to_the_second_check %p1ms
+gosub mp_journal P1
+if %lifted = 1
+  gosub mp_drop #BackpackID 70 70
+gosub mp_newid CA_
+set %PLr %newid
+gosub mp_created %PLr PLr_rest_of_PL
+gosub mp_wait_in %PL #BackpackID 40
+wait 14
+gosub mp_lift %PL 5
+gosub mp_eq P1.later %lifted 1 a_lift_700_ms_later_is_taken
+if %lifted = 1
+{
+  gosub mp_drop #BackpackID 70 70
+  gosub mp_wait_in %PL #BackpackID 40
+}
+
+; P2: an item more than 2 tiles away can't be lifted by a player
+wait 14
+set %jm #JIndex
+gosub mp_lift %PF 5
+gosub mp_eq P2.range %lifted 0 an_item_4_tiles_away_is_refused
+gosub mp_journal P2
+if %lifted = 1
+  gosub mp_drop #BackpackID 70 70
+
+; P3: a locked chest refuses the drop: the item bounces back
+wait 14
+gosub mp_where %PL
+set %p3amt %ws
+gosub mp_lift %PL %p3amt
+gosub mp_eq P3.gone %lifted 1 PL_lifted
+set %jm #JIndex
+gosub mp_drop %C2
+gosub mp_wait_seen %PL 40
+gosub mp_eq P3.back %seen 1 dropped_into_the_locked_chest_it_comes_back
+gosub mp_eq P3.where %wc #BackpackID back_in_the_backpack
+gosub mp_journal P3
+
+; P4: a container more than 2 tiles away refuses the drop: the item bounces back
+wait 14
+gosub mp_where %PL
+set %p4amt %ws
+gosub mp_lift %PL %p4amt
+gosub mp_eq P4.gone %lifted 1 PL_lifted
+set %jm #JIndex
+gosub mp_drop %CF
+gosub mp_wait_seen %PL 40
+gosub mp_eq P4.back %seen 1 dropped_into_a_chest_4_tiles_away_it_comes_back
+gosub mp_eq P4.where %wc #BackpackID back_in_the_backpack
+gosub mp_journal P4
+
+gosub mp_restore
+
+; ---- H: a house with two chests locked down in it --------------------------------
+mp_house:
+set %htx #CharPosX + 9
+set %hty #CharPosY
+set %htz #CharPosZ
+set %hx %htx
+set %hy %hty - 4
+gosub mp_snapold CA_
+gosub mp_staff self addtopack SmallBrickHouseDeed
+gosub mp_newid CA_
+set %deed %newid
+gosub mp_created %deed house_deed
+if %deed = N/A
+{
+  log RESULT H INFO no_house_deed:_house_cases_skipped
+  goto mp_cleanup
+}
+set %jm #JIndex
+set #LObjectID %deed
+event macro 17 0
+waitfor #TargCurs = 1 60
+if #TargCurs <> 1
+{
+  log RESULT H INFO the_deed_gave_no_target_cursor:_house_cases_skipped
+  gosub mp_journal H.deed
+  goto mp_cleanup
+}
+set #LTargetX %htx
+set #LTargetY %hty
+set #LTargetZ %htz
+set #LTargetKind 2
+event macro 22 0
+waitfor #TargCurs = 0 60
+wait 20
+gosub mp_where %deed
+if %wk <> -1
+{
+  log RESULT H INFO the_deed_is_still_there:_no_house:_house_cases_skipped
+  gosub mp_journal H.place
+  goto mp_cleanup
+}
+set %house 1
+log CREATED house SmallBrickHouse at %hx %hy %htz
+; stand on its floor; the floor height is tried, as the house's own multi data isn't read here
+set %hz %htz + 7
+gosub mp_staff go %hx %hy %hz
+wait 20
+gosub mp_snapold G_2
+gosub mp_staff self add WoodenChest
+gosub mp_newid G_2
+set %H1 %newid
+gosub mp_created %H1 H1_chest_locked_down
+gosub mp_snapold G_2
+gosub mp_staff self add WoodenChest
+gosub mp_newid G_2
+set %H2 %newid
+gosub mp_created %H2 H2_chest_locked_down_never_opened
+if %H1 = N/A || %H2 = N/A
+{
+  log RESULT H INFO house_chests_not_made:_house_cases_skipped
+  goto mp_back
+}
+gosub mp_lockdown %H1
+if %locked = 0
+{
+  ; another floor height
+  for %ho 1 4
+  {
+    if %locked = 0
+    {
+      if %ho = 1
+        set %hz %htz
+      if %ho = 2
+        set %hz %htz + 4
+      if %ho = 3
+        set %hz %htz + 10
+      if %ho = 4
+        set %hz %htz + 14
+      gosub mp_staff go %hx %hy %hz
+      wait 20
+      gosub mp_oset %H1 Z %hz
+      gosub mp_oset %H2 Z %hz
+      gosub mp_lockdown %H1
+    }
+  }
+}
+gosub mp_eq H.lock1 %locked 1 H1_locked_down_(Movable_False)
+if %locked = 0
+  goto mp_back
+gosub mp_info H.floor floor_height_used %hz
+gosub mp_lockdown %H2
+gosub mp_eq H.lock2 %locked 1 H2_locked_down
+
+; H.a/b: open H1, drop 5 logs into it
+set #LObjectID %H1
+event macro 17 0
+waitfor #ContID = %H1 60
+gosub mp_snapold CA_
+gosub mp_lift %LH 5
+gosub mp_eq H.b.gone %lifted 1 5_of_LH_lifted
+gosub mp_newid CA_
+set %LHr %newid
+gosub mp_created %LHr LHr_rest_of_LH
+gosub mp_drop %H1
+gosub mp_wait_in %LH %H1 40
+gosub mp_eq H.b.in %in 1 seen_in_the_locked-down_chest_you_opened
+gosub mp_info H.b.ms ms_from_the_drop %inms
+; H.c: drop 5 logs into H2, never opened
+if %LHr <> N/A
+{
+  gosub mp_snapold CA_
+  gosub mp_lift %LHr 5
+  gosub mp_eq H.c.gone %lifted 1 5_of_LHr_lifted
+  gosub mp_newid CA_
+  set %LHr2 %newid
+  gosub mp_created %LHr2 LHr2_rest_of_LHr
+  gosub mp_drop %H2
+  gosub mp_wait_in %LHr %H2 40
+  gosub mp_eq H.c.unseen %in 0 not_seen_in_the_locked-down_chest_never_opened
+  gosub mp_where %LHr
+  gosub mp_info H.c.where where_it_is_(kind/bag) %wk , / , %wc
+}
+; H.d: a locked-down chest can't be lifted, even by staff
+set %jm #JIndex
+exevent drag %H1 1
+set %hdgone 0
+set %hdn 0
+repeat
+  gosub mp_where %H1
+  if %wk = -1
+    set %hdgone %hdgone + 1
+  wait 1
+  set %hdn %hdn + 1
+until %hdn >= 30
+gosub mp_eq H.d.stays %hdgone 0 lifting_a_locked-down_chest_is_refused:_it_never_leaves_the_list
+gosub mp_journal H.d
+; H.e: what is dropped into a locked-down container is locked down with it (Container.TryDropItem /
+; OnDragDropInto call house.LockDown): Movable False, and nobody can lift it, staff included, until released
+gosub mp_oget %LH Movable
+gosub mp_eq H.e.movable %gn False the_logs_dropped_into_H1_are_locked_down_(Movable_False)
+set %jm #JIndex
+gosub mp_lift %LH 5
+gosub mp_eq H.e.refused %lifted 0 lifting_them_out_is_refused_even_for_staff
+gosub mp_journal H.e
+if %lifted = 1
+{
+  gosub mp_drop #BackpackID 60 60
+  gosub mp_wait_in %LH #BackpackID 40
+}
+; H.f: open H2: now its log is seen
+if %LHr <> N/A
+{
+  set #LObjectID %H2
+  event macro 17 0
+  waitfor #ContID = %H2 60
+  gosub mp_wait_in %LHr %H2 40
+  gosub mp_eq H.f.opened %in 1 seen_once_H2_is_opened
+}
+
+mp_back:
+gosub mp_staff go %x0 %y0 %z0
+wait 20
+
+; ---- clean-up: every object made here, then the house -------------------------
+mp_cleanup:
+log PROBE clean-up
+gosub mp_restore
+if %lowered = 1
+{
+  log ABORT clean-up skipped: staff commands need the real access level back first
+  halt
+}
+gosub mp_cl %H1 H1
+gosub mp_cl %H2 H2
+gosub mp_cl %L4 L4
+gosub mp_cl %B1 B1
+gosub mp_cl %B2 B2
+gosub mp_cl %B3 B3
+gosub mp_cl %C1 C1
+gosub mp_cl %C2 C2
+gosub mp_cl %D1 D1
+gosub mp_cl %L1 L1
+gosub mp_cl %L1r L1r
+gosub mp_cl %LP LP
+gosub mp_cl %L3 L3
+gosub mp_cl %LH LH
+gosub mp_cl %LHr LHr
+gosub mp_cl %LHr2 LHr2
+gosub mp_cl %PL PL
+gosub mp_cl %PLr PLr
+gosub mp_cl %PF PF
+gosub mp_cl %CF CF
+gosub mp_cl %Xr Xr
+gosub mp_cl %deed deed
+; any log left in a container that was not there at the start (a split's rest the probe did not name)
+if %logt <> N/A
+{
+  finditem %logt CA_
+  set %sw_c #FindCnt
+  set %sw_list |
+  set %sw_cnt 0
+  if %sw_c > 0
+  {
+    for %sw_i 1 %sw_c
+    {
+      set #FindIndex %sw_i
+      set %sw_k | , #FindID , |
+      if %sw_k notin %start
+      {
+        set %sw_list %sw_list , #FindID , |
+        set %sw_cnt %sw_cnt + 1
+      }
+    }
+  }
+  log PROBE sweep: %sw_cnt new logs left %sw_list
+  if %sw_cnt > 0
+  {
+    for %sw_n 1 %sw_cnt
+    {
+      set %sw_p %sw_n + 1
+      str part %sw_list | %sw_p
+      set %sw_id #StrRes
+      gosub mp_cl %sw_id sweep_log
+    }
+  }
+}
+if %house = 1
+{
+  set %jm #JIndex
+  ; SmallBrickHouseDeed builds a SmallOldHouse (with the brick multi)
+  gosub mp_staff global delete where SmallOldHouse X = %hx Y = %hy
+  wait 30
+  gosub mp_journal CLEANUP.house
+  log CLEANUP house global delete sent for SmallOldHouse at %hx %hy
+}
+if #CharPosX <> %x0 || #CharPosY <> %y0
+  gosub mp_staff go %x0 %y0 %z0
+log SUMMARY pass= , %passes fail= , %fails
+halt
+
+; ###########################################################################
+;  HELPERS
+; ###########################################################################
+
+; puts the real access level back after [StaffAccess player (no-op when not lowered), twice at most, and checks
+; it with [self get AccessLevel against %lvl, the level read at the start
+sub mp_restore
+  if %lowered <> 1
+    return
+  for %r_try 1 2
+  {
+    if %lowered = 1
+    {
+      set %jm #JIndex
+      gosub mp_staff StaffAccess
+      wait 20
+      gosub mp_staff self get AccessLevel
+      set %rl N/A
+      findjournal %sj * 60 AccessLevel_=_
+      if #JFound > 0
+      {
+        str part #Journal _=_ 2
+        set %rl #StrRes
+      }
+      gosub mp_journal P.restore
+      if %rl = %lvl
+      {
+        set %lowered 0
+        log PROBE access level restored: %rl
+      }
+    }
+  }
+  if %lowered = 1
+    log ALERT the access level was not restored: type [StaffAccess in the game
+return
+
+; where an object is, from the client's own list (closed containers included) -> %wk (-1 not in the list,
+; 0 in a container, 1 on the ground), %wc (its container), %ws (stack), %wx, %wy
+sub mp_where
+  set %w_id %1
+  set %wk -1
+  set %wc N/A
+  set %ws 0
+  set %wx 0
+  set %wy 0
+  finditem %w_id A
+  if #FindCnt > 0
+  {
+    set %wk #FindKind
+    set %wc #FindBagID
+    set %ws #FindStack
+    set %wx #FindX
+    set %wy #FindY
+  }
+return
+
+; exevent drag %1 %2, then waits (40 ticks at most) for the ID to leave the list -> %lifted, %liftms
+sub mp_lift
+  set %l_id %1
+  set %l_amt %2
+  set %lifted 0
+  set %l_n 0
+  set %l_t0 #SysTime
+  exevent drag %l_id %l_amt
+  repeat
+    gosub mp_where %l_id
+    if %wk = -1
+      set %lifted 1
+    else
+    {
+      wait 1
+      set %l_n %l_n + 1
+    }
+  until %lifted = 1 || %l_n >= 40
+  set %liftms #SysTime - %l_t0
+return
+
+; exevent dropc %1 [%2 %3]; %d_t0 = when
+sub mp_drop
+  set %d_c %1
+  set %d_x %2
+  set %d_y %3
+  set %d_t0 #SysTime
+  if %0 >= 3
+    exevent dropc %d_c %d_x %d_y
+  else
+    exevent dropc %d_c
+return
+
+; waits until %1 is directly in container %2, %3 ticks at most -> %in, %inms (from %d_t0)
+sub mp_wait_in
+  set %i_id %1
+  set %i_c %2
+  set %i_max %3
+  set %in 0
+  set %i_n 0
+  repeat
+    gosub mp_where %i_id
+    if %wk = 0 && %wc = %i_c
+      set %in 1
+    else
+    {
+      wait 1
+      set %i_n %i_n + 1
+    }
+  until %in = 1 || %i_n >= %i_max
+  set %inms #SysTime - %d_t0
+return
+
+; waits until %1 is in the list anywhere, %2 ticks at most -> %seen, %seenms (from %d_t0)
+sub mp_wait_seen
+  set %v_id %1
+  set %v_max %2
+  set %seen 0
+  set %v_n 0
+  repeat
+    gosub mp_where %v_id
+    if %wk <> -1
+      set %seen 1
+    else
+    {
+      wait 1
+      set %v_n %v_n + 1
+    }
+  until %seen = 1 || %v_n >= %v_max
+  set %seenms #SysTime - %d_t0
+return
+
+; says "I wish to lock this down" and targets %1 -> %locked (1: the shard reads Movable False)
+sub mp_lockdown
+  set %k_id %1
+  set %locked 0
+  set %jm #JIndex
+  gosub mp_say I wish to lock this down
+  waitfor #TargCurs = 1 60
+  if #TargCurs <> 1
+  {
+    gosub mp_journal lockdown.no_cursor
+    return
+  }
+  set #LTargetID %k_id
+  set #LTargetKind 1
+  event macro 22 0
+  waitfor #TargCurs = 0 60
+  wait 10
+  gosub mp_journal lockdown
+  gosub mp_oget %k_id Movable
+  if %gn = False
+    set %locked 1
+return
+
+; deletes %1 (label %2) if the client still knows it
+sub mp_cl
+  set %c_id %1
+  set %c_lab %2
+  if %c_id = N/A
+    return
+  gosub mp_where %c_id
+  if %wk = -1
+  {
+    log CLEANUP %c_lab %c_id not_in_the_list_(gone,_merged,_or_inside_a_deleted_container)
+    return
+  }
+  gosub mp_odelete %c_id
+  wait 10
+  gosub mp_where %c_id
+  if %wk = -1
+    log CLEANUP %c_lab %c_id deleted
+  else
+    log CLEANUP %c_lab %c_id STILL_THERE_delete_it_by_hand
+return
+
+sub mp_created
+  if %1 = N/A
+  {
+    log CREATED %2 NOT_MADE
+    return
+  }
+  set %created %created , %1 , |
+  log CREATED %2 %1
+return
+
+sub mp_eq
+  set %e_c %1
+  set %e_o %2
+  set %e_e %3
+  set %e_w %4
+  if %e_o = %e_e
+  {
+    set %passes %passes + 1
+    log RESULT %e_c PASS %e_w observed= , %e_o expected= , %e_e
+  }
+  else
+  {
+    set %fails %fails + 1
+    log RESULT %e_c FAIL %e_w observed= , %e_o expected= , %e_e
+  }
+return
+
+sub mp_info
+  log RESULT %1 INFO %2 value= , %3
+return
+
+; the journal lines since %jm, each as a JOURNAL line with the case %1
+sub mp_journal
+  set %j_c %1
+  set %j_n %jm + 1
+  set %j_end #JIndex
+  while %j_n <= %j_end
+  {
+    scanjournal %j_n
+    log JOURNAL %j_c #Journal
+    set %j_n %j_n + 1
+  }
+return
+
+; ---- new objects: the IDs before, then the first ID that was not there ----
+sub mp_snap
+  set %s_w %1
+  set %snap |
+  finditem * %s_w
+  set %s_c #FindCnt
+  if %s_c > 0
+  {
+    for %s_i 1 %s_c
+    {
+      set #FindIndex %s_i
+      set %snap %snap , #FindID , |
+    }
+  }
+return
+
+sub mp_snapold
+  gosub mp_snap %1
+  set %old %snap
+return
+
+; the first object in %1 (CA_ or G_2) not in %old -> %newid
+sub mp_newid
+  set %n_w %1
+  set %newid N/A
+  set %n_try 0
+  repeat
+    finditem * %n_w
+    set %n_c #FindCnt
+    if %n_c > 0
+    {
+      for %n_i 1 %n_c
+      {
+        set #FindIndex %n_i
+        set %n_k | , #FindID , |
+        if %n_k notin %old && %newid = N/A
+          set %newid #FindID
+      }
+    }
+    if %newid = N/A
+      wait 5
+    set %n_try %n_try + 1
+  until %newid <> N/A || %n_try > 12
+return
+
+; ---- staff commands (ModernUO), paced below the client's spam limit ----------
+sub mp_staff
+  set %sc %pfx , %1
+  if %0 >= 2
+    set %sc %sc , #spc , %2
+  if %0 >= 3
+    set %sc %sc , #spc , %3
+  if %0 >= 4
+    set %sc %sc , #spc , %4
+  if %0 >= 5
+    set %sc %sc , #spc , %5
+  if %0 >= 6
+    set %sc %sc , #spc , %6
+  if %0 >= 7
+    set %sc %sc , #spc , %7
+  if %0 >= 8
+    set %sc %sc , #spc , %8
+  if %0 >= 9
+    set %sc %sc , #spc , %9
+  if %0 >= 10
+    set %sc %sc , #spc , %10
+  if %0 >= 11
+    set %sc %sc , #spc , %11
+  gosub mp_send
+return
+
+; speech, no prefix
+sub mp_say
+  set %sc %1
+  if %0 >= 2
+    set %sc %sc , #spc , %2
+  if %0 >= 3
+    set %sc %sc , #spc , %3
+  if %0 >= 4
+    set %sc %sc , #spc , %4
+  if %0 >= 5
+    set %sc %sc , #spc , %5
+  if %0 >= 6
+    set %sc %sc , #spc , %6
+  gosub mp_send
+return
+
+sub mp_send
+  set %say %sc
+  gosub mp_pace
+  set %sj #JIndex
+  log staff: %sc
+  msg %sc , $
+  wait 10
+  findjournal %sj * 0 Spam_detected
+  if #JFound > 0
+  {
+    set %prate %prate * 2
+    set %prate %prate / 3
+    if %prate < 4
+      set %prate 4
+    log the client queued a line: pace now %prate characters a second
+  }
+return
+
+; waits until the client will send %say at once (see EUOSelfTest's st_pace)
+sub mp_pace
+  str len %say
+  set %plen #StrRes
+  repeat
+    set %pnow #SCnt2
+    set %pd %pnow - %plast
+    set %pd %pd * %prate
+    set %pd %pd / 10
+    set %pm %pm - %pd
+    if %pm < 0
+      set %pm 0
+    set %plast %pnow
+    if %pm > %pmax
+      wait 2
+  until %pm <= %pmax
+  set %pm %pm + %plen
+return
+
+; [serial <id> get Prop -> %gv (all after "= "), %gn (its first word)
+sub mp_oget
+  set %g_id %1
+  set %g_p %2
+  set %gv N/A
+  set %gn N/A
+  set %in2 %g_id
+  gosub mp_id2ser
+  gosub mp_staff serial %ser get %g_p
+  set %g_t %g_p , _=_
+  findjournal %sj * 60 %g_t
+  if #JFound = 0
+    return
+  set %g_line #Journal
+  str part %g_line _=_ 2
+  set %gv #StrRes
+  str part %gv _ 1
+  set %gn #StrRes
+return
+
+sub mp_oset
+  set %o_id %1
+  set %o_p %2
+  set %o_v %3
+  set %in2 %o_id
+  gosub mp_id2ser
+  gosub mp_staff serial %ser set %o_p %o_v
+return
+
+sub mp_odelete
+  set %x_id %1
+  set %in2 %x_id
+  gosub mp_id2ser
+  gosub mp_staff serial %ser delete
+return
+
+sub mp_oaddtopack
+  set %a_id %1
+  set %a_t %2
+  set %a_n %3
+  set %in2 %a_id
+  gosub mp_id2ser
+  gosub mp_staff serial %ser addtopack %a_t %a_n
+return
+
+; EasyUO ID %in2 -> serial %ser: ((n xor 69) + 7) in base 26, A = 0, lowest digit first
+sub mp_id2ser
+  set %ser 0
+  str len %in2
+  set %il #StrRes
+  if %il = 0
+    return
+  for %ij %il 1
+  {
+    str mid %in2 %ij 1
+    str pos %alpha #StrRes
+    set %ser %ser * 26 + #StrRes - 1
+  }
+  set %ser %ser - 7
+  set %b ( %ser / 1 ) % 2
+  if %b = 1
+    set %ser %ser - 1
+  else
+    set %ser %ser + 1
+  set %b ( %ser / 4 ) % 2
+  if %b = 1
+    set %ser %ser - 4
+  else
+    set %ser %ser + 4
+  set %b ( %ser / 64 ) % 2
+  if %b = 1
+    set %ser %ser - 64
+  else
+    set %ser %ser + 64
+return

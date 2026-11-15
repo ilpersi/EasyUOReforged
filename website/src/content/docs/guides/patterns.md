@@ -98,9 +98,27 @@ halt
 
 ## Move items
 
-[`exevent drag`](/commands/exevent/drag/) picks an item up and [`exevent dropc`](/commands/exevent/dropc/)
-drops it into a container. The amount is `1` unless you give one, so pass `#FindStack` to move a whole stack.
-Don't mix `event drag` with the `exevent drop…` commands.
+[`moveitem`](/commands/moveitem/) moves an item into a container in one line: it picks it up, drops it, waits,
+tries again when that is safe, and says in [`#MoveRes`](/variables/moveres/) whether it arrived (`ok`). Without
+an amount it moves the whole stack. `moveitem` is new in EasyUO Reforged. A container outside your backpack
+must have been opened, or the result is `left` even when the move worked.
+
+```euo
+set %bag ABCDEFG                    ; the ID of a bag in your backpack
+finditem POF C_ , #BackpackID
+if #FindCnt > 0
+{
+  moveitem #FindID %bag
+  if #MoveRes <> ok
+    event sysmessage The gold did not arrive: #MoveRes
+}
+halt
+```
+
+In EasyUO 1.5, [`exevent drag`](/commands/exevent/drag/) picks an item up and
+[`exevent dropc`](/commands/exevent/dropc/) drops it into a container, with no check. The amount is `1`
+unless you give one, so pass `#FindStack` to move a whole stack. Don't mix `event drag` with the
+`exevent drop…` commands.
 
 ```euo
 set %bag ABCDEFG                    ; the ID of the bag to fill; it has to be open

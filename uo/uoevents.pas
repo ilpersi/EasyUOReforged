@@ -35,7 +35,8 @@ unit uoevents;
   changing nothing at the byte-sequence level.
 
   Later port additions are marked where they are: the caves of the relocated
-  "modern" builds (the *FastCode functions) and StepInfo. One original byte
+  "modern" builds (the *FastCode functions), StepInfo, and the LastDragID property
+  (MOVEITEM: it reads and clears DragID; no byte sequence involved). One original byte
   sequence did change: BlockInfo's loop for the fixed-base clients, which
   passed the client's tile query one argument fewer than client.exe 7.0.117.1
   takes (see BlockInfoCode).
@@ -103,6 +104,10 @@ type
     procedure    ExEv_RenamePet(ID : Cardinal; Name : String);
     procedure    ExEv_PopUp(ID : Cardinal; X,Y : Integer);
     procedure    ExEv_Custom(Packet : String);
+    // Port addition (MOVEITEM): the item the next ExEv_Drop* names, which ExEv_Drag and Drag set only
+    // once they have found the item in the client's list. A caller clears it (0) before ExEv_Drag to
+    // learn whether the drag was sent for its item.
+    property     LastDragID : Cardinal read DragID write DragID;
   end;
 
 implementation

@@ -15,6 +15,10 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 
 ## New commands and variables
 
+- **[`MoveItem`](/commands/moveitem/)**: move an item, or part of a stack, into a container in one line. It
+  picks it up, drops it, waits, tries again when that is safe, and checks the client's item list (never the
+  journal) to say in [`#MoveRes`](/variables/moveres/) whether it arrived, instead of a hand-written drag,
+  wait, drop and retry sub.
 - **[`Log`](/commands/log/)**: write a line to the editor's new Output panel without stopping the script, to
   follow what it does while it runs. It needs no client, and under [`EUOCli run`](/guide/euocli/#run-a-script)
   the lines are printed.

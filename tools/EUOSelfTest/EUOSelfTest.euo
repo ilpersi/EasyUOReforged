@@ -3764,6 +3764,7 @@ sub st_s6
   gosub st_c616
   gosub st_c617
   gosub st_c618
+  gosub st_c619
 return
 
 ; target returns at once with a cursor up and waits its timeout without; macros 13 and 14 use a skill
@@ -4696,6 +4697,61 @@ sub st_c618
   }
   key esc
   wait 10
+return
+
+; moveitem: 100 gold into a new bag at a place, back into the backpack without one (they join the pile),
+; and an ID the client doesn't know. Its outcome comes from the item list, never the journal.
+sub st_c619
+  gosub st_case 6.19 moveitem
+  if %st_run = 0
+    return
+  if %st_staffok = 0
+  {
+    gosub st_skip 6.19 moveitem no_staff_commands_(the_case_makes_a_bag)
+    return
+  }
+  gosub st_ensure_gold
+  if %st_goldid = N/A
+  {
+    gosub st_skip 6.19 moveitem no_gold_pile
+    return
+  }
+  gosub st_bp_open
+  gosub st_newitem_begin * B
+  gosub st_staff self addtopack Bag
+  gosub st_newitem_end Bag
+  set %st_mbag %st_newid
+  if %st_mbag = N/A
+  {
+    gosub st_skip 6.19 moveitem no_bag
+    return
+  }
+  finditem %st_goldid CA_ , #BackpackID
+  set %st_g0 #FindStack
+  ; 100 to a place in the bag: on ModernUO the lifted part keeps the gold's ID
+  moveitem %st_goldid %st_mbag 100 40 40
+  set %st_a #MoveRes
+  set %st_e ok
+  gosub st_eq 6.19.ok moveitem_100_gold_into_a_bag_at_40_40 %fx_xdrag
+  finditem %st_goldid CA_ , %st_mbag
+  set %st_a #FindStack
+  set %st_e 100
+  gosub st_soft 6.19.inbag the_100_are_in_the_bag_under_the_gold's_ID %fx_stack
+  ; back into the backpack without a place: they join a gold pile there
+  moveitem %st_goldid #BackpackID
+  set %st_a #MoveRes
+  set %st_e ok
+  gosub st_eq 6.19.back moveitem_back_into_the_backpack_joins_the_pile %fx_xdrag
+  finditem POF CA_ , #BackpackID
+  set %st_goldid #FindID
+  set %st_a #FindStack
+  set %st_e %st_g0
+  gosub st_soft 6.19.pile the_pile_holds_all_of_it_again %fx_stack
+  ; an item the client doesn't know: nothing is sent
+  moveitem XYZXYZA %st_mbag
+  set %st_a #MoveRes
+  set %st_e noitem
+  gosub st_eq 6.19.noitem moveitem_of_an_unknown_ID_gives_noitem none
 return
 
 ; ###########################################################################

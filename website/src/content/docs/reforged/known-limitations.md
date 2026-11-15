@@ -58,6 +58,11 @@ EasyUO for anything important, until you have checked that the scripts and featu
   [`#FindLayer`](/variables/findlayer/)** read the equip layer where `client.exe` 7.0.117.1 and 7.0.108.0
   and `client_beta.exe` keep it (read from their code; checked live on `client.exe` 7.0.117.1 and
   `client_beta.exe` 7.0.117.31). On older clients they are unverified.
+- **[`MoveItem`](/commands/moveitem/)** was checked on a ModernUO shard with `client.exe` 7.0.118.46. A server
+  outside the RunUO family that gives the picked-up part of a stack a new ID can report `left` where a drop was
+  refused. Once, `client.exe` 7.0.118.46 crashed right after the server refused a pick-up sent the way
+  `moveitem` and [`exevent Drag`](/commands/exevent/drag/) send it. Eleven more refused pick-ups did not crash
+  it, and the cause is unknown. If it happens to you, please report it.
 - **Symbol fonts in menus.** A [`menu`](/commands/menu/) text, button or checkbox using a symbol font such
   as Wingdings only shows the intended glyphs if that exact font is installed. Otherwise Windows substitutes
   another font, as the original did.
