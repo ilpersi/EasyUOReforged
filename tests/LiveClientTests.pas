@@ -88,6 +88,7 @@ type
     procedure TestScriptDoesNotHangWhenACommandRaises;
     procedure TestBuffBarReadsSaneDataFromEveryClient;
     procedure TestScanBuffsScriptReadsTheBuffBar;
+    procedure TestScanGumpsReadsSaneDataFromEveryClient;
   end;
 
 implementation
@@ -691,6 +692,53 @@ begin
   end;
   if Checked = 0 then
     Ignore('No logged-in client with a readable buff bar (open the buff window, or this client''s layout is not known).');
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// ScanGumps (port addition) against every logged-in client: at least one window (the menu bar or the
+// game area is always there); every window has a name and a non-negative size; the backpack's container
+// gump, when open, has the graphic $3C; a server gump has a type ID. Set EUO_GUMP_DUMP=1 to print the
+// list. Ignored when no client is logged in.
+procedure TLiveClientTests.TestScanGumpsReadsSaneDataFromEveryClient;
+var
+  i, Checked : Cardinal;
+  k          : Integer;
+  Dump       : Boolean;
+  G          : TGumpInfo;
+begin
+  RequireClient;
+  Dump := SysUtils.GetEnvironmentVariable('EUO_GUMP_DUMP') <> '';
+  Checked := 0;
+  for i := 1 to Sel.Cnt do
+  begin
+    if not Sel.SelectClient(i) then Continue;
+    if not Vr.CliLogged then Continue;
+    Inc(Checked);
+    Cmd.ScanGumps(nil, nil, False, False);
+    if Dump then
+      WriteLn(Format('client #%d (%s): %d gumps; art $%x min $%x serial $%x type $%x',
+        [i, Sel.Ver, Cmd.GumpCnt, Sel.CstDB.BGUMPART, Sel.CstDB.BGUMPMIN, Sel.CstDB.BGUMPSERIAL, Sel.CstDB.BGUMPTYPE]));
+    AssertTrue('at least one window', Cmd.GumpCnt > 0);
+    for k := 0 to Integer(Cmd.GumpCnt) - 1 do
+    begin
+      Cmd.GetGump(k);
+      G := Cmd.GumpRes;
+      if Dump then
+        WriteLn(Format('  #%d %-20s kind $%.4x at %d,%d size %dx%d obj %s art %s min %s serial %s type %s',
+          [k + 1, G.Name, G.Kind, G.X, G.Y, G.W, G.H,
+           BoolToStr(G.ObjValid, '$' + IntToHex(G.ObjID, 8), '-'), BoolToStr(G.ArtValid, '$' + IntToHex(G.Art, 1), '-'),
+           BoolToStr(G.MinValid, BoolToStr(G.Minimized, '1', '0'), '-'),
+           BoolToStr(G.ServerValid, '$' + IntToHex(G.Serial, 1), '-'), BoolToStr(G.ServerValid, '$' + IntToHex(G.TypeID, 8), '-')]));
+      AssertTrue('a name', G.Name <> '');
+      AssertTrue('a size', (G.W < 100000) and (G.H < 100000));
+      if G.ObjValid and (G.ObjID = Vr.BackpackID) and (G.Name = 'container gump') and (Sel.CstDB.BGUMPART <> 0) then
+        AssertEquals('the backpack''s graphic', $3C, Integer(G.Art));
+      if G.IsGeneric and (Sel.CstDB.BGUMPSERIAL <> 0) then
+        AssertTrue('a server gump has its serial and type ID', G.ServerValid);
+    end;
+  end;
+  if Checked = 0 then
+    Ignore('No logged-in client.');
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

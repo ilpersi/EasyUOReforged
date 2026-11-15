@@ -63,6 +63,17 @@ EasyUO for anything important, until you have checked that the scripts and featu
   refused. Once, `client.exe` 7.0.118.46 crashed right after the server refused a pick-up sent the way
   `moveitem` and [`exevent Drag`](/commands/exevent/drag/) send it. Eleven more refused pick-ups did not crash
   it, and the cause is unknown. If it happens to you, please report it.
+- **[`ScanGumps`](/commands/scangumps/)** reads [`#GumpArt`](/variables/gumpart/), [`#GumpMin`](/variables/gumpmin/),
+  [`#GumpSerial`](/variables/gumpserial/) and [`#GumpTypeID`](/variables/gumptypeid/) on `client.exe` 7.0.29.97 and
+  newer and on `client_beta.exe`; on older clients, and for the serial and type ID on 7.0.30 to 7.0.46, they read
+  `N/A`. The list itself needs the client's gump list address: on 5.0.4a the tables have none, so `ScanGumps` finds
+  nothing, and on 4.0.11c the address they give is wrong, so it finds nothing either.
+- **[`exevent GumpReply`](/commands/exevent/gumpreply/)** was checked on a ModernUO shard. It closes the
+  client's window the way a click does, even when the server did not accept the button; on most ModernUO gumps
+  that copy then stays unanswered on the server until you log out, which does no harm. Recording your own
+  clicks ([`#GumpReplyCnt`](/variables/gumpreplycnt/)) puts a small hook into the client's send function; it was
+  checked on `client.exe` 7.0.118.46 and `client_beta.exe` 7.0.118.132, and on another build it stays off when the
+  function does not start the way it expects.
 - **Symbol fonts in menus.** A [`menu`](/commands/menu/) text, button or checkbox using a symbol font such
   as Wingdings only shows the intended glyphs if that exact font is installed. Otherwise Windows substitutes
   another font, as the original did.

@@ -59,6 +59,36 @@ display ok Name: #ContName $Kind: #ContKind $Size: #ContSize $Position: #ContPos
 halt
 ```
 
+A gump the server sends (a menu, a confirmation, a quest window) is told apart by its type ID, which is the
+same every time the server opens that gump, unlike `#ContKind`, which changes with each client update. Open the
+gump, then run this probe. In EasyUO Reforged [`scangumps`](/commands/scangumps/) lists every open window, and
+the server's have the name `generic_gump`:
+
+```euo
+scangumps
+for #GumpIndex 1 #GumpCnt
+  if #GumpName = generic_gump
+    display ok Type ID: #GumpTypeID $Position: #GumpPosX #GumpPosY $Size: #GumpSizeX #GumpSizeY
+halt
+```
+
+A script then finds that gump with `scangumps T_` followed by the type ID: `#GumpCnt` is `0` until it is open.
+
+To answer it, a script needs the button number, and the IDs of its checkboxes and text fields. Click the button
+once yourself, then read [`#GumpReply`](/variables/gumpreply/): it holds what the click sent, in the words
+[`exevent GumpReply`](/commands/exevent/gumpreply/) takes. Run this probe first, then click:
+
+```euo
+set %n #GumpReplyCnt
+event sysmessage Now click the button in the gump.
+set %t #SCnt + 60
+repeat
+  wait 5
+until #GumpReplyCnt <> %n || #SCnt > %t
+display ok exevent GumpReply #GumpReply
+halt
+```
+
 And this one shows the newest line of the journal as a script sees it, with `_` for spaces, and its colour:
 
 ```euo

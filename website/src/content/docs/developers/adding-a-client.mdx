@@ -404,6 +404,8 @@ derived data only, never any part of the executable.
 | One event does nothing | Its `E_` address is `0`, or its calling convention (`F_` flag) is wrong. |
 | [`#Skill`](/variables/skill/) reads `0` | `C_SKILLSPOS`, `B_SKILLDIST`. |
 | [`ScanBuffs`](/commands/scanbuffs/) finds nothing | `C_CLILOC`, `C_BUFFTIMERS`, `B_BUFFVEC` and the other buff-bar values. |
+| [`ScanGumps`](/commands/scangumps/) finds nothing | `C_CONTPOS`, `B_CONTNEXT` (the walk also stops at an object without the `$FEEDBEEF` marker). |
+| `#GumpArt`, `#GumpMin`, `#GumpSerial` or `#GumpTypeID` read `N/A` | `B_GUMPART`, `B_GUMPMIN`, `B_GUMPSERIAL`, `B_GUMPTYPE`: EUOMigrate derives them from the code. |
 | Any other variable or command | Run the self-test: its **TABLE_FIELDS_WITH_FAILING_CHECKS** names the fields, and the README's field map the checks behind each. |
 
 [Deriving values by hand](/developers/manual-derivation/) explains how to find each of these yourself.

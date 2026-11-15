@@ -47,6 +47,13 @@ unit uocommands;
   the client-free helpers ExpandCliloc / ClilocToPlain). It only reads client memory, through the
   same RWV helper, and is unsupported (finds nothing) on a client whose layout is not known.
 
+  Port addition (not in the original): the GUMP LIST section (ScanGumps / GetGump / GumpSelect /
+  FindLiveGump). It reads every top-level gump of the list GetCont walks into a snapshot, front to
+  back, copying the values at scan time, and writes nothing. The vtable (+0), the $FEEDBEEF marker
+  (+4) and the name pointer (+8) are read at the fixed offsets GetCont already uses; every other
+  field comes from the tables (B_CONTX, B_CONTSIZEX, B_CONTITEM, B_ITEMID, B_GUMP*), and a field
+  whose offset is 0 on this build is reported as absent.
+
   Port addition (not in the original): the PATH section. TUOCmd owns the pathfinder's planner
   (pathplan.pas, PathPlanner) and its world model (walkmap.pas), which PathMap opens on first use
   from the attached client's folder and reopens when that folder or the dif setting changes.
@@ -125,6 +132,28 @@ type
     TimerID     : Integer;       // the client's timer id behind Time, -1 = none (Time stays -1)
   end;
 
+  // One top-level gump as ScanGumps reports it (a port addition, see the GUMP LIST section). The
+  // values are copied at scan time; Addr is only used to find the same gump again (FindLiveGump).
+  TGumpInfo     = record
+    Addr        : Cardinal;      // the gump object when it was scanned
+    VTable      : Cardinal;      // its class (vtable address); Kind is the low word
+    Name        : String;        // the client's internal name: 'container gump', 'generic gump', ...
+    Kind        : Cardinal;      // as #ContKind
+    X, Y        : Integer;       // as #ContPosX/Y
+    W, H        : Cardinal;      // as #ContSizeX/Y
+    ObjID       : Cardinal;      // linked object (container item, mobile) ...
+    ObjValid    : Boolean;       // ... when there is one
+    Art         : Cardinal;      // gump graphic ...
+    ArtValid    : Boolean;       // ... when it has one (the client stores -1 for none)
+    Minimized   : Boolean;
+    MinValid    : Boolean;       // B_GUMPMIN known on this build
+    IsGeneric   : Boolean;       // a server gump ('generic gump')
+    Serial      : Cardinal;      // server gumps only: changes every time the server opens it
+    TypeID      : Cardinal;      // server gumps only: the same every time
+    ServerValid : Boolean;       // IsGeneric and B_GUMPSERIAL / B_GUMPTYPE known on this build
+  end;
+  TGumpIDs      = array of Cardinal;
+
   // Cliloc number -> the client's own text ('' when it has none). A method so that TUOCmd can
   // pass its memory reader; unit tests pass a stub.
   TClilocLookup = function(ID : Cardinal) : String of object;
@@ -174,6 +203,8 @@ type
     function    ReadBarHeader(out VecB : Cardinal; out Count : Integer) : Boolean;
     function    ReadBuffBar(Filter : Int64) : Boolean;
     function    BuffBarChanged : Boolean;
+    function    GumpNodes(out Nodes : TGumpIDs) : Integer;
+    procedure   ReadGump(Node : Cardinal; out G : TGumpInfo);
     function    ObjFirst(out C : TObjCursor) : Cardinal;
     function    ObjNext(var C : TObjCursor; Len : Cardinal; Max : Integer) : Boolean;
     function    MountReadLen : Cardinal;
@@ -222,6 +253,11 @@ type
     BuffScanned : Boolean;              // ScanBuffs ran at least once
     BuffPos     : Cardinal;             // the selected position, 1-based (what #BuffIndex shows)
     BuffGone    : Boolean;              // the selected buff has left the bar since it was selected
+    GumpList    : array of TGumpInfo;   // the last ScanGumps snapshot (port addition)
+    GumpCnt     : Cardinal;
+    GumpRes     : TGumpInfo;            // the entry GetGump selected
+    GumpValid   : Boolean;              // GumpRes holds a real entry
+    GumpPos     : Cardinal;             // the selected position, 1-based (what #GumpIndex shows)
     PathPlanner : TPathPlanner;         // port addition (PATH): options, rules and the last path
     PathDifs    : Boolean;              // read the dif files (path set difs)
     PathLive    : TLiveOverlay;         // the world model plus what the client holds (PathSource)
@@ -279,6 +315,13 @@ type
     function    BuffTimeNow : Integer;
     function    BuffAvailable : Boolean;
     function    BuffBarOpen : Boolean;
+    // Port additions (GUMP LIST). ScanGumps keeps the gumps whose type ID is one of Types (when
+    // ByType) and whose art is one of Arts (when ByArt); FindLiveGump looks a server gump up in
+    // the client's list as it is now (see the section).
+    function    ScanGumps(const Types, Arts : TGumpIDs; ByType, ByArt : Boolean) : Boolean;
+    procedure   GetGump(Index : Cardinal);
+    procedure   GumpSelect(Pos : Cardinal);
+    function    FindLiveGump(Addr, TypeID : Cardinal; out G : TGumpInfo) : Boolean;
     function    OpenClient(SwitchTo : Boolean) : Boolean;
     procedure   CloseClient;
   end;
@@ -291,6 +334,15 @@ type
   // Cliloc markup -> plain text: <br> becomes a space, any other <tag> is dropped, runs of
   // white space collapse to one space, the ends are trimmed.
   function ClilocToPlain(const S : String) : String;
+  // Port additions for ScanGumps, client-free so they can be unit tested (and shared by the
+  // interpreter and uo.dll): an EUO literal ("YE", "JHEIIPI") to its number, exactly as
+  // EuoConversion.Sys26ToCard reads it (the parser package is above this one); and ScanGumps'
+  // filter words, FindItem-style: T_ followed by type IDs, A_ by art IDs, several joined by _
+  // (T_JHEIIPI_ABCDEF). Words is the parameters separated by spaces. Any other word is ignored;
+  // a value that is not an EUO literal is skipped, and a T_ / A_ word with none still filters
+  // (nothing matches).
+  function GumpLiteral(const S : String; out V : Cardinal) : Boolean;
+  procedure ParseGumpFilter(const Words : String; out Types, Arts : TGumpIDs; out ByType, ByArt : Boolean);
 
 var
   SkillList : array[0..57] of TSkillEntry = (
@@ -396,6 +448,10 @@ begin
   BuffRes.Desc:='';
   BuffRes.Time:=-1;
   BuffRes.TimerID:=-1;
+  SetLength(GumpList,0);
+  GumpCnt:=0;
+  GumpPos:=0;
+  GetGump(High(Cardinal));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1123,6 +1179,248 @@ begin
     Result:=BuffTimerLeft(BuffRes.TimerID);
     BuffRes.Time:=Result;
   end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Base 26, A=0, lowest digit first, then (n-7) xor 69: EuoConversion.Sys26ToCard step for step
+// (trim, upper case, every character a letter, at most $FFFFFFFF). EuoGumpsTests checks the two agree.
+function GumpLiteral(const S : String; out V : Cardinal) : Boolean;
+var
+  T   : String;
+  Num : Int64;
+  I   : Integer;
+  Ch  : Byte;
+begin
+  Result:=False;
+  V:=0;
+  T:=UpperCase(Trim(S));
+  if T='' then Exit;
+  Num:=0;
+  for I:=Length(T) downto 1 do
+  begin
+    Ch:=Byte(T[I])-65;
+    if not (Ch in [0..25]) then Exit;
+    Num:=Num*26+Ch;
+  end;
+  Num:=(Num-7) xor 69;
+  if Num>$FFFFFFFF then Exit;
+  V:=Cardinal(Num);
+  Result:=True;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure ParseGumpFilter(const Words : String; out Types, Arts : TGumpIDs; out ByType, ByArt : Boolean);
+var
+  Rest, W, Val : String;
+  P            : Integer;
+  C            : Cardinal;
+  IsType       : Boolean;
+begin
+  Types:=nil;
+  Arts:=nil;
+  ByType:=False;
+  ByArt:=False;
+  Rest:=Trim(Words)+' ';
+  while Rest<>'' do
+  begin
+    P:=Pos(' ',Rest);
+    W:=UpperCase(Copy(Rest,1,P-1));
+    Delete(Rest,1,P);
+    if not ((Length(W)>=2) and (W[2]='_') and (W[1] in ['T','A'])) then Continue;
+    IsType:=W[1]='T';
+    if IsType then ByType:=True else ByArt:=True;
+    Delete(W,1,2);
+    W:=W+'_';
+    while W<>'' do
+    begin
+      P:=Pos('_',W);
+      Val:=Copy(W,1,P-1);
+      Delete(W,1,P);
+      if not GumpLiteral(Val,C) then Continue;
+      if IsType then
+      begin
+        SetLength(Types,Length(Types)+1);
+        Types[High(Types)]:=C;
+      end
+      else
+      begin
+        SetLength(Arts,Length(Arts)+1);
+        Arts[High(Arts)]:=C;
+      end;
+    end;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+/// GUMP LIST (port addition) /////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Every top-level gump of the list C_CONTPOS heads, linked by B_CONTNEXT, front to back: the client
+// puts a window it brings to the front, or opens, at the head (docs\gump-analysis.md section 2).
+// Children (buttons, texts) hang under their window and are not in it. Every gump object carries
+// $FEEDBEEF at +4 on every build checked (4.0.0c to the beta), so a walk that meets anything else
+// has left the list -- a table value that does not fit the build -- and stops there.
+
+const
+  GUMP_MARKER   = $FEEDBEEF;
+  GUMP_MAXNODES = 1024;
+  GENERIC_GUMP  = 'generic gump';
+
+// The live top-level gump objects, front to back.
+function TUOCmd.GumpNodes(out Nodes : TGumpIDs) : Integer;
+var
+  Node : Cardinal;
+begin
+  Result:=0;
+  SetLength(Nodes,0);
+  if not ClientAttached then Exit;
+  if Cst.CONTPOS=0 then Exit;
+  Node:=ReadU32(Cst.CONTPOS);
+  while (Node<>0) and (Result<GUMP_MAXNODES) do
+  begin
+    if ReadU32(Node+4)<>GUMP_MARKER then Break;
+    if Result>=Length(Nodes) then SetLength(Nodes,Result*2+16);
+    Nodes[Result]:=Node;
+    Inc(Result);
+    Node:=ReadU32(Node+Cst.BCONTNEXT);
+  end;
+  SetLength(Nodes,Result);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Copies one gump's fields. A field whose table offset is 0 on this build is left invalid.
+procedure TUOCmd.ReadGump(Node : Cardinal; out G : TGumpInfo);
+var
+  Item : Cardinal;
+  V    : Cardinal;
+begin
+  G.Addr:=Node;
+  G.VTable:=ReadU32(Node);
+  G.Kind:=G.VTable and $FFFF;
+  G.Name:=ReadText(ReadU32(Node+$08),64);
+  G.X:=Integer(ReadU32(Node+Cst.BCONTX));
+  G.Y:=Integer(ReadU32(Node+Cst.BCONTX+4));
+  G.W:=ReadU32(Node+Cst.BCONTSIZEX);
+  G.H:=ReadU32(Node+Cst.BCONTSIZEX+4);
+  Item:=ReadU32(Node+Cst.BCONTITEM);
+  G.ObjValid:=Item<>0;
+  if G.ObjValid then G.ObjID:=ReadU32(Item+Cst.BITEMID) else G.ObjID:=0;
+  G.ArtValid:=False;
+  G.Art:=0;
+  if Cst.BGUMPART<>0 then
+  begin
+    V:=ReadU32(Node+Cst.BGUMPART);
+    G.ArtValid:=V<>$FFFFFFFF;
+    if G.ArtValid then G.Art:=V;
+  end;
+  G.MinValid:=Cst.BGUMPMIN<>0;
+  G.Minimized:=G.MinValid and (ReadU32(Node+Cst.BGUMPMIN)<>0);
+  G.IsGeneric:=G.Name=GENERIC_GUMP;
+  G.ServerValid:=G.IsGeneric and (Cst.BGUMPSERIAL<>0) and (Cst.BGUMPTYPE<>0);
+  G.Serial:=0;
+  G.TypeID:=0;
+  if G.ServerValid then
+  begin
+    G.Serial:=ReadU32(Node+Cst.BGUMPSERIAL);
+    G.TypeID:=ReadU32(Node+Cst.BGUMPTYPE);
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// ScanGumps: a fresh snapshot, the first gump selected. A type filter keeps only server gumps.
+function TUOCmd.ScanGumps(const Types, Arts : TGumpIDs; ByType, ByArt : Boolean) : Boolean;
+
+  function Listed(V : Cardinal; const L : TGumpIDs) : Boolean;
+  var
+    I : Integer;
+  begin
+    Result:=True;
+    for I:=0 to High(L) do
+      if L[I]=V then Exit;
+    Result:=False;
+  end;
+
+var
+  Nodes : TGumpIDs;
+  G     : TGumpInfo;
+  I     : Integer;
+begin
+  GumpCnt:=0;
+  SetLength(GumpList,0);
+  for I:=0 to GumpNodes(Nodes)-1 do
+  begin
+    ReadGump(Nodes[I],G);
+    if ByType and not (G.ServerValid and Listed(G.TypeID,Types)) then Continue;
+    if ByArt and not (G.ArtValid and Listed(G.Art,Arts)) then Continue;
+    SetLength(GumpList,GumpCnt+1);
+    GumpList[GumpCnt]:=G;
+    Inc(GumpCnt);
+  end;
+  GumpPos:=1;
+  GetGump(0);
+  Result:=GumpCnt>0;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Selects entry Index (0-based) of the last snapshot into GumpRes.
+procedure TUOCmd.GetGump(Index : Cardinal);
+begin
+  GumpValid:=Index<GumpCnt;
+  if GumpValid then GumpRes:=GumpList[Index]
+  else
+  begin
+    GumpRes.Addr:=0;
+    GumpRes.VTable:=0;
+    GumpRes.Name:='';
+    GumpRes.Kind:=0;
+    GumpRes.X:=0;
+    GumpRes.Y:=0;
+    GumpRes.W:=0;
+    GumpRes.H:=0;
+    GumpRes.ObjID:=0;
+    GumpRes.ObjValid:=False;
+    GumpRes.Art:=0;
+    GumpRes.ArtValid:=False;
+    GumpRes.Minimized:=False;
+    GumpRes.MinValid:=False;
+    GumpRes.IsGeneric:=False;
+    GumpRes.Serial:=0;
+    GumpRes.TypeID:=0;
+    GumpRes.ServerValid:=False;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Selects position Pos (1-based) of the snapshot -- what writing #GumpIndex does.
+procedure TUOCmd.GumpSelect(Pos : Cardinal);
+begin
+  GumpPos:=Pos;
+  GetGump(Pos-1);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// A server gump that is open NOW, with its fields read now: the one at Addr (still in the list,
+// still a server gump, still of type TypeID) when Addr<>0, else the frontmost one of type TypeID.
+// For answering it (exevent GumpReply): the serial has to be the current one, and a gump that
+// closed since the snapshot must not be touched.
+function TUOCmd.FindLiveGump(Addr, TypeID : Cardinal; out G : TGumpInfo) : Boolean;
+var
+  Nodes : TGumpIDs;
+  I     : Integer;
+begin
+  Result:=False;
+  G.Addr:=0;
+  for I:=0 to GumpNodes(Nodes)-1 do
+  begin
+    if (Addr<>0) and (Nodes[I]<>Addr) then Continue;
+    ReadGump(Nodes[I],G);
+    if G.ServerValid and (G.TypeID=TypeID) then
+    begin
+      Result:=True;
+      Exit;
+    end;
+    if Addr<>0 then Break;
+  end;
+  G.Addr:=0;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

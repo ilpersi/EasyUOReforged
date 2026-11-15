@@ -1,0 +1,162 @@
+; ============================================================================
+;  exevent GumpReply hand test, on a ModernUO shard with an Administrator (or higher) character.
+;  It answers the [AddonGen gump (ModernUO's Addon Script Generator), which creates nothing until you
+;  pick an area. Run one case at a time: set %case below, run the script in the editor, and watch its
+;  Output panel. When it says NOW, type [AddonGen in the game (no message box: the client stays free).
+;  Each result is a line: RESULT <case> <PASS|FAIL|INFO> <what> observed=... expected=...
+;  It ends in halt.
+;
+;  The gump: text 0 Name, text 1 Namespace, switch 0 Export Items, switch 1 Export Statics, switch 2
+;  Specify Z Range, text 2 Min, text 3 Max, button 0 Cancel, button 1 Generate.
+;
+;  %case invalid : Generate with Statics on, Name "Test Addon", Namespace "My.Space", Min "abc", Max 5.
+;                  The shard must say "Please review the generation parameters, some are invalid." and
+;                  open the gump again showing: Name Test Addon, Namespace My.Space, only Export Statics
+;                  ticked, Min -128, Max 5. The window you answered closes.
+;  %case cancel  : Cancel (button 0). The window closes; nothing is said.
+;  %case replay  : Cancel, then waits until you type [AddonGen again and sends exevent GumpReply #GumpReply:
+;                  the same type ID with the new serial; the new window closes too.
+;  %case valid   : Generate with Items on, Min 0, Max 10. The shard must say "Target the first location of
+;                  the bounding box." and give you a target cursor: press Esc to cancel it.
+;  %case nogump  : with no [AddonGen open, the command must give nogump and send nothing.
+;  %case click   : the click hook. Reading #GumpReplyCnt puts it on the client; then you click Cancel in
+;                  the [AddonGen gump yourself. #GumpReplyCnt must go up by one and #GumpReply start with
+;                  the gump's type ID and button 0 (a click also sends the window's switches and texts).
+;  %case again   : the same in a new run (or after restarting the editor): the hook is found again, not put
+;                  there twice, so #GumpReplyCnt goes on from the number the last run ended with.
+; ============================================================================
+set %case invalid
+
+if %case = click || %case = again
+{
+  set %c0 #GumpReplyCnt
+  log RESULT %case INFO count_at_start observed= %c0 reply= #GumpReply
+  gosub open_new
+  if %type = N/A
+    halt
+  log NOW: click Cancel in the Addon Script Generator yourself (within 2 minutes).
+  set %limit #SCnt + 120
+  repeat
+    wait 5
+  until #GumpReplyCnt <> %c0 || #SCnt > %limit
+  set %c1 #GumpReplyCnt
+  ; a click sends the window's state with the button: here its switches and texts follow the 0
+  set %want %type , #spc , 0 , #spc
+  if %c1 = %c0 + 1
+    log RESULT %case PASS count observed= %c1 before= %c0
+  else
+    log RESULT %case FAIL count observed= %c1 before= %c0 expected=one_more
+  set %r #GumpReply , #spc
+  str pos %r %want
+  if #StrRes = 1
+    log RESULT %case PASS reply observed= #GumpReply
+  else
+    log RESULT %case FAIL reply observed= #GumpReply expected= %want
+  halt
+}
+
+if %case = nogump
+{
+  exevent GumpReply XC 0
+  if #GumpReplyRes = nogump
+    log RESULT nogump PASS res observed= #GumpReplyRes expected=nogump
+  else
+    log RESULT nogump FAIL res observed= #GumpReplyRes expected=nogump
+  halt
+}
+
+gosub open_new
+if %type = N/A
+  halt
+log RESULT %case INFO gump observed=type_ , %type , _serial_ , %serial
+
+if %case = invalid
+  exevent GumpReply %type 1 1 0:Test_Addon 1:My.Space 2:abc 3:5
+if %case = cancel || %case = replay
+  exevent GumpReply %type 0
+if %case = valid
+  exevent GumpReply %type 1 0 0:Valid_Test 1:Server.Items 2:0 3:10
+log RESULT %case INFO sent observed= #GumpReplyRes reply= #GumpReply
+if #GumpReplyRes = sent
+  log RESULT %case PASS res observed=sent expected=sent
+else
+  log RESULT %case FAIL res observed= #GumpReplyRes expected=sent
+wait 10
+scangumps
+set %open 0
+for %i 1 #GumpCnt
+{
+  set #GumpIndex %i
+  if #GumpSerial = %serial
+    set %open 1
+}
+if %open = 0
+  log RESULT %case PASS closed observed=the_answered_window_is_gone
+else
+  log RESULT %case FAIL closed observed=the_answered_window_is_still_open
+
+if %case = invalid
+{
+  ; the shard opens it again with what it got: a new copy of the same type
+  scangumps T_ , %type
+  if #GumpCnt > 0 && #GumpSerial <> %serial
+    log RESULT invalid PASS reopened observed=new_serial_ , #GumpSerial expected=the_gump_again
+  else
+    log RESULT invalid FAIL reopened observed= #GumpCnt expected=the_gump_again
+  log LOOK: the shard's message and the reopened gump's values (see the header), then close it.
+}
+if %case = replay
+{
+  set %answer #GumpReply
+  set %serial0 %serial
+  gosub open_new
+  if %type = N/A
+    halt
+  exevent GumpReply %answer
+  log RESULT replay INFO sent observed= #GumpReplyRes reply= #GumpReply
+  if #GumpReplyRes = sent && %serial <> %serial0
+    log RESULT replay PASS res observed=sent_with_serial_ , %serial before= %serial0
+  else
+    log RESULT replay FAIL res observed= #GumpReplyRes
+  wait 10
+  scangumps T_ , %type
+  if #GumpCnt = 0
+    log RESULT replay PASS closed observed=gone
+  else
+    log RESULT replay FAIL closed observed=still_open
+}
+if %case = valid
+  log LOOK: the shard's message and a target cursor; press Esc to cancel it.
+halt
+
+; waits (2 minutes at most) for a server gump that was not open before -> %type, %serial (N/A: none)
+sub open_new
+  scangumps
+  set %old |
+  for %i 1 #GumpCnt
+  {
+    set #GumpIndex %i
+    if #GumpName = generic_gump
+      set %old %old , #GumpSerial , |
+  }
+  log NOW: type [AddonGen in the game (within 2 minutes).
+  set %type N/A
+  set %serial N/A
+  set %limit #SCnt + 120
+  repeat
+    wait 5
+    scangumps
+    for %i 1 #GumpCnt
+    {
+      set #GumpIndex %i
+      set %k | , #GumpSerial , |
+      if #GumpName = generic_gump && %k notin %old && %type = N/A
+      {
+        set %type #GumpTypeID
+        set %serial #GumpSerial
+      }
+    }
+  until %type <> N/A || #SCnt > %limit
+  if %type = N/A
+    log RESULT %case FAIL gump observed=no_new_server_gump_in_2_minutes
+return

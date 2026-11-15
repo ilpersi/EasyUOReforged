@@ -192,6 +192,28 @@ the cliloc lookup in one place. Then check in a client with a few buffs on (Bles
 enough), and run stage 12 of the self-test (below), *Buffs*. EUOMigrate's `verify` and `probe` check all six
 values.
 
+## The gump list
+
+[`ScanGumps`](/commands/scangumps/) walks the list `C_CONTPOS` heads by `B_CONTNEXT`, as `#ContName` does,
+and reads every window with the container rows (`B_CONTX`, `B_CONTSIZEX`, `B_CONTITEM`, `B_ITEMID`) and four
+offsets of its own. Each one is `0` on a build where it has not been checked, and its variable then reads
+`N/A`. The vtable (`+$00`), the `$FEEDBEEF` marker (`+$04`) and the name pointer (`+$08`) are the same on every
+build from 4.0.0c to the beta and are not in the tables.
+
+| Value | Meaning | Relocatable (beta) | Fixed-base 7.0.47 and newer | 7.0.29.97 |
+|---|---|---|---|---|
+| `B_GUMPART` | The window's graphic, `-1` for none. | `$70` | `$6C` | `$6C` |
+| `B_GUMPMIN` | The minimized flag, a dword. | `$80` | `$7C` | `$7C` |
+| `B_GUMPSERIAL` | A server gump's serial. | `$178` | `$E0` | `$D8` |
+| `B_GUMPTYPE` | A server gump's type ID. | `$17C` | `$E4` | `$DC` |
+
+To find them on a new build, EUOMigrate's `gumpfields.py` reads them from the code: the server gump's reply
+function builds the `$B1` packet from the serial and then the type ID; the `BuffIcons Gump` constructor stores
+its graphic `$4EC`; the bring-to-front code tests the minimized flag and then picks the window's size or its
+minimized size (`B_CONTSIZEX + 8`). To check by hand, open the backpack (graphic `$3C`), the buff bar (`$4EC`),
+minimize one window, and open a server gump twice: the type ID stays, the serial changes. The full analysis,
+with the offsets of older builds, is `docs/gump-analysis.md` in the repository.
+
 ## House pieces
 
 The pathfinder's walker reads the walls and floors of the player houses the client has drawn

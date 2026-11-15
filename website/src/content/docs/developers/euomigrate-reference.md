@@ -92,6 +92,9 @@ objects consistent at once:
 | `F_JOURNALDIRECT`, `B_JNEXTPTR`, `B_JCOL`, `B_JKIND` | The journal chain. | A few journal lines. |
 | `F_SYSMSGDIRECT`, `B_SYSMSGSTR` | The newest system message. | A recent system message. |
 | `B_BUFFVEC`, `B_BUFFSIZE`, `B_STLHEAD`, `B_CLILOCKEY` | The `BuffIcons Gump` and the cliloc table. | The buff bar open, with a buff on. |
+| `B_GUMPART` | The gumps whose graphic is known: buff bar `$4EC`, status bar `$2A6C`, backpack `$3C`. | Two of them open. |
+| `B_GUMPMIN` | The windows whose size equals their minimized size. | One window minimized, two more open. |
+| `B_GUMPSERIAL`, `B_GUMPTYPE` | A server gump read twice: the type ID stays, the serial before it changes. | `probe --gump`, a server gump open; close and open it again when asked. |
 
 A value that matches the table becomes `verified`; a different one becomes `probed` and replaces it. The
 console shows each as `verified` or `CHANGED`.
@@ -187,7 +190,7 @@ One entry per field. You can edit `status` and `value` by hand, then run [`emit`
 |---|---|---|
 | `accepted` | Static evidence above confidence 0.50. | The value. |
 | `verified` | Passed its check in the running client. | The value. |
-| `derived` | Read from the code: the `F_` calling conventions, `B_` distances between two globals. | The value. |
+| `derived` | Read from the code: the `F_` calling conventions, `B_` distances between two globals, the `B_GUMP*` offsets inside a gump. | The value. |
 | `probed` | A layout offset found in the running client, different from before. | The value. |
 | `candidate` | The best guess, below the threshold and not verified. | **`0`**, with the guess in a comment. |
 | `rejected` | Failed its check, and no runner-up passed. | **`0`**. |
@@ -300,6 +303,7 @@ Measured on the builds at hand:
 | `euomig/consensus.py` | All references to one result per field. |
 | `euomig/sigs.py`, `euomig/siggen.py` | The EUOUpdater signature format; the signature generator. |
 | `euomig/conv.py` | Calling conventions to `F_` flags. |
+| `euomig/gumpfields.py` | The gump offsets `ScanGumps` reads, from the code that uses them. |
 | `euomig/live.py`, `euomig/oracles.py`, `euomig/probe.py` | Read-only process access, the `verify` checks, the `probe` searches. |
 | `euomig/emit.py` | `candidates.json`, the report and the Pascal snippet. |
 | `euomig/kb.py` | Knowledge-base files. |

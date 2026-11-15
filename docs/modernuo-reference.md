@@ -310,6 +310,19 @@ makes objects should at least log their IDs.
 | Accepting the buy list (`0x3B`) works within 10 tiles. | src `UOContent/Network/Packets/IncomingVendorPackets.cs` `VendorBuyReply` | 10.03 |
 | Vendors are invulnerable (notoriety 7) when the shard setting `vendor.isInvulnerable` is on; its default is "LBR or later". | src `BaseVendor` (`_vendorInvulnerable`), `NotorietyHandlers.MobileNotoriety` | 10.01.rep (`#FindRep` 7) |
 
+### 3.10 Answering gumps (`$B1`)
+
+Seen while building `exevent GumpReply` (2026-11-15). **live gr _case_**: `tests/euo/gumpreply-hand-test.euo` on client.exe
+7.0.118.46; **live st 5.xx**: self-test stage 5, run unattended on client_beta.exe 7.0.118.132.
+
+| Behaviour | Source | Live |
+|---|---|---|
+| An answer counts only for a gump the shard sent this connection with the same serial **and** type ID; any other is ignored without a word. The serial is new for every gump sent; the type ID is the same for every gump of one class (a hash of the class on ModernUO). | src `UOContent/Gumps/Base/GumpSystem.IncomingPackets.cs` `DisplayGumpResponse`, `BaseGump` | gr replay, st 5.20 (new serial, same type ID; the old answer works with the new serial) |
+| **The button check depends on the gump's class.** For an old-style `Gump` an unknown button is refused ("Invalid gump response", logged; the gump stays open on the shard). A `StaticGump` / `DynamicGump` (`BaseGump`, not `Gump`) skips that check and passes the button to `OnResponse`. | src `GumpSystem.IncomingPackets.cs` (`if (baseGump is Gump gump)`) | st 5.21 |
+| `DeleteObjectsNoticeGump` (the `[global delete` confirmation with two or more matches) is a `StaticWarningGump`: OKAY is button 1, CANCEL 0, and **any other button counts as no**: *Delete command aborted.* | src `UOContent/Gumps/StaticWarningGump.cs` `OnResponse`, `Commands/Generic/Commands/Commands.cs` `DeleteCommand` | st 5.19, 5.21, 5.23 |
+| The counts of switches and text entries must not exceed the gump's own, and a text may be at most 239 characters, or the answer is refused. The IDs are not checked. | src `GumpSystem.IncomingPackets.cs` | gr invalid (one switch, four texts) |
+| `[AddonGen` (Administrator) opens the Addon Script Generator, a `Gump`: texts 0 Name, 1 Namespace, 2 Min, 3 Max; switches 0 Items, 1 Statics, 2 Z range; buttons 0 Cancel, 1 Generate. With neither Items nor Statics, or a Min/Max that is not a number, it says *Please review the generation parameters, some are invalid.* and opens again showing what it got (an invalid Min shows -128). Valid values start the area picker (*Target the first location of the bounding box.*); Esc cancels it, and nothing is made. | src `UOContent/Commands/AddonGenerator.cs` `InternalGump` | gr invalid, gr valid |
+
 ## 4. Journal texts worth matching
 
 `findjournal` matches anywhere in the line, ignoring case, with `_` for a space. Shard texts are quoted from the

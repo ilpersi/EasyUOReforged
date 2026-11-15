@@ -165,10 +165,13 @@ After the addresses come the `B_` / `F_` values read from the code (status `deri
 ```text
 - B_TARGPROC = $00000678 (derived): B_TARGPROC = C_TARGETCURS + $678: the global at 00B2DBE0 (...) is located like C_TARGETCURS 00B2D568 (inherited value was $1110)
 - F_SENDTHISCALL = $00000001 (derived): E_SENDPACKET 00434C80: inputs ['ecx'], ret 4
+- B_GUMPSERIAL = $00000178 (derived): the $B1 gump reply at 0054CF6C (function 0054CF20) reads the serial at +$178 and the type ID at +$17C
 ```
 
 The first is a distance between two globals that changed since the older beta; the second a calling
-convention read from the function's entry code. Last come the values **inherited** from the older
+convention read from the function's entry code; the third an offset inside an object, read from the code
+that uses it. The four gump offsets [`ScanGumps`](/commands/scangumps/) needs (`B_GUMPART`, `B_GUMPMIN`,
+`B_GUMPSERIAL`, `B_GUMPTYPE`) are found this way on every build, fixed-base or relocatable. Last come the values **inherited** from the older
 milestone or the shared modern layout. Nobody has checked the inherited ones for this build: `probe`
 checks some, the [self-test](https://github.com/ilpersi/EasyUOReforged/blob/main/tools/EUOSelfTest/README.md)
 the rest.
@@ -211,8 +214,10 @@ Each line shows the status after the check, the field, and what the check saw:
 ## 5. Probe the layouts
 
 `probe` finds the `B_` and `F_` layout values by trying offsets until a whole list in the client's memory
-makes sense. Open the backpack, the status gump and the buff bar (with a buff on), and have a few journal
-lines first. The output of a real run on `client.exe`:
+makes sense. Open the backpack, the status gump and the buff bar (with a buff on), minimize one more window,
+and have a few journal lines first. For the server gump's serial and type ID, also open a gump the server
+sends (a staff command's menu does) and add `--gump`: `probe` asks you to close it and open the same one
+again, then compares. The output of a real run on `client.exe`:
 
 ```powershell
 python tools/EUOMigrate/euomigrate.py probe tools/EUOMigrate/out/7.0.117.31-6AD6CEB3/candidates.json

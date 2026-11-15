@@ -6,14 +6,15 @@ unit UoWrapPathTests;
     arguments; Execute removes those and leaves the answers from stack position 1;
   - TUOCmd's PathSetOption and PathPacked directly, which those methods use.
   Also the other uo.dll additions next to them: the MountID / MountType properties (256, 257) and the
-  layer GetItem answers after its original ten values. }
+  layer GetItem answers after its original ten values; and ScanGumps / GetGump (067, 068). }
 
 {$mode objfpc}{$H+}
 
 interface
 
 uses
-  Classes, SysUtils, fpcunit, testregistry, uowrap, uoselector, uovariables, uocommands, pathplan;
+  Classes, SysUtils, fpcunit, testregistry, uowrap, uoselector, uovariables, uocommands, pathplan,
+  stack;
 
 type
   TUoWrapPathTests = class(TTestCase)
@@ -35,6 +36,8 @@ type
     procedure TestPathSetOptionChangesThePlanner;
     procedure TestPathPackedLayout;
     procedure TestMountAndLayerAnswerZeroWithoutAClient;
+    procedure TestGumpMethodsWithoutAClient;
+    procedure TestGetGumpPushesNilForWhatAScriptReadsNA;
   end;
 
 implementation
@@ -231,6 +234,75 @@ begin
   AssertEquals('layer: nobody wears it', 0, W.Stack.GetInteger(11));
   AssertEquals('GetItemLayer is gone: GetItem has the layer', ERR_NOTFOUND, Call('GetItemLayer', [0]));
   AssertEquals('GetJournal', RES_OK, Call('GetJournal', [0]));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// ScanGumps takes the script's filter text or nothing, and answers the count; GetGump answers a single
+// nil when there is no such gump. Without a client the list is empty.
+procedure TUoWrapPathTests.TestGumpMethodsWithoutAClient;
+begin
+  AssertEquals('ScanGumps', RES_OK, Call('ScanGumps', []));
+  AssertEquals('no gumps', 0, W.Stack.GetInteger(1));
+  AssertEquals('ScanGumps with a filter', RES_OK, Call('ScanGumps', ['T_JHEIIPI A_YE']));
+  AssertEquals(0, W.Stack.GetInteger(1));
+  AssertEquals('a number is not a filter', ERR_WRONGPAR, Call('ScanGumps', [5]));
+  AssertEquals('GetGump', RES_OK, Call('GetGump', [0]));
+  AssertEquals('one value', 1, W.Stack.GetTop);
+  AssertEquals('nil', T_NIL, W.Stack.GetType(1));
+  AssertEquals('GetGump needs the index', ERR_WRONGPAR, Call('GetGump', []));
+  AssertEquals('GetCont still found', RES_OK, Call('GetCont', [0]));
+  AssertEquals('ScanBuffs still found', RES_OK, Call('ScanBuffs', []));
+  AssertEquals('ScanItems still found', RES_OK, Call('ScanItems', []));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Eleven slots whatever the gump: a server gump has no art and no linked object, a container has no
+// serial and type ID, and a build without the minimized offset has no minimized flag.
+procedure TUoWrapPathTests.TestGetGumpPushesNilForWhatAScriptReadsNA;
+var
+  G : TGumpInfo;
+  S : TStack;
+begin
+  S := W.Stack;
+  G := Default(TGumpInfo);
+  G.Name := 'generic gump';
+  G.Kind := $FD6C;
+  G.X := 10; G.Y := 20; G.W := 300; G.H := 200;
+  G.MinValid := True;
+  G.IsGeneric := True;
+  G.ServerValid := True;
+  G.Serial := $E;
+  G.TypeID := $1234;
+  S.SetTop(0);
+  PushGump(S, G);
+  AssertEquals('eleven slots', 11, S.GetTop);
+  AssertEquals('name', 'generic gump', String(S.GetString(1)));
+  AssertEquals('kind', $FD6C, S.GetInteger(2));
+  AssertEquals('x', 10, S.GetInteger(3));
+  AssertEquals('height', 200, S.GetInteger(6));
+  AssertEquals('no linked object', T_NIL, S.GetType(7));
+  AssertEquals('no art', T_NIL, S.GetType(8));
+  AssertEquals('minimized', T_BOOLEAN, S.GetType(9));
+  AssertFalse(S.GetBoolean(9));
+  AssertEquals('serial', $E, S.GetInteger(10));
+  AssertEquals('type ID', $1234, S.GetInteger(11));
+
+  G.Name := 'container gump';
+  G.IsGeneric := False;
+  G.ServerValid := False;
+  G.ObjValid := True;
+  G.ObjID := $40000003;
+  G.ArtValid := True;
+  G.Art := $3C;
+  G.MinValid := False;
+  S.SetTop(0);
+  PushGump(S, G);
+  AssertEquals('still eleven slots', 11, S.GetTop);
+  AssertEquals('object', Integer($40000003), S.GetInteger(7));
+  AssertEquals('art', $3C, S.GetInteger(8));
+  AssertEquals('minimized unknown', T_NIL, S.GetType(9));
+  AssertEquals('no serial', T_NIL, S.GetType(10));
+  AssertEquals('no type ID', T_NIL, S.GetType(11));
 end;
 
 // The new rows sit between GetJournal and GetPix, and between PR and Pathfind: the binary search

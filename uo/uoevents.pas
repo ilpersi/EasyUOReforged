@@ -40,6 +40,29 @@ unit uoevents;
   sequence did change: BlockInfo's loop for the fixed-base clients, which
   passed the client's tile query one argument fewer than client.exe 7.0.117.1
   takes (see BlockInfoCode).
+
+  Port addition (exevent GumpReply, uogumpreply.pas): ExEv_GumpReply sends a server gump's $B1 answer
+  through E_SENDPACKET exactly as SendExEvent does, and in the same cave run deletes the client's window
+  the way the client's own click path does after sending: [vtable+0], the deleting destructor, with 1,
+  called on the gump the way ContTop calls E_CONTTOP. No new address: the destructor is read from the
+  gump's vtable. The cave first checks that the object still carries $FEEDBEEF and the same vtable, and
+  skips the delete otherwise. SendExEvent itself is unchanged; GumpReplyCode builds the bytes, so the
+  test suite pins them.
+
+  Port addition (the gump-answer hook, #GumpReply / #GumpReplyCnt): the client keeps no copy of a packet
+  it sent, so recording the answer a click sends needs a hook. GumpHookActive puts one on E_SENDPACKET,
+  the function every send goes through (the clicks and every exevent): a jmp over its first instructions
+  into a page of its own (VirtualAllocEx, no fixed address). There the hook copies each packet that
+  starts with $B1 into the page and counts it, then runs the instructions it replaced and jumps back.
+  - It replaces only instructions it can move: HookPrologueLength accepts a short list of plain ones
+    (push, mov between registers, mov from an absolute or a stack address, sub esp) and refuses anything
+    relative (calls, jumps). On any other start the hook stays off and clicks are not recorded.
+  - The jmp is written by the event cave, on the client's main thread, the thread that sends, so no
+    thread is inside those first bytes while they change.
+  - The page starts with a header (HOOK_MAGIC, the function, the bytes replaced). A second attach, or
+    another Reforged after a restart, sees the jmp at E_SENDPACKET, finds that header behind it and uses
+    the same page instead of hooking again. A jmp there that leads elsewhere is not ours: left alone.
+  - Nothing removes it: it stays harmless until the client exits, as the event hook does.
 }
 
 {$mode delphi}{$H+}
@@ -52,6 +75,8 @@ type
   TUOEvent      = class(TObject)
   private
     InitEventWnd : Cardinal;
+    HookWnd      : Cardinal;         // port addition: the window HookPage belongs to
+    HookPage     : Cardinal;         // port addition: the gump-answer hook's page in that client
     DragID       : Cardinal;
     DragType     : Cardinal;
     Delay        : TDelayFunc;
@@ -78,6 +103,9 @@ type
     function     NewMessageObject(Obj : Cardinal; Font, Color, TextAddr : Cardinal; Gate : Boolean) : String;
     function     DragFastCode(Item, Amount : Cardinal) : String;
     function     MacroFastCode(Par1, Par2 : Cardinal) : String;
+    function     GumpReplyCode(Gump, VTable, Dtor : Cardinal; const Packet : String) : String;
+    function     SendHookCode(Page, Func : Cardinal; const Orig : String) : String;
+    function     SendHookInstallCode(Func, Page : Cardinal; N : Integer) : String;
   public
     PropStr1     : String;
     PropStr2     : String;
@@ -104,13 +132,108 @@ type
     procedure    ExEv_RenamePet(ID : Cardinal; Name : String);
     procedure    ExEv_PopUp(ID : Cardinal; X,Y : Integer);
     procedure    ExEv_Custom(Packet : String);
+    // Port addition (exevent GumpReply): sends Packet and, when Close, deletes the gump's window in the
+    // same cave run. False when nothing was sent (no send address, no event hook, not connected).
+    function     ExEv_GumpReply(Gump, VTable : Cardinal; const Packet : String; Close : Boolean) : Boolean;
+    // Port addition (the gump-answer hook): True when E_SENDPACKET carries Reforged's hook, found or (with
+    // Install) put there now; GumpHookRead reads the answers it counted and the last one it kept.
+    function     GumpHookActive(Install : Boolean) : Boolean;
+    function     GumpHookRead(out Count : Cardinal; out Packet : String) : Boolean;
     // Port addition (MOVEITEM): the item the next ExEv_Drop* names, which ExEv_Drag and Drag set only
     // once they have found the item in the client's list. A caller clears it (0) before ExEv_Drag to
     // learn whether the drag was sent for its item.
     property     LastDragID : Cardinal read DragID write DragID;
   end;
 
+// Port additions (the gump-answer hook), client-free so the test suite pins them.
+const
+  HOOK_MAGIC = 'EUORGRH1';         // the page's first 8 bytes
+  HOOK_COUNT = $20;                // dword: answers counted
+  HOOK_LEN   = $24;                // dword: bytes kept of the last one
+  HOOK_BUF   = $28;                // the last one
+  HOOK_MAX   = $800;               // bytes kept at most
+  HOOK_CODE  = $900;               // the hook's code
+  HOOK_PAGE  = $1000;
+
+// How many bytes from the start of B (a function's first bytes) the hook can move: whole instructions
+// of the accepted kinds, 5 at least; 0 when the start holds anything else.
+function HookPrologueLength(const B : String) : Integer;
+// The hook page a jmp at the start of Func leads to (First5 = its first five bytes), 0 when it is no jmp.
+function HookPageOf(Func : Cardinal; const First5 : String) : Cardinal;
+// The page header: magic, the function, how many bytes were replaced and those bytes.
+function HookHeader(Func : Cardinal; const Orig : String) : String;
+// Does Header (the first $20 bytes of a page) say it is Reforged's hook of Func?
+function HookHeaderIsOurs(const Header : String; Func : Cardinal) : Boolean;
+
 implementation
+
+////////////////////////////////////////////////////////////////////////////////
+function HookPrologueLength(const B : String) : Integer;
+var
+  I, L  : Integer;
+  Op, M : Byte;
+begin
+  Result:=0;
+  I:=1;
+  while I<=Length(B) do
+  begin
+    if I-1>=5 then Break;
+    Op:=Ord(B[I]);
+    L:=0;
+    if I<Length(B) then M:=Ord(B[I+1]) else M:=0;
+    case Op of
+      $50..$57 : L:=1;                                   // push reg
+      $6A      : L:=2;                                   // push imm8
+      $68      : L:=5;                                   // push imm32
+      $A1      : L:=5;                                   // mov eax, [abs]
+      $83      : if M=$EC then L:=3;                     // sub esp, imm8
+      $81      : if M=$EC then L:=6;                     // sub esp, imm32
+      $64      : if M=$A1 then L:=6;                     // mov eax, fs:[abs]
+      $89, $8B :                                         // mov r/m32, r32 and mov r32, r/m32:
+        case M shr 6 of
+          3 : L:=2;                                      // register to register
+          0 : if (M and 7)=5 then L:=6;                  // [abs]
+          1 : if (M and 7)=4 then
+              begin
+                if (I+2<=Length(B)) and (Ord(B[I+2])=$24) then L:=4;   // [esp+disp8]
+              end
+              else L:=3;                                 // [reg+disp8]
+        end;
+    end;
+    if L=0 then Exit(0);
+    Inc(I,L);
+  end;
+  if (I-1>=5) and (I-1<=Length(B)) then Result:=I-1;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function HookPageOf(Func : Cardinal; const First5 : String) : Cardinal;
+var
+  Rel : Cardinal;
+begin
+  Result:=0;
+  if (Length(First5)<5) or (First5[1]<>#$E9) then Exit;
+  Rel:=PCardinal(@First5[2])^;
+  Result:=Func+5+Rel-HOOK_CODE;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function HookHeader(Func : Cardinal; const Orig : String) : String;
+var
+  O : String;
+begin
+  O:=Orig;
+  SetLength(O,16);
+  if Length(Orig)<16 then FillChar(O[Length(Orig)+1],16-Length(Orig),0);
+  Result:=HOOK_MAGIC+NumStr(Func,4,True)+NumStr(Length(Orig),4,True)+O;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function HookHeaderIsOurs(const Header : String; Func : Cardinal) : Boolean;
+begin
+  Result:=(Length(Header)>=$20) and (Copy(Header,1,8)=HOOK_MAGIC) and (PCardinal(@Header[9])^=Func) and
+          (PCardinal(@Header[13])^>=5) and (PCardinal(@Header[13])^<=16);
+end;
 
 ////////////////////////////////////////////////////////////////////////////////
 constructor TUOEvent.Create(UOS : TUOSel; UOV : TUOVar; DFunc : TDelayFunc);
@@ -123,6 +246,8 @@ begin
 
   BaseAddr:=0;
   InitEventWnd:=0;
+  HookWnd:=0;
+  HookPage:=0;
   DragID:=0;
 end;
 
@@ -1054,6 +1179,214 @@ begin
   WriteMem(UOSel.HProc,BaseAddr-2,#1#0,2);                 // Start Event!
 
   WaitTillProcessed;                                       // Wait
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (exevent GumpReply). The send part is SendExEvent's, byte for byte. With Dtor<>0 the
+// return lands on the delete instead of a ret:
+//   cmp dword [Gump+4], $FEEDBEEF ; jne Done     -- still a gump object ...
+//   cmp dword [Gump], VTable      ; jne Done     -- ... of the same class
+//   mov ecx, Gump ; push 1 ; push Done ; push Dtor ; ret   -- Dtor(1), a thiscall that pops its 1
+//   Done: ret                                   -- back into E_OLDDIR
+function TUOEvent.GumpReplyCode(Gump, VTable, Dtor : Cardinal; const Packet : String) : String;
+const
+  CLOSE_LEN = 42;
+var
+  Pre, AddEsp4, Close : String;
+  Base, Done          : Cardinal;
+begin
+  AddEsp4:=#131#196#4;                                     // cdecl sender: caller pops its argument
+  if Cst.FSENDTHISCALL=1 then AddEsp4:=#144#144#144;       // thiscall `ret 4`: already popped
+  Pre:='';
+  if Cst.ESENDLEN>0 then Pre:=Pre+
+    #199#5+NumStr(Cst.ESENDLEN,4,True)+NumStr(Length(Packet),4,True);
+  if Cst.ESENDECX>0 then Pre:=Pre+
+    #139#13+NumStr(Cst.ESENDECX,4,True);
+  Base:=BaseAddr+$20+Cardinal(Length(Pre));
+  Close:='';
+  if Dtor<>0 then
+  begin
+    Done:=Base+19+CLOSE_LEN;
+    Close:=
+      #129#61+NumStr(Gump+4,4,True)+NumStr($FEEDBEEF,4,True)+   // cmp dword [Gump+4], $FEEDBEEF
+      #117+Chr(CLOSE_LEN-12)+                                    // jne Done
+      #129#61+NumStr(Gump,4,True)+NumStr(VTable,4,True)+         // cmp dword [Gump], VTable
+      #117+Chr(CLOSE_LEN-24)+                                    // jne Done
+      #185+NumStr(Gump,4,True)+                                  // mov ecx, Gump
+      #106#1+                                                    // push 1
+      #104+NumStr(Done,4,True)+                                  // push Done
+      #104+NumStr(Dtor,4,True)+                                  // push Dtor
+      #195;                                                      // ret -> Dtor
+  end;
+  Result:=Pre+
+    #104+NumStr(Base+20+Cardinal(Length(Close)),4,True)+   // push PacketAddr
+    #104+NumStr(Base+16,4,True)+                           // push below ret
+    #104+NumStr(Cst.ESENDPACKET,4,True)+                   // push PacketSender
+    #195+                                                  // ret
+    AddEsp4+                                               // add esp, 4 (nop x3 if the callee pops it)
+    Close+                                                 // the delete (when Dtor<>0)
+    #195+                                                  // Done: ret
+    Packet;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function TUOEvent.ExEv_GumpReply(Gump, VTable : Cardinal; const Packet : String; Close : Boolean) : Boolean;
+var
+  sBuf : String;
+  cBuf : Cardinal;
+  Dtor : Cardinal;
+begin
+  Result:=False;
+  if Cst.ESENDPACKET=0 then Exit;
+  if (Gump=0) or (VTable=0) or (Packet='') then Exit;
+  InitEvents;
+  if BaseAddr=0 then Exit;                                 // no event hook on this build
+  if (Cst.ESENDECX>0)and(Cst.FSENDTHISCALL=1) then
+  begin
+    cBuf:=0;
+    ReadMem(UOSel.HProc,Cst.ESENDECX,@cBuf,4);
+    if cBuf=0 then Exit;                                   // not connected
+  end;
+  Dtor:=0;
+  if Close then
+    if not ReadMem(UOSel.HProc,VTable,@Dtor,4) then Dtor:=0;
+  sBuf:=GumpReplyCode(Gump,VTable,Dtor,Packet);
+  if Length(sBuf)>$1000-$620 then Exit;                    // past the cave page
+  WriteMem(UOSel.HProc,BaseAddr+$20,@sBuf[1],Length(sBuf));
+  WriteMem(UOSel.HProc,BaseAddr-2,#1#0,2);                 // Start Event!
+  WaitTillProcessed;                                       // Wait
+  Result:=True;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (the gump-answer hook). The code at Page+HOOK_CODE; on entry [esp] is the caller's return
+// address and [esp+4] the packet, with both calling conventions of the send function:
+//   pushad ; pushfd ; mov esi,[esp+$28]          -- the packet (36 bytes pushed, then the return address)
+//   test esi,esi ; jz Done ; cmp byte [esi],$B1 ; jne Done
+//   movzx ecx, word [esi+1] ; cmp ecx,3 ; jb Done   -- its length, low byte first, as the client keeps it
+//   cmp ecx,HOOK_MAX ; jbe +5 ; mov ecx,HOOK_MAX
+//   mov [Page+HOOK_LEN],ecx ; mov edi,Page+HOOK_BUF ; cld ; rep movsb ; inc dword [Page+HOOK_COUNT]
+//   Done: popfd ; popad ; <the instructions replaced> ; jmp Func+N
+function TUOEvent.SendHookCode(Page, Func : Cardinal; const Orig : String) : String;
+var
+  Code : Cardinal;
+begin
+  Code:=Page+HOOK_CODE;
+  Result:=
+    #$60#$9C+                                              // pushad ; pushfd
+    #$8B#$74#$24#$28+                                      // mov esi, [esp+$28]
+    #$85#$F6+                                              // test esi, esi
+    #$74+Chr(47)+                                          // jz Done
+    #$80#$3E#$B1+                                          // cmp byte [esi], $B1
+    #$75+Chr(42)+                                          // jne Done
+    #$0F#$B7#$4E#$01+                                      // movzx ecx, word [esi+1]
+    #$83#$F9#$03+                                          // cmp ecx, 3
+    #$72+Chr(33)+                                          // jb Done
+    #$81#$F9+NumStr(HOOK_MAX,4,True)+                      // cmp ecx, HOOK_MAX
+    #$76#$05+                                              // jbe +5
+    #$B9+NumStr(HOOK_MAX,4,True)+                          // mov ecx, HOOK_MAX
+    #$89#$0D+NumStr(Page+HOOK_LEN,4,True)+                 // mov [Page+HOOK_LEN], ecx
+    #$BF+NumStr(Page+HOOK_BUF,4,True)+                     // mov edi, Page+HOOK_BUF
+    #$FC+                                                  // cld
+    #$F3#$A4+                                              // rep movsb
+    #$FF#$05+NumStr(Page+HOOK_COUNT,4,True)+               // inc dword [Page+HOOK_COUNT]
+    #$9D#$61+                                              // Done: popfd ; popad
+    Orig;                                                  // the instructions the jmp replaced
+  Result:=Result+#$E9+NumStr(Func+Cardinal(Length(Orig))-(Code+Cardinal(Length(Result))+5),4,True);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (the gump-answer hook). Run by the event cave, on the client's main thread:
+//   mov eax, Func ; mov dword [eax+1], rel ; mov byte [eax], $E9 ; nop out the rest of the N bytes ; ret
+function TUOEvent.SendHookInstallCode(Func, Page : Cardinal; N : Integer) : String;
+var
+  I : Integer;
+begin
+  Result:=
+    #$B8+NumStr(Func,4,True)+                              // mov eax, Func
+    #$C7#$40#$01+NumStr(Page+HOOK_CODE-(Func+5),4,True)+   // mov dword [eax+1], rel32 to the hook
+    #$C6#$00#$E9;                                          // mov byte [eax], $E9 (jmp)
+  for I:=5 to N-1 do
+    Result:=Result+#$C6#$40+Chr(I)+#$90;                   // mov byte [eax+I], $90 (never reached)
+  Result:=Result+#$C3;                                     // ret
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function TUOEvent.GumpHookActive(Install : Boolean) : Boolean;
+var
+  Func, P, Old : Cardinal;
+  B, H         : String;
+  N            : Integer;
+  sBuf         : String;
+begin
+  Result:=False;
+  if Cst.ESENDPACKET=0 then Exit;
+  if UOSel.HWnd=0 then Exit;
+  if (HookWnd=UOSel.HWnd) and (HookPage<>0) then Exit(True);
+  Func:=Cst.ESENDPACKET;
+  SetLength(B,16);
+  if not ReadMem(UOSel.HProc,Func,@B[1],16) then Exit;
+  P:=HookPageOf(Func,B);
+  if P<>0 then
+  begin
+    SetLength(H,$20);
+    if ReadMem(UOSel.HProc,P,@H[1],$20) and HookHeaderIsOurs(H,Func) then
+    begin
+      HookWnd:=UOSel.HWnd;
+      HookPage:=P;
+      Result:=True;
+    end;
+    Exit;                                                  // a jmp that is not ours: leave it alone
+  end;
+  if not Install then Exit;
+  N:=HookPrologueLength(B);
+  if N=0 then Exit;
+  InitEvents;
+  if BaseAddr=0 then Exit;                                 // the install runs in the event cave
+  P:=Cardinal(PtrUInt(VirtualAllocEx(UOSel.HProc,nil,HOOK_PAGE,MEM_RESERVE or MEM_COMMIT,PAGE_EXECUTE_READWRITE)));
+  if P=0 then Exit;
+  H:=HookHeader(Func,Copy(B,1,N))+NumStr(0,4,True)+NumStr(0,4,True);
+  if not WriteMem(UOSel.HProc,P,@H[1],Length(H)) then Exit;
+  sBuf:=SendHookCode(P,Func,Copy(B,1,N));
+  if not WriteMem(UOSel.HProc,P+HOOK_CODE,@sBuf[1],Length(sBuf)) then Exit;
+  Old:=0;
+  if not VirtualProtectEx(UOSel.HProc,Pointer(PtrUInt(Func)),16,PAGE_EXECUTE_READWRITE,@Old) then Exit;
+  sBuf:=SendHookInstallCode(Func,P,N);
+  WriteMem(UOSel.HProc,BaseAddr+$20,@sBuf[1],Length(sBuf));
+  WriteMem(UOSel.HProc,BaseAddr-2,#1#0,2);                 // Start Event!
+  WaitTillProcessed;
+  if ReadMem(UOSel.HProc,Func,@B[1],5) and (HookPageOf(Func,B)=P) then
+  begin
+    FlushInstructionCache(UOSel.HProc,Pointer(PtrUInt(Func)),16);
+    VirtualProtectEx(UOSel.HProc,Pointer(PtrUInt(Func)),16,Old,@Old);
+    HookWnd:=UOSel.HWnd;
+    HookPage:=P;
+    Result:=True;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function TUOEvent.GumpHookRead(out Count : Cardinal; out Packet : String) : Boolean;
+var
+  C2, L : Cardinal;
+  Try_  : Integer;
+begin
+  Result:=False;
+  Count:=0;
+  Packet:='';
+  if not GumpHookActive(False) then Exit;
+  for Try_:=1 to 3 do
+  begin
+    if not ReadMem(UOSel.HProc,HookPage+HOOK_COUNT,@Count,4) then Exit;
+    L:=0;
+    ReadMem(UOSel.HProc,HookPage+HOOK_LEN,@L,4);
+    if L>HOOK_MAX then L:=0;
+    SetLength(Packet,L);
+    if L>0 then ReadMem(UOSel.HProc,HookPage+HOOK_BUF,@Packet[1],L);
+    C2:=0;
+    ReadMem(UOSel.HProc,HookPage+HOOK_COUNT,@C2,4);
+    if C2=Count then Exit(True);                           // not changed while it was read
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

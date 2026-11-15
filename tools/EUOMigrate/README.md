@@ -86,7 +86,11 @@ python tools/EUOMigrate/euomigrate.py probe  tools/EUOMigrate/out/<id>/candidate
   - `F_SYSMSGDIRECT` / `B_SYSMSGSTR` from the newest system message;
   - `B_BUFFVEC`, `B_BUFFSIZE` from the `BuffIcons Gump` (open the buff window with a buff on): the
     pointer pair in the gump whose span is whole icon entries that decode, and `B_STLHEAD`,
-    `B_CLILOCKEY` from resolving those entries' title cliloc numbers through `C_CLILOC`.
+    `B_CLILOCKEY` from resolving those entries' title cliloc numbers through `C_CLILOC`;
+  - `B_GUMPART` from the gumps whose graphic is known (the buff bar `$4EC`, the status bar `$2A6C`, the
+    backpack `$3C`: two of them open), `B_GUMPMIN` from a minimized window (minimize one, with two more
+    open), and with `--gump` `B_GUMPSERIAL` / `B_GUMPTYPE` from a server gump that you close and open
+    again when asked: the type ID stays, the serial before it changes.
 
 To finish:
 
@@ -115,7 +119,7 @@ To finish:
 |---|---|---|
 | `accepted` | static evidence above confidence 0.50 | the value |
 | `verified` | passed its oracle / probe in the running client | the value |
-| `derived` | read from the code: `F_*` conventions, `B_*` distances between two globals | the value |
+| `derived` | read from the code: `F_*` conventions, `B_*` distances between two globals, the `B_GUMP*` offsets | the value |
 | `probed` | layout offset found in the running client, different from before | the value |
 | `candidate` | best guess below the threshold, not verified | **0**, with the guess in a comment |
 | `rejected` | failed its oracle, no runner-up passed | **0** |
@@ -176,6 +180,12 @@ groups** go to 0 together when one member is not usable:
    - `B_PATHPROLOGUE` comes from the walk-to function's SEH prologue.
    - Offsets like `B_SKILLDIST`, `B_CLITOP` and `B_LTARGX` are located as globals in their own right
      ("base + offset").
+   - The gump offsets `ScanGumps` reads come from code shapes (`gumpfields.py`): `B_GUMPSERIAL` and
+     `B_GUMPTYPE` from the server gump's `$B1` reply, which reads the serial and then the type ID (4 bytes
+     further) from the gump; `B_GUMPART` from the `BuffIcons Gump` constructor storing its graphic `$4EC`
+     (checked against the status gump's `$2A6C`); `B_GUMPMIN` from the bring-to-front code, which tests
+     the flag and then takes the size from `B_CONTSIZEX` or 8 bytes further. Two different answers give
+     no value rather than a guess.
 6. **Signatures** (`siggen.py`). These wildcard in-image operands, rel32 targets and ebp/esp
    displacements, with a joker byte per pattern. A window is kept only if it is the smallest one that
    matches exactly once and resolves to the value.
@@ -249,6 +259,7 @@ euomig/consensus.py  all references -> one result per field
 euomig/sigs.py       EUOUpdtr signature format: parse, scan
 euomig/siggen.py     signature generator, strings file, ScannerTable rows
 euomig/conv.py       calling conventions -> F_* flags, B_PATHPROLOGUE
+euomig/gumpfields.py gump object offsets from code shapes -> B_GUMPART, B_GUMPMIN, B_GUMPSERIAL, B_GUMPTYPE
 euomig/live.py       read-only process access (32-bit client from 64-bit Python), thread stacks
 euomig/oracles.py    per-field live checks
 euomig/probe.py      live layout probes

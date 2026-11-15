@@ -15,6 +15,18 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 
 ## New commands and variables
 
+- **[`ScanGumps`](/commands/scangumps/)**: list every gump window open in the client, front to back, not only
+  the one on top as the `#Cont…` variables do. [`#GumpIndex`](/variables/gumpindex/) walks the list; for each
+  window it gives the name, position, size, graphic ([`#GumpArt`](/variables/gumpart/)), whether it is minimized,
+  the container or character it belongs to, and for the gumps the server sends their
+  [`#GumpTypeID`](/variables/gumptypeid/), the value to recognise them by, and [`#GumpSerial`](/variables/gumpserial/).
+  `scangumps T_` or `A_` with IDs keeps only the matching windows, as `finditem` filters.
+- **[`exevent GumpReply`](/commands/exevent/gumpreply/)**: answer a gump the server sent as a click on one of
+  its buttons does, with checkboxes and text fields, and close its window. It finds the gump open now, so its
+  new serial is always the one sent; [`#GumpReply`](/variables/gumpreply/) keeps the answer to send again and
+  [`#GumpReplyRes`](/variables/gumpreplyres/) says whether it went out. It also records the answers you click by
+  hand, counted by [`#GumpReplyCnt`](/variables/gumpreplycnt/): click once, read `#GumpReply`, and the script knows
+  what to send.
 - **[`MoveItem`](/commands/moveitem/)**: move an item, or part of a stack, into a container in one line. It
   picks it up, drops it, waits, tries again when that is safe, and checks the client's item list (never the
   journal) to say in [`#MoveRes`](/variables/moveres/) whether it arrived, instead of a hand-written drag,
@@ -106,6 +118,9 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
   [`PathSet`](/dll/pathset/), [`PathBlock`](/dll/pathblock/), [`PathUnblock`](/dll/pathunblock/),
   [`PathAvoid`](/dll/pathavoid/), [`PathLink`](/dll/pathlink/) and [`PathClear`](/dll/pathclear/) set its
   options and rules. They plan; they don't walk.
+- [`ScanGumps`](/dll/scangumps/) and [`GetGump`](/dll/getgump/) list the open gump windows, as `scangumps`;
+  a value a script reads as `N/A` is nil in its slot. [`GumpReply`](/dll/gumpreply/) answers a server gump and
+  [`GetGumpReply`](/dll/getgumpreply/) returns the last answer; [`GumpReplyCnt`](/dll/gumpreplycnt/) counts them.
 - [`MountID`](/dll/mountid/) and [`MountType`](/dll/mounttype/) read the mount, as `#MountID` and
   `#MountType` (0 on foot). [`GetItem`](/dll/getitem/) returns an 11th value after its original ten: the
   item's equip layer, as `#FindLayer` (0 when nobody wears it).

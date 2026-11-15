@@ -155,6 +155,12 @@ type
     // C_WORLDGRID / C_STATICVT patterns spell that layout out, so every build they match has it, and
     // a build they don't match has no grid to read.
     B_MULTINEXT,B_GRIDNEXT,B_GRIDSIZE,B_MULTIOWNER,
+    // Gump list (ScanGumps; docs\gump-analysis.md). Offsets inside every top-level gump object:
+    // B_GUMPART the gump graphic (-1 = none), B_GUMPMIN the minimized flag (a dword). And inside a
+    // server gump ("generic gump") only: B_GUMPSERIAL the serial the server gave it, B_GUMPTYPE its
+    // type ID; the client's $B1 reply reads them there. Each value is found from the client's code
+    // (tools\EUOMigrate\euomig\gumpfields.py); 0 = not verified on this build, the variable reads N/A.
+    B_GUMPART,B_GUMPMIN,B_GUMPSERIAL,B_GUMPTYPE,
     /// EVENTS ////////////
     E_REDIR,E_OLDDIR,E_EXMSGADDR,
     E_ITEMPROPID,E_ITEMNAMEADDR,E_ITEMPROPADDR,E_ITEMCHECKADDR,
@@ -413,6 +419,10 @@ type
     function    BGRIDNEXT       : Cardinal;
     function    BGRIDSIZE       : Cardinal;
     function    BMULTIOWNER     : Cardinal;
+    function    BGUMPART        : Cardinal;
+    function    BGUMPMIN        : Cardinal;
+    function    BGUMPSERIAL     : Cardinal;
+    function    BGUMPTYPE       : Cardinal;
   end;
 
 // Replaces the old flat SupportedCli string -- see this unit's header comment and
@@ -494,6 +504,9 @@ const
 // 7.0.117.33: copy, uppercase, compare with ENU/KOR/...) and the cliloc loader read it. The $60 inherited from 6.0.6.2
 // lands at $00A01D74, inside the RecordDress4 macro arrays, so #CliLang read empty. Same layout on
 // 7.0.117.1 and 7.0.117.33 (static); read live on 7.0.117.33: $A01B94 'ENU', $A01D74 zeros.
+// B_GUMPART / B_GUMPMIN / B_GUMPSERIAL / B_GUMPTYPE (ScanGumps, 2026-11-15) are inherited from
+// milestones 21 and 3: the same $6C / $7C / $E0 / $E4 were read from the code of 7.0.117.0, 7.0.117.33
+// and 7.0.118.46 (gumpfields.py), and live on 7.0.117.1 / 7.0.117.33 (docs\gump-analysis.md).
 SysVarMS0 : array[0..37] of TSysVarList = (
   (Expr: B_LANG; Val: $00000240),
   (Expr: C_BLOCKINFO; Val: $005A74B0),
@@ -764,7 +777,12 @@ SysVarMS2 : array[0..40] of TSysVarList = (
 );
 
 // Milestone 3 -- first introduced at client '7.0.47.0' (normalized '007.000.047.000')
-SysVarMS3 : array[0..11] of TSysVarList = (
+// B_GUMPSERIAL / B_GUMPTYPE: $E0 / $E4, read from the $B1 gump reply of 7.0.61.13, the oldest build
+// seen with them there (gumpfields.py). 7.0.47.0 to 7.0.61.12 floor here too and were not seen: the
+// move from $D8 / $DC happened somewhere after 7.0.29.97 (docs\gump-analysis.md section 10).
+SysVarMS3 : array[0..13] of TSysVarList = (
+  (Expr: B_GUMPSERIAL; Val: $000000E0),
+  (Expr: B_GUMPTYPE; Val: $000000E4),
   (Expr: C_BLOCKINFO; Val: $005901B0),
   (Expr: E_DRAGADDR; Val: $005A72F0),
   (Expr: E_EXMSGADDR; Val: $005A5BB0),
@@ -1177,7 +1195,11 @@ SysVarMS19 : array[0..32] of TSysVarList = (
 );
 
 // Milestone 20 -- first introduced at client '7.0.30.1' (normalized '007.000.030.001')
-SysVarMS20 : array[0..33] of TSysVarList = (
+// B_GUMPSERIAL / B_GUMPTYPE back to 0: no build from here to milestone 3 was seen, and the two moved
+// somewhere in between, so a server gump's serial and type ID read N/A there rather than a guess.
+SysVarMS20 : array[0..35] of TSysVarList = (
+  (Expr: B_GUMPSERIAL; Val: $00000000),
+  (Expr: B_GUMPTYPE; Val: $00000000),
   (Expr: B_STAT1; Val: $0000001C),
   (Expr: B_STATAR; Val: $00000038),
   (Expr: B_STATML; Val: $00000004),
@@ -1215,7 +1237,15 @@ SysVarMS20 : array[0..33] of TSysVarList = (
 );
 
 // Milestone 21 -- first introduced at client '7.0.29.2' (normalized '007.000.029.002')
-SysVarMS21 : array[0..12] of TSysVarList = (
+// Gump fields (ScanGumps), read from the code of client_tc.exe 7.0.29.97 (gumpfields.py): art $6C (the
+// BuffIcons gump stores $4EC there), minimized flag $7C (the bring-to-front code tests it), serial / type
+// ID $D8 / $DC (the $B1 gump reply). The owner chose 7.0.29.97 as the oldest build to get them, so the
+// older milestones keep 0 (N/A), although the code of 6.0.14.3 and 7.0.1.1 has the same values.
+SysVarMS21 : array[0..16] of TSysVarList = (
+  (Expr: B_GUMPART; Val: $0000006C),
+  (Expr: B_GUMPMIN; Val: $0000007C),
+  (Expr: B_GUMPSERIAL; Val: $000000D8),
+  (Expr: B_GUMPTYPE; Val: $000000DC),
   (Expr: C_BLOCKINFO; Val: $005907E0),
   (Expr: E_CONTTOP; Val: $004DD180),
   (Expr: E_DRAGADDR; Val: $005A6170),
@@ -5591,7 +5621,7 @@ const
 // +$C0 in the one stamped $6AD6CEB3). The scan derives it from the skills gump's code (see
 // ScannerTable_Modern); 0 until it does, so the with-bonuses value then repeats the base value
 // instead of reading some other array.
-SysVarModernLayout : array[0..39] of TSysVarList = (
+SysVarModernLayout : array[0..43] of TSysVarList = (
   (Expr: B_POS;       Val: $00000048),   // kind=$44, X=$48, Y=$4A, Z=$4C
   (Expr: B_ITEMTYPE;  Val: $00000070),
   (Expr: B_ITEMSTACK; Val: $00000076),   // type+6 as on every older build; hue (stack+2) = $78 seen live
@@ -5653,6 +5683,12 @@ SysVarModernLayout : array[0..39] of TSysVarList = (
   // item layout (B_POS, B_ITEMTYPE). The scan pattern spells out +$9C and +$A0, so a build that moved
   // them finds no list rather than a wrong one.
   (Expr: B_MULTINEXT; Val: $0000009C),
+  // Gump fields (ScanGumps), read from the beta's code (gumpfields.py) and live in the beta 7.0.117.31:
+  // the art and the minimized flag moved 4 bytes, the server gump's serial and type ID +$98.
+  (Expr: B_GUMPART;   Val: $00000070),   // the BuffIcons gump stores $4EC here (+$6C holds something else)
+  (Expr: B_GUMPMIN;   Val: $00000080),   // tested by the bring-to-front code
+  (Expr: B_GUMPSERIAL; Val: $00000178),  // read by the $B1 gump reply
+  (Expr: B_GUMPTYPE;  Val: $0000017C),
   (Expr: LISTEND;     Val: 0)
 );
 
@@ -5824,7 +5860,7 @@ ModernBuilds : array[0..1] of TModernBuild = (
 // of a field match, the LAST one's result is kept (ScanMemory overwrites, EUO Updtr replaces its
 // line): a $6AD6CEB3 pattern for a function that changed sits before the older beta's, so that one
 // still decides on that beta.
-ScannerTable_Modern : array[0..85] of TScannerEntry = (
+ScannerTable_Modern : array[0..87] of TScannerEntry = (
     // E_REDIR
     (Joker: $11; Unused: (0,0,0); AddOffset1: 12; Mode: 1; AddOffset2: 0; Expr: E_REDIR;
      Pattern: '6A0068E8030000FF75C86A00E8111111118BF0B85917B7D1F765C4'),
@@ -5845,6 +5881,13 @@ ScannerTable_Modern : array[0..85] of TScannerEntry = (
      Pattern: '558BEC5356578BF9837F04FF74118B75118A1680FAFE73110FB6C28D04400FB7048511111111'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_SENDPACKET;
      Pattern: '558BEC53568B7511578BF98A1680FAFE73110FB6C28D04400FB7048511111111'),
+    // The same two with their first 5 bytes as jokers: where Reforged's gump-answer hook sits (uoevents.pas
+    // GumpHookActive) a jmp has replaced them, and the scan must still find the function after a restart.
+    // On a client without the hook they match the same address as the two above.
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_SENDPACKET;
+     Pattern: '1111111111578BF9837F04FF74118B75118A1680FAFE73110FB6C28D04400FB7048511111111'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_SENDPACKET;
+     Pattern: '11111111118B7511578BF98A1680FAFE73110FB6C28D04400FB7048511111111'),
     // E_SENDECX
     (Joker: $11; Unused: (0,0,0); AddOffset1: 13; Mode: 3; AddOffset2: 0; Expr: E_SENDECX;
      Pattern: 'C6451100C74511FFFFFFFF8935111111118B4D1164890D00000000'),
@@ -6461,5 +6504,9 @@ function TCstDB.BMULTINEXT : Cardinal; begin CS.BeginRead; try Result:=Values[B_
 function TCstDB.BGRIDNEXT : Cardinal; begin CS.BeginRead; try Result:=Values[B_GRIDNEXT]; if Result=0 then Result:=$18; finally CS.EndRead; end; end;
 function TCstDB.BGRIDSIZE : Cardinal; begin CS.BeginRead; try Result:=Values[B_GRIDSIZE]; if Result=0 then Result:=64; finally CS.EndRead; end; end;
 function TCstDB.BMULTIOWNER : Cardinal; begin CS.BeginRead; try Result:=Values[B_MULTIOWNER]; if Result=0 then Result:=$A4; finally CS.EndRead; end; end;
+function TCstDB.BGUMPART : Cardinal; begin CS.BeginRead; try Result:=Values[B_GUMPART]; finally CS.EndRead; end; end;
+function TCstDB.BGUMPMIN : Cardinal; begin CS.BeginRead; try Result:=Values[B_GUMPMIN]; finally CS.EndRead; end; end;
+function TCstDB.BGUMPSERIAL : Cardinal; begin CS.BeginRead; try Result:=Values[B_GUMPSERIAL]; finally CS.EndRead; end; end;
+function TCstDB.BGUMPTYPE : Cardinal; begin CS.BeginRead; try Result:=Values[B_GUMPTYPE]; finally CS.EndRead; end; end;
 
 end.

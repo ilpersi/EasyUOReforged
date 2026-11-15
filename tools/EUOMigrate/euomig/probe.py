@@ -124,6 +124,7 @@ class Probe:
                         self.found['B_ITEMTYPE'] = (t, 'player body %Xh and backpack %Xh at +$%X' % (
                             self.p.u16(player + t), self.p.u16(o + t), t))
                         self.found['B_ITEMSLOT'] = (slots[0], 'backpack layer 21 at id+$%X' % slots[0])
+                        self.backpack_id = self.u32(o + idoff)    # gumpfields: the backpack's container gump
                         break
             if 'B_ITEMTYPE' in self.found:
                 break
@@ -261,6 +262,100 @@ class Probe:
                     return
         self.notes.append('buff bar: no head/key offset resolves the %d title cliloc numbers' % n)
 
+    # ---- gump fields (ScanGumps) ------------------------------------------------------------
+    ART_ANCHORS = {'BuffIcons Gump': 0x4EC, 'status gump': 0x2A6C}
+
+    def gump_list(self):
+        """[(gump, name)] front to back, by B_CONTNEXT; stops at an object without $FEEDBEEF at +4"""
+        nxt = self.found['B_CONTNEXT'][0] if 'B_CONTNEXT' in self.found else self.c.v.get('B_CONTNEXT')
+        head = self.u32(self.c.at(self.c.v['C_CONTPOS'])) if self.c.v.get('C_CONTPOS') else None
+        out, seen, g = [], set(), head
+        while g and nxt and g not in seen and len(out) < 1024:
+            seen.add(g)
+            if self.u32(g + 4) != 0xFEEDBEEF:
+                break
+            out.append((g, self.text_at(self.u32(g + 8) or 0, 64)[0] or ''))
+            g = self.u32(g + nxt)
+        return out
+
+    def gumpfields(self, reopen=None):
+        """B_GUMPART: the offset where every anchor gump holds its known graphic (the buff bar $4EC, the
+        status gump $2A6C, a container showing the backpack $3C) -- two anchors at least. B_GUMPMIN: the
+        offset that is non-zero exactly on the minimized gumps, told apart by their size, which equals their
+        minimized size (B_CONTSIZEX + 8). B_GUMPSERIAL / B_GUMPTYPE: a server gump ('generic gump') read
+        twice, closed and reopened in between (reopen() waits for that): the type ID stays the same and the
+        serial before it changes. Without reopen they stay inherited."""
+        gl = self.gump_list()
+        if not gl:
+            self.notes.append('gump fields: no gump list to search')
+            return
+        size = self.c.v.get('B_CONTSIZEX')
+        item = self.c.v.get('B_CONTITEM')
+        itemid = self.found['B_ITEMID'][0] if 'B_ITEMID' in self.found else self.c.v.get('B_ITEMID')
+        backpack = getattr(self, 'backpack_id', None)
+        anchors = [(g, self.ART_ANCHORS[n], n) for g, n in gl if n in self.ART_ANCHORS]
+        if backpack and item and itemid:
+            for g, n in gl:
+                it = self.u32(g + item)
+                if n == 'container gump' and it and self.u32(it + itemid) == backpack:
+                    anchors.append((g, 0x3C, 'backpack'))
+        if len(anchors) < 2:
+            self.notes.append('gump fields: art needs two of the buff bar, the status bar and the backpack open '
+                              '(found: %s)' % (', '.join(a[2] for a in anchors) or 'none'))
+        else:
+            hits = [off for off in range(0x40, 0x200, 4) if all(self.u32(g + off) == v for g, v, _ in anchors)]
+            if len(hits) == 1:
+                self.found['B_GUMPART'] = (hits[0], 'graphic at +$%X on %s' % (hits[0], ', '.join(
+                    '%s ($%X)' % (n, v) for g, v, n in anchors)))
+            else:
+                self.notes.append('gump fields: art fits %d offsets (%s)' % (len(hits), ' '.join('$%X' % h for h in hits)))
+        if size:
+            mins = [g for g, n in gl if self.u32(g + size) and
+                    (self.u32(g + size), self.u32(g + size + 4)) == (self.u32(g + size + 8), self.u32(g + size + 12))]
+            if not mins or len(gl) < 3:
+                self.notes.append('gump fields: minimized flag needs a minimized window and two others open')
+            else:
+                rest = [g for g, n in gl if g not in mins]
+                hits = [off for off in range(0x40, 0x200, 4)
+                        if all(self.u32(g + off) for g in mins) and not any(self.u32(g + off) for g in rest)
+                        and off != self.found.get('B_GUMPART', (None,))[0]]
+                if len(hits) == 1:
+                    self.found['B_GUMPMIN'] = (hits[0], 'non-zero at +$%X on the %d minimized window(s) only, of %d' % (
+                        hits[0], len(mins), len(gl)))
+                else:
+                    self.notes.append('gump fields: minimized flag fits %d offsets (%s)' % (
+                        len(hits), ' '.join('$%X' % h for h in hits)))
+        gens = [g for g, n in gl if n == 'generic gump']
+        if not gens:
+            self.notes.append('gump fields: no server gump open, so the serial and type ID stay inherited')
+            return
+        if reopen is None:
+            self.notes.append('gump fields: probe again with --gump to find the serial and type ID')
+            return
+        before = self.p.read(gens[0], 0x200)
+        reopen()
+        gens2 = [g for g, n in self.gump_list() if n == 'generic gump']
+        if not gens2 or len(before) < 0x200:
+            self.notes.append('gump fields: no server gump after reopening it')
+            return
+        after = self.p.read(gens2[0], 0x200)
+        if len(after) < 0x200:
+            return
+        hits = []
+        for off in range(0x40, 0x1FC, 4):
+            s0, t0 = struct.unpack_from('<II', before, off)
+            s1, t1 = struct.unpack_from('<II', after, off)
+            if s0 != s1 and t0 == t1 and t0 not in (0, 1, 0xFFFFFFFF) and 0 < s0 < 0x1000000 and 0 < s1 < 0x1000000:
+                hits.append((off, s0, s1, t0))
+        if len(hits) == 1:
+            off, s0, s1, t0 = hits[0]
+            how = 'serial $%X -> $%X at +$%X, type ID $%X at +$%X stayed' % (s0, s1, off, t0, off + 4)
+            self.found['B_GUMPSERIAL'] = (off, how)
+            self.found['B_GUMPTYPE'] = (off + 4, how)
+        else:
+            self.notes.append('gump fields: %d pairs fit a changed serial before an unchanged type ID (%s)' % (
+                len(hits), ' '.join('+$%X' % h[0] for h in hits)))
+
     # ---- journal --------------------------------------------------------------------------
     def text_at(self, a, n=0x100):
         """(text, unicode) if a holds a printable ASCII or UTF-16 string, else (None, None)"""
@@ -359,7 +454,7 @@ class Probe:
         self.notes.append('sysmsg: no text at +$800 inline or behind +$100')
 
 
-def run(ctx, title=None):
+def run(ctx, title=None, reopen=None):
     pr = Probe(ctx)
     title = title if title is not None else window_title(ctx.p.pid)
     name, shard = name_and_shard(title)
@@ -367,6 +462,7 @@ def run(ctx, title=None):
     pr.statname(name)
     pr.gumps()
     pr.buffbar()
+    pr.gumpfields(reopen)
     pr.journal()
     pr.sysmsg()
     return pr.found, pr.notes, (name, shard)

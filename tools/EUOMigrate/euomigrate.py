@@ -33,6 +33,7 @@ from euomig import emit as EM                    # noqa: E402
 from euomig import fields as FD                  # noqa: E402
 from euomig import siggen as SG                  # noqa: E402
 from euomig import conv as CV                    # noqa: E402
+from euomig import gumpfields as GF              # noqa: E402
 from euomig.consensus import migrate             # noqa: E402
 from euomig.tables import UoCliData              # noqa: E402
 from euomig.target import Target                 # noqa: E402
@@ -130,6 +131,7 @@ def cmd_migrate(a):
     c['derived'] = derived_of(mig)
     usable = {f: e['value'] for f, e in c['fields'].items() if e['status'] in EM.USABLE and e['value']}
     EM.apply_derived(c, CV.derive(t.code, usable), base)
+    EM.apply_derived(c, GF.derive(t.code, base), base)
     rel = {}
     for f, (v, how) in mig.relative_layout().items():
         default = FD.RELATIVE[f][2]
@@ -249,7 +251,11 @@ def cmd_probe(a):
             log('note: %s is %s -- probes that start from it may find nothing' % (need, c['fields'][need]['status']))
     ctx = OR.Ctx(p, t, values)
     log('window: %r' % ctx.title)
-    found, notes, _ = PR.run(ctx)
+    reopen = None
+    if getattr(a, 'gump', False):
+        def reopen():
+            input('Close the server gump that is open and open the same one again, then press Enter: ')
+    found, notes, _ = PR.run(ctx, reopen=reopen)
     for f, (v, how) in found.items():
         e = c['fields'][f]
         if e['value'] == v or (f == 'B_POS' and not e['value'] and v == 0x24):
@@ -336,6 +342,7 @@ def main(argv=None):
     s = sub.add_parser('probe', help='find object / gump / status layouts in the running client (read-only)')
     s.add_argument('candidates')
     s.add_argument('--pid', type=int)
+    s.add_argument('--gump', action='store_true', help='with a server gump open: ask to close and reopen it, to find B_GUMPSERIAL / B_GUMPTYPE')
     s.set_defaults(fn=cmd_probe)
     s = sub.add_parser('selftest', help='leave-one-out over builds with verified tables')
     s.add_argument('exes', nargs='+')

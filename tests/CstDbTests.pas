@@ -40,6 +40,7 @@ type
     procedure TestUnknownNewerVersionFloorsToNewestMilestone;
     procedure TestVersionOlderThanEarliestMilestoneIsUnrecognized;
     procedure TestCliVerSupportedFloorBasedGate;
+    procedure TestGumpFieldsPerMilestone;
   end;
 
 implementation
@@ -388,6 +389,39 @@ begin
   AssertFalse('a string that does not even look like a version is not supported',
               CliVerSupported('not-a-real-version-string'));
   AssertFalse('empty string is not "supported" either', CliVerSupported(''));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// ScanGumps' offsets (port addition): 7.0.29.97 (milestone 21) is the oldest build that gets them;
+// the serial and type ID moved somewhere between it and 7.0.61.13 (milestone 3), so the milestones in
+// between read 0 for those two; everything from 7.0.47.0 on has $E0 / $E4.
+procedure TCstDbTests.TestGumpFieldsPerMilestone;
+var Cst : TCstDB;
+
+  procedure Check(const Ver : String; Art, Min, Serial, Typ : Cardinal);
+  begin
+    Cst.Update(Ver);
+    AssertEquals(Ver + ' BGUMPART', Art, Cst.BGUMPART);
+    AssertEquals(Ver + ' BGUMPMIN', Min, Cst.BGUMPMIN);
+    AssertEquals(Ver + ' BGUMPSERIAL', Serial, Cst.BGUMPSERIAL);
+    AssertEquals(Ver + ' BGUMPTYPE', Typ, Cst.BGUMPTYPE);
+  end;
+
+begin
+  Cst := TCstDB.Create;
+  try
+    Check('7.0.117.1', $6C, $7C, $E0, $E4);
+    Check('7.0.118.46', $6C, $7C, $E0, $E4);     // floors to 7.0.117.1
+    Check('7.0.117.0', $6C, $7C, $E0, $E4);
+    Check('7.0.61.13', $6C, $7C, $E0, $E4);
+    Check('7.0.47.0', $6C, $7C, $E0, $E4);
+    Check('7.0.40.10', $6C, $7C, 0, 0);
+    Check('7.0.30.1', $6C, $7C, 0, 0);
+    Check('7.0.29.97', $6C, $7C, $D8, $DC);
+    Check('7.0.29.2', $6C, $7C, $D8, $DC);
+    Check('7.0.27.66', 0, 0, 0, 0);               // older than the oldest build chosen
+    Check('6.0.14.3', 0, 0, 0, 0);
+  finally Cst.Free; end;
 end;
 
 initialization

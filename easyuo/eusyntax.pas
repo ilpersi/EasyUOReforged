@@ -72,19 +72,19 @@ uses
 // vocabulary -- see this unit's header comment -- no reason to also risk a
 // second, independent copy for completion).
 const
-  CommandKeywords : array[0..61] of String = (
+  CommandKeywords : array[0..62] of String = (
     'BREAK', 'CALL', 'CHOOSESKILL', 'CLICK', 'CMPPIX', 'CONTINUE', 'CONTPOS',
     'DELETEJOURNAL', 'DELETEVAR', 'DISPLAY', 'ELSE', 'EVENT', 'EXECUTE',
     'EXEVENT', 'EXIT', 'FINDITEM', 'FINDJOURNAL', 'FOR', 'GETSHOPINFO', 'GETUOTITLE',
     'GOSUB', 'GOTO', 'HALT', 'HIDEITEM', 'IF', 'IGNORECONT', 'IGNOREITEM',
     'KEY', 'LOG', 'MENU', 'MOVE', 'MOVEITEM', 'MSG', 'NAMESPACE', 'NEXTCPOS', 'ONHOTKEY',
-    'PATH', 'PAUSE', 'REPEAT', 'RETURN', 'SAVEPIX', 'SCANBUFFS', 'SCANJOURNAL', 'SEND', 'SET',
+    'PATH', 'PAUSE', 'REPEAT', 'RETURN', 'SAVEPIX', 'SCANBUFFS', 'SCANGUMPS', 'SCANJOURNAL', 'SEND', 'SET',
     'SETSHOPITEM', 'SETUOTITLE', 'SHUTDOWN', 'SLEEP', 'SOUND', 'SQL', 'STOP',
     'STR', 'SUB', 'TARGET', 'TERMINATE', 'TILE', 'UNTIL', 'UOXL', 'WAIT',
     'WAITFOR', 'WHILE'
   );
 
-  SystemKeywords : array[0..161] of String = (
+  SystemKeywords : array[0..177] of String = (
     '#AR', '#BACKPACKID', '#BUFFBAROPEN', '#BUFFCLILOC', '#BUFFCNT', '#BUFFDESC', '#BUFFID',
     '#BUFFINDEX', '#BUFFNAME', '#BUFFTIME', '#CHARDIR', '#CHARGHOST', '#CHARID', '#CHARNAME',
     '#CHARPOSX', '#CHARPOSY', '#CHARPOSZ', '#CHARSTATUS', '#CLICNT',
@@ -96,7 +96,10 @@ const
     '#FALSE', '#FINDBAGID', '#FINDCNT', '#FINDCOL', '#FINDDIST', '#FINDID',
     '#FINDINDEX', '#FINDKIND', '#FINDLAYER', '#FINDMOD', '#FINDREP', '#FINDSTACK',
     '#FINDTYPE', '#FINDX', '#FINDY', '#FINDZ', '#FOLLOWERS', '#FR',
-    '#GOLD', '#HITS', '#INT', '#JCOLOR', '#JFOUND', '#JINDEX', '#JOURNAL', '#LHANDID',
+    '#GOLD',
+    '#GUMPART', '#GUMPCNT', '#GUMPINDEX', '#GUMPKIND', '#GUMPMIN', '#GUMPNAME', '#GUMPOBJID',
+    '#GUMPPOSX', '#GUMPPOSY', '#GUMPREPLY', '#GUMPREPLYCNT', '#GUMPREPLYRES', '#GUMPSERIAL', '#GUMPSIZEX', '#GUMPSIZEY', '#GUMPTYPEID',
+    '#HITS', '#INT', '#JCOLOR', '#JFOUND', '#JINDEX', '#JOURNAL', '#LHANDID',
     '#LLIFTEDID', '#LLIFTEDKIND', '#LLIFTEDTYPE', '#LOBJECTID',
     '#LOBJECTTYPE', '#LPC', '#LSHARD', '#LSKILL', '#LSPELL', '#LTARGETID',
     '#LTARGETKIND', '#LTARGETTILE', '#LTARGETX', '#LTARGETY', '#LTARGETZ',

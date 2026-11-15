@@ -32,6 +32,7 @@ export const VARIABLE_CATEGORIES = [
 	['container', 'Container'],
 	['cursor', 'Cursor & targeting'],
 	['finditem', 'FindItem'],
+	['gumps', 'Gumps'],
 	['journal', 'Journal & messages'],
 	['lastaction', 'Last action'],
 	['path', 'Pathfinding'],

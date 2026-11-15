@@ -98,6 +98,17 @@ unit EuoInterpreter;
   TEuoMoveClient below is its view of the client). A line starting with it was a silent no-op before.
   Like WAITFOR it waits only through Delay, and Stop leaves #MoveRes as it was. TUOCmd.ItemSnapshot
   reads the list without touching FINDITEM's results.
+  Likewise the SCANGUMPS command plus the read-only #GumpCnt, #GumpName, #GumpKind, #GumpPosX,
+  #GumpPosY, #GumpSizeX, #GumpSizeY, #GumpArt, #GumpMin, #GumpObjID, #GumpSerial, #GumpTypeID
+  (indices 131..142) and the writable #GumpIndex (534): a snapshot of the client's top-level gumps,
+  front to back, read by TUOCmd (GUMP LIST section) and shown through EuoGumps.pas. A line starting
+  with it was a silent no-op before.
+  Likewise EXEVENT GUMPREPLY plus the read-only #GumpReply, #GumpReplyRes and #GumpReplyCnt (indices
+  143..145): answers a server gump the way a click on one of its buttons does (uogumpreply.pas). With
+  the click hook on the client (installed by GUMPREPLY, or when the script itself reads #GumpReplyCnt;
+  never by a host polling the variables from its own thread) they also follow the answers clicked by hand. EasyUO 1.5's ExEventProc
+  did nothing for a sub-command it did not know, so a line with it was a silent no-op before; no other
+  sub-command changes.
   Likewise four things only a host uses, none of which changes what a script does unless a host
   asks: OnDisplay (a host answers DISPLAY instead of the message box; nil by default),
   BlockCommands (commands that stop the run instead of running; none by default), Restarts (how
@@ -114,7 +125,8 @@ uses
   EuoSortedList, EuoCommandRegistry, EuoStdCommands, EuoComm, EuoMenu, EuoMenu16, EuoMenuSelect,
   EuoScriptWords,
   uotypes, access, ReforgedVersion, uoselector, uovariables, uocommands, uoevents, EuoLock,
-  EuoSql, walkrules, walkmap, pathplan, walklive, pathwalk, EuoJournalSearch, EuoStrOps, EuoItemMove;
+  EuoSql, walkrules, walkmap, pathplan, walklive, pathwalk, EuoJournalSearch, EuoStrOps, EuoItemMove,
+  EuoGumps, uogumpreply;
 
 const
   RES_OK    = 0;
@@ -194,6 +206,10 @@ type
     WaitRes      : String;        // port addition (WAITFOR)
     JFound       : String;        // port addition (FINDJOURNAL)
     MoveRes      : String;        // port addition (MOVEITEM)
+    GumpReply    : String;        // port addition (EXEVENT GUMPREPLY): the last answer sent, as words
+    GumpReplyRes : String;        // port addition (EXEVENT GUMPREPLY): sent / nogump / error
+    GumpReplyCnt : Cardinal;      // port addition: answers this run sent (the count without the hook)
+    GumpHookSeen : Int64;         // port addition: the hook's count when #GumpReply last read it
     FLog         : TStringList;   // port addition (LOG): lines waiting for the host; Objects = line number
     FLogLock     : TEuoLock;      // its own lock: the host takes lines while PlayLine holds CS
     FLogDropped  : Cardinal;      // lines thrown away because nobody took them
@@ -287,6 +303,7 @@ type
     procedure    FindJournalProc;
     procedure    MoveItemProc;
     procedure    ScanBuffsProc;
+    procedure    ScanGumpsProc;
     procedure    NextCPosProc;
     procedure    ChooseSkillProc;
     procedure    ContPosProc;
@@ -299,6 +316,8 @@ type
     procedure    KeyProc;
     procedure    IgnoreContProc;
     procedure    ExEventProc;
+    procedure    GumpReplyProc;
+    function     GumpHookRefresh(Install : Boolean; out Count : Cardinal) : Boolean;
     procedure    EventProc;
   public
     CS           : TEuoLock;
@@ -541,7 +560,7 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 const
-  VarNamesR : Array[0..130] of String = (
+  VarNamesR : Array[0..145] of String = (
     'CliCnt','CliNr','Time','Date','SysTime','Random','OSVer','CharPosX',
     'CharPosY','CharPosZ','CharID','CharGhost','CharStatus','CharDir',
     'CharName','Sex','Str','MaxWeight','Dex','Int','Hits','MaxHits',
@@ -572,16 +591,23 @@ const
     // Port addition (FINDJOURNAL): index 129.
     'JFound',
     // Port addition (MOVEITEM): index 130.
-    'MoveRes');
+    'MoveRes',
+    // Port additions (SCANGUMPS): indices 131..142.
+    'GumpCnt','GumpName','GumpKind','GumpPosX','GumpPosY','GumpSizeX','GumpSizeY','GumpArt',
+    'GumpMin','GumpObjID','GumpSerial','GumpTypeID',
+    // Port additions (EXEVENT GUMPREPLY): indices 143..145.
+    'GumpReply','GumpReplyRes','GumpReplyCnt');
 
-  VarNamesRW : Array[0..33] of String = (
+  VarNamesRW : Array[0..34] of String = (
     'SCnt','SCnt2','LShard','ContPosX','ContPosY','NextCPosX','NextCPosY',
     'TargCurs','CliXRes','CliYRes','CliLeft','CliTop','LSpell','LSkill',
     'LTargetKind','LTargetTile','LTargetX','LTargetY','LTargetZ','LTargetID',
     'LHandID','RHandID','LObjectID','FindIndex','FindMod','Result','StrRes',
     'MenuButton','MenuRes','LPC','SendHeader','SysMsgCol','CliTitle',
     // Port addition (ScanBuffs): index 533.
-    'BuffIndex');
+    'BuffIndex',
+    // Port addition (SCANGUMPS): index 534.
+    'GumpIndex');
 
 ////////////////////////////////////////////////////////////////////////////////
 constructor TEuoInterpreter.Create(Wnd : Cardinal);
@@ -652,6 +678,10 @@ begin
   WaitRes:='N/A';
   JFound:='N/A';
   MoveRes:='N/A';
+  GumpReply:='N/A';
+  GumpReplyRes:='N/A';
+  GumpReplyCnt:=0;
+  GumpHookSeen:=-1;
 
   FLog:=TStringList.Create;
   FLogLock:=TEuoLock.Create;
@@ -723,6 +753,10 @@ begin
   WaitRes:='N/A';   // port addition (WAITFOR)
   JFound:='N/A';    // port addition (FINDJOURNAL)
   MoveRes:='N/A';   // port addition (MOVEITEM)
+  GumpReply:='N/A';      // port additions (EXEVENT GUMPREPLY)
+  GumpReplyRes:='N/A';
+  GumpReplyCnt:=0;
+  GumpHookSeen:=-1;
   Restarts:=0;      // port additions for hosts: a new run has not restarted or been blocked.
   BlockedCmd:='';   // (What LOG queued stays: the host has not read it yet.)
   BlockedLine:=-1;
@@ -1013,6 +1047,7 @@ var
   c    : Cardinal;
   Found: Boolean;
   MID, MType : Cardinal;   // port addition: the mount (#MountID, #MountType)
+  HCnt : Cardinal;         // port addition: the click hook's count (#GumpReply, #GumpReplyCnt)
 label Leave;
 begin
   CS.BeginWrite;
@@ -1081,6 +1116,15 @@ begin
     129: Result:=            JFound        ;
     // Port addition (MOVEITEM).
     130: Result:=            MoveRes       ;
+    // Port additions (EXEVENT GUMPREPLY): the script's own state, read with or without a client; with
+    // the click hook on the client, what it recorded (GumpHookRefresh).
+    143: begin
+           GumpHookRefresh(False,HCnt);
+           Result:=GumpReply;
+         end;
+    144: Result:=            GumpReplyRes  ;
+    145: if GumpHookRefresh(GetCurrentThreadId<>MainThreadID,HCnt) then Result:=IntToStr(HCnt)
+         else Result:=IntToStr(GumpReplyCnt);
     500: Result:=IntToStr   (GetTickCount div 1000 - SCntBase);
     501: Result:=IntToStr   (GetTickCount div 100 - SCnt2Base);
     525: Result:=            _Result       ;
@@ -1288,6 +1332,20 @@ begin
     125: if CharMount(MID,MType) then Result:=CardToSys26(MID) else VarRes:=False;
     126: if CharMount(MID,MType) then Result:=CardToSys26(MType) else VarRes:=False;
     127: if ItemRes.ItemLayer>0 then Result:=IntToStr(ItemRes.ItemLayer) else VarRes:=False;
+    // Port additions (SCANGUMPS). The count is a plain number; the rest describe the selected gump
+    // of the snapshot and read N/A when there is none or the value is not there (EuoGumps.pas).
+    131: Result:=IntToStr(GumpCnt);
+    132: VarRes:=GumpFieldText(GumpRes,GumpValid,gfName  ,Result);
+    133: VarRes:=GumpFieldText(GumpRes,GumpValid,gfKind  ,Result);
+    134: VarRes:=GumpFieldText(GumpRes,GumpValid,gfPosX  ,Result);
+    135: VarRes:=GumpFieldText(GumpRes,GumpValid,gfPosY  ,Result);
+    136: VarRes:=GumpFieldText(GumpRes,GumpValid,gfSizeX ,Result);
+    137: VarRes:=GumpFieldText(GumpRes,GumpValid,gfSizeY ,Result);
+    138: VarRes:=GumpFieldText(GumpRes,GumpValid,gfArt   ,Result);
+    139: VarRes:=GumpFieldText(GumpRes,GumpValid,gfMin   ,Result);
+    140: VarRes:=GumpFieldText(GumpRes,GumpValid,gfObjID ,Result);
+    141: VarRes:=GumpFieldText(GumpRes,GumpValid,gfSerial,Result);
+    142: VarRes:=GumpFieldText(GumpRes,GumpValid,gfTypeID,Result);
     502: Result:=IntToStr   (LShard       );
     503: Result:=IntToStr   (ContPosX     );
     504: Result:=IntToStr   (ContPosY     );
@@ -1318,6 +1376,7 @@ begin
            Result:=IntToStr(BuffPos);
            VarRes:=not BuffGone;        // the selected buff left the bar: no selection any more
          end;
+    534: Result:=IntToStr(GumpPos);   // port addition (SCANGUMPS)
   end;
   if UOVar.VarRes=False then Result:='N/A';
 
@@ -1355,7 +1414,7 @@ begin
   if iBuf<500 then Goto Leave;   // a read-only variable
 
   case iBuf of
-    500..518,523,529,531,533 :
+    500..518,523,529,531,533,534 :
       begin
         i:=SToI64Def(Value,0,ConvRes);
         if not ConvRes then Goto Leave;
@@ -1415,6 +1474,7 @@ begin
     533: begin
            BuffSelect(i);
          end;
+    534: GumpSelect(i);   // port addition (SCANGUMPS)
   end;
 
   Leave:
@@ -1535,6 +1595,7 @@ begin
   CmdRegistry.Register('FindJournal',FindJournalProc,True);   // port addition
   CmdRegistry.Register('MoveItem',MoveItemProc,True);         // port addition
   CmdRegistry.Register('ScanBuffs',ScanBuffsProc,True);   // port addition
+  CmdRegistry.Register('ScanGumps',ScanGumpsProc,True);   // port addition
   CmdRegistry.Register('DeleteJournal',DeleteJournalProc,True);
   CmdRegistry.Register('HideItem',HideItemProc,True);
   CmdRegistry.Register('SetUOTitle',SetUOTitleProc,True);
@@ -4041,6 +4102,8 @@ begin
     if s<>'' then EventObj.ExEv_Custom(s);
   end;
 
+  if ParList[1].StrU='GUMPREPLY' then GumpReplyProc;   // port addition
+
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -4488,6 +4551,80 @@ begin
     if ParList[1].IntValid and (ParList[1].Int>=0) then
       Filter:=ParList[1].Int;
   UOCmd.ScanBuffs(Filter);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition. EXEVENT GUMPREPLY {gump} {button} [switches] [id:text ...] answers a server gump that
+// is open now (uogumpreply.pas). {gump} is a position in the last ScanGumps list (digits) or a type ID
+// (an EUO literal: the frontmost gump of that type). The words are re-split from the whole rest of the
+// line, so "exevent GumpReply #GumpReply" works: the variable's value is one word holding spaces.
+// #GumpReplyRes says what happened; #GumpReply keeps the last answer sent, type ID first.
+procedure TEuoInterpreter.GumpReplyProc;
+var
+  S, Sel : String;
+  P      : Integer;
+  R      : TGumpReply;
+  Addr   : Cardinal;
+  TypeID : Cardinal;
+  Idx    : Cardinal;
+  Hc     : Cardinal;
+begin
+  GumpReplyRes:='error';
+  S:=Trim(StringReplace(GetParStr(2),#9,' ',[rfReplaceAll]));
+  P:=Pos(' ',S);
+  if P=0 then Exit;                                        // no button
+  Sel:=Copy(S,1,P-1);
+  Delete(S,1,P);
+  if not ParseReplyArgs(S,R) then Exit;
+  Addr:=0;
+  if (Sel<>'') and (Sel[1] in ['0'..'9']) then
+  begin
+    Idx:=Cardinal(StrToInt64Def(Sel,0));
+    if (Idx<1) or (Idx>UOCmd.GumpCnt) or not UOCmd.GumpList[Idx-1].ServerValid then
+    begin
+      GumpReplyRes:='nogump';
+      Exit;
+    end;
+    Addr:=UOCmd.GumpList[Idx-1].Addr;
+    TypeID:=UOCmd.GumpList[Idx-1].TypeID;
+  end
+  else if not GumpLiteral(Sel,TypeID) then Exit;
+  GumpHookRefresh(True,Hc);                                // first use: put the click hook on
+  GumpReplyRes:=SendGumpReply(UOSel.CstDB,UOCmd,EventObj,Addr,TypeID,R);
+  if GumpReplyRes='sent' then
+  begin
+    Inc(GumpReplyCnt);
+    GumpReply:=CardToSys26(R.TypeID)+' '+ReplyArgsText(R);
+    GumpHookRefresh(False,Hc);                             // the hook kept the same answer: take it in
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition. True when the click hook is on this client (Install: put it there first); then Count
+// is how many answers it has counted, and #GumpReply takes the last one when it is new.
+function TEuoInterpreter.GumpHookRefresh(Install : Boolean; out Count : Cardinal) : Boolean;
+var
+  R     : TGumpReply;
+  Fresh : Boolean;
+begin
+  Count:=0;
+  Result:=False;
+  if UOSel.Nr<1 then Exit;
+  Result:=HookedReply(EventObj,Install,GumpHookSeen,Count,R,Fresh);
+  if Fresh then GumpReply:=CardToSys26(R.TypeID)+' '+ReplyArgsText(R);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition. ScanGumps [T_typeIDs] [A_artIDs]: snapshot of the client's top-level gumps, front to
+// back, the first one selected; #GumpIndex walks it like #FindIndex walks FindItem's. The filter words
+// work like FindItem's (uocommands.ParseGumpFilter). Reads nothing but client memory.
+procedure TEuoInterpreter.ScanGumpsProc;
+var
+  Types, Arts   : TGumpIDs;
+  ByType, ByArt : Boolean;
+begin
+  ParseGumpFilter(GetParStr(1),Types,Arts,ByType,ByArt);
+  UOCmd.ScanGumps(Types,Arts,ByType,ByArt);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

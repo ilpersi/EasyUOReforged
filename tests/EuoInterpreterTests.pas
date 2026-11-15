@@ -40,6 +40,9 @@ type
     procedure TestMenuFontLinesAreHarmlessAndLeaveStateAlone;
     procedure TestClientGatedCommandIsSilentNoOpWithNoClient;
     procedure TestScanBuffsIsASilentNoOpWithNoClient;
+    procedure TestScanGumpsIsASilentNoOpWithNoClient;
+    procedure TestGumpVariablesReadNAWithNoClient;
+    procedure TestGumpReplyIsASilentNoOpWithNoClient;
     procedure TestBuffVariablesReadNAWithNoClient;
     procedure TestBuffAdditionsLeaveTheOriginalVariablesAlone;
     procedure TestPathVariablesBeforeAnyPathCommand;
@@ -328,6 +331,59 @@ begin
     'SET %x reached' + #13#10 +
     'HALT');
   AssertEquals('reached', Interp.GetVar('%x'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// ScanGumps is a port addition: client-gated like FINDITEM, a silent no-op without a client, with or
+// without its filter words.
+procedure TEuoInterpreterTests.TestScanGumpsIsASilentNoOpWithNoClient;
+begin
+  PlayScript(
+    'SCANGUMPS' + #13#10 +
+    'ScanGumps T_JHEIIPI A_YE_BB' + #13#10 +
+    'SET %x reached' + #13#10 +
+    'HALT');
+  AssertEquals('reached', Interp.GetVar('%x'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The thirteen #Gump variables read N/A without a client; #GumpIndex is settable like #FindIndex.
+// What they show with a client is in EuoGumpsTests (the text) and CstDbModernBuildTests (the reading).
+procedure TEuoInterpreterTests.TestGumpVariablesReadNAWithNoClient;
+const
+  Names : array[0..12] of String = ('#GumpCnt', '#GumpIndex', '#GumpName', '#GumpKind', '#GumpPosX',
+    '#GumpPosY', '#GumpSizeX', '#GumpSizeY', '#GumpArt', '#GumpMin', '#GumpObjID', '#GumpSerial',
+    '#GumpTypeID');
+var
+  Cnt : Integer;
+begin
+  for Cnt := 0 to High(Names) do
+    AssertEquals(Names[Cnt], 'N/A', Interp.GetVar(Names[Cnt]));
+  PlayScript(
+    'SET #GumpIndex 2' + #13#10 +
+    'SET %x done' + #13#10 +
+    'HALT');
+  AssertEquals('done', Interp.GetVar('%x'));
+  AssertEquals('N/A', Interp.GetVar('#GumpName'));
+  // the variables just before them keep their meaning
+  AssertEquals('N/A', Interp.GetVar('#MoveRes'));
+  AssertEquals('N/A', Interp.GetVar('#BuffIndex'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// exevent GumpReply is client-gated like every exevent: without a client the line is skipped, and
+// #GumpReply / #GumpReplyRes keep N/A. The words and packets are in GumpReplyTests.
+procedure TEuoInterpreterTests.TestGumpReplyIsASilentNoOpWithNoClient;
+begin
+  PlayScript(
+    'exevent GumpReply JHEIIPI 1 3/7 5:hello_world' + #13#10 +
+    'set %r JHEIIPI 0 -' + #13#10 +
+    'exevent GumpReply %r' + #13#10 +
+    'SET %x reached' + #13#10 +
+    'HALT');
+  AssertEquals('reached', Interp.GetVar('%x'));
+  AssertEquals('N/A', Interp.GetVar('#GumpReply'));
+  AssertEquals('N/A', Interp.GetVar('#GumpReplyRes'));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

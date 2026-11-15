@@ -236,6 +236,14 @@ sub st_init
   set %fx_shop C_CONTPOS/B_CONTNEXT/B_SHOPCURRENT/B_SHOPNEXT/B_SHOPPRICE/B_ITEMID/B_ITEMTYPE/B_ITEMSTACK
   set %fx_bill C_CONTPOS/B_CONTNEXT/B_BILLFIRST
   set %fx_buff C_CONTPOS/B_CONTNEXT/B_BUFFVEC/B_BUFFSIZE
+  set %fx_gump C_CONTPOS/B_CONTNEXT
+  set %fx_gumppos C_CONTPOS/B_CONTNEXT/B_CONTX/B_CONTSIZEX
+  set %fx_gumpobj C_CONTPOS/B_CONTNEXT/B_CONTITEM/B_ITEMID
+  set %fx_gumpart C_CONTPOS/B_CONTNEXT/B_GUMPART
+  set %fx_gumpmin C_CONTPOS/B_CONTNEXT/B_GUMPMIN
+  set %fx_gumpsrv C_CONTPOS/B_CONTNEXT/B_GUMPSERIAL/B_GUMPTYPE
+  set %fx_reply E_REDIR/E_OLDDIR/E_SENDPACKET/E_SENDLEN/E_SENDECX/F_SENDTHISCALL/C_CONTPOS/B_CONTNEXT/B_GUMPSERIAL/B_GUMPTYPE
+  set %fx_hook2 E_REDIR/E_OLDDIR/E_SENDPACKET/C_CONTPOS/B_CONTNEXT/B_GUMPSERIAL/B_GUMPTYPE
   set %fx_buffname C_CLILOC/B_STLHEAD/B_CLILOCKEY/B_BUFFVEC/B_BUFFSIZE
   set %fx_bufftime C_BUFFTIMERS/B_STLHEAD/B_BUFFVEC/B_BUFFSIZE
   set %fx_hide C_CHARPTR/B_ITEMID/B_POS
@@ -280,7 +288,7 @@ sub st_counts
   set %st_cnt2 16
   set %st_cnt3 9
   set %st_cnt4 18
-  set %st_cnt5 16
+  set %st_cnt5 24
   set %st_cnt6 18
   set %st_cnt7 15
   set %st_cnt8 6
@@ -3221,6 +3229,14 @@ sub st_s5
   gosub st_c514
   gosub st_c515
   gosub st_c516
+  gosub st_c517
+  gosub st_c518
+  gosub st_c519
+  gosub st_c520
+  gosub st_c521
+  gosub st_c522
+  gosub st_c523
+  gosub st_c524
 return
 
 ; event SysMessage: #SysMsg, the journal and #JColor all show the text
@@ -3735,6 +3751,402 @@ sub st_c516
   set %st_e no_paperdoll,_no_backpack
   gosub st_ok 5.16 event_macro_31_closes_the_open_gumps %fx_macro
   gosub st_status_keep
+return
+
+; scangumps lists the open windows: the backpack just opened is in it, with its graphic YE, its object
+; #BackpackID and the #Cont... values (it is not always entry 1: the beta keeps its menu bar in front);
+; a minimized paperdoll reads #GumpMin #true; A_YE keeps the backpack
+sub st_c517
+  gosub st_case 5.17 scangumps_lists_the_open_windows
+  if %st_run = 0
+    return
+  gosub st_need 5.06
+  event macro 8 1
+  waitfor paperdoll in #ContName %st_tw3
+  event macro 9 7
+  wait 10
+  event macro 8 7
+  waitfor #ContID = #BackpackID %st_tw3
+  scangumps
+  set %st_a #GumpCnt
+  set %st_lo 2
+  set %st_hi 1024
+  gosub st_rng 5.17.cnt GumpCnt_counts_the_backpack_and_the_paperdoll_at_least %fx_gump
+  set %st_gb 0
+  for %st_gi 1 #GumpCnt
+  {
+    set #GumpIndex %st_gi
+    if #GumpObjID = #BackpackID && %st_gb = 0
+      set %st_gb %st_gi
+  }
+  set %st_a %st_gb
+  set %st_c %st_gb > 0
+  set %st_e an_entry_with_#GumpObjID_#BackpackID
+  gosub st_ok 5.17.obj the_backpack_gump_is_listed_with_its_object %fx_gumpobj
+  if %st_gb = 0
+    return
+  set #GumpIndex %st_gb
+  set %st_a #GumpName
+  set %st_e container_gump
+  gosub st_eq 5.17.name its_GumpName_is_container_gump %fx_gump
+  set %st_a #GumpArt
+  set %st_e YE
+  gosub st_eq 5.17.art GumpArt_of_the_backpack_is_YE %fx_gumpart
+  set %st_a #GumpMin
+  set %st_e #false
+  gosub st_eq 5.17.min the_backpack_is_not_minimized %fx_gumpmin
+  set %st_a #GumpPosX , / , #GumpPosY , / , #GumpSizeX , / , #GumpSizeY
+  set %st_e #ContPosX , / , #ContPosY , / , #ContSizeX , / , #ContSizeY
+  gosub st_eq 5.17.pos position_and_size_as_the_Cont_variables %fx_gumppos
+  set %st_a #GumpKind
+  set %st_e #ContKind
+  gosub st_eq 5.17.kind GumpKind_is_#ContKind %fx_gump
+  set %st_a #GumpTypeID
+  set %st_e N/A
+  gosub st_eqna 5.17.notype a_container_has_no_type_ID %fx_gumpsrv
+  set %st_a #GumpSerial
+  set %st_e N/A
+  gosub st_eqna 5.17.noserial a_container_has_no_serial %fx_gumpsrv
+  ; the paperdoll minimized: found again in a new list, its flag set
+  event macro 10 1
+  wait 15
+  scangumps
+  set %st_gm none
+  for %st_gi 1 #GumpCnt
+  {
+    set #GumpIndex %st_gi
+    if paperdoll in #GumpName
+      set %st_gm #GumpMin
+  }
+  set %st_a %st_gm
+  set %st_e #true
+  gosub st_eq 5.17.minpd the_minimized_paperdoll_reads_#GumpMin_true %fx_gumpmin
+  event macro 11 1
+  wait 10
+  scangumps A_YE
+  set %st_a #GumpCnt , / , #GumpArt
+  set %st_c ( #GumpCnt >= 1 ) && ( #GumpArt = YE )
+  set %st_e 1_or_more/YE
+  gosub st_ok 5.17.filter scangumps_A_YE_keeps_the_backpack %fx_gumpart
+  event macro 9 1
+return
+
+; ---- exevent GumpReply on ModernUO's delete confirmation (5.18 to 5.23) --------------------------------
+; Two daggers of the script's own, named with a token, then [global delete where Dagger Name == token: with
+; two matches ModernUO asks first (DeleteObjectsNoticeGump: OKAY is button 1, CANCEL button 0) and then says
+; "Delete command confirmed." or "Delete command aborted." in the journal. [global needs Administrator.
+
+; can these checks run? %st_gr 1 = yes, else the reason in %st_grwhy
+sub st_gr_can
+  set %st_gr 0
+  set %st_grwhy needs_staff_commands
+  if %st_staffok = 0
+    return
+  set %st_grwhy [global_needs_Administrator_(the_level_is_ , %st_stafflvl , )
+  if %st_stafflvl = Administrator || %st_stafflvl = Developer || %st_stafflvl = Owner
+    set %st_gr 1
+return
+
+; one dagger in the backpack, named %st_grtok -> %st_newid
+sub st_gr_dagger
+  gosub st_newitem_begin %st_dtypes B
+  gosub st_staff self addtopack Dagger
+  gosub st_newitem_end Dagger_for_the_gump_checks
+  if %st_newid <> N/A
+    gosub st_oset %st_newid Name %st_grtok
+return
+
+; opens the confirmation and finds it: the server gump whose serial was not there before -> %st_grt type
+; ID, %st_grs serial (N/A when none came)
+sub st_gr_open
+  scangumps
+  set %st_grold |
+  for %st_gi 1 #GumpCnt
+  {
+    set #GumpIndex %st_gi
+    if #GumpName = generic_gump
+      set %st_grold %st_grold , #GumpSerial , |
+  }
+  gosub st_staff global delete where Dagger Name == %st_grtok
+  set %st_grj %st_sj
+  set %st_grt N/A
+  set %st_grs N/A
+  set %st_grn 0
+  repeat
+    wait 5
+    scangumps
+    for %st_gi 1 #GumpCnt
+    {
+      set #GumpIndex %st_gi
+      set %st_grk | , #GumpSerial , |
+      if #GumpName = generic_gump && %st_grk notin %st_grold && %st_grs = N/A
+      {
+        set %st_grt #GumpTypeID
+        set %st_grs #GumpSerial
+      }
+    }
+    set %st_grn %st_grn + 1
+  until %st_grs <> N/A || %st_grn > 12
+return
+
+; both daggers still there -> %st_c
+sub st_gr_both
+  finditem %st_grd1
+  set %st_grc #FindCnt
+  finditem %st_grd2
+  set %st_grc %st_grc + #FindCnt
+  set %st_a %st_grc
+  set %st_c %st_grc = 2
+return
+
+; the confirmation is listed: a server gump with a type ID and a serial
+sub st_c518
+  gosub st_case 5.18 exevent_GumpReply:_the_server_gump_is_listed
+  if %st_run = 0
+    return
+  gosub st_gr_can
+  if %st_gr = 0
+  {
+    gosub st_skip 5.18 delete_confirmation %st_grwhy
+    return
+  }
+  set %st_in 3921
+  gosub st_num2id
+  set %st_dtypes %st_out
+  set %st_in 3922
+  gosub st_num2id
+  set %st_dtypes %st_dtypes , _ , %st_out
+  gosub st_token
+  set %st_grtok %st_tok
+  gosub st_gr_dagger
+  set %st_grd1 %st_newid
+  gosub st_gr_dagger
+  set %st_grd2 %st_newid
+  if %st_grd1 = N/A || %st_grd2 = N/A
+  {
+    gosub st_block no_daggers
+    set %st_a none
+    set %st_e two_daggers
+    gosub st_eq 5.18.daggers two_daggers_for_the_checks_are_made %fx_reply
+    return
+  }
+  gosub st_gr_open
+  set %st_a %st_grt
+  gosub st_has 5.18.type the_confirmation_is_a_server_gump_with_a_type_ID %fx_gumpsrv
+  set %st_a %st_grs
+  gosub st_has 5.18.serial ...and_a_serial %fx_gumpsrv
+return
+
+; button 0 (CANCEL): aborted, the daggers stay, #GumpReply holds the answer, the window closes
+sub st_c519
+  gosub st_case 5.19 exevent_GumpReply_button_0
+  if %st_run = 0
+    return
+  gosub st_gr_can
+  if %st_gr = 0
+  {
+    gosub st_skip 5.19 button_0 %st_grwhy
+    return
+  }
+  gosub st_need 5.18
+  exevent GumpReply %st_grt 0
+  set %st_a #GumpReplyRes
+  set %st_e sent
+  gosub st_eq 5.19.res GumpReplyRes_is_sent %fx_reply
+  findjournal %st_grj * %st_tw3 Delete_command_aborted
+  set %st_a #JFound
+  set %st_c #JFound > 0
+  set %st_e the_journal_says_aborted
+  gosub st_ok 5.19.aborted the_server_took_button_0 %fx_reply
+  gosub st_gr_both
+  set %st_e 2
+  gosub st_ok 5.19.kept both_daggers_are_still_there %fx_reply
+  set %st_a #GumpReply
+  set %st_e %st_grt , #spc , 0 , #spc , -
+  gosub st_eq 5.19.reply GumpReply_holds_type_ID,_button_0,_no_switches %fx_reply
+  scangumps T_ , %st_grt
+  set %st_a #GumpCnt
+  set %st_e 0
+  gosub st_eq 5.19.closed the_client's_window_is_closed %fx_reply
+return
+
+; open it again: same type ID, new serial; exevent GumpReply #GumpReply sends button 0 again
+sub st_c520
+  gosub st_case 5.20 exevent_GumpReply_#GumpReply_on_a_new_copy
+  if %st_run = 0
+    return
+  gosub st_gr_can
+  if %st_gr = 0
+  {
+    gosub st_skip 5.20 replay %st_grwhy
+    return
+  }
+  gosub st_need 5.19
+  set %st_grt0 %st_grt
+  set %st_grs0 %st_grs
+  gosub st_gr_open
+  set %st_a %st_grt
+  set %st_e %st_grt0
+  gosub st_eq 5.20.type the_type_ID_is_the_same %fx_gumpsrv
+  set %st_a %st_grs
+  set %st_c ( %st_grs <> %st_grs0 ) && ( %st_grs <> N/A )
+  set %st_e not_ , %st_grs0
+  gosub st_ok 5.20.serial the_serial_is_new %fx_gumpsrv
+  exevent GumpReply #GumpReply
+  findjournal %st_grj * %st_tw3 Delete_command_aborted
+  set %st_a #GumpReplyRes , / , #JFound
+  set %st_c ( #GumpReplyRes = sent ) && ( #JFound > 0 )
+  set %st_e sent/aborted
+  gosub st_ok 5.20.aborted the_same_answer_works_with_the_new_serial %fx_reply
+return
+
+; a button the gump does not have (7): it must not delete. ModernUO checks the button only on its older
+; Gump class; this confirmation is a StaticGump, whose answer counts anything but OKAY as no: the journal
+; says aborted and the daggers stay (GumpSystem.IncomingPackets.cs, StaticWarningGump.cs).
+sub st_c521
+  gosub st_case 5.21 exevent_GumpReply_a_button_the_gump_lacks
+  if %st_run = 0
+    return
+  gosub st_gr_can
+  if %st_gr = 0
+  {
+    gosub st_skip 5.21 button_7 %st_grwhy
+    return
+  }
+  gosub st_need 5.20
+  gosub st_gr_open
+  exevent GumpReply %st_grt 7
+  set %st_a #GumpReplyRes
+  set %st_e sent
+  gosub st_eq 5.21.res GumpReplyRes_is_sent %fx_reply
+  findjournal %st_grj * %st_tw3 Delete_command_confirmed Delete_command_aborted
+  set %st_a #Journal
+  set %st_e Delete_command_aborted.
+  gosub st_eq 5.21.notok the_shard_counts_button_7_as_not_OKAY %fx_reply
+  gosub st_gr_both
+  set %st_e 2
+  gosub st_ok 5.21.kept both_daggers_are_still_there %fx_reply
+return
+
+; with no such gump open: nogump, and nothing is sent (an earlier serial is never reused)
+sub st_c522
+  gosub st_case 5.22 exevent_GumpReply_with_no_such_gump
+  if %st_run = 0
+    return
+  gosub st_gr_can
+  if %st_gr = 0
+  {
+    gosub st_skip 5.22 no_gump %st_grwhy
+    return
+  }
+  gosub st_need 5.18
+  set %st_grj #JIndex
+  exevent GumpReply %st_grt 1
+  set %st_a #GumpReplyRes
+  set %st_e nogump
+  gosub st_eq 5.22.res GumpReplyRes_is_nogump %fx_reply
+  findjournal %st_grj * %st_tw2 Delete_command_confirmed Delete_command_aborted
+  set %st_a #JFound
+  set %st_e 0
+  gosub st_eq 5.22.nothing nothing_reaches_the_server %fx_reply
+return
+
+; button 1 (OKAY): confirmed, the daggers are gone (their clean-up rows then find them deleted)
+sub st_c523
+  gosub st_case 5.23 exevent_GumpReply_button_1
+  if %st_run = 0
+    return
+  gosub st_gr_can
+  if %st_gr = 0
+  {
+    gosub st_skip 5.23 button_1 %st_grwhy
+    return
+  }
+  gosub st_need 5.18
+  gosub st_gr_open
+  exevent GumpReply %st_grt 1
+  findjournal %st_grj * %st_tw3 Delete_command_confirmed
+  set %st_a #GumpReplyRes , / , #JFound
+  set %st_c ( #GumpReplyRes = sent ) && ( #JFound > 0 )
+  set %st_e sent/confirmed
+  gosub st_ok 5.23.confirmed the_server_took_button_1 %fx_reply
+  wait 10
+  gosub st_gr_both
+  set %st_c %st_grc = 0
+  set %st_e 0
+  gosub st_ok 5.23.gone the_daggers_are_deleted %fx_reply
+  scangumps T_ , %st_grt
+  set %st_a #GumpCnt
+  set %st_e 0
+  gosub st_eq 5.23.closed the_client's_window_is_closed %fx_reply
+return
+
+; your own click is recorded: reading #GumpReplyCnt puts the click hook on the client; you click a button of a
+; server gump ([AddonGen's Cancel with Administrator staff commands, any gump otherwise); #GumpReplyCnt goes up
+; and #GumpReply holds the answer (for [AddonGen: its type ID, then button 0)
+sub st_c524
+  gosub st_case 5.24 Your_own_click_is_recorded_(#GumpReplyCnt)
+  if %st_run = 0
+    return
+  if %ST_UNATTENDED = 1
+  {
+    gosub st_skip 5.24 your_click needs_your_hand_(an_unattended_run)
+    return
+  }
+  set %st_gn0 #GumpReplyCnt
+  gosub st_gr_can
+  set %st_grt N/A
+  if %st_gr = 1
+  {
+    scangumps
+    set %st_grold |
+    for %st_gi 1 #GumpCnt
+    {
+      set #GumpIndex %st_gi
+      if #GumpName = generic_gump
+        set %st_grold %st_grold , #GumpSerial , |
+    }
+    gosub st_staff AddonGen
+    set %st_grn 0
+    repeat
+      wait 5
+      scangumps
+      for %st_gi 1 #GumpCnt
+      {
+        set #GumpIndex %st_gi
+        set %st_grk | , #GumpSerial , |
+        if #GumpName = generic_gump && %st_grk notin %st_grold && %st_grt = N/A
+          set %st_grt #GumpTypeID
+      }
+      set %st_grn %st_grn + 1
+    until %st_grt <> N/A || %st_grn > 12
+    set %st_say Click_Cancel_in_the_Addon_Script_Generator_(2_minutes).
+  }
+  else
+    set %st_say Open_a_gump_the_server_sends_and_click_one_of_its_buttons_(2_minutes).
+  log NOW: %st_say
+  event sysmessage %st_say
+  set %st_t #SCnt + 120
+  repeat
+    wait 5
+  until #GumpReplyCnt <> %st_gn0 || #SCnt > %st_t
+  set %st_a %st_gn0 , _then_ , #GumpReplyCnt
+  set %st_c #GumpReplyCnt = %st_gn0 + 1
+  set %st_e one_more
+  gosub st_ok 5.24.count GumpReplyCnt_counts_your_click %fx_hook2
+  if %st_gr = 1 && %st_grt <> N/A
+  {
+    set %st_a #GumpReply , #spc
+    set %st_e %st_grt , #spc , 0 , #spc
+    str pos %st_a %st_e
+    set %st_c #StrRes = 1
+    gosub st_ok 5.24.reply GumpReply_holds_the_gump's_type_ID_and_button_0 %fx_hook2
+  }
+  else
+  {
+    set %st_a #GumpReply
+    gosub st_info 5.24.reply what_your_click_sent %fx_hook2
+  }
 return
 
 ; ###########################################################################

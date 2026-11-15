@@ -1,0 +1,71 @@
+; ============================================================================
+;  scangumps hand test: SCANGUMPS on a live client. It only reads the client. It ends in halt.
+;
+;  Before running: open the backpack, the paperdoll, the status bar and the buff bar, minimize one
+;  window, and open a gump the server sends (a staff command's menu, a quest window).
+;  Run it in the editor and watch its Output panel: it tells you when to close and reopen the gump, and
+;  waits for that by reading the client (no message box, which would hold the client).
+;  Each result is a line: RESULT <what> <PASS|FAIL|INFO> observed=... expected=...
+;
+;  1. It lists every window with its values.
+;  2. It finds the first server gump, then waits (2 minutes at most) until you close it and open the
+;     same one again.
+;  3. It checks that the type ID stayed the same and the serial changed, and that T_ finds it.
+; ============================================================================
+scangumps
+log RESULT count INFO observed= #GumpCnt
+set %srv 0
+for %i 1 #GumpCnt
+{
+  set #GumpIndex %i
+  log %i #GumpName kind #GumpKind at #GumpPosX #GumpPosY size #GumpSizeX #GumpSizeY art #GumpArt min #GumpMin obj #GumpObjID serial #GumpSerial type #GumpTypeID
+  if #GumpName = container_gump && #GumpObjID = #BackpackID
+  {
+    if #GumpArt = YE
+      log RESULT backpack_art PASS observed= #GumpArt expected=YE
+    else
+      log RESULT backpack_art FAIL observed= #GumpArt expected=YE
+  }
+  if #GumpName = generic_gump && %srv = 0
+    set %srv %i
+}
+if %srv = 0
+{
+  log RESULT server_gump FAIL observed=none expected=a_server_gump_open
+  halt
+}
+set #GumpIndex %srv
+set %type #GumpTypeID
+set %serial #GumpSerial
+log RESULT server_gump INFO observed=type_ , %type , _serial_ , %serial
+log NOW: close that server gump and open the same one again (within 2 minutes).
+set %limit #SCnt + 120
+repeat
+  scangumps T_ , %type
+  wait 5
+until #GumpCnt = 0 || #SCnt > %limit
+if #GumpCnt > 0
+{
+  log RESULT closed FAIL observed=still_open expected=closed_within_2_minutes
+  halt
+}
+log RESULT closed PASS observed=gone
+repeat
+  scangumps T_ , %type
+  wait 5
+until #GumpCnt > 0 || #SCnt > %limit
+if #GumpCnt = 0
+{
+  log RESULT reopened FAIL observed=not_found expected=a_gump_of_type_ , %type
+  halt
+}
+log RESULT reopened PASS observed=found_ , #GumpCnt
+if #GumpTypeID = %type
+  log RESULT type_same PASS observed= #GumpTypeID expected= %type
+else
+  log RESULT type_same FAIL observed= #GumpTypeID expected= %type
+if #GumpSerial <> %serial
+  log RESULT serial_new PASS observed= #GumpSerial before= %serial
+else
+  log RESULT serial_new FAIL observed= #GumpSerial before= %serial
+halt

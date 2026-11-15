@@ -21,6 +21,7 @@ answers, so its display can lag behind for a moment.
 | [exevent DropG](/commands/exevent/dropg/) | Drops the held item on the ground. |
 | [exevent DropPD](/commands/exevent/droppd/) | Puts the held item on, on your paperdoll. |
 | [exevent Equip](/commands/exevent/equip/) | Equips one or more items in one request. |
+| [exevent GumpReply](/commands/exevent/gumpreply/) | Answers a gump the server sent, as a click on a button does. |
 | [exevent PopUp](/commands/exevent/popup/) | Opens the context menu of an item or character. |
 | [exevent RenamePet](/commands/exevent/renamepet/) | Renames a pet. |
 | [exevent SkillLock](/commands/exevent/skilllock/) | Sets the lock of a skill. |

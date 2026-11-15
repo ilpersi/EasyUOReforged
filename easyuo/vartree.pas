@@ -143,6 +143,25 @@ var
    '#FINDZ'#13#10+
 
     #13#10+
+   '\Gumps'#13#10+
+   '#GUMPART'#13#10+
+   '#GUMPCNT'#13#10+
+   '#GUMPINDEX'#13#10+
+   '#GUMPKIND'#13#10+
+   '#GUMPMIN'#13#10+
+   '#GUMPNAME'#13#10+
+   '#GUMPOBJID'#13#10+
+   '#GUMPPOSX'#13#10+
+   '#GUMPPOSY'#13#10+
+   '#GUMPREPLY'#13#10+
+   '#GUMPREPLYCNT'#13#10+
+   '#GUMPREPLYRES'#13#10+
+   '#GUMPSERIAL'#13#10+
+   '#GUMPSIZEX'#13#10+
+   '#GUMPSIZEY'#13#10+
+   '#GUMPTYPEID'#13#10+
+
+    #13#10+
    '\Journal & messages'#13#10+
    '#JCOLOR'#13#10+
    '#JFOUND'#13#10+

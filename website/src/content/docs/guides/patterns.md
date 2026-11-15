@@ -164,6 +164,28 @@ if fizzles in #Journal
 halt
 ```
 
+## Answer a gump the server sent
+
+A gump the server sends (a menu, a confirmation) is recognised by its type ID, which is the same every time
+it opens: read it once with [`scangumps`](/commands/scangumps/) ([Finding IDs](/guides/finding-ids/) has a
+probe). In EasyUO Reforged, [`exevent GumpReply`](/commands/exevent/gumpreply/) presses one of its buttons
+without a click, with the checkboxes and text fields it needs, and closes the window. Wait for the gump with
+`scangumps T_`, and read [`#GumpReplyRes`](/variables/gumpreplyres/) afterwards: `nogump` means it was not
+open, and nothing was sent. The button numbers come from the shard, not from the client.
+
+```euo
+set %confirm JHEIIPI                ; the gump's #GumpTypeID on your shard
+set %t #SCnt + 5
+repeat
+  scangumps T_ , %confirm
+  wait 2
+until #GumpCnt > 0 || #SCnt > %t
+exevent GumpReply %confirm 1        ; button 1: OKAY
+if #GumpReplyRes <> sent
+  event sysmessage The confirmation did not open.
+halt
+```
+
 ## Walk somewhere
 
 [`path go`](/commands/path/go/) plans a route around walls and water and walks it. Always read

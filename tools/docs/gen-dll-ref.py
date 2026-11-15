@@ -111,6 +111,21 @@ METHODS = {
         ('hp', 'number', 'Health in percent, for a health bar.')],
         'Describes one open gump, counted from the top (0), skipping the ignored ones. Returns nil when there is no '
         'such gump.', ['#ContName', 'IgnoreCont', 'dll:ContTop'], None),
+    'GetGump': ([('n', 'index')], [('name', 'string', "The client's name for the window, as `#GumpName` but with spaces."),
+        ('kind', 'number', 'As `#GumpKind`, as a number.'), ('x', 'number', 'Left edge, in pixels.'), ('y', 'number', 'Top edge, in pixels.'),
+        ('width', 'number', 'In pixels.'), ('height', 'number', 'In pixels.'),
+        ('object', 'number', 'The container or character the window belongs to; nil for none.'),
+        ('art', 'number', "The window's graphic; nil for none."), ('minimized', 'boolean', 'True when minimized; nil where it is not known.'),
+        ('serial', 'number', 'Server gumps only, nil otherwise: new each time the server opens it.'),
+        ('typeid', 'number', 'Server gumps only, nil otherwise: which gump it is, the same every time.')],
+        'Reads one window of the list `ScanGumps` made, counted from the front (0). A value a script reads as `N/A` is nil '
+        'in its slot, so there are always eleven values. Returns a single nil when there is no such window.',
+        ['ScanGumps', '#GumpTypeID', 'dll:ScanGumps'], None),
+    'GetGumpReply': ([('', '')], [('typeid', 'number', 'The gump\'s type ID.'), ('button', 'number', 'The button.'),
+        ('switches', 'string', 'The switches that were on, as `3/7`; `-` for none.'),
+        ('texts', 'string', 'The text fields, as `5:hello_world 6:x`; empty for none.')],
+        'Returns the last answer `GumpReply` sent through this handle, or, once the click hook is in the client (`GumpReply` and `GumpReplyCnt` put it there), the last one recorded, clicks by hand included. Nil when there is none yet.',
+        ['exevent GumpReply', '#GumpReply', 'dll:GumpReply'], None),
     'GetItem': ([('n', 'index')], [('id', 'number', 'Item or character ID.'), ('type', 'number', 'Its type.'), ('kind', 'number', '0 in a container, 1 on the ground, -1 none.'),
         ('container', 'number', 'Container ID; 0 on the ground.'), ('x', 'number', 'X position: in the world, or inside the container gump.'),
         ('y', 'number', 'Y position.'), ('z', 'number', 'Height.'), ('stack', 'number', 'How many in the stack; 0 for characters.'),
@@ -149,6 +164,12 @@ METHODS = {
         ('cap', 'number', 'In tenths.'), ('lock', 'number', '0 up, 1 down, 2 locked.')],
         'Reads a skill. `skill` is its code, the first four letters of its name (see `chooseskill`).',
         ['ChooseSkill', '#Skill', 'dll:SkillLock'], None),
+    'GumpReply': ([('nn', 'typeid button'), ('nns', 'typeid button switches'), ('nnss', 'typeid button switches texts')],
+        [('result', 'string', '`sent`, `nogump` (no such gump open: nothing sent) or `error`.')],
+        'Answers the open server gump of that type ID, like `exevent GumpReply`: the frontmost one, with the serial '
+        'it has now, and closes its window. `switches` and `texts` are written as the script writes them: `3/7` '
+        '(or `-`) and `5:hello_world 6:x`.',
+        ['exevent GumpReply', 'dll:GetGumpReply', 'dll:ScanGumps'], None),
     'HideItem': ([('n', 'id')], [], 'Hides an item from your screen, like `hideitem`.', ['HideItem'], None),
     'IgnoreCont': ([('s', 'name'), ('n', 'kind')], [], 'Adds a gump to the ignore list, by name or by kind, like `ignorecont`. '
         'With the number `0`, empties the list; with `-1`, restores the default list.', ['IgnoreCont', 'dll:GetCont'], None),
@@ -206,6 +227,10 @@ METHODS = {
     'ScanBuffs': ([('', ''), ('n', 'icon')], [('count', 'number', 'How many buffs.')],
         'Reads the buff bar, like `scanbuffs`; with `icon`, only buffs with that icon ID. Read them with `GetBuff`.',
         ['ScanBuffs', 'dll:GetBuff', 'dll:BuffBarOpen'], None),
+    'ScanGumps': ([('', ''), ('s', 'filter')], [('count', 'number', 'How many windows.')],
+        'Lists the open gump windows, front to back, like `scangumps`. `filter` is the same text the script takes, for '
+        "example `'T_JHEIIPI'` or `'A_YE'`. Read them with `GetGump`.",
+        ['ScanGumps', 'dll:GetGump'], None),
     'ScanItems': ([('', ''), ('b', 'visibleonly')], [('count', 'number', 'How many items.')],
         'Makes a fresh list of the items and characters the client knows, like the first step of `finditem`. Default: '
         'visible ones only; with `visibleonly` false, hidden ones too (the `A` filter). Narrow it with `FilterItems`, '

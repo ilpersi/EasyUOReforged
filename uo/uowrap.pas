@@ -32,13 +32,27 @@ unit uowrap;
   257, as #MountID / #MountType, 0 on foot), read through TUOCmd.CharMount; and GetItem's 11th
   value, after the original ten: the item's equip layer (TItemRes.ItemLayer, as #FindLayer), 0
   when nobody wears it. A caller that reads the first ten gets what it always did.
+
+  Port addition (not in the original): UOTbl's methods 067 / 068, ScanGumps and GetGump, the
+  script's SCANGUMPS for external programs (docs\gump-analysis.md). ScanGumps takes the same
+  filter text as the script (uocommands.ParseGumpFilter) and returns the count; GetGump(index,
+  0-based) pushes the gump's eleven values, a nil in the slot of each value a script would see as
+  N/A, or a single nil when there is no such gump. Numbers stay numbers, as for GetCont.
+
+  Port addition (not in the original): UOTbl's methods 069 / 070, GumpReply and GetGumpReply, the
+  script's EXEVENT GUMPREPLY (uogumpreply.pas). GumpReply(typeID, button [, switches [, texts]]) answers
+  the frontmost open server gump of that type with the switches and texts in the script's word form
+  ('3/7', '5:hello_world 6:x') and returns 'sent', 'nogump' or 'error'; GetGumpReply returns the last
+  answer sent through this handle (type ID, button, switches, texts), or nil; with the click hook on the
+  client (GumpReply and GumpReplyCnt put it there), the last one recorded, clicks by hand included. The
+  read-only property GumpReplyCnt (code 258) counts them: the hook's count, or this handle's answers.
 }
 
 {$mode delphi}{$H+}
 
 interface
 uses Windows, SysUtils, access, uotypes, stack, tables, uoselector,
-     uovariables, uocommands, uoevents, walkrules, pathplan;
+     uovariables, uocommands, uoevents, walkrules, pathplan, uogumpreply;
 
 type
   TUOWrap      = class(TObject)
@@ -49,6 +63,11 @@ type
     UOEvent     : TUOEvent;
     DelayInfo   : Pointer;
     DelayProc   : function(Duration : Cardinal; Info : Pointer) : Boolean; stdcall;
+    LastReply   : TGumpReply;        // port addition (GumpReply): the last answer sent ...
+    HasReply    : Boolean;           // ... once there is one
+    ReplyCnt    : Cardinal;          // answers sent through this handle
+    HookSeen    : Int64;             // the hook's count when LastReply was taken from it
+    function    HookRefresh(Install : Boolean; out Count : Cardinal) : Boolean;
     function    MGet(Name : String) : Integer;
     function    MSet(Name : String) : Integer;
     function    MCall(Name : String) : Integer;
@@ -62,6 +81,10 @@ type
     function    Query : Integer;
     function    Execute : Integer;
   end;
+
+// Port addition (GetGump): one gump's eleven values, nil where a script reads N/A. In the interface
+// for the unit tests.
+procedure PushGump(Stack : TStack; const G : TGumpInfo);
 
 implementation
 
@@ -106,7 +129,7 @@ const
 ////////////////////////////////////////////////////////////////////////////////
 
 var
-  UOTbl : array[0..170] of TItem = (
+  UOTbl : array[0..178] of TItem = (
     (N: 'AR'          ;T: RO ;C: 206 ;P: 'n'        ),
     (N: 'BackpackID'  ;T: RO ;C: 224 ;P: 'n'        ),
     (N: 'BlockInfo'   ;T: ME ;C: 041 ;P: 'nnnnn'    ),
@@ -171,6 +194,8 @@ var
     (N: 'Followers'   ;T: RO ;C: 203 ;P: 'n'        ),
     (N: 'GetBuff'     ;T: ME ;C: 056 ;P: 'n'        ),
     (N: 'GetCont'     ;T: ME ;C: 032 ;P: 'n'        ),
+    (N: 'GetGump'     ;T: ME ;C: 068 ;P: 'n'        ),
+    (N: 'GetGumpReply';T: ME ;C: 070 ;P: ''         ),
     (N: 'GetItem'     ;T: ME ;C: 024 ;P: 'n'        ),
     (N: 'GetJournal'  ;T: ME ;C: 027 ;P: 'n'        ),
     (N: 'GetPath'     ;T: ME ;C: 057 ;P: 'nnnnnnn'  ),    // port addition (the pathfinder)
@@ -180,6 +205,10 @@ var
     (N: 'GetShop'     ;T: ME ;C: 034 ;P: ''         ),
     (N: 'GetSkill'    ;T: ME ;C: 007 ;P: 's'        ),
     (N: 'Gold'        ;T: RO ;C: 242 ;P: 'n'        ),
+    (N: 'GumpReply'   ;T: ME ;C: 069 ;P: 'nnss'     ),
+     (N:'GumpReply'   ;T: ME ;C: 069 ;P: 'nns'      ),
+     (N:'GumpReply'   ;T: ME ;C: 069 ;P: 'nn'       ),
+    (N: 'GumpReplyCnt';T: RO ;C: 258 ;P: 'n'        ),
     (N: 'HideItem'    ;T: ME ;C: 025 ;P: 'n'        ),
     (N: 'Hits'        ;T: RO ;C: 208 ;P: 'n'        ),
     (N: 'IgnoreCont'  ;T: ME ;C: 052 ;P: 's'        ),
@@ -255,6 +284,8 @@ var
     (N: 'RenamePet'   ;T: ME ;C: 020 ;P: 'ns'       ),
     (N: 'ScanBuffs'   ;T: ME ;C: 054 ;P: 'n'        ),
      (N:'ScanBuffs'   ;T: ME ;C: 055 ;P: ''         ),
+    (N: 'ScanGumps'   ;T: ME ;C: 067 ;P: 's'        ),
+     (N:'ScanGumps'   ;T: ME ;C: 067 ;P: ''         ),
     (N: 'ScanItems'   ;T: ME ;C: 023 ;P: 'b'        ),
      (N:'ScanItems'   ;T: ME ;C: 044 ;P: ''         ),
     (N: 'ScanJournal' ;T: ME ;C: 026 ;P: 'n'        ),
@@ -288,6 +319,7 @@ var
 function TUOWrap.MGet(Name : String) : Integer;
 var
   Res : TFindRes;
+  HCnt : Cardinal;   // port addition (GumpReplyCnt)
 begin
   Result:=RES_OK;
   Find_First(Res,Name,UOTbl);
@@ -371,6 +403,8 @@ begin
     252: PushInteger(LObjectType);
     253: PushInteger(CursorX);
     254: PushInteger(CursorY);
+    258: if HookRefresh(True,HCnt) then PushInteger(HCnt) // port addition (GumpReplyCnt)
+         else PushInteger(ReplyCnt);
     255: PushBoolean(UOCmd.BuffBarOpen);          // port addition; False also when unsupported
     // Port additions (the mount, as #MountID / #MountType): 0 while the character rides nothing.
     256: PushInteger(UOCmd.MountID);
@@ -420,12 +454,35 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+procedure PushGump(Stack : TStack; const G : TGumpInfo);
+begin
+  with Stack do
+  begin
+    PushStrVal(PChar(G.Name));
+    PushInteger(G.Kind);
+    PushInteger(G.X);
+    PushInteger(G.Y);
+    PushInteger(G.W);
+    PushInteger(G.H);
+    if G.ObjValid then PushInteger(G.ObjID) else PushNil;
+    if G.ArtValid then PushInteger(G.Art) else PushNil;
+    if G.MinValid then PushBoolean(G.Minimized) else PushNil;
+    if G.ServerValid then PushInteger(G.Serial) else PushNil;
+    if G.ServerValid then PushInteger(G.TypeID) else PushNil;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 function TUOWrap.MCall(Name : String) : Integer;
 var
   Res : TFindRes;
   i   : Integer;
   s   : String;
   Q   : TStepChecks;
+  GTypes, GArts   : TGumpIDs;     // port addition (ScanGumps)
+  GByType, GByArt : Boolean;
+  GReply          : TGumpReply;   // port addition (GumpReply)
+  GCnt            : Cardinal;
 
   // Port addition (the pathfinder): the facet a rule applies to, the character's when the call
   // gives none (stack position Index is past the top), 0 without a client.
@@ -694,6 +751,49 @@ begin
            if PathClear(UpperCase(GetString(3))) then PushStrVal('ok')
            else PushStrVal('error: PathClear [blocks|avoid|links|learned|all]');
          end;
+    // Gump list (port addition). ScanGumps([filter]) -> count; GetGump(index, 0-based) -> name, kind,
+    // x, y, width, height, linked object, art, minimized, serial, type ID; nil in a slot whose value
+    // is not there, a single nil when there is no such gump.
+    067: begin
+           if GetTop>=3 then ParseGumpFilter(GetString(3),GTypes,GArts,GByType,GByArt)
+           else ParseGumpFilter('',GTypes,GArts,GByType,GByArt);
+           ScanGumps(GTypes,GArts,GByType,GByArt);
+           PushInteger(GumpCnt);
+         end;
+    068: begin
+           GetGump(GetInteger(3));
+           if GumpValid then PushGump(Stack,GumpRes)
+           else PushNil;
+         end;
+    // Gump answer (port addition). GumpReply(typeID, button [, switches [, texts]]) -> 'sent' / 'nogump' /
+    // 'error'; GetGumpReply -> type ID, button, switches, texts of the last answer sent, or nil.
+    069: begin
+           s:=IntToStr(Cardinal(GetInteger(4)));
+           if GetTop>=5 then s:=s+' '+String(GetString(5)) else s:=s+' -';
+           if GetTop>=6 then s:=s+' '+String(GetString(6));
+           if not ParseReplyArgs(s,GReply) then PushStrVal('error')
+           else
+           begin
+             HookRefresh(True,GCnt);                       // first use: put the click hook on
+             s:=SendGumpReply(UOSel.CstDB,UOCmd,UOEvent,0,Cardinal(GetInteger(3)),GReply);
+             if s='sent' then
+             begin
+               LastReply:=GReply;
+               HasReply:=True;
+               Inc(ReplyCnt);
+               HookRefresh(False,GCnt);
+             end;
+             PushStrVal(PChar(s));
+           end;
+         end;
+    070: if HookRefresh(False,GCnt) or HasReply then
+         begin
+           PushInteger(LastReply.TypeID);
+           PushInteger(LastReply.Button);
+           PushStrVal(PChar(ReplySwitchesText(LastReply)));
+           PushStrVal(PChar(ReplyTextsText(LastReply)));
+         end
+         else PushNil;
     -01: Result:=ERR_NOTFOUND;
     -02: Result:=ERR_WRONGPAR;
     else Result:=ERR_GENERIC;
@@ -763,12 +863,31 @@ var
 constructor TUOWrap.Create;
 begin
   inherited Create;
+  HookSeen:=-1;
   Stack:=TStack.Create;
   UOSel:=TUOSel.Create;
   UOVar:=TUOVar.Create(UOSel);
   UOCmd:=TUOCmd.Create(UOSel,UOVar,MDelay);
   UOEvent:=TUOEvent.Create(UOSel,UOVar,MDelay);
   DelayProc:=nil;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (the click hook): see uogumpreply.HookedReply. A new answer the hook kept becomes LastReply.
+function TUOWrap.HookRefresh(Install : Boolean; out Count : Cardinal) : Boolean;
+var
+  R     : TGumpReply;
+  Fresh : Boolean;
+begin
+  Count:=0;
+  Result:=False;
+  if UOSel.Nr<1 then Exit;
+  Result:=HookedReply(UOEvent,Install,HookSeen,Count,R,Fresh);
+  if Fresh then
+  begin
+    LastReply:=R;
+    HasReply:=True;
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -16,7 +16,7 @@ interface
 
 uses
   Classes, SysUtils, Windows, fpcunit, testregistry, uoclidata, access, uoselector, uovariables,
-  uoevents, uocommands, walkrules, walklive;
+  uoevents, uocommands, walkrules, walklive, uogumpreply;
 
 type
   // A TUOCmd that reads the fake client process instead of requiring a selected client window:
@@ -49,6 +49,9 @@ type
     function  CaveSteps(N : Integer; Fast : Boolean) : String;
     function  CavePath(X,Y : Cardinal; Z : Integer) : String;
     function  CaveProp(ID : Cardinal; First : Boolean) : String;
+    function  CaveGumpReply(Gump, VTable, Dtor : Cardinal; const Packet : String) : String;
+    function  CaveSendHook(Page, Func : Cardinal; const Orig : String) : String;
+    function  CaveSendHookInstall(Func, Page : Cardinal; N : Integer) : String;
   end;
 
   TCstDbModernBuildTests = class(TTestCase)
@@ -83,6 +86,7 @@ type
     function  OpenEnemyGump(Modern : Boolean) : TFakeClientVar;
     procedure PutEnemyHits(Modern : Boolean; Max, Cur : Cardinal);
     procedure OpenStatusGump(Modern : Boolean);
+    procedure OpenGumpWorld(Modern : Boolean; const Ver : String = '7.0.117.1');
   protected
     procedure SetUp; override;
     procedure TearDown; override;
@@ -144,6 +148,24 @@ type
     procedure TestNextBetaReadsTheLiftedItem;
     procedure TestContHPOnAFixedBaseClient;
     procedure TestContHPOnAModernClient;
+    // the gump list (ScanGumps, port addition)
+    procedure TestModernLayoutHasTheGumpFields;
+    procedure TestScanGumpsReadsEveryTopLevelGump;
+    procedure TestScanGumpsOnAModernClient;
+    procedure TestScanGumpsFilters;
+    procedure TestScanGumpsCopiesTheValuesAtScanTime;
+    procedure TestFindLiveGumpReadsTheGumpAsItIsNow;
+    procedure TestGumpFieldsReadNAWhereTheTableHasNone;
+    // answering a server gump (exevent GumpReply, port addition)
+    procedure TestGumpReplyCaveSendsThenDeletesTheWindow;
+    procedure TestGumpReplyCaveWithoutTheDeleteIsSendExEvents;
+    procedure TestGumpReplyCaveOnAFixedBaseClient;
+    procedure TestSendGumpReplyNeedsTheGumpOpenNow;
+    procedure TestSendGumpReplyRefusesABuildWithoutTheOffsets;
+    // the click hook on E_SENDPACKET (port addition)
+    procedure TestSendHookCopiesB1PacketsAndJumpsBack;
+    procedure TestSendHookInstallWritesTheJmp;
+    procedure TestHookedBetaSendFunctionIsStillFoundByScanning;
   end;
 
 implementation
@@ -182,6 +204,12 @@ function TCaveEvent.CaveBlockCdecl(X,Y,Z,W,H : Integer) : String; begin Result:=
 function TCaveEvent.CaveSteps(N : Integer; Fast : Boolean) : String; begin Result:=StepInfoCode(N,Fast); end;
 function TCaveEvent.CavePath(X,Y : Cardinal; Z : Integer) : String; begin Result:=PathfindFastCode(X,Y,Z); end;
 function TCaveEvent.CaveProp(ID : Cardinal; First : Boolean) : String; begin Result:=PropFastCode(ID,First); end;
+function TCaveEvent.CaveGumpReply(Gump, VTable, Dtor : Cardinal; const Packet : String) : String;
+begin Result:=GumpReplyCode(Gump,VTable,Dtor,Packet); end;
+function TCaveEvent.CaveSendHook(Page, Func : Cardinal; const Orig : String) : String;
+begin Result:=SendHookCode(Page,Func,Orig); end;
+function TCaveEvent.CaveSendHookInstall(Func, Page : Cardinal; N : Integer) : String;
+begin Result:=SendHookInstallCode(Func,Page,N); end;
 
 const
   ImageBase   = $400000;
@@ -1939,6 +1967,431 @@ begin
   PutBytes(StatHeap + $100 + $17A, [75, 0, 150, 0]);
   AssertTrue('GetCont', Cmd.GetCont(0));
   Eq('#ContHP', 50, Cmd.ContHP);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+/// The gump list (ScanGumps, port addition) ///////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Four top-level gumps, front to back, at the offsets the tables give the build, then a node whose
+// marker is not $FEEDBEEF (the walk must stop there):
+//   1. a server gump: no art (-1), no linked object, serial $E, type ID $9E26D92D;
+//   2. the backpack: art $3C, linked to the item $40000003, at 100,200, 230x204;
+//   3. a minimized item-properties gump: art $243A, no linked object;
+//   4. the menu bar: no art, no linked object.
+const
+  GumpHeap = $06000000;
+  GumpN1   = GumpHeap + $100;
+  GumpN2   = GumpHeap + $400;
+  GumpN3   = GumpHeap + $700;
+  GumpN4   = GumpHeap + $A00;
+  GumpN5   = GumpHeap + $D00;
+  GumpItem = GumpHeap + $3000;
+  GumpType = $9E26D92D;
+
+procedure TCstDbModernBuildTests.OpenGumpWorld(Modern : Boolean; const Ver : String);
+var
+  C : TCstDB;
+
+  procedure Gump(Node, Next, VT : Cardinal; NameAt : Cardinal; const Name : String;
+    X, Y, W, H : Integer; Item, Art, Min : Cardinal);
+  begin
+    PutDWord(Node, VT);
+    PutDWord(Node + 4, $FEEDBEEF);
+    PutDWord(Node + 8, NameAt);
+    PutStr(NameAt, Name);
+    PutDWord(Node + C.BCONTX, Cardinal(X));
+    PutDWord(Node + C.BCONTX + 4, Cardinal(Y));
+    PutDWord(Node + C.BCONTSIZEX, Cardinal(W));
+    PutDWord(Node + C.BCONTSIZEX + 4, Cardinal(H));
+    PutDWord(Node + C.BCONTITEM, Item);
+    PutDWord(Node + C.BCONTNEXT, Next);
+    // the table values of the build under test, where it has them; the fixed-base offsets otherwise
+    // (so a build without them still holds something there that must not be read)
+    if C.BGUMPART <> 0 then PutDWord(Node + C.BGUMPART, Art) else PutDWord(Node + $6C, Art);
+    if C.BGUMPMIN <> 0 then PutDWord(Node + C.BGUMPMIN, Min) else PutDWord(Node + $7C, Min);
+  end;
+
+begin
+  if not Ready then Ignore(Why);
+  if Modern then WriteHeader(KnownStamp, $8140, $2000)
+  else WriteHeader(KnownStamp, $0000, $2000);
+  if VirtualAllocEx(PHnd, Pointer(GumpHeap), $4000, MEM_RESERVE or MEM_COMMIT, PAGE_READWRITE) = nil then
+    Ignore('Cannot map the fake gump heap (Win32 error ' + IntToStr(GetLastError) + ').');
+  Sel := TUOSel.Create;
+  Sel.CstDB.Update(Ver, PHnd);
+  AssertEquals('layout', Modern, Sel.CstDB.ISMODERN);
+  C := Sel.CstDB;
+  Vr := TUOVar.Create(Sel);
+  Cmd := TFakeClientCmd.Create(Sel, Vr, nil);
+  Cmd.FakeHandle := PHnd;
+
+  PutDWord(C.CONTPOS, GumpN1);
+  Gump(GumpN1, GumpN2, $0050FD6C, GumpHeap + $2000, 'generic gump', 50, 60, 400, 300, 0, $FFFFFFFF, 0);
+  if C.BGUMPSERIAL <> 0 then
+  begin
+    PutDWord(GumpN1 + C.BGUMPSERIAL, $E);
+    PutDWord(GumpN1 + C.BGUMPTYPE, GumpType);
+  end
+  else
+  begin
+    PutDWord(GumpN1 + $D8, $E);
+    PutDWord(GumpN1 + $DC, GumpType);
+  end;
+  Gump(GumpN2, GumpN3, $0050E694, GumpHeap + $2040, 'container gump', 100, 200, 230, 204, GumpItem, $3C, 0);
+  PutDWord(GumpItem + C.BITEMID, $40000003);
+  Gump(GumpN3, GumpN4, $0050218C, GumpHeap + $2080, 'new item Prop gump', 300, 10, 56, 60, 0, $243A, 1);
+  Gump(GumpN4, GumpN5, $0050993C, GumpHeap + $20C0, 'menubar', 0, 0, 640, 24, 0, $FFFFFFFF, 0);
+  Gump(GumpN5, 0, $0050E694, GumpHeap + $2100, 'container gump', 1, 1, 1, 1, 0, $3C, 0);
+  PutDWord(GumpN5 + 4, 0);                             // not a gump: the walk stops before it
+end;
+
+procedure TCstDbModernBuildTests.TestModernLayoutHasTheGumpFields;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader(KnownStamp, $8140);
+  PutBytes($57C6F9, [$E8]);
+  Cst.Update('7.0.117.1', PHnd);
+  Eq('art', $70, Cst.BGUMPART);
+  Eq('minimized flag', $80, Cst.BGUMPMIN);
+  Eq('server gump serial', $178, Cst.BGUMPSERIAL);
+  Eq('server gump type ID', $17C, Cst.BGUMPTYPE);
+end;
+
+procedure TCstDbModernBuildTests.TestScanGumpsReadsEveryTopLevelGump;
+begin
+  OpenGumpWorld(False);
+  Eq('B_GUMPART', $6C, Sel.CstDB.BGUMPART);
+  AssertTrue('ScanGumps', Cmd.ScanGumps(nil, nil, False, False));
+  Eq('four gumps: the walk stopped at the node without the marker', 4, Cmd.GumpCnt);
+  Eq('first selected', 1, Cmd.GumpPos);
+  AssertTrue(Cmd.GumpValid);
+  with Cmd.GumpRes do
+  begin
+    AssertEquals('front: the server gump', 'generic gump', Name);
+    Eq('kind = vtable low word', $FD6C, Kind);
+    Eq('x', 50, X);
+    Eq('h', 300, H);
+    AssertFalse('no art', ArtValid);
+    AssertFalse('no linked object', ObjValid);
+    AssertTrue('server gump', ServerValid);
+    Eq('serial', $E, Serial);
+    Eq('type ID', GumpType, TypeID);
+    AssertTrue(MinValid);
+    AssertFalse(Minimized);
+  end;
+  Cmd.GumpSelect(2);
+  with Cmd.GumpRes do
+  begin
+    AssertEquals('container gump', Name);
+    Eq('x', 100, X);
+    Eq('y', 200, Y);
+    Eq('w', 230, W);
+    Eq('h', 204, H);
+    AssertTrue(ObjValid);
+    Eq('linked object', $40000003, ObjID);
+    AssertTrue(ArtValid);
+    Eq('art', $3C, Art);
+    AssertFalse('not a server gump', ServerValid);
+    AssertFalse(Minimized);
+  end;
+  Cmd.GumpSelect(3);
+  AssertTrue('minimized', Cmd.GumpRes.Minimized);
+  Eq('art', $243A, Cmd.GumpRes.Art);
+  Cmd.GumpSelect(4);
+  AssertEquals('menubar', Cmd.GumpRes.Name);
+  AssertFalse('no art', Cmd.GumpRes.ArtValid);
+  Cmd.GumpSelect(5);
+  AssertFalse('past the end', Cmd.GumpValid);
+  Cmd.GumpSelect(0);
+  AssertFalse('0 selects nothing', Cmd.GumpValid);
+end;
+
+procedure TCstDbModernBuildTests.TestScanGumpsOnAModernClient;
+begin
+  OpenGumpWorld(True);
+  Eq('B_GUMPART', $70, Sel.CstDB.BGUMPART);
+  Cmd.ScanGumps(nil, nil, False, False);
+  Eq('four gumps', 4, Cmd.GumpCnt);
+  Eq('serial at +$178', $E, Cmd.GumpRes.Serial);
+  Eq('type ID at +$17C', GumpType, Cmd.GumpRes.TypeID);
+  Cmd.GumpSelect(2);
+  Eq('art at +$70', $3C, Cmd.GumpRes.Art);
+  Eq('linked object through the modern B_ITEMID', $40000003, Cmd.GumpRes.ObjID);
+  Cmd.GumpSelect(3);
+  AssertTrue('minimized flag at +$80', Cmd.GumpRes.Minimized);
+end;
+
+procedure TCstDbModernBuildTests.TestScanGumpsFilters;
+var
+  T, A   : TGumpIDs;
+  BT, BA : Boolean;
+begin
+  OpenGumpWorld(False);
+  ParseGumpFilter('T_JHEIIPI', T, A, BT, BA);
+  Cmd.ScanGumps(T, A, BT, BA);
+  Eq('type filter: the server gump', 1, Cmd.GumpCnt);
+  AssertEquals('generic gump', Cmd.GumpRes.Name);
+  ParseGumpFilter('A_YE', T, A, BT, BA);
+  Cmd.ScanGumps(T, A, BT, BA);
+  Eq('art filter: the backpack', 1, Cmd.GumpCnt);
+  AssertEquals('container gump', Cmd.GumpRes.Name);
+  ParseGumpFilter('a_ye', T, A, BT, BA);
+  SetLength(A, 2);
+  A[1] := $243A;
+  Cmd.ScanGumps(T, A, BT, BA);
+  Eq('two arts', 2, Cmd.GumpCnt);
+  ParseGumpFilter('T_JHEIIPI A_YE', T, A, BT, BA);
+  AssertFalse('both: a server gump has no art', Cmd.ScanGumps(T, A, BT, BA));
+  Eq('no gumps', 0, Cmd.GumpCnt);
+  AssertFalse('nothing selected', Cmd.GumpValid);
+  ParseGumpFilter('T_', T, A, BT, BA);
+  Cmd.ScanGumps(T, A, BT, BA);
+  Eq('a type filter without a value matches nothing', 0, Cmd.GumpCnt);
+end;
+
+procedure TCstDbModernBuildTests.TestScanGumpsCopiesTheValuesAtScanTime;
+begin
+  OpenGumpWorld(False);
+  Cmd.ScanGumps(nil, nil, False, False);
+  PutDWord(GumpN1 + Sel.CstDB.BCONTX, 999);            // the window moves ...
+  PutDWord(GumpN1 + Sel.CstDB.BGUMPSERIAL, $77);       // ... and the server reopens it
+  PutDWord(Sel.CstDB.CONTPOS, GumpN2);                 // ... then it closes
+  Cmd.GumpSelect(1);
+  Eq('x as scanned', 50, Cmd.GumpRes.X);
+  Eq('serial as scanned', $E, Cmd.GumpRes.Serial);
+  Eq('still four', 4, Cmd.GumpCnt);
+end;
+
+procedure TCstDbModernBuildTests.TestFindLiveGumpReadsTheGumpAsItIsNow;
+var
+  G : TGumpInfo;
+begin
+  OpenGumpWorld(False);
+  Cmd.ScanGumps(nil, nil, False, False);
+  PutDWord(GumpN1 + Sel.CstDB.BGUMPSERIAL, $10);       // reopened by the server: new serial
+  AssertTrue('by type ID', Cmd.FindLiveGump(0, GumpType, G));
+  Eq('the serial now', $10, G.Serial);
+  Eq('its address', GumpN1, G.Addr);
+  AssertTrue('by address', Cmd.FindLiveGump(GumpN1, GumpType, G));
+  AssertFalse('wrong type ID', Cmd.FindLiveGump(GumpN1, GumpType + 1, G));
+  AssertFalse('not a server gump', Cmd.FindLiveGump(GumpN2, 0, G));
+  AssertFalse('no gump of that type', Cmd.FindLiveGump(0, $1234, G));
+  PutDWord(Sel.CstDB.CONTPOS, GumpN2);                 // the server gump closes
+  AssertFalse('closed: by address', Cmd.FindLiveGump(GumpN1, GumpType, G));
+  AssertFalse('closed: by type ID', Cmd.FindLiveGump(0, GumpType, G));
+  Eq('nothing found, no address', 0, G.Addr);
+end;
+
+// 7.0.40.10 lies between the builds whose serial offset is known: its server gumps have no serial or
+// type ID, its art and minimized flag are known (the values per build are in CstDbTests).
+procedure TCstDbModernBuildTests.TestGumpFieldsReadNAWhereTheTableHasNone;
+begin
+  OpenGumpWorld(False, '7.0.40.10');
+  Eq('B_GUMPSERIAL', 0, Sel.CstDB.BGUMPSERIAL);
+  Cmd.ScanGumps(nil, nil, False, False);
+  Eq('four gumps', 4, Cmd.GumpCnt);
+  AssertTrue('a server gump ...', Cmd.GumpRes.IsGeneric);
+  AssertFalse('... without serial or type ID', Cmd.GumpRes.ServerValid);
+  Cmd.GumpSelect(2);
+  AssertTrue('art known', Cmd.GumpRes.ArtValid);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+/// Answering a server gump (exevent GumpReply, port addition) ////////////////
+////////////////////////////////////////////////////////////////////////////////
+// The cave sends the $B1 packet the way SendExEvent sends any packet, then, on the way back, deletes
+// the gump's window by calling its deleting destructor with 1 -- only while the object still carries
+// $FEEDBEEF and the same vtable.
+const
+  RGump   = $0A123400;
+  RVTable = $00EF0000;
+  RDtor   = $00E12340;
+
+procedure TCstDbModernBuildTests.TestGumpReplyCaveSendsThenDeletesTheWindow;
+var
+  C, P : String;
+  K, D : Integer;
+begin
+  OpenCave;
+  P := #$B1#$17#0 + StringOfChar(#7, 20);
+  C := Ev.CaveGumpReply(RGump, RVTable, RDtor, P);
+  K := 0;
+  if Sel.CstDB.ESENDLEN > 0 then Inc(K, 10);
+  if Sel.CstDB.ESENDECX > 0 then
+  begin
+    Eq('mov ecx,[E_SENDECX]', $8B, Bt(C, K));
+    Inc(K, 6);
+  end;
+  Eq('push packet', $68, Bt(C, K));
+  Eq('push below', $68, Bt(C, K + 5));
+  Eq('push sender', $68, Bt(C, K + 10));
+  Eq('sender', Sel.CstDB.ESENDPACKET, Dw(C, K + 11));
+  Eq('ret into the sender', $C3, Bt(C, K + 15));
+  Eq('it comes back right after', CaveBase + $20 + K + 16, Dw(C, K + 6));
+  Eq('thiscall: nothing to pop', $90, Bt(C, K + 16));
+  D := K + 19;                                               // the delete
+  Eq('cmp [gump+4]', $3D81, Bt(C, D) or (Bt(C, D + 1) shl 8));
+  Eq('gump+4', RGump + 4, Dw(C, D + 2));
+  Eq('the marker', $FEEDBEEF, Dw(C, D + 6));
+  Eq('jne', $75, Bt(C, D + 10));
+  Eq('jne lands on the last ret', D + 42, D + 12 + Bt(C, D + 11));
+  Eq('cmp [gump]', RGump, Dw(C, D + 14));
+  Eq('the vtable', RVTable, Dw(C, D + 18));
+  Eq('second jne lands there too', D + 42, D + 24 + Bt(C, D + 23));
+  Eq('mov ecx, gump', $B9, Bt(C, D + 24));
+  Eq('gump', RGump, Dw(C, D + 25));
+  Eq('push 1', $016A, Bt(C, D + 29) or (Bt(C, D + 30) shl 8));
+  Eq('push Done', CaveBase + $20 + D + 42, Dw(C, D + 32));
+  Eq('push the destructor', RDtor, Dw(C, D + 37));
+  Eq('ret into it', $C3, Bt(C, D + 41));
+  Eq('Done: ret', $C3, Bt(C, D + 42));
+  Eq('the packet follows', CaveBase + $20 + D + 43, Dw(C, K + 1));
+  AssertEquals('the packet itself', P, Copy(C, D + 44, MaxInt));
+end;
+
+procedure TCstDbModernBuildTests.TestGumpReplyCaveWithoutTheDeleteIsSendExEvents;
+var
+  C, P : String;
+  K    : Integer;
+begin
+  OpenCave;
+  P := #$B1#$17#0 + StringOfChar(#7, 20);
+  C := Ev.CaveGumpReply(RGump, RVTable, 0, P);
+  K := Length(C) - Length(P) - 20;                         // push, push, push, ret, 3 bytes, ret
+  Eq('packet right after the last ret', CaveBase + $20 + K + 20, Dw(C, K + 1));
+  Eq('last ret', $C3, Bt(C, K + 19));
+  AssertEquals(P, Copy(C, K + 21, MaxInt));
+end;
+
+procedure TCstDbModernBuildTests.TestGumpReplyCaveOnAFixedBaseClient;
+var
+  C, P : String;
+  K    : Integer;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader(KnownStamp, $0000, $2000);
+  Sel := TUOSel.Create;
+  Sel.CstDB.Update('7.0.117.1', PHnd);
+  Vr := TUOVar.Create(Sel);
+  Ev := TCaveEvent.Create(Sel, Vr, nil);
+  Ev.CavePrepare($400600);
+  P := #$B1#$17#0 + StringOfChar(#7, 20);
+  C := Ev.CaveGumpReply(RGump, RVTable, RDtor, P);
+  K := 0;
+  if Sel.CstDB.ESENDLEN > 0 then
+  begin
+    Eq('mov [E_SENDLEN], length', $05C7, Bt(C, 0) or (Bt(C, 1) shl 8));
+    Eq('the packet length', Length(P), Dw(C, 6));
+    Inc(K, 10);
+  end;
+  if Sel.CstDB.ESENDECX > 0 then Inc(K, 6);
+  Eq('sender', Sel.CstDB.ESENDPACKET, Dw(C, K + 11));
+  if Sel.CstDB.FSENDTHISCALL = 1 then Eq('thiscall', $90, Bt(C, K + 16))
+  else
+  begin
+    Eq('cdecl: add esp,4', $83, Bt(C, K + 16));
+    Eq('esp', $C4, Bt(C, K + 17));
+    Eq('4', 4, Bt(C, K + 18));
+  end;
+  Eq('the delete follows', $81, Bt(C, K + 19));
+  Eq('Done: ret', $C3, Bt(C, K + 61));
+  AssertEquals(P, Copy(C, K + 63, MaxInt));
+end;
+
+// SendGumpReply looks the gump up as it is now: none of that type open -> nogump, nothing sent.
+procedure TCstDbModernBuildTests.TestSendGumpReplyNeedsTheGumpOpenNow;
+var
+  R : TGumpReply;
+begin
+  OpenGumpWorld(False);
+  Ev := TCaveEvent.Create(Sel, Vr, nil);
+  AssertTrue(ParseReplyArgs('0', R));
+  AssertEquals('no gump of that type', 'nogump', SendGumpReply(Sel.CstDB, Cmd, Ev, 0, $1234, R));
+  AssertEquals('a container is no server gump', 'nogump', SendGumpReply(Sel.CstDB, Cmd, Ev, GumpN2, 0, R));
+  PutDWord(Sel.CstDB.CONTPOS, GumpN2);                 // the server gump closed since the snapshot
+  AssertEquals('closed', 'nogump', SendGumpReply(Sel.CstDB, Cmd, Ev, GumpN1, GumpType, R));
+  AssertEquals('closed, by type', 'nogump', SendGumpReply(Sel.CstDB, Cmd, Ev, 0, GumpType, R));
+end;
+
+// A build whose serial / type ID offsets are not known can't answer: error, before looking.
+procedure TCstDbModernBuildTests.TestSendGumpReplyRefusesABuildWithoutTheOffsets;
+var
+  R : TGumpReply;
+begin
+  OpenGumpWorld(False, '7.0.40.10');
+  Ev := TCaveEvent.Create(Sel, Vr, nil);
+  AssertTrue(ParseReplyArgs('0', R));
+  AssertEquals('error', SendGumpReply(Sel.CstDB, Cmd, Ev, 0, GumpType, R));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+/// The click hook on E_SENDPACKET (port addition) ////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+const
+  HPage = $0B000000;
+  HFunc = $00434930;
+
+procedure TCstDbModernBuildTests.TestSendHookCopiesB1PacketsAndJumpsBack;
+var
+  C, Orig : String;
+  K       : Integer;
+begin
+  OpenCave;
+  Orig := #$55#$8B#$EC#$53#$56;                           // the beta's first five bytes
+  C := Ev.CaveSendHook(HPage, HFunc, Orig);
+  Eq('pushad', $60, Bt(C, 0));
+  Eq('pushfd', $9C, Bt(C, 1));
+  Eq('mov esi,[esp+$28]: the packet', $2824748B, Dw(C, 2));
+  Eq('jz lands on popfd', 57, 10 + Bt(C, 9));
+  Eq('cmp byte [esi], $B1', $B1, Bt(C, 12));
+  Eq('jne lands on popfd', 57, 15 + Bt(C, 14));
+  Eq('jb lands on popfd', 57, 24 + Bt(C, 23));
+  Eq('cap', $800, Dw(C, 26));
+  Eq('jbe skips the mov ecx', 37, 32 + Bt(C, 31));
+  Eq('the length slot', HPage + $24, Dw(C, 39));
+  Eq('the buffer', HPage + $28, Dw(C, 44));
+  Eq('rep movsb', $A4F3, Bt(C, 49) or (Bt(C, 50) shl 8));
+  Eq('the counter', HPage + $20, Dw(C, 53));
+  Eq('popfd', $9D, Bt(C, 57));
+  Eq('popad', $61, Bt(C, 58));
+  AssertEquals('then the instructions replaced', Orig, Copy(C, 60, Length(Orig)));
+  K := 59 + Length(Orig);
+  Eq('jmp', $E9, Bt(C, K));
+  Eq('back to the first byte not replaced', HFunc + 5, Cardinal(HPage + $900 + K + 5 + Dw(C, K + 1)));
+  Eq('and that is all', K + 5, Length(C));
+end;
+
+procedure TCstDbModernBuildTests.TestSendHookInstallWritesTheJmp;
+var
+  C : String;
+begin
+  OpenCave;
+  C := Ev.CaveSendHookInstall(HFunc, HPage, 5);
+  Eq('mov eax, Func', $B8, Bt(C, 0));
+  Eq('Func', HFunc, Dw(C, 1));
+  Eq('mov dword [eax+1]', $0140C7, Bt(C, 5) or (Bt(C, 6) shl 8) or (Bt(C, 7) shl 16));
+  Eq('the jmp lands on the hook code', HPage + $900, Cardinal(HFunc + 5 + Dw(C, 8)));
+  Eq('mov byte [eax], $E9', $E900C6, Bt(C, 12) or (Bt(C, 13) shl 8) or (Bt(C, 14) shl 16));
+  Eq('ret', $C3, Bt(C, 15));
+  Eq('5 bytes: nothing to nop', 16, Length(C));
+  C := Ev.CaveSendHookInstall($462960, HPage, 6);         // client.exe: a 6-byte first instruction
+  Eq('mov byte [eax+5], $90', $900540C6, Dw(C, 15));
+  Eq('ret', $C3, Bt(C, 19));
+end;
+
+// On the beta E_SENDPACKET is found by its own first bytes. With the hook's jmp over them, the patterns
+// that joker those five bytes still find it, at the same address.
+procedure TCstDbModernBuildTests.TestHookedBetaSendFunctionIsStillFoundByScanning;
+const
+  SendAt = $401100;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader($6AD6CEB3, $8140, $2000);
+  PutBytes(SendAt, [$E9,$12,$34,$56,$0A,$57,$8B,$F9,$83,$7F,$04,$FF,$74,$73,$8B,$75,
+                $08,$8A,$16,$80,$FA,$FE,$73,$1B,$0F,$B6,$C2,$8D,$04,$40,$0F,$B7,
+                $04,$85,$B8,$E8,$7E,$00]);
+  Cst.Update('7.0.117.31', PHnd);
+  AssertEquals('E_SENDPACKET', Cardinal(SendAt), Cst.ESENDPACKET);
 end;
 
 initialization

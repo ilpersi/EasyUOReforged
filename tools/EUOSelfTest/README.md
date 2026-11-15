@@ -46,7 +46,7 @@ They run in this order, safest first. A stage that fails nothing tells you its f
 | 2 | Read-only variables | 16 | reads only: ranges, consistency, two sources of one fact |
 | 3 | Memory writes | 9 | writes client memory, reads it back, puts it back |
 | 4 | Keys, clicks, msg and staff set-up | 18 | types and clicks; staff commands make values known (stats, gold, weight, skill, status letters) |
-| 5 | Event hook: messages and gumps | 16 | runs client code through the event hook |
+| 5 | Event hook: messages and gumps | 24 | runs client code through the event hook |
 | 6 | Event hook: targeting and items | 19 | event hook; makes a test weapon, moves, equips and hides it |
 | 7 | Event hook: skills, spells, macros | 15 | event hook; casts Magic Arrow, toggles war mode and Always Run, bandages a chicken it makes |
 | 8 | Event hook: movement | 6 | event hook; walks two tiles each way from the test spot |
@@ -138,6 +138,14 @@ Never run: `event macro 20` (quit game), anything that logs out, closes or start
 | 5.14 | Macro 57 and #BuffBarOpen |
 | 5.15 | Macros 18, 19 and 21 |
 | 5.16 | Macro 31 closes the gumps |
+| 5.17 | scangumps lists the open windows |
+| 5.18 | exevent GumpReply: the server gump is listed (staff: Administrator; makes two daggers) |
+| 5.19 | exevent GumpReply button 0 |
+| 5.20 | exevent GumpReply #GumpReply on a new copy |
+| 5.21 | exevent GumpReply a button the gump lacks (this ModernUO gump counts it as not OKAY: aborted) |
+| 5.22 | exevent GumpReply with no such gump |
+| 5.23 | exevent GumpReply button 1 (deletes the two daggers) |
+| 5.24 | Your own click is recorded (#GumpReplyCnt): you click a button; SKIP in an unattended run |
 | 6.01 | target and a skill's cursor |
 | 6.02 | Writing #TargCurs installs a target handler |
 | 6.03 | Test weapon made through the target cursor |
@@ -232,10 +240,12 @@ does that a check can see (staff, stacks, vendors, mounts, buffs...) is in `docs
 | `[self set <property> <value> ...` | Counselor (the properties: GameMaster) | Known values: `Str 77 Dex 63 Int 41`, `Hits`/`Stam`/`Mana`, `Skills.Anatomy.Base 47`, `Skills.Magery.Base 100`, `TithingPoints 1234`, `StatCap 251`, `FollowersMax 6`, `Direction`, and the status letters `Warmode`, `Hidden`, `IgnoreMobiles`, `Paralyzed`, `Female`, `Blessed`. Every old value is read first and put back. |
 | `[get Name`, `[get Serial` (target cursor) | Counselor | Raises a target cursor (4.08) and checks what Target Self and Last Target hit (6.06). |
 | `[self addtopack <type> [amount]` | GameMaster | `Gold 1234`, `Log 5` (10 stones), `Dagger`, `GoldRing`, `Spellbook 18446744073709551615` (every spell), `BagOfReagents 20`, `Bandage 10`. |
-| `[addtopack Dagger` (target cursor) | GameMaster | The test weapon, answered with `#LTargetID` = `#BackpackID` and `event macro 22` (6.03). |
+| `[addtopack Dagger` (target cursor) | GameMaster | The test weapon, answered with `#LTargetID` = `#BackpackID` and `event macro 22` (6.03); the two daggers of the gump checks (5.18). |
 | `[add Dagger` (target cursor) | GameMaster | Items on the ground and on a static, through `#LTargetKind` 2 and 3 (6.04, 6.05). |
 | `[self add <type>` | GameMaster | Mobiles at your feet: `Chicken` (7.07), `Rat` (9.01), `Provisioner` (10.01), `Horse` (11.01). |
 | `[serial <n> set ...` | Counselor | On what the script made: `Hue 33`, `CantWalk true`, `HitsMaxSeed 120 Hits 120`, `Controlled true ControlMaster <you>`, `SkillBonuses.Skill_1_Name Anatomy SkillBonuses.Skill_1_Value 5`, then `Attributes.Luck 77`. |
+| `[global delete where Dagger Name == <token>` | Administrator (`[global`); the delete itself GameMaster | With the script's two daggers (named with a token by `[serial <n> set Name`), ModernUO asks first with its delete confirmation, the server gump of 5.18 to 5.23 (`Commands.cs` `DeleteCommand.ExecuteList`, `GlobalCommandImplementor.cs`, `ObjectConditional.cs`). |
+| `[AddonGen` | Administrator | Opens ModernUO's Addon Script Generator, a server gump that does nothing until you pick an area: the gump you click Cancel in for 5.24 (`Commands/AddonGenerator.cs`). |
 | `[serial <n> get Name` | Counselor | The pet's new name (11.02); after a delete, *That is not a valid serial* confirms it is gone. |
 | `[serial <n> delete` | GameMaster | Deletes what the script made (clean-up). The serial is worked out from the EasyUO ID. |
 | `[go <x> <y> <z>`, `[go <facet>` | Counselor | The test spot, and back where you were at the end. |
@@ -332,7 +342,7 @@ A field read only on some builds (the `F_JOURNALDIRECT` journal layout, the relo
 | `C_SHARDPOS` | 1.07 |
 | `C_NEXTCPOS` | 2.04, 3.06, 4.11, 4.18, 5.08 |
 | `C_SYSMSG` | 2.09, 5.01 |
-| `C_CONTPOS` | 2.10, 2.14, 4.09, 4.10, 5.03, 5.06, 5.07, 5.08, 5.09, 5.10, 5.11, 5.14, 10.01, 10.02, 10.03, 12.01, 12.02, 12.04, 12.05 |
+| `C_CONTPOS` | 2.10, 2.14, 4.09, 4.10, 5.03, 5.06, 5.07, 5.08, 5.09, 5.10, 5.11, 5.14, 5.17, 5.18, 5.19, 5.20, 5.21, 5.22, 5.23, 5.24, 10.01, 10.02, 10.03, 12.01, 12.02, 12.04, 12.05 |
 | `C_ENEMYHITS` | 9.02 |
 | `C_LHANDID` | 1.07, 2.09, 3.02, 3.03, 3.04, 3.05, 6.01, 6.02, 6.03, 6.04, 6.05, 6.06, 6.07, 6.12, 7.02, 7.03 |
 | `C_CHARDIR` | 2.01, 4.04, 4.11, 4.18, 8.01 |
@@ -354,17 +364,17 @@ A field read only on some builds (the `F_JOURNALDIRECT` journal layout, the relo
 | `C_STATICVT` | 2.13, 4.03, 8.03 |
 | `B_TARGPROC` | 6.02 |
 | `B_CHARSTATUS` | 2.01, 2.02, 2.03, 2.15, 4.10, 4.17, 6.03, 6.11, 7.01, 11.04, 11.05 |
-| `B_ITEMID` | 1.03, 1.04, 1.06, 2.01, 2.02, 2.03, 2.04, 2.09, 2.10, 2.15, 3.09, 4.03, 4.10, 4.11, 4.12, 4.13, 4.14, 4.15, 4.17, 4.18, 5.02, 5.03, 5.06, 5.07, 5.11, 6.02, 6.03, 6.04, 6.07, 6.08, 6.09, 6.10, 6.11, 6.14, 6.16, 6.18, 6.19, 7.01, 10.01, 10.02, 11.01, 11.03, 11.04, 11.05 |
+| `B_ITEMID` | 1.03, 1.04, 1.06, 2.01, 2.02, 2.03, 2.04, 2.09, 2.10, 2.15, 3.09, 4.03, 4.10, 4.11, 4.12, 4.13, 4.14, 4.15, 4.17, 4.18, 5.02, 5.03, 5.06, 5.07, 5.11, 5.17, 6.02, 6.03, 6.04, 6.07, 6.08, 6.09, 6.10, 6.11, 6.14, 6.16, 6.18, 6.19, 7.01, 10.01, 10.02, 11.01, 11.03, 11.04, 11.05 |
 | `B_ITEMTYPE` | 1.06, 2.01, 2.02, 2.03, 2.09, 2.13, 2.15, 3.09, 4.03, 4.10, 4.11, 4.14, 4.15, 5.06, 5.07, 6.03, 6.04, 6.07, 6.08, 6.19, 8.03, 10.01, 10.02, 11.04, 11.05 |
 | `B_ITEMSTACK` | 2.02, 4.14, 4.15, 6.03, 6.09, 6.10, 6.19, 10.01, 10.02 |
 | `B_STATNAME` | 1.04, 2.01, 2.04, 4.11, 4.12, 4.13, 4.14, 4.15, 4.17, 4.18, 6.14, 11.01 |
 | `B_STATWEIGHT` | 2.04, 4.11, 4.15 |
 | `B_STATAR` | 2.04, 4.11 |
 | `B_STATML` | 2.04, 4.11, 4.18, 6.14, 11.01 |
-| `B_CONTSIZEX` | 2.10, 5.06 |
-| `B_CONTX` | 2.10, 4.09, 4.10, 5.07, 5.08, 6.08 |
-| `B_CONTITEM` | 2.10, 5.03, 5.06, 5.07 |
-| `B_CONTNEXT` | 2.10, 2.14, 4.09, 4.10, 5.03, 5.06, 5.07, 5.08, 5.09, 5.10, 5.11, 5.14, 10.01, 10.02, 10.03, 12.01, 12.02, 12.04, 12.05 |
+| `B_CONTSIZEX` | 2.10, 5.06, 5.17 |
+| `B_CONTX` | 2.10, 4.09, 4.10, 5.07, 5.08, 5.17, 6.08 |
+| `B_CONTITEM` | 2.10, 5.03, 5.06, 5.07, 5.17 |
+| `B_CONTNEXT` | 2.10, 2.14, 4.09, 4.10, 5.03, 5.06, 5.07, 5.08, 5.09, 5.10, 5.11, 5.14, 5.17, 5.18, 5.19, 5.20, 5.21, 5.22, 5.23, 5.24, 10.01, 10.02, 10.03, 12.01, 12.02, 12.04, 12.05 |
 | `B_ENEMYHPVAL` | 9.02 |
 | `B_SHOPCURRENT` | 10.01, 10.02 |
 | `B_SHOPNEXT` | 10.01, 10.02 |
@@ -397,6 +407,10 @@ A field read only on some builds (the `F_JOURNALDIRECT` journal layout, the relo
 | `B_PROPFLAG` | 5.13, 6.14, 6.17, 11.02 |
 | `B_LHAND` | 2.09, 3.04 |
 | `B_RHAND` | 3.04, 6.12 |
+| `B_GUMPART` | 5.17 |
+| `B_GUMPMIN` | 5.17 |
+| `B_GUMPSERIAL` | 5.17, 5.18, 5.19, 5.20, 5.21, 5.22, 5.23, 5.24 |
+| `B_GUMPTYPE` | 5.17, 5.18, 5.19, 5.20, 5.21, 5.22, 5.23, 5.24 |
 | `B_BUFFVEC` | 2.14, 5.14, 12.01, 12.02, 12.03, 12.04, 12.05 |
 | `B_BUFFSIZE` | 2.14, 5.14, 12.01, 12.02, 12.03, 12.04, 12.05 |
 | `B_STLHEAD` | 12.02, 12.03 |
@@ -405,8 +419,8 @@ A field read only on some builds (the `F_JOURNALDIRECT` journal layout, the relo
 | `B_GRIDNEXT` | 2.13, 4.03, 8.03 |
 | `B_GRIDSIZE` | 2.13, 4.03, 8.03 |
 | `B_MULTIOWNER` | 2.13, 4.03, 8.03 |
-| `E_REDIR` | 5.01, 5.02, 5.03, 5.04, 5.05, 5.06, 5.09, 5.11, 5.12, 5.13, 5.14, 5.15, 5.16, 6.01, 6.03, 6.04, 6.05, 6.06, 6.07, 6.08, 6.10, 6.11, 6.12, 6.13, 6.14, 6.16, 6.17, 6.18, 6.19, 7.01, 7.02, 7.03, 7.04, 7.05, 7.06, 7.07, 7.08, 7.09, 7.10, 7.11, 7.12, 7.14, 7.15, 8.01, 8.02, 8.03, 8.04, 8.05, 8.06, 9.01, 9.03, 11.02, 11.03, 12.01, 12.05 |
-| `E_OLDDIR` | 5.01, 5.02, 5.03, 5.04, 5.05, 5.06, 5.09, 5.11, 5.12, 5.13, 5.14, 5.15, 5.16, 6.01, 6.03, 6.04, 6.05, 6.06, 6.07, 6.08, 6.10, 6.11, 6.12, 6.13, 6.14, 6.16, 6.17, 6.18, 6.19, 7.01, 7.02, 7.03, 7.04, 7.05, 7.06, 7.07, 7.08, 7.09, 7.10, 7.11, 7.12, 7.14, 7.15, 8.01, 8.02, 8.03, 8.04, 8.05, 8.06, 9.01, 9.03, 11.02, 11.03, 12.01, 12.05 |
+| `E_REDIR` | 5.01, 5.02, 5.03, 5.04, 5.05, 5.06, 5.09, 5.11, 5.12, 5.13, 5.14, 5.15, 5.16, 5.18, 5.19, 5.20, 5.21, 5.22, 5.23, 5.24, 6.01, 6.03, 6.04, 6.05, 6.06, 6.07, 6.08, 6.10, 6.11, 6.12, 6.13, 6.14, 6.16, 6.17, 6.18, 6.19, 7.01, 7.02, 7.03, 7.04, 7.05, 7.06, 7.07, 7.08, 7.09, 7.10, 7.11, 7.12, 7.14, 7.15, 8.01, 8.02, 8.03, 8.04, 8.05, 8.06, 9.01, 9.03, 11.02, 11.03, 12.01, 12.05 |
+| `E_OLDDIR` | 5.01, 5.02, 5.03, 5.04, 5.05, 5.06, 5.09, 5.11, 5.12, 5.13, 5.14, 5.15, 5.16, 5.18, 5.19, 5.20, 5.21, 5.22, 5.23, 5.24, 6.01, 6.03, 6.04, 6.05, 6.06, 6.07, 6.08, 6.10, 6.11, 6.12, 6.13, 6.14, 6.16, 6.17, 6.18, 6.19, 7.01, 7.02, 7.03, 7.04, 7.05, 7.06, 7.07, 7.08, 7.09, 7.10, 7.11, 7.12, 7.14, 7.15, 8.01, 8.02, 8.03, 8.04, 8.05, 8.06, 9.01, 9.03, 11.02, 11.03, 12.01, 12.05 |
 | `E_EXMSGADDR` | 5.02 |
 | `E_ITEMPROPID` | 5.13, 6.14, 6.17, 11.02 |
 | `E_ITEMNAMEADDR` | 5.13, 6.14, 6.17, 11.02 |
@@ -417,9 +431,9 @@ A field read only on some builds (the `F_JOURNALDIRECT` journal layout, the relo
 | `E_DRAGADDR` | 6.10 |
 | `E_SYSMSGADDR` | 5.01 |
 | `E_MACROADDR` | 5.03, 5.04, 5.05, 5.06, 5.12, 5.14, 5.15, 5.16, 6.01, 6.03, 6.04, 6.05, 6.06, 6.07, 6.12, 7.01, 7.02, 7.03, 7.06, 7.07, 7.08, 7.09, 7.10, 7.11, 7.12, 7.14, 7.15, 8.01, 8.03, 8.04, 8.05, 9.01, 9.03, 12.01, 12.05 |
-| `E_SENDPACKET` | 6.08, 6.11, 6.13, 6.16, 6.18, 6.19, 7.04, 7.05, 11.02 |
-| `E_SENDLEN` | 6.08, 6.11, 6.13, 6.16, 6.18, 6.19, 7.04, 7.05, 11.02 |
-| `E_SENDECX` | 6.08, 6.11, 6.13, 6.16, 6.18, 6.19, 7.04, 7.05, 11.02 |
+| `E_SENDPACKET` | 5.18, 5.19, 5.20, 5.21, 5.22, 5.23, 5.24, 6.08, 6.11, 6.13, 6.16, 6.18, 6.19, 7.04, 7.05, 11.02 |
+| `E_SENDLEN` | 5.18, 5.19, 5.20, 5.21, 5.22, 5.23, 6.08, 6.11, 6.13, 6.16, 6.18, 6.19, 7.04, 7.05, 11.02 |
+| `E_SENDECX` | 5.18, 5.19, 5.20, 5.21, 5.22, 5.23, 6.08, 6.11, 6.13, 6.16, 6.18, 6.19, 7.04, 7.05, 11.02 |
 | `E_CONTTOP` | 5.09 |
 | `E_STATBAR` | 5.11, 11.03 |
 | `E_MACROTAB` | 5.03, 5.04, 5.05, 5.06, 5.12, 5.14, 5.15, 5.16, 6.01, 6.03, 6.04, 6.05, 6.06, 6.07, 6.12, 7.01, 7.02, 7.03, 7.06, 7.07, 7.08, 7.09, 7.10, 7.11, 7.12, 7.14, 7.15, 8.01, 8.03, 8.04, 8.05, 9.01, 9.03, 12.01, 12.05 |
@@ -436,7 +450,7 @@ A field read only on some builds (the `F_JOURNALDIRECT` journal layout, the relo
 | `F_FLAGS` | 2.12, 2.13, 4.03, 8.03 |
 | `F_SYSMSGDIRECT` | 2.09, 5.01 |
 | `F_JOURNALDIRECT` | 2.08, 4.02, 4.05, 4.06, 4.07, 5.01 |
-| `F_SENDTHISCALL` | 6.08, 6.11, 6.13, 6.16, 6.18, 6.19, 7.04, 7.05, 11.02 |
+| `F_SENDTHISCALL` | 5.18, 5.19, 5.20, 5.21, 5.22, 5.23, 6.08, 6.11, 6.13, 6.16, 6.18, 6.19, 7.04, 7.05, 11.02 |
 | `F_DRAGFASTCALL` | 6.10 |
 | `F_BLOCKINFOFAST` | 8.03, 8.04, 8.05, 8.06 |
 | `F_PROPFAST` | 5.13, 6.14, 6.17, 11.02 |

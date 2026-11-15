@@ -15,7 +15,7 @@
         <CompilerPath Value="$(CompPath)"/>
       </Other>
     </CompilerOptions>
-    <Files Count="18">
+    <Files Count="19">
       <Item1>
         <Filename Value="uoclidata.pas"/>
         <UnitName Value="uoclidata"/>
@@ -88,6 +88,10 @@
         <Filename Value="pathwalk.pas"/>
         <UnitName Value="pathwalk"/>
       </Item18>
+      <Item19>
+        <Filename Value="uogumpreply.pas"/>
+        <UnitName Value="uogumpreply"/>
+      </Item19>
     </Files>
     <i18n>
       <EnableI18N LFM="False"/>
