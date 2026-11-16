@@ -6,6 +6,14 @@ What changes for script users in each release of EasyUO Reforged. New entries go
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## v26.11.16 - 2026-11-16
+
+### Added
+
 - **`scangumps`: see every gump window that is open, not only the one on top.** `scangumps` lists the open windows front to back, and `#GumpIndex` walks them like `#FindIndex` walks `finditem`'s results. For each one, the new `#Gump…` variables give its name, position, size, graphic (`#GumpArt`: the backpack is `YE`), whether it is minimized and the container or character it belongs to. A gump the server sent also has `#GumpTypeID`, which is the same every time the server opens that gump, so a script can tell which one is open. `scangumps T_JHEIIPI` or `A_YE` keeps only matching windows. It only reads the client. A line starting with the word `scangumps` used to be ignored and is now this command. See [`scangumps`](https://ilpersi.github.io/EasyUOReforged/commands/scangumps/).
 - **`exevent GumpReply`: answer a gump the server sent without clicking.** `exevent GumpReply JHEIIPI 1` presses button 1 of the open gump with that type ID, and `exevent GumpReply %menu 2 3/7 5:Iron_Golem` also ticks checkboxes 3 and 7 and fills text field 5. The server gets the same answer as for a click, with the serial the gump has now, and the window closes. `#GumpReplyRes` says `sent`, `nogump` (not open: nothing sent) or `error`, and `#GumpReply` keeps the answer, so `exevent GumpReply #GumpReply` sends it again the next time that gump opens. It also records the answers you click yourself, and `#GumpReplyCnt` goes up with each: to learn what a gump expects, click once and read `#GumpReply`. Old EasyUO ignored this sub-command and still does. See [`exevent GumpReply`](https://ilpersi.github.io/EasyUOReforged/commands/exevent/gumpreply/).
 - **`moveitem`: move an item into a container and know whether it arrived.** `moveitem #FindID %bag` picks the item up, drops it into the bag, waits for each step, tries again when that is safe, and sets the new `#MoveRes` to `ok`, or says why not (`refused`, `nolift`, `left`, `noitem`, `nodest`, `held`, `error`). Without an amount it moves the whole stack; `moveitem %id %bag 10 40 40` moves 10 to a place in the bag. It checks the client's item list, never the journal, so it works whatever the client's language. It replaces the drag, wait, drop and retry subs scripts write by hand. A line starting with the word `moveitem` used to be ignored and is now this command. See [`moveitem`](https://ilpersi.github.io/EasyUOReforged/commands/moveitem/).
