@@ -20,7 +20,7 @@ animation, a text over a head.
    panel goes, the report folder, and the opt-in stages. *Use where I stand* fills in the test spot.
 4. The main window lists the stages. Tick the ones to run and press **Run selected** (or **Run all**).
 5. While it runs, a small always-on-top panel shows the check, the stage, two progress bars (the whole run
-   and the stage) and the counts. It asks the HUMAN questions with **Pass**, **Fail** (then an optional
+   and the stage, each with its percent) and the counts. It asks the HUMAN questions with **Pass**, **Fail** (then an optional
    note of what you saw), **Skip**, **Repeat** (the same step again) and **Stop**. Stop ends the run, cleans
    up and still writes the report. An optional step that only asks whether to go on ("Pass = send it, Skip =
    skip") hides Fail and Repeat, and the two warnings before the event-hook stages show only Pass and Stop.
@@ -237,14 +237,14 @@ does that a check can see (staff, stacks, vendors, mounts, buffs...) is in `docs
 | Command | Access level | What the script uses it for |
 |---|---|---|
 | `[self get <property>` | Counselor (most character values: GameMaster) | The shard's own value, the second source for most of stage 4: `Serial`, `Name`, `Backpack`, `Body`, `X`, `Y`, `Z`, `Direction`, `Female`, `Map`, `TotalGold`, `TotalWeight`, `Followers`, `FollowersMax`, `StatCap`, `TithingPoints`, the five `...Resistance`, `HitsMax`, `StamMax`, `ManaMax`, `Skills.Anatomy.Base/Value/Cap/Lock`, `StrLock`, `AccessLevel` (staff or not). |
-| `[self set <property> <value> ...` | Counselor (the properties: GameMaster) | Known values: `Str 77 Dex 63 Int 41`, `Hits`/`Stam`/`Mana`, `Skills.Anatomy.Base 47`, `Skills.Magery.Base 100`, `TithingPoints 1234`, `StatCap 251`, `FollowersMax 6`, `Direction`, and the status letters `Warmode`, `Hidden`, `IgnoreMobiles`, `Paralyzed`, `Female`, `Blessed`. Every old value is read first and put back. |
+| `[self set <property> <value> ...` | Counselor (the properties: GameMaster) | Known values: `RawStr 77 RawDex 63 RawInt 41` (ModernUO ignores a set of `Str`/`Dex`/`Int` while a stat bonus such as Bless is on, and still says `Property has been set.`), `Hits`/`Stam`/`Mana`, `Skills.Anatomy.Base 47`, `Skills.Magery.Base 100`, `TithingPoints 1234`, `StatCap 251`, `FollowersMax 6`, `Direction`, and the status letters `Warmode`, `Hidden`, `IgnoreMobiles`, `Paralyzed`, `Female`, `Blessed`. Every old value is read first and put back. |
 | `[get Name`, `[get Serial` (target cursor) | Counselor | Raises a target cursor (4.08) and checks what Target Self and Last Target hit (6.06). |
 | `[self addtopack <type> [amount]` | GameMaster | `Gold 1234`, `Log 5` (10 stones), `Dagger`, `GoldRing`, `Spellbook 18446744073709551615` (every spell), `BagOfReagents 20`, `Bandage 10`. |
 | `[addtopack Dagger` (target cursor) | GameMaster | The test weapon, answered with `#LTargetID` = `#BackpackID` and `event macro 22` (6.03); the two daggers of the gump checks (5.18). |
 | `[add Dagger` (target cursor) | GameMaster | Items on the ground and on a static, through `#LTargetKind` 2 and 3 (6.04, 6.05). |
 | `[self add <type>` | GameMaster | Mobiles at your feet: `Chicken` (7.07), `Rat` (9.01), `Provisioner` (10.01), `Horse` (11.01). |
 | `[serial <n> set ...` | Counselor | On what the script made: `Hue 33`, `CantWalk true`, `HitsMaxSeed 120 Hits 120`, `Controlled true ControlMaster <you>`, `SkillBonuses.Skill_1_Name Anatomy SkillBonuses.Skill_1_Value 5`, then `Attributes.Luck 77`. |
-| `[global delete where Dagger Name == <token>` | Administrator (`[global`); the delete itself GameMaster | With the script's two daggers (named with a token by `[serial <n> set Name`), ModernUO asks first with its delete confirmation, the server gump of 5.18 to 5.23 (`Commands.cs` `DeleteCommand.ExecuteList`, `GlobalCommandImplementor.cs`, `ObjectConditional.cs`). |
+| `[global delete where Dagger Name == <token>` | Administrator (`[global`); the delete itself GameMaster | With the script's two daggers (named with a token by `[serial <n> set Name`), ModernUO asks first with its delete confirmation, the server gump of 5.18 to 5.23 (`Commands.cs` `DeleteCommand.ExecuteList`, `GlobalCommandImplementor.cs`, `ObjectConditional.cs`). 5.23 deletes them and marks their clean-up rows done (`deleted_by_the_check`), so the clean-up sends no command for serials that are gone. |
 | `[AddonGen` | Administrator | Opens ModernUO's Addon Script Generator, a server gump that does nothing until you pick an area: the gump you click Cancel in for 5.24 (`Commands/AddonGenerator.cs`). |
 | `[serial <n> get Name` | Counselor | The pet's new name (11.02); after a delete, *That is not a valid serial* confirms it is gone. |
 | `[serial <n> delete` | GameMaster | Deletes what the script made (clean-up). The serial is worked out from the EasyUO ID. |
@@ -373,7 +373,7 @@ A field read only on some builds (the `F_JOURNALDIRECT` journal layout, the relo
 | `B_STATML` | 2.04, 4.11, 4.18, 6.14, 11.01 |
 | `B_CONTSIZEX` | 2.10, 5.06, 5.17 |
 | `B_CONTX` | 2.10, 4.09, 4.10, 5.07, 5.08, 5.17, 6.08 |
-| `B_CONTITEM` | 2.10, 5.03, 5.06, 5.07, 5.17 |
+| `B_CONTITEM` | 2.10, 5.03, 5.06, 5.07, 5.11, 5.17 |
 | `B_CONTNEXT` | 2.10, 2.14, 4.09, 4.10, 5.03, 5.06, 5.07, 5.08, 5.09, 5.10, 5.11, 5.14, 5.17, 5.18, 5.19, 5.20, 5.21, 5.22, 5.23, 5.24, 10.01, 10.02, 10.03, 12.01, 12.02, 12.04, 12.05 |
 | `B_ENEMYHPVAL` | 9.02 |
 | `B_SHOPCURRENT` | 10.01, 10.02 |
@@ -399,6 +399,8 @@ A field read only on some builds (the `F_JOURNALDIRECT` journal layout, the relo
 | `B_POS` | 1.05, 2.02, 2.03, 2.12, 2.13, 2.15, 3.09, 4.03, 4.04, 4.10, 4.11, 4.14, 4.15, 5.07, 6.03, 6.04, 6.08, 6.16, 8.01, 8.02, 8.03, 11.04, 11.05 |
 | `B_NEXTCX` | 3.06, 5.08 |
 | `B_CLITOP` | 2.05, 3.07 |
+| `B_CLIYRES` | 2.05, 3.07 |
+| `B_MACROIDX` | 5.03, 5.04, 5.05, 5.06, 5.12, 5.14, 5.15, 5.16, 6.01, 6.03, 6.04, 6.05, 6.06, 6.07, 6.12, 7.01, 7.02, 7.03, 7.06, 7.07, 7.08, 7.09, 7.10, 7.11, 7.12, 7.14, 7.15, 8.01, 8.03, 8.04, 8.05, 9.01, 9.03, 12.01, 12.05 |
 | `B_LTARGID` | 2.09, 3.03, 6.02, 6.03, 6.06 |
 | `B_LTARGKIND` | 2.09, 3.03, 6.02, 6.04, 6.05, 6.06 |
 | `B_LSPELL` | 2.09, 3.05, 7.03 |
@@ -542,7 +544,10 @@ database, so a run that crashes leaves no clean-up rows behind: to keep them, ma
   Self (`event macro 23`) clears it without calling its handler: 6.02 asks you to click.
 - `exevent Drag` only asks the server: the client's `#LLifted...` values change only with `event Drag`.
 - On ModernUO, lifting part of a stack leaves the lifted part with the old ID and the rest as a new pile;
-  dropped into a container without a position, it joins a pile of the same kind again.
+  dropped into a container without a position, it joins the first pile of the same kind in that container,
+  which in the backpack can be the player's own gold. 6.19 records the rest it splits off for the clean-up
+  and does its "joins a pile" move inside its own bag, which holds only the test's gold (before, every run
+  left a pile of 1034 behind and added 100 to the player's gold).
 - A skill bonus stops at the skill's cap (ModernUO `Skill.Value`): 6.14 lowers a base near the cap first.
 - ModernUO NPCs don't hear a hidden character (a GM is often hidden): stage 10 unhides you until the
   clean-up. Staff buy from vendors for free there, so 10.03 counts what arrives in the backpack; the gold is
@@ -550,9 +555,20 @@ database, so a run that crashes leaves no clean-up rows behind: to keep them, ma
 - The shard refuses a second mount ("Please dismount first"). When stage 11 begins with you riding, 11.04
   gets you off first and the end of the stage gets you on that mount again (the object new next to you
   after the dismount; an ethereal mount goes to the backpack, and the CLEAN-UP line then asks you to mount it
-  by hand). Not found by `#FindRep`: it read 255 for every mobile on client_beta 7.0.117.31. 11.05
+  by hand; *Clean up now* at a later start closes that row once you ride again). Not found by `#FindRep`: it read 255 for every mobile on client_beta 7.0.117.31. 11.05
   runs only after 11.04 put you on the horse: a double click on yourself also dismounts your own mount, or
   opens the paperdoll, and `#MountID` is `N/A` either way.
+- 3.07 writes the game area only when `#CliXRes`/`#CliYRes` read as a size (240 to 16384) and
+  `#CliLeft`/`#CliTop` as a position; otherwise `3.07.read` FAILs and nothing is written. On client_beta
+  7.0.118.132 `#CliYRes` read 7754768, a function pointer of the client, and writing 480 over it crashed the
+  client (the height is the dword before the width there: `B_CLIYRES` in `uoclidata.pas` now says so). The
+  clean-up never writes back old values that are not a size, and closes such a row.
+- Your own health bar is your status gump: with your status window open, `event StatBar #CharID` brings
+  that window to the front and opens nothing new (client_beta 7.0.118.132). 5.11 puts the backpack on top
+  first and wants your status gump (`#ContID` = `#CharID`) on top after it; it compares the top gump's
+  name, size and place, as 11.03 does.
+- The client shows neither the salute nor the bow while you ride: 5.15 gets you off your mount the same way
+  before macro 19 and back on it after macro 18 (not in an unattended run, which answers SKIP anyway).
 - Protection is a toggle: it stays on until it is cast again, even after logging out or dying. 12.01 counts
   the buffs before and after casting it: one more means the cast turned it on (the end of stage 12 casts it
   again), one fewer means it was on already (cast again at once, after the cast recovery). The INFO line

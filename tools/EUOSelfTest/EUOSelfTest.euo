@@ -53,7 +53,7 @@
 ; ============================================================================
 menu Reforge Mode 1.6
 ; this file's revision, in the report header: raise it with every change, so a report shows which copy ran
-set %st_rev 2026.11.14.22
+set %st_rev 2026.11.16.7
 
 ; ---------------------------------------------------------------------------
 ;  DEVELOPER SWITCHES (no game values here: the script finds or asks for them)
@@ -175,6 +175,7 @@ sub st_init
   set %fx_shard C_SHARDPOS
   set %fx_lang C_LHANDID/B_LANG
   set %fx_xres C_CLIXRES
+  set %fx_yres C_CLIXRES/B_CLIYRES
   set %fx_left C_CLILEFT
   set %fx_top C_CLILEFT/B_CLITOP
   set %fx_facet C_CURSORKIND
@@ -219,7 +220,7 @@ sub st_init
   set %fx_pathc C_CHARPTR/B_POS/B_ITEMTYPE/F_FLAGS/C_MULTILIST/B_MULTINEXT/C_WORLDGRID/B_GRIDNEXT/B_GRIDSIZE/C_STATICVT/B_MULTIOWNER
   set %fx_house C_MULTILIST/B_MULTINEXT/C_WORLDGRID/B_GRIDNEXT/B_GRIDSIZE/C_STATICVT/B_MULTIOWNER
   set %fx_hook E_REDIR/E_OLDDIR
-  set %fx_macro E_REDIR/E_OLDDIR/E_MACROADDR/E_MACROTAB/F_MACROMAP
+  set %fx_macro E_REDIR/E_OLDDIR/E_MACROADDR/E_MACROTAB/B_MACROIDX/F_MACROMAP
   set %fx_send E_REDIR/E_OLDDIR/E_SENDPACKET/E_SENDLEN/E_SENDECX/F_SENDTHISCALL
   set %fx_sysm E_REDIR/E_OLDDIR/E_SYSMSGADDR/E_NEWOBJ/E_MSGGATE/E_MSGFLAGA/E_MSGFLAGB
   set %fx_exmsg E_REDIR/E_OLDDIR/E_EXMSGADDR/E_NEWOBJ/E_MSGGATE/E_MSGFLAGA/E_MSGFLAGB/C_CHARPTR/B_ITEMID
@@ -289,7 +290,7 @@ sub st_counts
   set %st_cnt3 9
   set %st_cnt4 18
   set %st_cnt5 24
-  set %st_cnt6 18
+  set %st_cnt6 19
   set %st_cnt7 15
   set %st_cnt8 6
   set %st_cnt9 3
@@ -1248,17 +1249,22 @@ sub st_pan_build
   menu Text st_pstage 10 26 -
   menu SetProp st_pstage width 440
   menu Text st_pl1 10 48 Overall
-  menu Panel st_bo 70 48 380 14
+  menu Panel st_bo 70 48 330 14
   menu SetProp st_bo color $808080
   menu Panel st_bof 1 1 0 12
   menu SetProp st_bof color $00A000
   menu SetDef parent st_pan
+  ; 0% to 100% after each bar (not on it: the fill panel would cover the text)
+  menu Text st_ppo 408 48 0%
+  menu SetProp st_ppo width 42
   menu Text st_pl2 10 66 Stage
-  menu Panel st_bs 70 66 380 14
+  menu Panel st_bs 70 66 330 14
   menu SetProp st_bs color $808080
   menu Panel st_bsf 1 1 0 12
   menu SetProp st_bsf color $D08000
   menu SetDef parent st_pan
+  menu Text st_pps 408 66 0%
+  menu SetProp st_pps width 42
   menu Text st_pcnt 10 86 PASS 0   FAIL 0   NOTE 0   SKIP 0
   menu SetProp st_pcnt width 440
   menu Text st_pnote 10 104 -
@@ -1316,22 +1322,33 @@ sub st_pan_stage
   menu Set st_pstage #StrRes
   menu SetProp st_pnote text -
   menu SetProp st_bsf width 0
+  menu Set st_pps 0%
 return
 
-; the panel's check line and both progress bars (378 pixels wide when full)
+; the panel's check line and both progress bars (328 pixels wide when full), each with its percent
 sub st_pan_case
   if %ST_UNATTENDED = 1
     return
   str replace %st_ctitle _ #spc
   menu Set st_pid %st_cid , #spc , #StrRes
-  set %st_w 378 * %st_done / %st_total
-  if %st_w > 378
-    set %st_w 378
+  set %st_w 328 * %st_done / %st_total
+  if %st_w > 328
+    set %st_w 328
   menu SetProp st_bof width %st_w
-  set %st_w 378 * %st_sdone / %st_stot
-  if %st_w > 378
-    set %st_w 378
+  set %st_ppc 100 * %st_done / %st_total
+  if %st_ppc > 100
+    set %st_ppc 100
+  set %st_ppc %st_ppc , %
+  menu Set st_ppo %st_ppc
+  set %st_w 328 * %st_sdone / %st_stot
+  if %st_w > 328
+    set %st_w 328
   menu SetProp st_bsf width %st_w
+  set %st_ppc 100 * %st_sdone / %st_stot
+  if %st_ppc > 100
+    set %st_ppc 100
+  set %st_ppc %st_ppc , %
+  menu Set st_pps %st_ppc
 return
 
 ; the panel's PASS / FAIL / NOTE / SKIP counts
@@ -1736,7 +1753,7 @@ sub st_c205
   gosub st_rng 2.05.xres CliXRes_is_a_width %fx_xres
   set %st_a #CliYRes
   set %st_lo 200
-  gosub st_rng 2.05.yres CliYRes_is_a_height %fx_xres
+  gosub st_rng 2.05.yres CliYRes_is_a_height %fx_yres
   set %st_a #CliLeft
   set %st_lo 0
   gosub st_rng 2.05.left CliLeft_is_a_position %fx_left
@@ -2182,6 +2199,17 @@ sub st_c307
   set %st_g2 #CliYRes
   set %st_g3 #CliLeft
   set %st_g4 #CliTop
+  ; written only when all four read as a size and a position: a field that reads anything else is
+  ; wrong on this build, and a write lands on whatever is there (live on 7.0.118.132: #CliYRes read
+  ; 7754768, a function pointer of the client, and writing 480 over it crashed the client)
+  set %st_a %st_g1 , / , %st_g2 , / , %st_g3 , / , %st_g4
+  set %st_c ( %st_g1 >= 240 ) && ( %st_g1 <= 16384 ) && ( %st_g2 >= 240 ) && ( %st_g2 <= 16384 )
+  set %st_c %st_c && ( %st_g3 <= 16384 ) && ( %st_g4 <= 16384 )
+  set %st_gok %st_c
+  set %st_e sizes_240_to_16384,_positions_up_to_16384
+  gosub st_ok 3.07.read the_game_area_reads_as_a_size_(else_nothing_is_written) %fx_xres
+  if %st_gok = #false
+    return
   set %st_old %st_g3 , / , %st_g4 , / , %st_g1 , / , %st_g2
   gosub st_cl_changed game_area cliwin
   st_rp_307:
@@ -2195,7 +2223,7 @@ sub st_c307
   gosub st_eq 3.07.xres CliXRes_reads_back_640 %fx_xres
   set %st_a #CliYRes
   set %st_e 480
-  gosub st_eq 3.07.yres CliYRes_reads_back_480 %fx_xres
+  gosub st_eq 3.07.yres CliYRes_reads_back_480 %fx_yres
   set %st_a #CliLeft
   set %st_e 40
   gosub st_eq 3.07.left CliLeft_reads_back_40 %fx_left
@@ -2858,15 +2886,18 @@ sub st_c412
     gosub st_skip 4.12 known_stats needs_staff_commands
     return
   }
-  gosub st_sget Str
+  ; the Raw values: ModernUO ignores a set of Str, Dex or Int while any stat bonus is on (Bless from stage
+  ; 12, ...) and still says "Property has been set." (Mobile.cs Int: RawInt only when no StatMods). The
+  ; clean-up put Int back that way and left it at the value below (live on client_beta 7.0.118.132)
+  gosub st_sget RawStr
   set %st_old %st_gn
-  gosub st_cl_changed Str staffset
-  gosub st_sget Dex
+  gosub st_cl_changed RawStr staffset
+  gosub st_sget RawDex
   set %st_old %st_gn
-  gosub st_cl_changed Dex staffset
-  gosub st_sget Int
+  gosub st_cl_changed RawDex staffset
+  gosub st_sget RawInt
   set %st_old %st_gn
-  gosub st_cl_changed Int staffset
+  gosub st_cl_changed RawInt staffset
   ; odd values; one the character already has proves nothing, so it moves down by 2
   set %st_ks 77
   set %st_kd 63
@@ -2877,7 +2908,7 @@ sub st_c412
     set %st_kd %st_kd - 2
   if #Int = %st_ki
     set %st_ki %st_ki - 2
-  gosub st_staff self set Str %st_ks Dex %st_kd Int %st_ki
+  gosub st_staff self set RawStr %st_ks RawDex %st_kd RawInt %st_ki
   waitfor #Str = %st_ks && #Dex = %st_kd && #Int = %st_ki %st_tw5
   set %st_a #Str
   set %st_e %st_ks
@@ -3603,23 +3634,37 @@ sub st_c511
   if %st_run = 0
     return
   gosub st_need 1.03
-  set %st_n0 #ContName
+  ; your own bar is your status gump: with your status window open, event StatBar brings that window to
+  ; the front instead of opening a second gump (live on 7.0.118.132). So another gump goes on top first
+  ; (the backpack), and the check wants YOUR status gump on top after it; the top gump's name alone
+  ; failed whenever a status gump was already there. Size and place tell a new top gump, as in 11.03
+  gosub st_bp_open
+  set %st_n0 #ContName , _ , #ContSizeX , _ , #ContSizeY , _ , #ContPosX , _ , #ContPosY
   event statbar #CharID
-  waitfor #ContName <> %st_n0 %st_tw3
-  set %st_a #ContName
-  set %st_c #ContName <> %st_n0
-  set %st_e a_health_bar_on_top
-  gosub st_ok 5.11.open event_StatBar_#CharID_opens_your_health_bar %fx_statbar
+  set %st_pi 0
+  repeat
+    wait 5
+    set %st_n1 #ContName , _ , #ContSizeX , _ , #ContSizeY , _ , #ContPosX , _ , #ContPosY
+    set %st_pi %st_pi + 1
+  until %st_n1 <> %st_n0 || %st_pi > 12
+  set %st_a #ContName , / , #ContID
+  set %st_c ( %st_n1 <> %st_n0 ) && ( #ContName = status_gump ) && ( #ContID = #CharID )
+  set %st_e your_status_gump_on_top_(#ContID_=_#CharID)
+  set %st_f %fx_statbar , /C_CONTPOS/B_CONTNEXT/B_CONTITEM
+  gosub st_ok 5.11.open event_StatBar_#CharID_puts_your_status_gump_on_top %st_f
   set %st_hp #Hits * 100 / #MaxHits
   set %st_a #ContHP
   set %st_lo %st_hp - 1
   set %st_hi %st_hp + 1
   gosub st_rng 5.11.hp ContHP_is_#Hits_in_percent %fx_cont
-  ; close it with a right click in its middle
-  set %st_gx #ContPosX + #ContSizeX / 2
-  set %st_gy #ContPosY + #ContSizeY / 2
-  click %st_gx %st_gy r
-  wait 10
+  ; close it with a right click in its middle, only if it came (not another gump)
+  if %st_n1 <> %st_n0
+  {
+    set %st_gx #ContPosX + #ContSizeX / 2
+    set %st_gy #ContPosY + #ContSizeY / 2
+    click %st_gx %st_gy r
+    wait 10
+  }
   gosub st_status_keep
 return
 
@@ -3704,6 +3749,18 @@ sub st_c515
   gosub st_case 5.15 Macros_18,_19_and_21
   if %st_run = 0
     return
+  ; riding, the client shows neither the salute nor the bow: off your mount first, back on it
+  ; after the bow (an unattended run answers SKIP anyway and stays on it)
+  set %st_own N/A
+  set %st_offok 1
+  if %ST_UNATTENDED <> 1
+    gosub st_get_off
+  if %st_offok = 0
+  {
+    gosub st_skip 5.15.salute macro_19_salutes you_ride_a_mount_that_did_not_let_you_off
+    gosub st_skip 5.15.bow macro_18_bows you_ride_a_mount_that_did_not_let_you_off
+    goto st_rp_515c
+  }
   st_rp_515a:
   event macro 19 0
   wait 30
@@ -3722,6 +3779,8 @@ sub st_c515
   gosub st_human 5.15.bow macro_18_bows %fx_macro
   if %st_again = 1
     goto st_rp_515b
+  if %st_own <> N/A
+    gosub st_cl_restore %st_own
   st_rp_515c:
   event macro 21 0
   wait 10
@@ -4051,7 +4110,7 @@ sub st_c522
   gosub st_eq 5.22.nothing nothing_reaches_the_server %fx_reply
 return
 
-; button 1 (OKAY): confirmed, the daggers are gone (their clean-up rows then find them deleted)
+; button 1 (OKAY): confirmed, the daggers are gone, and their clean-up rows are done
 sub st_c523
   gosub st_case 5.23 exevent_GumpReply_button_1
   if %st_run = 0
@@ -4075,6 +4134,13 @@ sub st_c523
   set %st_c %st_grc = 0
   set %st_e 0
   gosub st_ok 5.23.gone the_daggers_are_deleted %fx_reply
+  ; deleted by the check: their clean-up rows are done here. Else the clean-up sends [serial <id> delete
+  ; and get Name for each one, and the shard answers "That is not a valid serial." four times
+  if %st_grc = 0
+  {
+    gosub st_cl_forget %st_grd1 deleted_by_the_check
+    gosub st_cl_forget %st_grd2 deleted_by_the_check
+  }
   scangumps T_ , %st_grt
   set %st_a #GumpCnt
   set %st_e 0
@@ -5124,8 +5190,8 @@ sub st_c618
   wait 10
 return
 
-; moveitem: 100 gold into a new bag at a place, back into the backpack without one (they join the pile),
-; and an ID the client doesn't know. Its outcome comes from the item list, never the journal.
+; moveitem: 100 gold into a new bag at a place, then the rest into that bag without one (it joins the
+; 100 there), and an ID the client doesn't know. Its outcome comes from the item list, never the journal.
 sub st_c619
   gosub st_case 6.19 moveitem
   if %st_run = 0
@@ -5153,25 +5219,56 @@ sub st_c619
   }
   finditem %st_goldid CA_ , #BackpackID
   set %st_g0 #FindStack
-  ; 100 to a place in the bag: on ModernUO the lifted part keeps the gold's ID
+  ; 100 to a place in the bag: on ModernUO the lifted part keeps the gold's ID, and the rest left in the
+  ; backpack gets a new one. It is recorded for the clean-up here: unrecorded, it stayed behind after
+  ; every run (a pile of 1034 each time, live on client_beta 7.0.118.132)
+  gosub st_newitem_begin POF B
   moveitem %st_goldid %st_mbag 100 40 40
   set %st_a #MoveRes
   set %st_e ok
   gosub st_eq 6.19.ok moveitem_100_gold_into_a_bag_at_40_40 %fx_xdrag
+  gosub st_newitem_end Gold_rest
+  set %st_grest %st_newid
   finditem %st_goldid CA_ , %st_mbag
   set %st_a #FindStack
   set %st_e 100
   gosub st_soft 6.19.inbag the_100_are_in_the_bag_under_the_gold's_ID %fx_stack
-  ; back into the backpack without a place: they join a gold pile there
-  moveitem %st_goldid #BackpackID
-  set %st_a #MoveRes
-  set %st_e ok
-  gosub st_eq 6.19.back moveitem_back_into_the_backpack_joins_the_pile %fx_xdrag
-  finditem POF CA_ , #BackpackID
-  set %st_goldid #FindID
-  set %st_a #FindStack
-  set %st_e %st_g0
-  gosub st_soft 6.19.pile the_pile_holds_all_of_it_again %fx_stack
+  ; the rest into the bag without a place: the shard stacks it on the first pile of the same kind in that
+  ; bag (Container.TryDropItem), and that bag holds only these 100. Back in the backpack it joined the
+  ; player's own gold instead, and the check read another pile
+  if %st_grest = N/A
+  {
+    gosub st_skip 6.19.back join_a_pile the_rest_got_no_new_ID
+  }
+  else
+  {
+    moveitem %st_grest %st_mbag
+    set %st_a #MoveRes
+    set %st_e ok
+    gosub st_eq 6.19.back moveitem_of_the_rest_into_the_bag_joins_the_100 %fx_xdrag
+    finditem %st_goldid CA_ , %st_mbag
+    set %st_a #FindStack
+    set %st_e %st_g0
+    gosub st_soft 6.19.pile the_pile_in_the_bag_holds_all_of_it_again %fx_stack
+    ; out of the backpack, the rest's row is done: merged into the 100 (its ID gone), or in the bag,
+    ; whose own row deletes it with the bag. Still in the backpack, its row deletes it
+    finditem %st_grest CA_ , #BackpackID
+    if #FindCnt = 0
+    {
+      finditem %st_grest CA_ , %st_mbag
+      if #FindCnt > 0
+        gosub st_cl_forget %st_grest deleted_with_the_bag
+      else
+        gosub st_cl_forget %st_grest merged_into_the_pile_in_the_bag
+    }
+  }
+  ; the gold in the bag goes with the bag (the bag's row deletes it), and no later check uses it
+  finditem %st_goldid CA_ , %st_mbag
+  if #FindCnt > 0
+  {
+    gosub st_cl_forget %st_goldid deleted_with_the_bag
+    set %st_goldid N/A
+  }
   ; an item the client doesn't know: nothing is sent
   moveitem XYZXYZA %st_mbag
   set %st_a #MoveRes
@@ -6492,24 +6589,11 @@ sub st_c1104
   }
   ; the shard refuses a second mount ("Please dismount first"): you get off the one you ride, and
   ; the end of the stage gets you on it again (live on 7.0.117.33: the run began on the beetle)
-  if #MountID <> N/A
+  gosub st_get_off
+  if %st_offok = 0
   {
-    gosub st_mount_before
-    set #LObjectID #CharID
-    event macro 17 0
-    waitfor #MountID = N/A %st_tw5
-    if #MountID <> N/A
-    {
-      gosub st_skip 11.04 mount you_ride_a_mount_that_did_not_let_you_off
-      return
-    }
-    wait 10
-    gosub st_mount_find
-    set %st_old riding
-    if %st_own <> N/A
-      gosub st_cl_changed %st_own mount
-    else
-      gosub st_cl_changed your_mount mount
+    gosub st_skip 11.04 mount you_ride_a_mount_that_did_not_let_you_off
+    return
   }
   set #LObjectID %st_pet
   event macro 17 0
@@ -6560,6 +6644,31 @@ sub st_c1105
   set %st_e N/A
   gosub st_eqna 11.05 double-clicking_yourself_dismounts:_#MountID_N/A %fx_mount
   key esc
+return
+
+; off the mount you ride (5.15, 11.04), written to the clean-up first: the caller gets you on it
+; again with st_cl_restore %st_own when %st_own <> N/A (not found: the clean-up asks you by hand)
+;  -> %st_offok 1 on foot (also when you rode nothing: %st_own as it was), 0 still riding
+sub st_get_off
+  set %st_offok 1
+  if #MountID = N/A
+    return
+  gosub st_mount_before
+  set #LObjectID #CharID
+  event macro 17 0
+  waitfor #MountID = N/A %st_tw5
+  if #MountID <> N/A
+  {
+    set %st_offok 0
+    return
+  }
+  wait 10
+  gosub st_mount_find
+  set %st_old riding
+  if %st_own <> N/A
+    gosub st_cl_changed %st_own mount
+  else
+    gosub st_cl_changed your_mount mount
 return
 
 ; what is around you before you get off your mount -> %st_mids0
@@ -7710,9 +7819,12 @@ sub st_cl_restore
   }
 return
 
-; the check put it back itself: only mark it done
+; the check put it back (or deleted what it made) itself: only mark it done; %2, if given, is the result
 sub st_cl_forget
   set %st_c1 %1
+  set %st_c2 restored_by_the_check
+  if %0 >= 2
+    set %st_c2 %2
   if %st_cln = 0
     return
   for %st_ci %st_cln 1
@@ -7722,7 +7834,7 @@ sub st_cl_forget
     if %st_ct = %st_c1 && %st_cx = 0
     {
       set %st_clx . %st_ci 1
-      set %st_clr . %st_ci restored_by_the_check
+      set %st_clr . %st_ci %st_c2
       if %st_db = 1
         sql exec UPDATE cleanup SET done = 1 WHERE run = %st_runid AND target = %st_c1 AND done = 0
       return
@@ -7874,13 +7986,28 @@ sub st_cl_undo
   if %st_ud = cliwin
   {
     str part %st_uo / 1
-    set #CliLeft #StrRes
+    set %st_u1 #StrRes
     str part %st_uo / 2
-    set #CliTop #StrRes
+    set %st_u2 #StrRes
     str part %st_uo / 3
-    set #CliXRes #StrRes
+    set %st_u3 #StrRes
     str part %st_uo / 4
-    set #CliYRes #StrRes
+    set %st_u4 #StrRes
+    ; an old value that is not a size was read from the wrong place (an older run of 3.07 saved
+    ; 7754768, a function pointer, on 7.0.118.132): writing it back could crash the client. Nothing
+    ; to put back, so the row is closed
+    set %st_c ( %st_u3 >= 240 ) && ( %st_u3 <= 16384 ) && ( %st_u4 >= 240 ) && ( %st_u4 <= 16384 )
+    set %st_c %st_c && ( %st_u1 <= 16384 ) && ( %st_u2 <= 16384 )
+    if %st_c = #false
+    {
+      set %st_uok 1
+      set %st_umsg not_written:_the_old_values_are_not_a_size
+      return
+    }
+    set #CliLeft %st_u1
+    set #CliTop %st_u2
+    set #CliXRes %st_u3
+    set #CliYRes %st_u4
     wait 5
     set %st_uok 1
     set %st_umsg restored
@@ -7933,9 +8060,16 @@ sub st_cl_undo
   }
   if %st_ud = mount
   {
-    ; not found on your tile when you got off it (an ethereal mount goes to the backpack)
+    ; not found on your tile when you got off it (an ethereal mount goes to the backpack): done once
+    ; you ride again (got on by hand), else the row stayed open at every start for good
     if %st_ut = your_mount
     {
+      if #MountID <> N/A
+      {
+        set %st_uok 1
+        set %st_umsg riding_again
+        return
+      }
       set %st_umsg FAILED:_get_on_your_mount_by_hand
       return
     }
