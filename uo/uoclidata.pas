@@ -132,7 +132,11 @@ type
     // member of two variable pairs sits relative to the first. B_NEXTCX: the X of the next
     // container position relative to C_NEXTCPOS (legacy +4). B_CLITOP: the client window's top
     // relative to C_CLILEFT (legacy +4; the modern build declares them in the other order, -4).
-    B_NEXTCX,B_CLITOP,
+    // B_CLIYRES: the game area's height relative to its width at C_CLIXRES (legacy +4; the
+    // 7.0.118.132 beta keeps the height before the width, -4). B_MACROIDX: the macro executor's
+    // step index relative to its table pointer at E_MACROTAB (+4 on the relocated builds before
+    // it; the 7.0.118.132 beta keeps the index before the pointer, -4).
+    B_NEXTCX,B_CLITOP,B_CLIYRES,B_MACROIDX,
     // Members of the "last hand / object / target" cluster addressed from C_LHANDID. The old
     // builds keep them at fixed distances ($18, BLTARGTILE+4, $10, $14); the modern build
     // scatters them, so each gets its own offset. 0 = the legacy distance.
@@ -363,6 +367,8 @@ type
     function    BPOS            : Cardinal;
     function    BNEXTCX         : Cardinal;
     function    BCLITOP         : Cardinal;
+    function    BCLIYRES        : Cardinal;
+    function    BMACROIDX       : Cardinal;
     function    BLTARGID        : Cardinal;
     function    BLTARGKIND      : Cardinal;
     function    BLSPELL         : Cardinal;
@@ -5861,10 +5867,20 @@ SysVarModernAddrs_6AD6CEB3 : array[0..9] of TSysVarList = (
 //               + $1C to 1; the macro executor tests that dword 16 times, as .31's tests its own
 //   B_FINDREP   the notoriety is still the dword at object + $32C (7 reads next to a division by 100),
 //               id + $214 as on .31
+//   B_CLIYRES   the screen-size code ($5465DA / $5465FF) clamps the width into C_CLIXRES ($85BE68) and the
+//               height into $85BE64, the dword BEFORE it, and every reader takes the two together. The
+//               dword after the width ($85BE6C) is a function pointer the client calls ($555410, set at
+//               $551345): the legacy +4 wrote #CliYRes over it and crashed the client (self-test 3.07,
+//               2026-11-16)
+//   B_MACROIDX  the macro executor (E_MACROADDR $5AAE70) reads the step index at $B980F4 and the table
+//               at E_MACROTAB ($B980F8), and the client's own macro start ($5AACCF / $5AACD4) sets the
+//               table and zeroes $B980F4. With the +4 of the older builds, event macro zeroed the dword
+//               after the table instead: once the client had played a macro of its own (Alt+J) the index
+//               stayed 1 and every event macro ran an empty step (self-test, 2026-11-16)
 // EUOMigrate's probe found the object, gump, status-name, buff-bar and journal layouts unchanged (2026-11-16).
 // The layout's C_LHANDID-relative values were what made #CliLang, #LTargetID/Kind, #LSkill, #RHandID,
 // #LLiftedKind/Type and moveitem misread on this build (self-test stage 6, 2026-11-16).
-SysVarModernAddrs_6AE4B775 : array[0..15] of TSysVarList = (
+SysVarModernAddrs_6AE4B775 : array[0..17] of TSysVarList = (
   (Expr: B_LANG;      Val: $0000020C),   // $B97ECC = C_LHANDID - $20C
   (Expr: B_LSPELL;    Val: $00000194),   // $B9826C
   (Expr: B_LSKILL;    Val: $FFFFFE30),   // $B97F08
@@ -5880,6 +5896,8 @@ SysVarModernAddrs_6AE4B775 : array[0..15] of TSysVarList = (
   (Expr: B_LLIFTEDTYPE; Val: $FFFFFFE8), // $BCA7A8: the type sits $18 after the id
   (Expr: B_LLIFTEDKIND; Val: $0000001C), // $BCA7AC: 1 while an item is on the cursor
   (Expr: B_FINDREP;   Val: $00000214),   // object + $32C
+  (Expr: B_CLIYRES;   Val: $FFFFFFFC),   // $85BE64: the height, the dword before the width
+  (Expr: B_MACROIDX;  Val: $FFFFFFFC),   // $B980F4: the macro step index, the dword before the table
   (Expr: LISTEND;     Val: 0)
 );
 
@@ -6484,6 +6502,8 @@ function TCstDB.BJKIND : Cardinal; begin CS.BeginRead; try Result:=Values[B_JKIN
 function TCstDB.BPOS : Cardinal; begin CS.BeginRead; try Result:=Values[B_POS]; if Result=0 then Result:=$24; finally CS.EndRead; end; end;
 function TCstDB.BNEXTCX : Cardinal; begin CS.BeginRead; try Result:=Values[B_NEXTCX]; if Result=0 then Result:=4; finally CS.EndRead; end; end;
 function TCstDB.BCLITOP : Cardinal; begin CS.BeginRead; try Result:=Values[B_CLITOP]; if Result=0 then Result:=4; finally CS.EndRead; end; end;
+function TCstDB.BCLIYRES : Cardinal; begin CS.BeginRead; try Result:=Values[B_CLIYRES]; if Result=0 then Result:=4; finally CS.EndRead; end; end;
+function TCstDB.BMACROIDX : Cardinal; begin CS.BeginRead; try Result:=Values[B_MACROIDX]; if Result=0 then Result:=4; finally CS.EndRead; end; end;
 function TCstDB.BLTARGID : Cardinal; begin CS.BeginRead; try Result:=Values[B_LTARGID]; if Result=0 then Result:=$18; finally CS.EndRead; end; end;
 function TCstDB.BLTARGKIND : Cardinal; begin CS.BeginRead; try Result:=Values[B_LTARGKIND]; if Result=0 then Result:=Values[B_LTARGTILE]+4; finally CS.EndRead; end; end;
 function TCstDB.BLSPELL : Cardinal; begin CS.BeginRead; try Result:=Values[B_LSPELL]; if Result=0 then Result:=$10; finally CS.EndRead; end; end;

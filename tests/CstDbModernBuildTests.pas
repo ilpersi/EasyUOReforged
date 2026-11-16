@@ -95,6 +95,7 @@ type
     procedure TestKnownModernBuildGetsItsOwnAddresses;
     procedure TestNextBetaOverridesOnlyItsMovedDistances;
     procedure TestBeta118132GetsItsRearrangedCluster;
+    procedure TestBeta118132ReadsTheGameAreaHeightBeforeItsWidth;
     procedure TestUnknownModernBuildNeverInheritsFixedBaseAddresses;
     procedure TestFixedBaseBuildIsUntouched;
     procedure TestUnknownModernBuildFindsItsHookByScanning;
@@ -103,6 +104,7 @@ type
     procedure TestHookAddressThatIsNotACallIsRefused;
     procedure TestDragCaveReturnsToItsOwnFinalRet;
     procedure TestMacroCaveReturnsToItsRestoreCode;
+    procedure TestBeta118132MacroCaveZeroesTheIndexBeforeTheTable;
     procedure TestMessageCaveJumpsAndCallsLandCorrectly;
     procedure TestBlockInfoCaveFitsBeforeItsData;
     procedure TestBlockInfoCdeclCavePassesTheSixthArgument;
@@ -386,13 +388,59 @@ begin
   AssertEquals('B_ITEMID: layout', Cardinal($118), Cst.BITEMID);
   AssertEquals('status gump name: layout', Cardinal($154), Cst.BSTATNAME);
   AssertEquals('C_LHANDID is left to the scan', Cardinal(0), Cst.LHANDID);
+  AssertEquals('game area height 4 before its width', Cardinal($FFFFFFFC), Cst.BCLIYRES);
   // the other builds keep their right hand where it was
   WriteHeader($6AD6CEB3, $8140);
   Cst.Update('7.0.117.31', PHnd);
   AssertEquals('.31: right hand from the layout', Cardinal($1C), Cst.BRHAND);
+  AssertEquals('.31: game area height 4 after its width', Cardinal(4), Cst.BCLIYRES);
   Cst.Update('7.0.117.1');
   AssertEquals('fixed-base: right hand 4 after the left one, as in EasyUO', Cardinal(4), Cst.BRHAND);
   AssertEquals('fixed-base: left hand at the base', Cardinal(0), Cst.BLHAND);
+  AssertEquals('fixed-base: game area height 4 after its width, as in EasyUO', Cardinal(4), Cst.BCLIYRES);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// #CliYRes on the 7.0.118.132 beta: the height is the dword BEFORE the width at C_CLIXRES, and the dword
+// after the width is a function pointer the client calls (writing the height there crashed the client,
+// self-test 3.07). The beta stamped $6AD6CEB3 keeps the height after the width, as EasyUO expects.
+procedure TCstDbModernBuildTests.TestBeta118132ReadsTheGameAreaHeightBeforeItsWidth;
+const
+  Area = $0085BE68;                                    // C_CLIXRES: the width
+var
+  V   : TFakeClientVar;
+  Buf : Cardinal;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader($6AE4B775, $8140, $2000);
+  // mov ecx,[Area] / cmovg ecx,eax / ...: ScannerTable_Modern's second C_CLIXRES line
+  PutBytes($401100, [$8B,$0D,$68,$BE,$85,$00,$0F,$4F,$C8,$89,$7C,$24,$10,$C7,$44,$24,$14,$00,$00,$00,$00,
+                     $89,$4C,$24,$18,$8D,$4C,$24,$1C]);
+  PutDWord(Area - 4, 600);
+  PutDWord(Area, 800);
+  PutDWord(Area + 4, $00765410);                       // the function pointer after the width
+  Sel := TUOSel.Create;
+  Sel.CstDB.Update('7.0.118.132', PHnd);
+  V := TFakeClientVar.Create(Sel);
+  V.FakeHandle := PHnd;
+  Vr := V;
+  Eq('C_CLIXRES', Area, Sel.CstDB.CLIXRES);
+  Eq('#CliXRes', 800, V.CliXRes);
+  Eq('#CliYRes', 600, V.CliYRes);
+  V.CliYRes := 480;
+  Eq('#CliYRes written', 480, V.CliYRes);
+  Buf := 0;
+  AssertTrue('read the height', ReadMem(PHnd, Area - 4, PChar(@Buf), 4));
+  Eq('the height before the width holds the write', 480, Buf);
+  AssertTrue('read the pointer', ReadMem(PHnd, Area + 4, PChar(@Buf), 4));
+  Eq('the function pointer after the width is untouched', $00765410, Buf);
+
+  // the beta stamped $6AD6CEB3: the height after the width
+  WriteHeader($6AD6CEB3, $8140, $2000);
+  PutDWord(Area + 4, 768);
+  Sel.CstDB.Update('7.0.117.31', PHnd);
+  Eq('.31: C_CLIXRES', Area, Sel.CstDB.CLIXRES);
+  Eq('.31: #CliYRes after the width', 768, V.CliYRes);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -468,6 +516,7 @@ begin
   AssertEquals('legacy last spell offset', Cardinal($10), Cst.BLSPELL);
   AssertEquals('legacy last skill offset', Cardinal($14), Cst.BLSKILL);
   AssertEquals('legacy window top offset', Cardinal(4), Cst.BCLITOP);
+  AssertEquals('legacy game area height offset', Cardinal(4), Cst.BCLIYRES);
   AssertEquals('legacy next-container X offset', Cardinal(4), Cst.BNEXTCX);
   AssertEquals('E_MACROTAB', Cardinal(0), Cst.EMACROTAB);
   AssertEquals('buff bar: icon vector of the fixed-base builds', Cardinal($D0), Cst.BBUFFVEC);
@@ -655,10 +704,48 @@ begin
   Eq('first pop opcode', $8F, Bt(C,Pop));
   Eq('saves the table', Sel.CstDB.EMACROTAB, Dw(C,2));
   Eq('saves the index', Sel.CstDB.EMACROTAB+4, Dw(C,8));
+  Eq('zeroes the index', Sel.CstDB.EMACROTAB+4, Dw(C,24));
+  Eq('restores the index', Sel.CstDB.EMACROTAB+4, Dw(C,Pop+2));
   Eq('push below -> first pop', CaveBase+$20+Pop, Dw(C,33));
   Eq('func', Sel.CstDB.EMACROADDR, Dw(C,38));
   Eq('the table points at the one entry at +$70', CaveBase+$70, Dw(C,18));
   AssertTrue('code stays clear of the table at +$70', Length(C)<=$70-$20);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The 7.0.118.132 beta keeps the macro step index 4 BEFORE the table pointer (its executor at $5AAE70
+// reads [$B980F4] and [$B980F8]): the cave saves, zeroes and restores that dword, and never touches
+// the one after the table.
+procedure TCstDbModernBuildTests.TestBeta118132MacroCaveZeroesTheIndexBeforeTheTable;
+const
+  Tab = $00B980F8;
+var
+  C   : String;
+  Pop : Integer;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader($6AE4B775, $8140, $2000);
+  // mov fs:[0],eax / mov eax,[Idx] / mov edi,1 / mov ecx,[Tab] / lea / lea: ScannerTable_Modern's
+  // second E_MACROTAB line, as in the executor's prologue
+  PutBytes($401100, [$64,$A3,$00,$00,$00,$00,$A1,$F4,$80,$B9,$00,$BF,$01,$00,$00,$00,
+                     $8B,$0D,$F8,$80,$B9,$00,$8D,$04,$80,$8D,$34,$81]);
+  Sel:=TUOSel.Create;
+  Sel.CstDB.Update('7.0.118.132', PHnd);
+  Eq('E_MACROTAB', Tab, Sel.CstDB.EMACROTAB);
+  Eq('B_MACROIDX', $FFFFFFFC, Sel.CstDB.BMACROIDX);
+  Vr:=TUOVar.Create(Sel);
+  Ev:=TCaveEvent.Create(Sel, Vr, nil);
+  Ev.CavePrepare(CaveBase);
+  C:=Ev.CaveMacro(8, 1);
+  Pop:=Length(C)-13;
+  Eq('first pop opcode', $8F, Bt(C,Pop));
+  Eq('saves the table', Tab, Dw(C,2));
+  Eq('saves the index before it', Tab-4, Dw(C,8));
+  Eq('points the table at the entry', Tab, Dw(C,14));
+  Eq('zeroes the index before it', Tab-4, Dw(C,24));
+  Eq('restores the index before it', Tab-4, Dw(C,Pop+2));
+  Eq('restores the table', Tab, Dw(C,Pop+8));
+  AssertEquals('never the dword after the table', 0, Pos(NumStr(Tab+4,4,True), C));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

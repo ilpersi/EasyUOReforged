@@ -338,22 +338,26 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 // Port addition (relocated builds): the macro executor reads its table pointer and index from two
 // adjacent globals instead of taking arguments: point them at our one-entry table (at BaseAddr+$70),
-// call it, put the originals back.
+// call it, put the originals back. The index is at Tab+BMACROIDX: Tab+4 on the builds before
+// 7.0.118.132, Tab-4 on that beta (with +4 there the client's own index stayed as its last macro left
+// it, and the executor ran an empty step of our table).
 function TUOEvent.MacroFastCode(Par1, Par2 : Cardinal) : String;
 var
-  s : String;
+  s   : String;
+  Idx : Cardinal;
 begin
+  Idx:=Cst.EMACROTAB+Cst.BMACROIDX;
   s:=#255#53+NumStr(Cst.EMACROTAB,4,True)+                  // push [Tab]          (save)
-     #255#53+NumStr(Cst.EMACROTAB+4,4,True)+                // push [Tab+4]        (save)
+     #255#53+NumStr(Idx,4,True)+                            // push [Idx]          (save)
      #199#5+NumStr(Cst.EMACROTAB,4,True)+                   // mov  [Tab], 00800070
        NumStr(BaseAddr+$70,4,True)+                         //
-     #199#5+NumStr(Cst.EMACROTAB+4,4,True)+                 // mov  [Tab+4], 0
+     #199#5+NumStr(Idx,4,True)+                             // mov  [Idx], 0
        #0#0#0#0;                                            //
   Result:=s+
      #104+NumStr(BaseAddr+$20+Length(s)+11,4,True)+         // push below ret
      #104+NumStr(Cst.EMACROADDR,4,True)+                    // push Proc
      #195+                                                  // ret
-     #143#5+NumStr(Cst.EMACROTAB+4,4,True)+                 // below: pop [Tab+4]  (restore)
+     #143#5+NumStr(Idx,4,True)+                             // below: pop [Idx]    (restore)
      #143#5+NumStr(Cst.EMACROTAB,4,True)+                   // pop [Tab]           (restore)
      #195;                                                  // ret
 end;

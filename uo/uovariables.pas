@@ -27,6 +27,11 @@ unit uovariables;
   Port change: RWV is protected and virtual (as in uocommands.pas's TUOCmd) so that a unit
   test can point an accessor at a fake client process; behaviour is otherwise unchanged.
 
+  Port change: #CliYRes reads and writes at C_CLIXRES + Cst.BCLIYRES instead of a fixed +4. BCLIYRES
+  answers 4 on every build that does not set it (the original's +4); the 7.0.118.132 beta keeps the height
+  4 BEFORE the width, and its dword after the width is a function pointer the client calls, so the fixed
+  +4 crashed that client on a write (like #CliTop with BCLITOP).
+
   Kept verbatim, not "fixed": the WriteTargCurs code-caving payload (TargetHandler)
   is raw x86-32 machine code as byte-literal DATA, not a Delphi asm block -- it
   runs on the always-32-bit remote client, so it needs no changes for a 64-bit
@@ -1201,12 +1206,12 @@ function TUOVar.ReadCliYRes : Cardinal;
 var
   Buf : Cardinal;
 begin
-  RWV(Read,Cst.CLIXRES+4,@Buf,4);
+  RWV(Read,Cst.CLIXRES+Cst.BCLIYRES,@Buf,4);
   Result:=Buf;
 end;
 procedure TUOVar.WriteCliYRes(Value : Cardinal);
 begin
-  RWV(Write,Cst.CLIXRES+4,@Value,4);
+  RWV(Write,Cst.CLIXRES+Cst.BCLIYRES,@Value,4);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

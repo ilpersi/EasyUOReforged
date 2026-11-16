@@ -22,6 +22,8 @@ RELATIVE = {
     'B_NEXTCX': ('C_NEXTCPOS', 1, 4),
     'B_TITHE': ('C_NEXTCPOS', 1, None),
     'B_CLITOP': ('C_CLILEFT', 1, 4),
+    'B_CLIYRES': ('C_CLIXRES', 1, 4),
+    'B_MACROIDX': ('E_MACROTAB', 1, 4),
     'B_TARGPROC': ('C_TARGETCURS', 1, None),
     'B_LANG': ('C_LHANDID', -1, None),
     'B_LTARGID': ('C_LHANDID', 1, 0x18),
