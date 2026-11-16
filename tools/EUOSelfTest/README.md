@@ -145,7 +145,7 @@ Never run: `event macro 20` (quit game), anything that logs out, closes or start
 | 5.21 | exevent GumpReply a button the gump lacks (this ModernUO gump counts it as not OKAY: aborted) |
 | 5.22 | exevent GumpReply with no such gump |
 | 5.23 | exevent GumpReply button 1 (deletes the two daggers) |
-| 5.24 | Your own click is recorded (#GumpReplyCnt): you click a button; SKIP in an unattended run |
+| 5.24 | Your own click is recorded (#GumpReplyCnt): the panel asks you to click a button in the game, then Pass; SKIP in an unattended run |
 | 6.01 | target and a skill's cursor |
 | 6.02 | Writing #TargCurs installs a target handler |
 | 6.03 | Test weapon made through the target cursor |

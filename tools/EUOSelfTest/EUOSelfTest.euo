@@ -4081,9 +4081,9 @@ sub st_c523
   gosub st_eq 5.23.closed the_client's_window_is_closed %fx_reply
 return
 
-; your own click is recorded: reading #GumpReplyCnt puts the click hook on the client; you click a button of a
-; server gump ([AddonGen's Cancel with Administrator staff commands, any gump otherwise); #GumpReplyCnt goes up
-; and #GumpReply holds the answer (for [AddonGen: its type ID, then button 0)
+; your own click is recorded: reading #GumpReplyCnt puts the click hook on the client; the panel asks you to click
+; a button of a server gump ([AddonGen's Cancel with Administrator staff commands, any gump otherwise) and press
+; Pass; #GumpReplyCnt went up and #GumpReply holds the answer (for [AddonGen: its type ID, then button 0)
 sub st_c524
   gosub st_case 5.24 Your_own_click_is_recorded_(#GumpReplyCnt)
   if %st_run = 0
@@ -4120,15 +4120,25 @@ sub st_c524
       }
       set %st_grn %st_grn + 1
     until %st_grt <> N/A || %st_grn > 12
-    set %st_say Click_Cancel_in_the_Addon_Script_Generator_(2_minutes).
+    set %st_prompt The_script_opened_the_Addon_Script_Generator_([AddonGen).$
+      +$In_the_game,_click_its_Cancel_button_yourself,_then_press_Pass_here.$
+      +$Skip_=_you_can't_(for_example,_no_gump_appeared).
   }
   else
-    set %st_say Open_a_gump_the_server_sends_and_click_one_of_its_buttons_(2_minutes).
-  log NOW: %st_say
-  event sysmessage %st_say
-  set %st_t #SCnt + 120
+    set %st_prompt In_the_game,_open_a_gump_the_server_sends_(a_menu,_a_quest_window)_and_click_one_of_its$
+      +_buttons_yourself,_then_press_Pass_here.$Skip_=_you_have_no_such_gump_at_hand.
+  gosub st_confirm
+  if %st_ans = STOP
+    return
+  if %st_go = 0
+  {
+    gosub st_skip 5.24 your_click you_pressed_Skip
+    return
+  }
+  ; the answer goes out with the click: give the hook's count a moment to show it
+  set %st_t #SCnt + 3
   repeat
-    wait 5
+    wait 2
   until #GumpReplyCnt <> %st_gn0 || #SCnt > %st_t
   set %st_a %st_gn0 , _then_ , #GumpReplyCnt
   set %st_c #GumpReplyCnt = %st_gn0 + 1
@@ -4248,8 +4258,11 @@ sub st_c602
   set %st_a #TargCurs
   set %st_e 1
   gosub st_eq 6.02.up set_#TargCurs_1_reads_back_1 %fx_targw
-  ; a click sent by the script does not answer this cursor (live on 7.0.117.33): you click
-  set %st_prompt The_script_shows_a_target_cursor:_click_any_item_in_your_backpack_with_it,_then_press_Pass.$
+  ; a click sent by the script does not answer this cursor (live on 7.0.117.33): you click. The client may draw
+  ; the target only while the mouse is over its window: on client_beta 7.0.118.132 it once looked missing while
+  ; the client was in target mode and took the click (tests/tools/TargCursProbe.euo, 2026-11-16)
+  set %st_prompt The_client_is_now_waiting_for_a_target:_move_the_mouse_into_the_game_window_and_click_any
+    +_item_in_your_backpack,_then_press_Pass.$
     +$Skip_=_you_can't.
   gosub st_confirm
   if %st_go = 0
