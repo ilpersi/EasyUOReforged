@@ -5843,9 +5843,50 @@ SysVarModernAddrs_6AD6CEB3 : array[0..9] of TSysVarList = (
   (Expr: LISTEND;     Val: 0)
 );
 
-ModernBuilds : array[0..1] of TModernBuild = (
+// The 7.0.118.132 beta, PE stamp $6AE4B775 (seen on 2026-11-15). As for the one above, every C_*/E_*
+// address comes from ScannerTable_Modern at runtime: an emulation of that scan over this exe finds all 48
+// fields, and they equal EUOMigrate's migration of it (C_ENEMYHITS aside: the scan's $D22118 is the
+// migration's runner-up). This build rearranged the "last action" cluster around C_LHANDID ($B980D8), so
+// SysVarModernLayout's distances there do not hold. Each value below was read from this build's code:
+//   B_LANG, B_LSPELL, B_LSKILL, B_LTARGX, B_LTARGID, B_LTARGTILE, B_NEXTCX, B_TITHE, B_TARGPROC: EUOMigrate's
+//               distances between two globals (the global located like the one in the older betas);
+//               B_NEXTCX checked by hand: the container code ($586F7F) pushes [$978ECC] as the gump's X and
+//               [$978F4C] (C_NEXTCPOS) as its Y, and $5795FF sets both to 16
+//   B_LTARGKIND the only place that stores 1, 2 and 3 near the cluster: $B980EC = C_LHANDID + $14
+//   B_LHAND / B_RHAND  the arm/disarm macro ($5AF300) reads and writes [hand*4 + $B980D0], hand 1 or 2: the
+//               left hand at C_LHANDID - 4, the right one at C_LHANDID itself (B_RHAND 0: 4 after B_LHAND,
+//               see TCstDB.BRHAND)
+//   B_LLIFTEDTYPE / B_LLIFTEDKIND  the pick-up function ($5E4810, E_DRAGADDR) stores the id at C_LLIFTEDID
+//               ($BCA790), the type word [item+$70] at + $18 and the amount at + $10, and sets the dword at
+//               + $1C to 1; the macro executor tests that dword 16 times, as .31's tests its own
+//   B_FINDREP   the notoriety is still the dword at object + $32C (7 reads next to a division by 100),
+//               id + $214 as on .31
+// EUOMigrate's probe found the object, gump, status-name, buff-bar and journal layouts unchanged (2026-11-16).
+// The layout's C_LHANDID-relative values were what made #CliLang, #LTargetID/Kind, #LSkill, #RHandID,
+// #LLiftedKind/Type and moveitem misread on this build (self-test stage 6, 2026-11-16).
+SysVarModernAddrs_6AE4B775 : array[0..15] of TSysVarList = (
+  (Expr: B_LANG;      Val: $0000020C),   // $B97ECC = C_LHANDID - $20C
+  (Expr: B_LSPELL;    Val: $00000194),   // $B9826C
+  (Expr: B_LSKILL;    Val: $FFFFFE30),   // $B97F08
+  (Expr: B_LTARGX;    Val: $01588EB0),   // $2120F88
+  (Expr: B_LTARGID;   Val: $00000008),   // $B980E0
+  (Expr: B_LTARGTILE; Val: $00000018),   // $B980F0
+  (Expr: B_LTARGKIND; Val: $00000014),   // $B980EC: 1 object, 2 ground, 3 static
+  (Expr: B_LHAND;     Val: $FFFFFFFC),   // $B980D4: hand 1
+  (Expr: B_RHAND;     Val: $00000000),   // $B980D8: hand 2, 4 after the left one
+  (Expr: B_NEXTCX;    Val: $FFFFFF80),   // $978ECC: X, $80 before its Y
+  (Expr: B_TITHE;     Val: $FFFFFFFC),   // $978F48
+  (Expr: B_TARGPROC;  Val: $00003230),   // $B9CC6C
+  (Expr: B_LLIFTEDTYPE; Val: $FFFFFFE8), // $BCA7A8: the type sits $18 after the id
+  (Expr: B_LLIFTEDKIND; Val: $0000001C), // $BCA7AC: 1 while an item is on the cursor
+  (Expr: B_FINDREP;   Val: $00000214),   // object + $32C
+  (Expr: LISTEND;     Val: 0)
+);
+
+ModernBuilds : array[0..2] of TModernBuild = (
   (Stamp: $6AC94360; Layout: @SysVarModernLayout; Addrs: @SysVarModernAddrs),
-  (Stamp: $6AD6CEB3; Layout: @SysVarModernLayout; Addrs: @SysVarModernAddrs_6AD6CEB3)
+  (Stamp: $6AD6CEB3; Layout: @SysVarModernLayout; Addrs: @SysVarModernAddrs_6AD6CEB3),
+  (Stamp: $6AE4B775; Layout: @SysVarModernLayout; Addrs: @SysVarModernAddrs_6AE4B775)
 );
 
 // Runtime signature scan for the relocatable ("modern") builds. Mirrors
@@ -6488,7 +6529,9 @@ function TCstDB.FFLAGS : Cardinal; begin CS.BeginRead; try Result:=Values[F_FLAG
 function TCstDB.FSYSMSGDIRECT : Cardinal; begin CS.BeginRead; try Result:=Values[F_SYSMSGDIRECT]; finally CS.EndRead; end; end;
 function TCstDB.FPROPFAST : Cardinal; begin CS.BeginRead; try Result:=Values[F_PROPFAST]; finally CS.EndRead; end; end;
 function TCstDB.BLHAND : Cardinal; begin CS.BeginRead; try Result:=Values[B_LHAND]; if Result=0 then Result:=0; finally CS.EndRead; end; end;
-function TCstDB.BRHAND : Cardinal; begin CS.BeginRead; try Result:=Values[B_RHAND]; if Result=0 then Result:=4; finally CS.EndRead; end; end;
+// B_RHAND 0 = the slot after the left hand's: +4 on the builds that set neither (as in EasyUO), and +0 on
+// the 7.0.118.132 beta, whose left hand is at -4 (B_LHAND $FFFFFFFC, so the sum wraps to 0).
+function TCstDB.BRHAND : Cardinal; begin CS.BeginRead; try Result:=Values[B_RHAND]; if Result=0 then Result:=Cardinal(Int64(Values[B_LHAND])+4); finally CS.EndRead; end; end;
 function TCstDB.BPROPFLAG : Cardinal; begin CS.BeginRead; try Result:=Values[B_PROPFLAG]; if Result=0 then Result:=$CC; finally CS.EndRead; end; end;
 function TCstDB.FBLOCKINFOFAST : Cardinal; begin CS.BeginRead; try Result:=Values[F_BLOCKINFOFAST]; finally CS.EndRead; end; end;
 function TCstDB.FDRAGFASTCALL : Cardinal; begin CS.BeginRead; try Result:=Values[F_DRAGFASTCALL]; finally CS.EndRead; end; end;

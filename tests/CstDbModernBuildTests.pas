@@ -94,6 +94,7 @@ type
     procedure TestImageInfoReadsHeader;
     procedure TestKnownModernBuildGetsItsOwnAddresses;
     procedure TestNextBetaOverridesOnlyItsMovedDistances;
+    procedure TestBeta118132GetsItsRearrangedCluster;
     procedure TestUnknownModernBuildNeverInheritsFixedBaseAddresses;
     procedure TestFixedBaseBuildIsUntouched;
     procedure TestUnknownModernBuildFindsItsHookByScanning;
@@ -356,6 +357,42 @@ begin
   AssertEquals('skills: base values ("Show Real")', Cardinal($007EEB60), Cst.SKILLSPOS);
   AssertEquals('skills: values with bonuses sit BEFORE them', Cardinal($FFFFFF80), Cst.BSKILLDIST);
   AssertEquals('skills: caps', Cardinal($007EEA60), Cst.SKILLCAPS);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The 7.0.118.132 beta ($6AE4B775): its own distances in the last-action cluster and the lifted item, the
+// right hand 4 after the left one (at C_LHANDID itself), the rest from the layout and the scan.
+procedure TCstDbModernBuildTests.TestBeta118132GetsItsRearrangedCluster;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader($6AE4B775, $8140);
+  Cst.Update('7.0.118.132', PHnd);
+  AssertTrue('modern', Cst.ISMODERN);
+  AssertEquals('client language string', Cardinal($20C), Cst.BLANG);
+  AssertEquals('last spell', Cardinal($194), Cst.BLSPELL);
+  AssertEquals('last skill', Cardinal($FFFFFE30), Cst.BLSKILL);
+  AssertEquals('last target X/Y/Z', Cardinal($01588EB0), Cst.BLTARGX);
+  AssertEquals('last target id', Cardinal($8), Cst.BLTARGID);
+  AssertEquals('last target tile', Cardinal($18), Cst.BLTARGTILE);
+  AssertEquals('last target kind', Cardinal($14), Cst.BLTARGKIND);
+  AssertEquals('left hand before the base', Cardinal($FFFFFFFC), Cst.BLHAND);
+  AssertEquals('right hand at the base itself', Cardinal(0), Cst.BRHAND);
+  AssertEquals('next-container X $80 before its Y', Cardinal($FFFFFF80), Cst.BNEXTCX);
+  AssertEquals('tithing points', Cardinal($FFFFFFFC), Cst.BTITHE);
+  AssertEquals('target callback pointer', Cardinal($3230), Cst.BTARGPROC);
+  AssertEquals('lifted type $18 after the id', Cardinal($FFFFFFE8), Cst.BLLIFTEDTYPE);
+  AssertEquals('lifted flag', Cardinal($1C), Cst.BLLIFTEDKIND);
+  AssertEquals('notoriety at object + $32C', Cardinal($214), Cst.BFINDREP);
+  AssertEquals('B_ITEMID: layout', Cardinal($118), Cst.BITEMID);
+  AssertEquals('status gump name: layout', Cardinal($154), Cst.BSTATNAME);
+  AssertEquals('C_LHANDID is left to the scan', Cardinal(0), Cst.LHANDID);
+  // the other builds keep their right hand where it was
+  WriteHeader($6AD6CEB3, $8140);
+  Cst.Update('7.0.117.31', PHnd);
+  AssertEquals('.31: right hand from the layout', Cardinal($1C), Cst.BRHAND);
+  Cst.Update('7.0.117.1');
+  AssertEquals('fixed-base: right hand 4 after the left one, as in EasyUO', Cardinal(4), Cst.BRHAND);
+  AssertEquals('fixed-base: left hand at the base', Cardinal(0), Cst.BLHAND);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
