@@ -54,7 +54,7 @@
 ; ============================================================================
 menu Reforge Mode 1.6
 ; this file's revision, in the report header: raise it with every change, so a report shows which copy ran
-set %st_rev 2026.11.18.1
+set %st_rev 2026.11.18.2
 
 ; ---------------------------------------------------------------------------
 ;  DEVELOPER SWITCHES (no game values here: the script finds or asks for them)
@@ -259,9 +259,8 @@ sub st_init
   ; speech pacing (st_pace): how fast the client's spam meter really drains, in characters a second.
   ; Its SpamLimit option says 30, but the drain runs in the game tick (76 ms or more) and rounds down:
   ; 20 to 26 on client.exe 7.0.117.33, 13 or less on client_beta 7.0.117.31, where two tick functions
-  ; drain it on their own timers. The pace slows down by itself if the client still queues a line
-  set %st_prate 12
-  set %st_pmax 10
+  ; drain it on their own timers. The pace (%st_prate) and the margin (%st_pmax) come from Settings
+  ; (st_pace_start); the pace slows down by itself if the client still queues a line
   set %st_spamhits 0
   set %st_pm 0
   set %st_plast #SCnt2
@@ -338,16 +337,19 @@ sub st_opts_load
   set %st_opt_vendor 0
   set %st_opt_pets 0
   set %st_opt_buffs 0
+  set %st_opt_pace 12
+  set %st_opt_margin 10
   set %st_opt_saved 0
   set %st_opt_forgot
   if %st_db = 1
   {
     sql load %st_opt_forgot
-    sql load %st_opt_panelx %st_opt_panely %st_opt_rptdir %st_opt_stages %st_opt_combat %st_opt_vendor %st_opt_pets %st_opt_buffs
+    sql load %st_opt_panelx %st_opt_panely %st_opt_rptdir %st_opt_stages %st_opt_combat %st_opt_vendor %st_opt_pets %st_opt_buffs %st_opt_pace %st_opt_margin
     if #SqlChanges > 0
       set %st_opt_saved 1
   }
   gosub st_shard_load
+  gosub st_pace_start
 return
 
 ; shard options: one row per #Shard
@@ -382,7 +384,7 @@ return
 sub st_opts_save
   if %st_db = 0
     return
-  sql save %st_opt_panelx %st_opt_panely %st_opt_rptdir %st_opt_stages %st_opt_combat %st_opt_vendor %st_opt_pets %st_opt_buffs
+  sql save %st_opt_panelx %st_opt_panely %st_opt_rptdir %st_opt_stages %st_opt_combat %st_opt_vendor %st_opt_pets %st_opt_buffs %st_opt_pace %st_opt_margin
   sql exec INSERT OR REPLACE INTO shards(shard, staff, prefix, x, y, z, facet) VALUES(%st_shard, %st_opt_staff, %st_opt_pfx, %st_opt_x, %st_opt_y, %st_opt_z, %st_opt_facet)
   set %st_opt_saved 1
   set %st_opt_shardsaved 1
@@ -392,7 +394,7 @@ return
 sub st_opts_reset
   if %st_db = 1
   {
-    sql delete %st_opt_panelx %st_opt_panely %st_opt_rptdir %st_opt_stages %st_opt_combat %st_opt_vendor %st_opt_pets %st_opt_buffs
+    sql delete %st_opt_panelx %st_opt_panely %st_opt_rptdir %st_opt_stages %st_opt_combat %st_opt_vendor %st_opt_pets %st_opt_buffs %st_opt_pace %st_opt_margin
     sql exec DELETE FROM shards
   }
   gosub st_opts_load
@@ -462,6 +464,7 @@ sub st_run
   set %st_staff %st_opt_staff
   set %st_staffok 0
   set %st_pfx %st_opt_pfx
+  gosub st_pace_start
   ; what this run will do, for the progress bar
   set %st_total 0
   set %st_nrun 0
@@ -957,7 +960,7 @@ sub st_report_open
   gosub st_emit
   set %st_line - , #spc , date= , #Date , _time= , #Time
   gosub st_emit
-  set %st_line - , #spc , options:_staff= , %st_staff , _prefix= , %st_pfx , _spot= , %st_opt_x , / , %st_opt_y , / , %st_opt_z , _facet= , %st_opt_facet
+  set %st_line - , #spc , options:_staff= , %st_staff , _prefix= , %st_pfx , _spot= , %st_opt_x , / , %st_opt_y , / , %st_opt_z , _facet= , %st_opt_facet , _speech_pace= , %st_prate , _margin= , %st_pmax
   gosub st_emit
   set %st_line - , #spc , stages= , %st_sel , _from= , %st_from , _one_check= , %st_only , _run= , %st_runid
   gosub st_emit
@@ -7123,20 +7126,30 @@ sub st_staff
   log staff: %st_sc
   msg %st_sc , $
   wait 10
-  ; the client still queued it: slow down (a third slower each time, 4 characters a second at least)
+  ; the client still queued it: slow down (a third slower each time, to 4 characters a second, never
+  ; faster than it was: a pace set below 4 stays)
   if %ST_FAST = 0
   {
     findjournal %st_sj * 0 Spam_detected
     if #JFound > 0
     {
       set %st_spamhits %st_spamhits + 1
-      set %st_prate %st_prate * 2
-      set %st_prate %st_prate / 3
-      if %st_prate < 4
-        set %st_prate 4
+      set %st_pslow %st_prate * 2
+      set %st_pslow %st_pslow / 3
+      if %st_pslow < 4
+        set %st_pslow 4
+      if %st_pslow < %st_prate
+        set %st_prate %st_pslow
       log the client queued a staff command: speech pace now %st_prate characters a second
     }
   }
+return
+
+; each run starts at the pace and the margin of Settings, with no queued line counted yet
+sub st_pace_start
+  set %st_prate %st_opt_pace
+  set %st_pmax %st_opt_margin
+  set %st_spamhits 0
 return
 
 ; Waits until the client will send the line %st_say at once, then counts it. The client sends speech at
@@ -7148,24 +7161,25 @@ return
 ; too fast for it. Read from client.exe 7.0.117.33 ($5AB120 the test, $5AB140 the count, $5AF830 the
 ; drain, called from the game tick $5AFE60); client_beta has the same message. The script keeps its own
 ; copy of the meter at the slowest drain (%st_prate) and stays well below the limit (%st_pmax), as the
-; player may speak too.
+; player may speak too. %st_pm counts tenths of a character, so the drain of each 0.1 s step is exact:
+; rounded down to whole characters, a pace of 8 or 5 drained about 4 a second and a pace of 4 none.
 sub st_pace
   if %ST_FAST = 1
     return
   str len %st_say
-  set %st_plen #StrRes
+  set %st_plen #StrRes * 10
+  set %st_pcap %st_pmax * 10
   repeat
     set %st_pnow #SCnt2
     set %st_pd %st_pnow - %st_plast
     set %st_pd %st_pd * %st_prate
-    set %st_pd %st_pd / 10
     set %st_pm %st_pm - %st_pd
     if %st_pm < 0
       set %st_pm 0
     set %st_plast %st_pnow
-    if %st_pm > %st_pmax
+    if %st_pm > %st_pcap
       wait 2
-  until %st_pm <= %st_pmax
+  until %st_pm <= %st_pcap
   set %st_pm %st_pm + %st_plen
 return
 
@@ -8436,7 +8450,7 @@ sub st_settings
   gosub st_shard_load
   menu Clear
   menu Window Title EUO SelfTest - settings
-  menu Window Size 560 470
+  menu Window Size 560 510
   menu Font Size 9
   set %st_t Shard:_ , %st_shard , ._These_three_lines_are_kept_for_this_shard.
   str replace %st_t _ #spc
@@ -8476,9 +8490,18 @@ sub st_settings
   if %st_opt_buffs = 1
     set %st_chk #true
   menu Check st_so12 30 318 500 20 %st_chk 12. Buffs - casts Bless and Protection, or asks you for buffs
-  menu Button st_ssave 10 420 120 30 Save
-  menu Button st_scancel 140 420 120 30 Cancel
-  menu Button st_sreset 400 420 150 30 Reset options
+  menu Text st_l8 10 356 Speech pace (characters a second):
+  menu Edit st_space 215 353 40 %st_opt_pace
+  menu Text st_l9 275 356 Margin (spam meter at most):
+  menu Edit st_smargin 445 353 40 %st_opt_margin
+  menu Text st_l10 30 382 The client holds a line back while its spam meter is above 30. Each line adds its length.
+  menu Text st_l11 30 400 The meter drains about 20 a second on client.exe, 13 or less on client_beta. Default: 12 and 10.
+  menu Text st_lerr 10 428 -
+  menu SetProp st_lerr fontcolor $0000C0
+  menu SetProp st_lerr visible #false
+  menu Button st_ssave 10 460 120 30 Save
+  menu Button st_scancel 140 460 120 30 Cancel
+  menu Button st_sreset 400 460 150 30 Reset options
   menu Show
   set %st_sdone 0
   while %st_sdone = 0
@@ -8494,8 +8517,39 @@ sub st_settings
       menu Set st_sz #CharPosZ
       menu Set st_sf #CursKind
     }
+    ; the pace and the margin must be whole numbers (a pace of 0 would never let a line through):
+    ; anything else keeps the window open, with the reason in red
+    set %st_serr
     if %st_pb = st_ssave
     {
+      menu Get st_space
+      set %st_spv #MenuRes
+      set %st_spn %st_spv + 0
+      set %st_sa %st_spn , x
+      set %st_sb %st_spv , x
+      if %st_sa <> %st_sb || %st_spn < 1
+        set %st_serr The_speech_pace_must_be_a_whole_number,_1_or_more.
+      menu Get st_smargin
+      set %st_smv #MenuRes
+      set %st_smn %st_smv + 0
+      set %st_sa %st_smn , x
+      set %st_sb %st_smv , x
+      if %st_sa <> %st_sb || %st_smn < 0
+        set %st_serr %st_serr , _The_margin_must_be_a_whole_number,_0_or_more.
+      str len %st_serr
+      if #StrRes > 0
+      {
+        str trim %st_serr
+        str replace #StrRes _ #spc
+        menu SetProp st_lerr text #StrRes
+        menu SetProp st_lerr visible #true
+        set %st_pb none
+      }
+    }
+    if %st_pb = st_ssave
+    {
+      set %st_opt_pace %st_spn
+      set %st_opt_margin %st_smn
       menu Get st_sstaff
       set %st_opt_staff 0
       if #MenuRes = #true

@@ -17,7 +17,8 @@ animation, a text over a head.
    works: without staff commands the script asks you to prepare things, or skips the checks that need them.
 2. In EasyUO Reforged open `tools\EUOSelfTest\EUOSelfTest.euo` in a tab and press **Play**.
 3. The first time, *Settings* opens: staff commands on or off and their prefix, the test spot, where the
-   panel goes, the report folder, and the opt-in stages. *Use where I stand* fills in the test spot.
+   panel goes, the report folder, the opt-in stages, and the speech pace and margin (see
+   [Notes for authors](#notes-for-authors)). *Use where I stand* fills in the test spot.
 4. The main window lists the stages. Tick the ones to run and press **Run selected** (or **Run all**).
 5. While it runs, a small always-on-top panel shows the check, the stage, two progress bars (the whole run
    and the stage, each with its percent) and the counts. It asks the HUMAN questions with **Pass**, **Fail** (then an optional
@@ -214,7 +215,7 @@ offers no resume and no clean-up after a crash. The unattended dry run uses `:me
 
 | Table | Holds |
 |---|---|
-| `euo_vars` (`sql save` / `sql load`) | Options that are the same on every shard, named `%st_opt_...`: panel position, report folder, the stages last selected, the four opt-in stages, and the clean-up rows you chose to forget (written into the next report, then cleared). |
+| `euo_vars` (`sql save` / `sql load`) | Options that are the same on every shard, named `%st_opt_...`: panel position, report folder, the stages last selected, the four opt-in stages, the speech pace and margin, and the clean-up rows you chose to forget (written into the next report, then cleared). |
 | `shards` | One row per `#Shard`: `staff` (0/1), `prefix`, the test spot `x`, `y`, `z`, `facet` (as `#CursKind`). |
 | `runs` | One row per run: `started` (`#SysTime`), `shard`, `charid`, `cliver`, `stages`, `last_stage`, `state` (`running`, `finished`, `stopped`). A row still `running` at the next start crashed. |
 | `cleanup` | What a run created or changed: `run`, `kind` (`created` / `changed`), `target`, `detail` (how to undo it), `old_value`, `done`. A changed value is written **before** the change, a created object right after `finditem` finds it. |
@@ -537,9 +538,14 @@ database, so a run that crashes leaves no clean-up rows behind: to keep them, ma
   reaches the `SpamLimit` option (30 by default; each line adds its length, and the meter drains by 30 a
   second, but only in the game tick and rounded down: 20 to 26 a second on client.exe 7.0.117.33, 13 or less
   on client_beta 7.0.117.31, whose two tick functions both run the drain), and a queued staff command answers
-  late ("[Spam detected, speech queued for N seconds]"). The script paces at 12 characters a second and slows
-  down by itself when the client still queues a staff command; the SUMMARY says how often
-  (`speech_queued_by_the_client`). A long clean-up takes a few minutes. A new `msg` or speech macro needs the same call. The clean-up
+  late ("[Spam detected, speech queued for N seconds]"). The script keeps its own copy of the meter, in tenths
+  of a character so that a slow pace drains exactly, and speaks only while that copy is at most the *Margin*
+  of *Settings* (10 by default: the rest of the 30 is left for you). The copy drains at the *Speech pace*
+  (12 characters a second by default; every run starts at it). When the client still queues a staff command
+  the pace slows down by a third, to 4 at the slowest (a pace set below 4 stays). The report header shows the
+  pace and margin used, the SUMMARY how often the client queued a line (`speech_queued_by_the_client`) and
+  the pace at the end. A pace above the client's real drain only makes the client queue: client.exe takes
+  up to 20, client_beta 12 or less. A long clean-up takes a few minutes. A new `msg` or speech macro needs the same call. The clean-up
   reads every staff-set value back: with speech queued, an earlier command's "Property has been set" had
   passed for the restore.
 - Keep each staff command short: the client cut a 104-character line (`[serial ... set` with three
