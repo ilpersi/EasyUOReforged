@@ -32,7 +32,8 @@
 ;    Underscores stand for spaces. fields = the uoclidata.pas fields the
 ;    check depends on. Check IDs are stable: a new check gets a new ID and a
 ;    removed one is never reused, so two reports line up. The report ends
-;    with a summary by table field: the list of what to fix.
+;    with a summary by table field: the list of what to fix. Each line is
+;    written to the file with logfile the moment it is recorded.
 ;
 ;  NEVER RUN BY THIS SCRIPT
 ;    event macro 20 (quit game), anything that logs out, closes or starts a
@@ -53,7 +54,7 @@
 ; ============================================================================
 menu Reforge Mode 1.6
 ; this file's revision, in the report header: raise it with every change, so a report shows which copy ran
-set %st_rev 2026.11.16.7
+set %st_rev 2026.11.18.1
 
 ; ---------------------------------------------------------------------------
 ;  DEVELOPER SWITCHES (no game values here: the script finds or asks for them)
@@ -432,8 +433,6 @@ sub st_run
   }
   set %st_flist
   set %st_rlog
-  set %st_pend
-  set %st_pendn 0
   set %st_rpt 0
   set %st_sim 0
   set %st_askoff none
@@ -506,7 +505,6 @@ sub st_run
         gosub st_stage_run %st_s
       if %st_db = 1
         sql exec UPDATE runs SET last_stage = %st_s WHERE id = %st_runid
-      gosub st_flush
     }
   }
   ; clean up, then the report
@@ -600,9 +598,6 @@ sub st_case
   ; a client that left the game (connection lost, logged out) would fail every later check
   if %st_scur >= 2 && #CliLogged = 0
     gosub st_do_stop the_client_left_the_game_(CliLogged_is_0)
-  ; event hook stages: write the report first, so a crash loses at most this check
-  if %st_scur >= 5
-    gosub st_flush
   set %st_done %st_done + 1
   set %st_sdone %st_sdone + 1
   gosub st_pan_case
@@ -857,7 +852,10 @@ sub st_fieldstat
   }
 return
 
-; ---- st_san: %st_in -> %st_out, safe for cmd.exe echo and one line ---------
+; ---- st_san: %st_in -> %st_out, in the report's look -----------------------
+;  No spaces (the fields are joined with _), none of & | < > ^ " % ( ) ! ;
+;  (the report kept the look it had when cmd.exe echo wrote it, so old and new
+;  reports compare line for line), one line, at most 80 characters.
 sub st_san
   set %st_out %st_in
   str len %st_out
@@ -916,9 +914,28 @@ sub st_report_open
   if #StrRes <> \
     set %st_rdir %st_rdir , \
   set %st_rpath %st_rdir , %st_rname
-  set %st_rtgt >> , %st_q , %st_rpath , %st_q
+  ; the default folder by the bare name: under EUOCli run a file must be a relative name in its folder
+  set %st_rfile %st_rpath
+  set %st_cp #CurPath
+  str right %st_cp 1
+  if #StrRes <> \
+    set %st_cp %st_cp , \
+  if %st_rdir = %st_cp
+    set %st_rfile %st_rname
+  ; %st_rerr: why the file was not written (empty = it was); %st_rcut 1: a write failed during the run
+  set %st_rerr
+  set %st_rcut 0
   if %ST_REPORT = 1
-    set %st_rok 1
+  {
+    logfile open st_report %st_rfile append
+    if #LogRes = OK
+      set %st_rok 1
+    else
+    {
+      set %st_rerr #LogRes
+      log Report not written: %st_rerr
+    }
+  }
   ; header
   set %st_line **EUO_SelfTest_report**
   gosub st_emit
@@ -968,27 +985,22 @@ sub st_report_open
   gosub st_emit
 return
 
-; in %st_line: one report line, already safe (no spaces, no cmd characters)
+; in %st_line: one report line, in the report's look (st_san). It goes to the Output panel, the
+; report window and the file; logfile write puts it on disk at once, so a crash of the client loses nothing
 sub st_emit
   log %st_line
   set %st_rlog %st_rlog , %st_line , $
   if %st_rok = 1
   {
-    set %st_pend %st_pend , %st_rtgt , #spc , echo , #spc , %st_line , &
-    set %st_pendn %st_pendn + 1
-    if %st_pendn >= 20
-      gosub st_flush
-  }
-return
-
-; writes what is pending (the end of every stage, and before every hook check)
-sub st_flush
-  if %st_pendn > 0
-  {
-    set %st_pend %st_pend , rem
-    execute cmd.exe /c , #spc , %st_pend
-    set %st_pend
-    set %st_pendn 0
+    logfile write st_report %st_line
+    if #LogRes <> OK
+    {
+      ; the file ends here: no later line, so it has no gap
+      set %st_rok 0
+      set %st_rcut 1
+      set %st_rerr #LogRes
+      log Report file incomplete from here: %st_rerr
+    }
   }
 return
 
@@ -1067,10 +1079,24 @@ sub st_finish
       gosub st_emit
     }
   }
-  gosub st_flush
-  set %st_sum EUO_SelfTest:_ , %st_n_pass , _pass,_ , %st_n_fail , _fail,_ , %st_n_note , _note,_ , %st_n_skip , _skip
   if %st_rok = 1
-    set %st_sum %st_sum , $Report:_ , %st_rpath
+    logfile close st_report
+  set %st_sum EUO_SelfTest:_ , %st_n_pass , _pass,_ , %st_n_fail , _fail,_ , %st_n_note , _note,_ , %st_n_skip , _skip
+  if %ST_REPORT = 1
+  {
+    if %st_rok = 1
+      set %st_sum %st_sum , $Report:_ , %st_rpath
+    else
+    {
+      ; the reason keeps its full length: st_san would cut the end Windows gives
+      str replace %st_rerr #spc _
+      set %st_rwhy #StrRes
+      if %st_rcut = 1
+        set %st_sum %st_sum , $Report_incomplete:_ , %st_rpath , _-_ , %st_rwhy
+      else
+        set %st_sum %st_sum , $Report_not_written:_ , %st_rwhy
+    }
+  }
   log %st_sum
 return
 
@@ -1110,7 +1136,6 @@ sub st_ask
     set %st_ans STOP
     return
   }
-  gosub st_flush
   ; after Repeat the step ran again: say so, or the same question looks like nothing happened
   if %st_rpt = 1
     set %st_prompt Again_(you_pressed_Repeat):$ , %st_prompt
@@ -7062,7 +7087,7 @@ sub st_hook_warn
   set %st_hookwarned 1
   set %st_prompt The_next_checks_run_client_code_through_the_EVENT_HOOK_(event,_exevent,_event_macro,_path).$
     +$If_an_E_value_in_uoclidata.pas_is_wrong_for_this_client,_the_client_can_FREEZE_or_CRASH.
-    +_The_report_is_written_before_every_check,_so_a_crash_loses_at_most_that_check,
+    +_Every_report_line_is_in_the_file_at_once,_so_a_crash_loses_nothing_already_checked,
     +_and_the_next_run_offers_to_resume_and_to_clean_up.$$Pass_=_go_on,_Stop_=_end_the_run_here.
   gosub st_pan_hold
   set %st_pmsg Event_hook_stages:_hands_off_the_keyboard_and_mouse.

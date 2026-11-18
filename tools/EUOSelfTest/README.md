@@ -61,9 +61,9 @@ From stage 2 on, a run also stops when the client leaves the game during it (`#C
 connection was lost, or you logged out): every check after that would fail for that reason alone.
 
 **Before the first event-hook stage** the panel warns that a wrong `E_` value can freeze or crash the client,
-and waits for you. From there on the report is written before every check, so a crash loses at most that
-check; the database remembers the last finished stage, and the next start offers **Resume from stage N**
-and the clean-up of what the crashed run left.
+and waits for you. Every report line is in the file the moment it is recorded, so a crash of the client
+loses nothing already checked; the database remembers the last finished stage, and the next start offers
+**Resume from stage N** and the clean-up of what the crashed run left.
 
 Never run: `event macro 20` (quit game), anything that logs out, closes or starts a client, `shutdown`,
 `terminate`, `uoXL new`, `send`. `uoXL swap` runs only when two clients are running (2.16).
@@ -292,9 +292,15 @@ Switch *Use staff commands* off in *Settings*. Then:
 ## The report
 
 `selftest-<ReforgedVer>-<client version>-<date>-<time>.md` in the report folder (default: next to
-`EasyUOReforged.exe`; `selftest-*.md` is git-ignored). It is written through `execute` (batched
-`cmd /c echo` lines, so a console window flashes) at the end of every stage and, in the event-hook stages,
-before every check. Every line also goes to the Output panel with `log`.
+`EasyUOReforged.exe`; `selftest-*.md` is git-ignored). It is written with `logfile`: one `logfile write` per
+line, on disk at once, with no console window and no wait. Every line also goes to the Output panel with `log`.
+The default folder is opened by the bare file name, so under `EUOCli run` the report goes next to `EUOCli.exe`;
+any other folder needs `--allow logfile` there.
+
+If the file can't be opened (a folder that can't be made or written to), the run still goes on: the last
+line and the report window say `Report not written:` and why (`#LogRes`). If a write fails during the run,
+the file stops at that line and they say `Report incomplete:`, with the reason. The report window always
+holds every line.
 
 The header holds `#ReforgedVer` and the script's own revision (`script=`, the `%st_rev` line at its top:
 raise it with every change), `#CliVer`, the shard, the character, date and time, the options and the stages
@@ -479,13 +485,14 @@ The `set` lines at the top of the script are developer switches, not options:
 |---|---|
 | `%ST_UNATTENDED 1` | No windows; every HUMAN check is answered SKIP; `:memory:` database. |
 | `%ST_SIM_REPEAT 1` | With `ST_UNATTENDED`: every HUMAN check is answered Repeat once, then Pass. |
-| `%ST_REPORT 0` | No report file (`execute` is not used); every line still goes to `log`. |
+| `%ST_REPORT 0` | No report file; every line still goes to `log`. |
 | `%ST_NOSTOP 1` | Go on after stage 1 fails, to walk every stage without a client. |
 | `%ST_FAST 1` | Every wait and timeout is 0. |
 | `%ST_STAGES` | The stages an unattended run runs, one digit per stage. |
 | `%ST_ONE_CHECK` | An unattended run of one check (`4.12`). |
 
-A dry run without a client, from a copy with `ST_UNATTENDED 1` and `ST_REPORT 0`, must end with `halt`:
+A dry run without a client, from a copy with `ST_UNATTENDED 1` (with `ST_REPORT 1` the report goes next to
+`EUOCli.exe`; `0` writes none), must end with `halt`:
 
     EUOCli check tools\EUOSelfTest\EUOSelfTest.euo --strict
     EUOCli run <the copy> --timeout 120
@@ -494,12 +501,12 @@ It stops after stage 1, as it must with no client. With `ST_NOSTOP 1`, `ST_FAST 
 111111111111` it walks every stage (about 35 s) and logs a `DEV:` line if a stage's check count in
 `st_counts` is out of date: the progress bar's total comes from that table.
 
-One stage on a client, while you fix a table value: a copy with `ST_UNATTENDED 1`, `ST_REPORT 0` (so it needs
-no `execute`) and `ST_STAGES` set to that stage (`000100000000` for stage 4), run on the client:
+One stage on a client, while you fix a table value: a copy with `ST_UNATTENDED 1` and `ST_STAGES` set to that
+stage (`000100000000` for stage 4), run on the client:
 
     EUOCli run <the copy> --client 1 --timeout 600
 
-The report lines come out as `log` lines, and the HUMAN checks are SKIPs. The copy uses a `:memory:`
+The report lines come out as `log` lines and in the report next to `EUOCli.exe`, and the HUMAN checks are SKIPs. The copy uses a `:memory:`
 database, so a run that crashes leaves no clean-up rows behind: to keep them, make its `sql open` open
 `EUOSelfTest.db`.
 
