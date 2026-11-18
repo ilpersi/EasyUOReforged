@@ -54,7 +54,7 @@
 ; ============================================================================
 menu Reforge Mode 1.6
 ; this file's revision, in the report header: raise it with every change, so a report shows which copy ran
-set %st_rev 2026.11.18.2
+set %st_rev 2026.11.18.4
 
 ; ---------------------------------------------------------------------------
 ;  DEVELOPER SWITCHES (no game values here: the script finds or asks for them)
@@ -259,8 +259,8 @@ sub st_init
   ; speech pacing (st_pace): how fast the client's spam meter really drains, in characters a second.
   ; Its SpamLimit option says 30, but the drain runs in the game tick (76 ms or more) and rounds down:
   ; 20 to 26 on client.exe 7.0.117.33, 13 or less on client_beta 7.0.117.31, where two tick functions
-  ; drain it on their own timers. The pace (%st_prate) and the margin (%st_pmax) come from Settings
-  ; (st_pace_start); the pace slows down by itself if the client still queues a line
+  ; drain it on their own timers. The pace (%st_prate, 0 = off) and the margin (%st_pmax) come from
+  ; Settings (st_pace_start); the pace slows down by itself if the client still queues a line
   set %st_spamhits 0
   set %st_pm 0
   set %st_plast #SCnt2
@@ -960,7 +960,10 @@ sub st_report_open
   gosub st_emit
   set %st_line - , #spc , date= , #Date , _time= , #Time
   gosub st_emit
-  set %st_line - , #spc , options:_staff= , %st_staff , _prefix= , %st_pfx , _spot= , %st_opt_x , / , %st_opt_y , / , %st_opt_z , _facet= , %st_opt_facet , _speech_pace= , %st_prate , _margin= , %st_pmax
+  set %st_pshow %st_prate
+  if %st_prate = 0
+    set %st_pshow off
+  set %st_line - , #spc , options:_staff= , %st_staff , _prefix= , %st_pfx , _spot= , %st_opt_x , / , %st_opt_y , / , %st_opt_z , _facet= , %st_opt_facet , _speech_pace= , %st_pshow , _margin= , %st_pmax
   gosub st_emit
   set %st_line - , #spc , stages= , %st_sel , _from= , %st_from , _one_check= , %st_only , _run= , %st_runid
   gosub st_emit
@@ -1018,7 +1021,10 @@ sub st_finish
   set %st_line - , #spc , auto_checks= , %st_n_auto , _human_checks= , %st_n_human
   gosub st_emit
   ; how often the client queued a staff command for its spam limit (0 = the pace was right)
-  set %st_line - , #spc , speech_queued_by_the_client= , %st_spamhits , _pace_at_the_end= , %st_prate , _characters_a_second
+  set %st_pshow %st_prate , _characters_a_second
+  if %st_prate = 0
+    set %st_pshow off
+  set %st_line - , #spc , speech_queued_by_the_client= , %st_spamhits , _pace_at_the_end= , %st_pshow
   gosub st_emit
   str len %st_stopwhy
   if #StrRes > 0
@@ -7127,7 +7133,7 @@ sub st_staff
   msg %st_sc , $
   wait 10
   ; the client still queued it: slow down (a third slower each time, to 4 characters a second, never
-  ; faster than it was: a pace set below 4 stays)
+  ; faster than it was: a pace set below 4 stays, and with the pacing off, pace 0, it is only counted)
   if %ST_FAST = 0
   {
     findjournal %st_sj * 0 Spam_detected
@@ -7140,7 +7146,10 @@ sub st_staff
         set %st_pslow 4
       if %st_pslow < %st_prate
         set %st_prate %st_pslow
-      log the client queued a staff command: speech pace now %st_prate characters a second
+      if %st_prate = 0
+        log the client queued a staff command (speech pacing is off)
+      else
+        log the client queued a staff command: speech pace now %st_prate characters a second
     }
   }
 return
@@ -7163,8 +7172,9 @@ return
 ; copy of the meter at the slowest drain (%st_prate) and stays well below the limit (%st_pmax), as the
 ; player may speak too. %st_pm counts tenths of a character, so the drain of each 0.1 s step is exact:
 ; rounded down to whole characters, a pace of 8 or 5 drained about 4 a second and a pace of 4 none.
+; A pace of 0 (Settings) turns the pacing off: lines go out at once and the client's own limit decides.
 sub st_pace
-  if %ST_FAST = 1
+  if %ST_FAST = 1 || %st_prate = 0
     return
   str len %st_say
   set %st_plen #StrRes * 10
@@ -8450,7 +8460,7 @@ sub st_settings
   gosub st_shard_load
   menu Clear
   menu Window Title EUO SelfTest - settings
-  menu Window Size 560 510
+  menu Window Size 560 572
   menu Font Size 9
   set %st_t Shard:_ , %st_shard , ._These_three_lines_are_kept_for_this_shard.
   str replace %st_t _ #spc
@@ -8467,7 +8477,8 @@ sub st_settings
   menu Edit st_sz 330 87 40 %st_opt_z
   menu Edit st_sf 375 87 30 %st_opt_facet
   menu Button st_shere 415 84 135 28 Use where I stand
-  menu Text st_l4 30 118 Open ground with walkable tiles two steps east and south. Facet: 0 Fel, 1 Tram, 2 Ilsh, 3 Malas, 4 Tokuno, 5 Ter Mur.
+  menu Text st_l4 30 118 Open ground with walkable tiles two steps east and south.
+  menu Text st_l4b 30 135 Facet: 0 Fel, 1 Tram, 2 Ilsh, 3 Malas, 4 Tokuno, 5 Ter Mur.
   menu Text st_l5 10 160 Panel position  X / Y:
   menu Edit st_spx 160 157 60 %st_opt_panelx
   menu Edit st_spy 225 157 60 %st_opt_panely
@@ -8494,14 +8505,20 @@ sub st_settings
   menu Edit st_space 215 353 40 %st_opt_pace
   menu Text st_l9 275 356 Margin (spam meter at most):
   menu Edit st_smargin 445 353 40 %st_opt_margin
-  menu Text st_l10 30 382 The client holds a line back while its spam meter is above 30. Each line adds its length.
-  menu Text st_l11 30 400 The meter drains about 20 a second on client.exe, 13 or less on client_beta. Default: 12 and 10.
-  menu Text st_lerr 10 428 -
+  ; notes on the speech pacing (st_pace, and the slow-down in st_staff)
+  menu Text st_l10 30 380 The client holds a line back while its spam meter is above 30. Each line adds its length to it.
+  menu Text st_l11 30 397 The meter drains about 20 a second on client.exe, 13 or less on client_beta.
+  menu Text st_l12 30 414 Speech pace: how fast the script lets its own copy of the meter drain. Default 12.
+  menu Text st_l13 30 431 Margin: the script speaks only while its copy is at most this. The rest is left for you. Default 10.
+  menu Text st_l14 30 448 When the client still holds a staff command back, the pace drops by a third (4 at the lowest).
+  menu Text st_l15 30 465 Pace 0 turns the pacing off: every line goes out at once and only the client limit applies.
+  menu Text st_l16 30 482 The report shows the pace and margin used, and how many lines the client held back.
+  menu Text st_lerr 10 506 -
   menu SetProp st_lerr fontcolor $0000C0
   menu SetProp st_lerr visible #false
-  menu Button st_ssave 10 460 120 30 Save
-  menu Button st_scancel 140 460 120 30 Cancel
-  menu Button st_sreset 400 460 150 30 Reset options
+  menu Button st_ssave 10 532 120 30 Save
+  menu Button st_scancel 140 532 120 30 Cancel
+  menu Button st_sreset 400 532 150 30 Reset options
   menu Show
   set %st_sdone 0
   while %st_sdone = 0
@@ -8517,7 +8534,7 @@ sub st_settings
       menu Set st_sz #CharPosZ
       menu Set st_sf #CursKind
     }
-    ; the pace and the margin must be whole numbers (a pace of 0 would never let a line through):
+    ; the pace and the margin must be whole numbers (a pace of 0 turns the pacing off):
     ; anything else keeps the window open, with the reason in red
     set %st_serr
     if %st_pb = st_ssave
@@ -8527,15 +8544,15 @@ sub st_settings
       set %st_spn %st_spv + 0
       set %st_sa %st_spn , x
       set %st_sb %st_spv , x
-      if %st_sa <> %st_sb || %st_spn < 1
-        set %st_serr The_speech_pace_must_be_a_whole_number,_1_or_more.
+      if %st_sa <> %st_sb || %st_spn < 0
+        set %st_serr Speech_pace:_a_whole_number,_0_(off)_or_more.
       menu Get st_smargin
       set %st_smv #MenuRes
       set %st_smn %st_smv + 0
       set %st_sa %st_smn , x
       set %st_sb %st_smv , x
       if %st_sa <> %st_sb || %st_smn < 0
-        set %st_serr %st_serr , _The_margin_must_be_a_whole_number,_0_or_more.
+        set %st_serr %st_serr , _Margin:_a_whole_number,_0_or_more.
       str len %st_serr
       if #StrRes > 0
       {

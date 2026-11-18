@@ -542,8 +542,9 @@ database, so a run that crashes leaves no clean-up rows behind: to keep them, ma
   of a character so that a slow pace drains exactly, and speaks only while that copy is at most the *Margin*
   of *Settings* (10 by default: the rest of the 30 is left for you). The copy drains at the *Speech pace*
   (12 characters a second by default; every run starts at it). When the client still queues a staff command
-  the pace slows down by a third, to 4 at the slowest (a pace set below 4 stays). The report header shows the
-  pace and margin used, the SUMMARY how often the client queued a line (`speech_queued_by_the_client`) and
+  the pace slows down by a third, to 4 at the slowest (a pace set below 4 stays). A pace of 0 turns the
+  pacing off: every line goes out at once, the client's own limit decides, and queued lines are still
+  counted. The report header shows the pace (`off` for 0) and margin used, the SUMMARY how often the client queued a line (`speech_queued_by_the_client`) and
   the pace at the end. A pace above the client's real drain only makes the client queue: client.exe takes
   up to 20, client_beta 12 or less. A long clean-up takes a few minutes. A new `msg` or speech macro needs the same call. The clean-up
   reads every staff-set value back: with speech queued, an earlier command's "Property has been set" had
