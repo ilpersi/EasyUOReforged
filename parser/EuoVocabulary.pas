@@ -12,7 +12,7 @@ unit EuoVocabulary;
   STATLOCK's stats from uoevents.pas's ExEv_StatLock), plus the MENU words only the 1.6 logic
   has (TMenu16.Run and its property table in EuoMenu16.pas) and MENU REFORGE's settings.
   tests\tools\CheckDocsCoverage.ps1 fails when the first-level words here (what may follow
-  EVENT, EXEVENT, MENU, NAMESPACE, STR, SQL, PATH) and the interpreter's drift apart; the
+  EVENT, EXEVENT, MENU, NAMESPACE, STR, SQL, PATH, LOGFILE) and the interpreter's drift apart; the
   deeper rows are not read off the source, so nothing checks them.
 
   Left out on purpose: menu Test (an empty debug hook) and event Sleep (not implemented).
@@ -29,7 +29,7 @@ const
   // 'KEY=WORDS': the words that may follow KEY, the words before them on the line
   // ('MENU FONT=...' is what may follow "menu font"). A '*' in KEY stands for any one word
   // (a skill name, a namespace pattern).
-  EuoSubCommands : array[0..37] of String = (
+  EuoSubCommands : array[0..44] of String = (
     'DISPLAY=OK OKCANCEL YESNO YESNOCANCEL',
     'EVENT=CONTTOP DRAG EXMSG MACRO PATHFIND PROPERTY SKILLLOCK STATBAR SYSMESSAGE',
     'EVENT SKILLLOCK *=DOWN LOCKED UP',
@@ -39,6 +39,13 @@ const
     'EXEVENT STATLOCK *=DOWN LOCKED UP',
     'IGNORECONT=RESET',
     'IGNOREITEM=RESET',
+    'LOGFILE=CLOSE DEBUG ERROR INFO LEVEL OPEN SET WARNING WRITE',
+    'LOGFILE LEVEL=DEBUG ERROR INFO OFF WARNING',
+    'LOGFILE OPEN * *=APPEND NEW',
+    'LOGFILE SET *=DAILY FORMAT LEVEL ROTATE',
+    'LOGFILE SET * DAILY=OFF',
+    'LOGFILE SET * FORMAT=DATE LEVEL LINE RAW SCRIPT TIME',
+    'LOGFILE SET * LEVEL=DEBUG ERROR INFO OFF WARNING',
     'MENU=ACTIVATE BUTTON CHECK CLEAR COMBO DELETE EDIT FONT FORM GET GETDEF GETNUM ' +
       'GETPROP HIDE HIDEEUO IMAGE LIST MEMO PANEL POPDEF PUSHDEF RADIO REFORGE SET ' +
       'SETDEF SETPROP SHAPE SHOW TEXT WINDOW',

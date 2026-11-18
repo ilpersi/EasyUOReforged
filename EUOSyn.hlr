@@ -65,6 +65,8 @@
       <word value="IGNORECONT"/>
       <word value="IGNOREITEM"/>
       <word value="KEY"/>
+      <word value="LOG"/>
+      <word value="LOGFILE"/>
       <word value="MENU"/>
       <word value="MOVE"/>
       <word value="MOVEITEM"/>
@@ -194,6 +196,7 @@
       <word value="#LLIFTEDTYPE"/>
       <word value="#LOBJECTID"/>
       <word value="#LOBJECTTYPE"/>
+      <word value="#LOGRES"/>
       <word value="#LPC"/>
       <word value="#LSHARD"/>
       <word value="#LSKILL"/>

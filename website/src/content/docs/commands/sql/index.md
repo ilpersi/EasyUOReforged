@@ -59,7 +59,8 @@ you press Play on a stopped script, when a script is loaded into the tab, when t
 `sql open` / `sql close`.
 
 See [Using SQL](/guides/sql/) for how statements are written and how variables go in and out, and
-[SQL or * variables?](/guides/sql-or-persistent-variables/) for when to use `SQL` instead of `*` variables.
+[Keeping data between runs](/guides/persistence/) for when to use `SQL` instead of `*` variables or a
+settings file.
 
 ## Reforged notes
 

@@ -15,6 +15,12 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 
 ## New commands and variables
 
+- **[`LogFile`](/commands/logfile/)**: a logging system for scripts. Messages at a level (`debug`, `info`,
+  `warning`, `error`) go to the Output panel and to the files the script opens, each target with its own level
+  and line format (date, time, level, script, line, or the text alone); a file can start again by size or every
+  day. [`logfile write`](/commands/logfile/write/) writes a line exactly as given, so a script writes a
+  settings file of `set` lines and loads it back with `call`, instead of `execute cmd /c echo ... >> file`.
+  [`#LogRes`](/variables/logres/) says when a file can't be written.
 - **[`ScanGumps`](/commands/scangumps/)**: list every gump window open in the client, front to back, not only
   the one on top as the `#Cont…` variables do. [`#GumpIndex`](/variables/gumpindex/) walks the list; for each
   window it gives the name, position, size, graphic ([`#GumpArt`](/variables/gumpart/)), whether it is minimized,

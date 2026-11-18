@@ -12,7 +12,8 @@ uses
   EuoCommandRegistry, EuoStdCommands, EuoComm, EuoMenuCommon, EuoMenu, 
   EuoMenu16, EuoMenuSelect, EuoInterpreter, EuoBreakCondition, 
   EuoCallStackFormat, EuoExecutor, EuoSql, EuoBlocks, EuoScriptWords, 
-  EuoJumpTarget, EuoJournalSearch, EuoStrOps, EuoVocabulary, EuoLint, EuoItemMove, EuoGumps;
+  EuoJumpTarget, EuoJournalSearch, EuoStrOps, EuoVocabulary, EuoLint, 
+  EuoItemMove, EuoGumps, EuoLogFile;
 
 implementation
 

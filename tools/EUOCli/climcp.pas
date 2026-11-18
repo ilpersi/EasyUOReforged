@@ -595,12 +595,9 @@ begin
       for i:=0 to Allow.Count-1 do
       begin
         Allow[i]:=UpperCase(Allow[i]);
-        Known:=False;
-        for k:=Low(DefaultBlocked) to High(DefaultBlocked) do
-          if DefaultBlocked[k]=Allow[i] then Known:=True;
-        if not Known then
-          raise EMcpToolError.Create('"allow" takes execute, shutdown, terminate, uoxl or send; "'+
-            LowerCase(Allow[i])+'" is not a blocked command');
+        if not IsAllowWord(Allow[i]) then
+          raise EMcpToolError.Create('"allow" takes '+AllowWordsText+'; "'+
+            LowerCase(Allow[i])+'" is not one of them');
       end;
       if (Opt.ClientNr=0) and (Allow.Count=0) then
         raise EMcpToolError.Create('euo_run_live is for a run on a UO client ("client") or with a blocked '+
@@ -618,6 +615,9 @@ begin
       raise EMcpToolError.Create('"answer" is ok, yes, no or cancel');
     Opt.PauseEnds:=False;
     Opt.AllowHint:='it runs only with euo_run_live and "allow": ["%s"], after the user agreed';
+    Opt.ConfineFiles:=Allow.IndexOf(AllowFilesWord)<0;
+    Opt.ScriptName:='';
+    if Shown<>'<script>' then Opt.ScriptName:=ExtractFileName(Shown);
     Step:=ArgBool(Args,'step');
     Wait:=ArgNum(Args,'wait',5,0,McpMaxWait);
     ArgList(Args,'watch',Watch);
@@ -921,7 +921,7 @@ begin
   Result.Add(Tool('euo_run','Run a script without a UO client',
     'Runs a script on the real EasyUO engine with NO UO client: commands that need a client are skipped, '+
     'client variables read N/A, and nothing happens in the game. execute, shutdown, terminate, uoxl and send '+
-    'stop the run instead of running. Use it as often as you like to see whether the logic is right. The '+
+    'stop the run instead of running. logfile writes files only inside the EasyUO Reforged folder. Use it as often as you like to see whether the logic is right. The '+
     'answer says where the run is (state: ended, paused or running), why it ended (reason: halt is the good '+
     'one; restart means it has no halt; timeout; blocked; error), and its events: what the script wrote with '+
     'log, and what its display boxes would have shown. One script runs at a time.',
@@ -935,9 +935,10 @@ begin
     PropsScript+','+
     '"client":{"type":"integer","minimum":0,"description":"The number of the UO client to run on, as '+
       'euo_clients lists them. 0 or left out: no client."},'+
-    '"allow":{"type":"array","items":{"type":"string","enum":["execute","shutdown","terminate","uoxl","send"]},'+
+    '"allow":{"type":"array","items":{"type":"string","enum":["execute","shutdown","terminate","uoxl","send","logfile"]},'+
       '"description":"Blocked commands this run may use. They start programs, switch the computer off, close '+
-      'or start clients, and fetch a reply from the web and run it."},'+
+      'or start clients, and fetch a reply from the web and run it. logfile lets logfile open write files '+
+      'outside the EasyUO Reforged folder."},'+
     PropsRun,False,True,True));
   Result.Add(Tool('euo_status','Follow the running script',
     'Where the run is now, and the events since the last answer: log lines, display boxes, traced lines. '+

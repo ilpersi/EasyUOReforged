@@ -15,6 +15,7 @@
 #                       must say which logics have it (see "MENU: which logic has it" below)
 #   namespace / sql X   commands\namespace\x.md, commands\sql\x.md
 #   path X              commands\path\x.md
+#   logfile X           commands\logfile\x.md
 #   str X               mentioned on commands\str.md (one page documents every str operation)
 #   uo.dll members      dll\name.md - checked only once the dll\ section exists
 #
@@ -91,6 +92,7 @@ foreach ($e in $names.Menu)      { Need "menu $e"      (Test-PageTree "commands/
 foreach ($e in $names.NameSpace) { Need "namespace $e" (Test-Page "commands/namespace/$($e.ToLower())") }
 foreach ($e in $names.Sql)       { Need "sql $e"       (Test-Page "commands/sql/$($e.ToLower())") }
 foreach ($e in $names.Path)      { Need "path $e"      (Test-Page "commands/path/$($e.ToLower())") }
+foreach ($e in $names.LogFile)   { Need "logfile $e"   (Test-Page "commands/logfile/$($e.ToLower())") }
 $strText = if (Test-Page 'commands/str') { $pages['commands/str'].Text } else { '' }
 foreach ($e in $names.Str)       { Need "str $e"       ($strText -match "(?i)\bstr\s+$e\b") }
 $dllOn = Test-Path (Join-Path $Docs 'dll')
@@ -103,6 +105,7 @@ $lower = { param($list) @($list | ForEach-Object { $_.ToLower() }) }
 $families = @{
   event = & $lower $names.Events; exevent = & $lower $names.ExEvents; menu = & $lower $names.Menu
   namespace = & $lower $names.NameSpace; sql = & $lower $names.Sql; path = & $lower $names.Path
+  logfile = & $lower $names.LogFile
 }
 $vars = & $lower $names.Variables
 $cmds = & $lower $names.Commands
@@ -280,6 +283,7 @@ if ($hlOnly.Count -gt 0) { Write-Host "Warning: highlighted, but the interpreter
 $complFamilies = [ordered]@{
   EVENT = $names.Events; EXEVENT = $names.ExEvents; MENU = $names.Menu
   NAMESPACE = $names.NameSpace; STR = $names.Str; SQL = $names.Sql; PATH = $names.Path
+  LOGFILE = $names.LogFile
 }
 $notOffered = @(); $offeredOnly = @()
 foreach ($cmd in $complFamilies.Keys) {

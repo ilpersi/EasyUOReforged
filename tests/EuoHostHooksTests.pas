@@ -35,6 +35,7 @@ type
     procedure TestTakeLogEmptiesTheQueue;
     procedure TestLogQueueKeepsTheNewestLines;
     procedure TestASubCalledLogStillWorks;
+    procedure TestLogWordsThatLookLikeLogfileOptions;
     procedure TestOnDisplayAnswersWithoutABox;
     procedure TestOnDisplayGetsTheButtonsAndLineBreaks;
     procedure TestBlockedCommandStopsTheRun;
@@ -205,6 +206,33 @@ begin
     AssertEquals('7',Interp.GetVar('%got'));
     AssertEquals('the goto jumped over the set','N/A',Interp.GetVar('%skipped'));
     AssertFalse('none of those lines logged anything',Interp.TakeLog(L));
+  finally
+    L.Free;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoHostHooksTests.TestLogWordsThatLookLikeLogfileOptions;
+var
+  L : TStringList;
+begin
+  L:=TStringList.Create;
+  try
+    // LOGFILE is a command of its own (the LOGFILE port addition): LOG still logs every word after
+    // it, so a line that reads like a LOGFILE option is text, as it was before LOGFILE existed.
+    Play(['log file x','log level debug','log info hi','log logfile open a b','log open f run.log new',
+          'log set output level off','log close','halt']);
+    Interp.TakeLog(L);
+    AssertEquals(7,L.Count);
+    AssertEquals('file x',L[0]);
+    AssertEquals('level debug',L[1]);
+    AssertEquals('info hi',L[2]);
+    AssertEquals('logfile open a b',L[3]);
+    AssertEquals('open f run.log new',L[4]);
+    AssertEquals('set output level off',L[5]);
+    AssertEquals('close',L[6]);
+    AssertEquals('LOG sets no variable, #LogRes included','N/A',Interp.GetVar('#LogRes'));
+    AssertFalse('and opened no file',FileExists(ExtractFilePath(ParamStr(0))+'run.log'));
   finally
     L.Free;
   end;

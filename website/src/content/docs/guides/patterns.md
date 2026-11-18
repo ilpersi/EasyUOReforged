@@ -26,7 +26,8 @@ item types (`ZLF`, `POF`), IDs and journal texts in them are only examples: your
 and the lines stay, so it is the way to follow a script while it runs. It is new in EasyUO Reforged.
 [`event sysmessage`](/commands/event/sysmessage/) shows a line in the game window instead.
 [`display`](/commands/display/) opens a message box and the script waits until you close it: use it for a
-final result or a question, not inside a loop.
+final result or a question, not inside a loop. To keep the lines in a file, with a level you can turn up or
+down, use [`logfile`](/commands/logfile/), also new in EasyUO Reforged.
 
 ```euo
 log Counting the gold...
@@ -259,8 +260,8 @@ return
 ## Keep data between runs
 
 A `*` variable keeps its value when the script and EasyUO Reforged are closed. For more than a few values,
-[`sql`](/commands/sql/) keeps them in a database file. [SQL or * variables?](/guides/sql-or-persistent-variables/)
-compares the two.
+a settings file ([below](#save-and-load-settings)) or [`sql`](/commands/sql/) keeps them in a file of your own.
+[Keeping data between runs](/guides/persistence/) compares the ways.
 
 ```euo
 if *runs = N/A
@@ -269,3 +270,40 @@ set *runs *runs + 1
 display ok This script has run *runs times.
 halt
 ```
+
+## Save and load settings
+
+A file of `set` lines is a settings file: [`call`](/commands/call/) runs it and the variables are back.
+[`logfile write`](/commands/logfile/write/) writes it, one line at a time, exactly as given. Glue `%` to a
+name (`% , bandages`) to write the variable's name; the next word gives its value. One file per character
+keeps each character's settings apart.
+
+```euo
+set %file medic , #CharID , .txt
+gosub LoadSettings
+if %bandages = N/A
+  set %bandages 50                    ; first run: the defaults
+set %bandages %bandages - 1
+gosub SaveSettings
+halt
+
+sub LoadSettings
+  call %file                          ; does nothing when the file isn't there yet
+return
+
+sub SaveSettings
+  logfile open cfg %file new
+  logfile write cfg #smc , Settings of #CharName
+  logfile write cfg set % , bandages %bandages
+  logfile close cfg
+  if #LogRes <> OK
+    event sysmessage Settings not saved: #LogRes
+return
+```
+
+Don't write files with `execute cmd /c echo ... >> file`, as older scripts do: each line waits two seconds,
+flashes a console window, and breaks on `>`, `|`, `&` or `%` in the text. `logfile` writes at once and says in
+[`#LogRes`](/variables/logres/) when it can't.
+
+A value in a settings file must be one word: `call` reads `set %name Dr Who` as `Dr`.
+[Keeping data between runs](/guides/persistence/) says when a settings file is the right choice.

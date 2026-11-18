@@ -116,6 +116,11 @@ and fetch a reply from the web and run it as a script. Don't write them unless t
 If it does, tell the user what the line does and why, and add `--allow <command>` only after they
 agree.
 
+**Files.** `logfile` writes files only by a relative name inside the EasyUO Reforged folder during a
+run; another name gives an error in `#LogRes`. `--allow logfile` (`"allow": ["logfile"]` on
+`euo_run_live`) lifts that: ask the user first, and say which files the script writes. Never use
+`execute cmd /c echo ... >> file` to write a file: use `logfile`.
+
 ## Reading the game: `EUOCli vars`
 
 ```

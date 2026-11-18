@@ -372,6 +372,7 @@ begin
 
   Inc(NewCnt);
   MainForm.TabCtrl.Tabs.Add('new'+IntToStr(NewCnt));
+  ExecObj.Parser.ScriptName:='new'+IntToStr(NewCnt);   // port addition (LOGFILE's "script" field)
   SwitchTo(Count-1);
 end;
 
@@ -413,6 +414,7 @@ begin
   ExecList.Add(ExecObj);
 
   MainForm.TabCtrl.Tabs.Add(ExtractFileName(FN));
+  ExecObj.Parser.ScriptName:=ExtractFileName(FN);   // port addition (LOGFILE's "script" field)
   SwitchTo(Count-1);
 
   if (Count<3)and(SynList[0]='')and not Syn[0].Modified then
@@ -491,6 +493,7 @@ begin
   Syn[Cur].Modified:=False;
   SynList[Cur]:=FN;
   MainForm.TabCtrl.Tabs[Cur]:=ExtractFileName(FN);
+  Exec[Cur].Parser.ScriptName:=ExtractFileName(FN);   // port addition (LOGFILE's "script" field)
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

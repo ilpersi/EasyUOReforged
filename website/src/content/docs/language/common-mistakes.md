@@ -132,6 +132,8 @@ halt                            ; => %runs = 3
 - A line starting with `+` continues the line before it. The pieces join **without** a space, so write
   `+ more` where you want one.
 - A label is a name followed by `:` on a line of its own (`mainloop:`). `goto mainloop` jumps to it.
+- To write a text file, use [`logfile`](/commands/logfile/) (`logfile open`, then `logfile write`), not
+  `execute cmd /c echo ... >> file`: that waits two seconds a line and breaks on `>`, `|`, `&` or `%`.
 
 ```euo
 set %text abc
@@ -143,6 +145,8 @@ halt                            ; => %text = abcdef
 
 - A variable that was never set reads `N/A`.
 - A variable is replaced by its value only when it is a word of its own. Glue it to other text with a comma.
+  To write a variable's **name** (in a settings file for `call`), glue `%` to it: `set % , hp %hp` is the text
+  `set %hp 50`.
 - `%0`, `%1`, `%2`, … are the parameters of the last `gosub` or `call`. They are ordinary variables shared by
   the whole script, so a sub that calls another sub loses its own. Copy them first.
 - Numbers are whole numbers. `$1A` is hexadecimal. Text counts as `0` in arithmetic.

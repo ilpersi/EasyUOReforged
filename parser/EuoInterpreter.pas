@@ -92,6 +92,13 @@ unit EuoInterpreter;
   with TakeLog. It is the one way a script can report without stopping (DISPLAY waits for a click)
   and without a client (EVENT SYSMESSAGE needs one). A line starting with it was a silent no-op
   before, and a sub or label called "log" keeps working.
+  Likewise the LOGFILE command plus the read-only #LogRes (index 146): a logging system (EuoLogFile.pas)
+  with levels, the built-in "output" target (LOG's queue, through QueueLog, which LogProc uses too, so
+  LOG queues exactly what it did) and file targets, which also serve as plain file writing. A line
+  starting with it was a silent no-op before, and a sub or label called "logfile" keeps working. File I/O
+  runs with CS released, as SQL's does. A run's files are closed by Clear, Free and RunStopped, which
+  TExeThread calls when the run stops. Two host settings, off unless a host sets them: ScriptName (the
+  name the "script" field shows for the main script) and ConfineFiles (EUOCli: files only inside #CurPath).
   Likewise the MOVEITEM command plus the read-only #MoveRes (index 130): moves an item, or an amount of
   a stack, into a destination through the server (the packets of EXEVENT DRAG and DROPC) and says what
   happened, read from the client's object list, never the journal (EuoItemMove.pas holds the stages;
@@ -126,7 +133,7 @@ uses
   EuoScriptWords,
   uotypes, access, ReforgedVersion, uoselector, uovariables, uocommands, uoevents, EuoLock,
   EuoSql, walkrules, walkmap, pathplan, walklive, pathwalk, EuoJournalSearch, EuoStrOps, EuoItemMove,
-  EuoGumps, uogumpreply;
+  EuoGumps, uogumpreply, EuoLogFile;
 
 const
   RES_OK    = 0;
@@ -213,8 +220,16 @@ type
     FLog         : TStringList;   // port addition (LOG): lines waiting for the host; Objects = line number
     FLogLock     : TEuoLock;      // its own lock: the host takes lines while PlayLine holds CS
     FLogDropped  : Cardinal;      // lines thrown away because nobody took them
+    Logger       : TEuoScriptLogger;   // port addition (LOGFILE)
+    LogRes       : String;             // port addition (LOGFILE): #LogRes
+    FScriptName  : String;             // port addition for hosts: the main script's name in log lines
 
     procedure    LogProc;
+    procedure    QueueLog(const Text : String; Line : Integer);
+    procedure    LogFileProc;
+    function     LogScriptName : String;
+    function     GetConfineFiles : Boolean;
+    procedure    SetConfineFiles(Value : Boolean);
     procedure    CommandBlocked(const Name : String);
     function     GetOnDisplay : TDisplayHandler;
     procedure    SetOnDisplay(Value : TDisplayHandler);
@@ -375,6 +390,15 @@ type
     function     ClientSkips : Cardinal;
     // A host's answer to DISPLAY in place of the message box (EuoStdCommands.TDisplayHandler).
     property     OnDisplay : TDisplayHandler read GetOnDisplay write SetOnDisplay;
+    // Port additions (LOGFILE). The name the "script" field of a log line shows for the main script
+    // ('' = "main"); a called script shows its own file's name.
+    property     ScriptName : String read FScriptName write FScriptName;
+    // File targets only by a relative name inside #CurPath's folder (EUOCli without --allow logfile).
+    // False by default: the editor writes where the script says.
+    property     ConfineFiles : Boolean read GetConfineFiles write SetConfineFiles;
+    // The run has stopped (Halt, Stop, an error): its files are closed. Called by TExeThread on the
+    // script's thread, again and again while the run stays stopped; cheap when there is nothing open.
+    procedure    RunStopped;
   end;
 
 const
@@ -560,7 +584,7 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 const
-  VarNamesR : Array[0..145] of String = (
+  VarNamesR : Array[0..146] of String = (
     'CliCnt','CliNr','Time','Date','SysTime','Random','OSVer','CharPosX',
     'CharPosY','CharPosZ','CharID','CharGhost','CharStatus','CharDir',
     'CharName','Sex','Str','MaxWeight','Dex','Int','Hits','MaxHits',
@@ -596,7 +620,9 @@ const
     'GumpCnt','GumpName','GumpKind','GumpPosX','GumpPosY','GumpSizeX','GumpSizeY','GumpArt',
     'GumpMin','GumpObjID','GumpSerial','GumpTypeID',
     // Port additions (EXEVENT GUMPREPLY): indices 143..145.
-    'GumpReply','GumpReplyRes','GumpReplyCnt');
+    'GumpReply','GumpReplyRes','GumpReplyCnt',
+    // Port addition (LOGFILE): index 146.
+    'LogRes');
 
   VarNamesRW : Array[0..34] of String = (
     'SCnt','SCnt2','LShard','ContPosX','ContPosY','NextCPosX','NextCPosY',
@@ -686,6 +712,10 @@ begin
   FLog:=TStringList.Create;
   FLogLock:=TEuoLock.Create;
   FLogDropped:=0;
+  Logger:=TEuoScriptLogger.Create(QueueLog);
+  Logger.BaseDir:=ExtractPath(ParamStr(0));   // #CurPath: where CALL starts a relative name
+  LogRes:='N/A';
+  FScriptName:='';
   Restarts:=0;
   BlockedCmd:='';
   BlockedLine:=-1;
@@ -718,6 +748,7 @@ begin
   ParList.Free;
   NSStack.Free;
   SpeedVar.Free;
+  Logger.Free;   // closes its files; before FLog, which its output target writes to
   FLog.Free;
   FLogLock.Free;
   inherited Free;
@@ -757,6 +788,8 @@ begin
   GumpReplyRes:='N/A';
   GumpReplyCnt:=0;
   GumpHookSeen:=-1;
+  Logger.Reset;     // port addition (LOGFILE): a run's files are closed, targets and levels back to defaults
+  LogRes:='N/A';
   Restarts:=0;      // port additions for hosts: a new run has not restarted or been blocked.
   BlockedCmd:='';   // (What LOG queued stays: the host has not read it yet.)
   BlockedLine:=-1;
@@ -1125,6 +1158,8 @@ begin
     144: Result:=            GumpReplyRes  ;
     145: if GumpHookRefresh(GetCurrentThreadId<>MainThreadID,HCnt) then Result:=IntToStr(HCnt)
          else Result:=IntToStr(GumpReplyCnt);
+    // Port addition (LOGFILE).
+    146: Result:=            LogRes        ;
     500: Result:=IntToStr   (GetTickCount div 1000 - SCntBase);
     501: Result:=IntToStr   (GetTickCount div 100 - SCnt2Base);
     525: Result:=            _Result       ;
@@ -1579,6 +1614,7 @@ begin
   CmdRegistry.Register('Path',PathProc); // port addition; checks for a client itself
   CmdRegistry.Register('WaitFor',WaitForProc); // port addition
   CmdRegistry.Register('Log',LogProc);         // port addition
+  CmdRegistry.Register('LogFile',LogFileProc); // port addition
 
   // Cmd2 -- client-dependent (RequiresClient=True).
   CmdRegistry.Register('Key',KeyProc,True);
@@ -2171,6 +2207,14 @@ end;
 // queues an empty line. It never waits and needs no client.
 procedure TEuoInterpreter.LogProc;
 begin
+  QueueLog(GetParStr(1),CurLine+1);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition: one line for the host, Line being its 1-based script line. LOG's queue, which
+// LOGFILE's "output" target writes to as well.
+procedure TEuoInterpreter.QueueLog(const Text : String; Line : Integer);
+begin
   FLogLock.BeginWrite;
   try
     if FLog.Count>=LOG_QUEUE_MAX then
@@ -2178,10 +2222,154 @@ begin
       FLog.Delete(0);
       Inc(FLogDropped);
     end;
-    FLog.AddObject(GetParStr(1),TObject(PtrUInt(CurLine+1)));
+    FLog.AddObject(Text,TObject(PtrUInt(Line)));
   finally
     FLogLock.EndWrite;
   end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (LOGFILE). The sub-commands, with the logging itself in EuoLogFile.pas:
+//   OPEN {name} {file} [append|new]    CLOSE [name]                WRITE {name} {text}
+//   DEBUG|INFO|WARNING|ERROR {text}    LEVEL {level|off}
+//   SET {name} LEVEL {level|off} | FORMAT raw|{field...} | ROTATE {size} [keep] | DAILY [keep|off]
+// Text is built as LOG builds it (GetParStr): nothing translated, words joined by one space. Every
+// line sets #LogRes to OK or the reason. The words are read while CS is held; the logger is called
+// with CS released, as SqlProc calls SQLite, so a slow disk never holds the GUI's variable reads.
+// It never raises and needs no client.
+procedure TEuoInterpreter.LogFileProc;
+var
+  Sub    : String;
+  Opt    : String;
+  Name   : String;
+  Arg1   : String;
+  Arg2   : String;
+  Text   : String;
+  Script : String;
+  Line   : Integer;
+  Lvl    : TEventType;
+  Words  : TStringList;
+  Err    : String;
+  i      : Integer;
+
+  function Wd(Nr : Integer) : String;
+  begin
+    if Nr<ParList.Count then Result:=ParList[Nr].Str else Result:='';
+  end;
+
+begin
+  Sub:=UpperCase(Wd(1));
+  Name:=Wd(2);
+  Line:=CurLine+1;
+  Script:=LogScriptName;
+  Words:=TStringList.Create;
+  try
+    Err:='';
+    Opt:='';
+    Arg1:='';
+    Arg2:='';
+    Text:='';
+    Lvl:=etInfo;
+    if Sub='OPEN' then
+    begin
+      Arg1:=Wd(3);
+      Arg2:=UpperCase(Wd(4));
+      if Name='' then Err:='logfile open {name} {file} [append|new]'
+      else if Arg1='' then Err:='no file given: logfile open {name} {file} [append|new]'
+      else if (Arg2<>'') and (Arg2<>'NEW') and (Arg2<>'APPEND') then Err:='open takes append or new, not '+Wd(4)
+      else if ParList.Count>5 then Err:='open takes one file name and append or new: glue a name that has spaces with ,';
+    end
+    else if Sub='WRITE' then
+    begin
+      if Name='' then Err:='logfile write {name} {text}';
+      Text:=GetParStr(3);
+    end
+    else if (Sub='DEBUG') or (Sub='INFO') or (Sub='WARNING') or (Sub='ERROR') then
+    begin
+      if Sub='DEBUG' then Lvl:=etDebug
+      else if Sub='WARNING' then Lvl:=etWarning
+      else if Sub='ERROR' then Lvl:=etError;
+      Text:=GetParStr(2);
+    end
+    else if Sub='LEVEL' then
+    begin
+      if Name='' then Err:='logfile level debug|info|warning|error|off';
+    end
+    else if Sub='SET' then
+    begin
+      Opt:=UpperCase(Wd(3));
+      Arg1:=Wd(4);
+      Arg2:=Wd(5);
+      if (Name='') or (Opt='') then Err:='logfile set {name} level|format|rotate|daily ...'
+      else if Opt='FORMAT' then
+      begin
+        for i:=4 to ParList.Count-1 do Words.Add(ParList[i].Str);
+      end
+      else if (Opt='LEVEL') and (Arg1='') then Err:='logfile set {name} level debug|info|warning|error|off'
+      else if (Opt='ROTATE') and (Arg1='') then Err:='logfile set {name} rotate {size} [keep]'
+      else if (Opt<>'LEVEL') and (Opt<>'ROTATE') and (Opt<>'DAILY') then
+        Err:='unknown logfile set option '+Wd(3)+': level, format, rotate or daily';
+    end
+    else if Sub<>'CLOSE' then
+    begin
+      if Sub='' then Err:='logfile needs a command: open, close, write, debug, info, warning, error, level or set'
+      else Err:='unknown logfile command '+Wd(1);
+    end;
+
+    if Err='' then
+    begin
+      CS.EndWrite;
+      try
+        try
+          if Sub='OPEN' then Err:=Logger.Open(Name,Arg1,Arg2='NEW')
+          else if Sub='CLOSE' then Err:=Logger.Close(Name)
+          else if Sub='WRITE' then Err:=Logger.Write(Name,Text,Line)
+          else if Sub='LEVEL' then Err:=Logger.SetMinLevel(Name)
+          else if Sub='SET' then
+          begin
+            if Opt='LEVEL' then Err:=Logger.SetLevel(Name,Arg1)
+            else if Opt='FORMAT' then Err:=Logger.SetFormat(Name,Words)
+            else if Opt='ROTATE' then Err:=Logger.SetRotate(Name,Arg1,Arg2)
+            else Err:=Logger.SetDaily(Name,Arg1);
+          end
+          else Err:=Logger.Log(Lvl,Text,Script,Line);
+        except
+          on E : Exception do Err:=E.Message;
+        end;
+      finally
+        CS.BeginWrite;
+      end;
+    end;
+
+    if Err='' then LogRes:='OK' else LogRes:=Err;
+  finally
+    Words.Free;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (LOGFILE): the "script" field. A called script shows its own file's name; the main
+// script the name its host gave, or "main".
+function TEuoInterpreter.LogScriptName : String;
+begin
+  if ScrList.CallLevel>0 then Result:=ExtractFileName(ScrList.ScrName)
+  else if FScriptName<>'' then Result:=FScriptName
+  else Result:='main';
+end;
+
+function TEuoInterpreter.GetConfineFiles : Boolean;
+begin
+  Result:=Logger.ConfineFiles;
+end;
+
+procedure TEuoInterpreter.SetConfineFiles(Value : Boolean);
+begin
+  Logger.ConfineFiles:=Value;
+end;
+
+procedure TEuoInterpreter.RunStopped;
+begin
+  if Logger.HasFiles then Logger.CloseFiles;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

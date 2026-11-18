@@ -23,6 +23,9 @@ unit clirun;
   - EXECUTE, SHUTDOWN, TERMINATE, UOXL and SEND stop the run instead of running
     (TEuoInterpreter.BlockCommands) unless --allow names them. They reach beyond the script:
     start programs, switch the computer off, close or start clients, fetch and run a reply.
+  - LOGFILE writes files only by a relative name inside the program folder, where CALL starts
+    one, unless --allow logfile (TEuoInterpreter.ConfineFiles). Its log lines are printed
+    like LOG's.
 
   The run itself, with these rules, is clisession.pas's TRunSession, which the MCP server
   (climcp.pas) uses too. This unit reads the command line, starts a session, pumps the LCL
@@ -112,7 +115,8 @@ begin
   Output.Add('                      Default: the first button (ok, or yes)');
   Output.Add('  --show-display      open the real message boxes instead, and wait for a click');
   Output.Add('  --allow <commands>  run these although they are blocked: execute,shutdown,terminate,');
-  Output.Add('                      uoxl,send. A blocked command stops the run');
+  Output.Add('                      uoxl,send. A blocked command stops the run. logfile lets');
+  Output.Add('                      "logfile open" write outside the program folder');
   Output.Add('');
   Output.Add('Exit code: 0 the script stopped itself; 2 wrong command line or unreadable script;');
   Output.Add('3 timeout; 4 a command raised an error; 5 the client is not there; 6 a blocked command;');
@@ -234,6 +238,8 @@ begin
     Opt.Answer:='';
     Opt.PauseEnds:=True;
     Opt.AllowHint:='rerun with --allow %s if the user agrees';
+    Opt.ConfineFiles:=True;
+    Opt.ScriptName:='';
     Json:=False;
     i:=0;
     while i<Args.Count do
@@ -279,13 +285,9 @@ begin
     end;
     if FileName='' then Exit(Fail(Output,'run','no script given'));
     for i:=0 to Allow.Count-1 do
-    begin
-      A:='';
-      for k:=Low(DefaultBlocked) to High(DefaultBlocked) do
-        if DefaultBlocked[k]=Allow[i] then A:=Allow[i];
-      if A='' then Exit(Fail(Output,'run','--allow takes execute, shutdown, terminate, uoxl or send; "'+
-        LowerCase(Allow[i])+'" is not a blocked command'));
-    end;
+      if not IsAllowWord(Allow[i]) then Exit(Fail(Output,'run','--allow takes '+AllowWordsText+'; "'+
+        LowerCase(Allow[i])+'" is not one of them'));
+    Opt.ConfineFiles:=Allow.IndexOf(AllowFilesWord)<0;
 
     if FileName='-' then
     begin
@@ -293,6 +295,7 @@ begin
       FileName:='<stdin>';
     end
     else begin
+      Opt.ScriptName:=ExtractFileName(FileName);
       if not FileExists(FileName) then Exit(Fail(Output,'run','file not found: '+FileName));
       try
         Script:=LoadScriptFileAsUTF8(FileName);

@@ -198,6 +198,7 @@ var
     #13#10+
    '\Result'#13#10+
    '#DISPRES'#13#10+
+   '#LOGRES'#13#10+
    '#MENUBUTTON'#13#10+
    '#MENURES'#13#10+
    '#MOVERES'#13#10+

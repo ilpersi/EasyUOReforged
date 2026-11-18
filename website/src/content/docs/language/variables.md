@@ -66,7 +66,7 @@ halt
 ```
 
 For more data, or data you want to keep in a file of your own, there is also [`SQL`](/commands/sql/).
-[SQL or * variables?](/guides/sql-or-persistent-variables/) compares the two.
+[Keeping data between runs](/guides/persistence/) compares them with the other ways a script keeps data.
 
 ## System variables: `#`
 

@@ -6,6 +6,8 @@ What changes for script users in each release of EasyUO Reforged. New entries go
 
 ### Added
 
+- **`logfile`: write log files and text files from a script.** `logfile open run mining.log` opens a file, and `logfile info Started`, `logfile warning Low on picks` write timestamped lines with their level, script and line number to it and to the Output panel; `logfile level` and `logfile set` choose which levels each one keeps, the line format, and a new file by size or every day (`logfile set run daily`). `logfile write cfg set % , hp %hp` writes a line exactly as given, so settings saved this way load back with `call`, with no two-second wait, no console window and no trouble with `>`, `|`, `&` or `%` in the text, as `execute cmd /c echo ... >> file` had. The new `#LogRes` says `OK` or why a file can't be written. Under `EUOCli run` files stay in the program folder unless `--allow logfile`. A line starting with the word `logfile` used to be ignored and is now this command; `log` is unchanged. See [`logfile`](https://ilpersi.github.io/EasyUOReforged/commands/logfile/).
+
 ### Changed
 
 ### Fixed

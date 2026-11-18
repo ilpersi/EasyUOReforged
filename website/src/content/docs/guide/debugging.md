@@ -52,6 +52,23 @@ Output* empties it. It keeps the newest 5000 lines.
 When the call stack is shown too, the two share the space under the script: the call stack on the left, the
 Output panel on the right. Drag the bar between them to give one more room.
 
+## Logging to a file
+
+[`log`](/commands/log/) lines stay in the Output panel. To keep them, or to sort them by importance, use
+[`logfile`](/commands/logfile/): its messages have a level (`debug`, `info`, `warning`, `error`), go to the
+Output panel and to the files the script opens, each with its own level, and say the time, the script and the
+line they come from.
+
+```euo
+logfile open dbg debug.log new            ; a fresh file for this run
+logfile set output level warning          ; only problems in the panel
+logfile debug Start: #CharPosX #CharPosY  ; in the file only
+logfile warning Out of bandages           ; in both
+halt
+```
+
+A script that runs for days can start a new file each day: `logfile set dbg daily`.
+
 ## Editor features
 
 - **Ctrl+Space** opens autocomplete with the script commands, the built-in `#variables` and the variables

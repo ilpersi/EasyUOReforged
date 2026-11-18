@@ -40,6 +40,12 @@ export default defineConfig({
 	site: SITE,
 	base: BASE,
 	trailingSlash: 'always',
+	// Pages that moved: the old address answers with a page that sends the browser on, so bookmarks
+	// and links from elsewhere keep working. Astro puts the base in front of the old address but not of
+	// the new one, so the new one spells it out.
+	redirects: {
+		'/guides/sql-or-persistent-variables': `${BASE}/guides/persistence/`,
+	},
 	// Node resolves "localhost" to the IPv6 loopback only, which some browsers don't try;
 	// an explicit IPv4 address works everywhere.
 	server: { host: '127.0.0.1', port: 4321 },

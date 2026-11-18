@@ -4,7 +4,7 @@ description: "Opens a program, file or web address, as if you had double-clicked
 kind: command
 category: misc
 syntax: "execute {file} [arguments...]"
-related: ["Call", "Send", "Shutdown"]
+related: ["Call", "Send", "Shutdown", "LogFile"]
 aliases: ["run program", "open file", "start"]
 source: wiki
 ---
@@ -37,5 +37,16 @@ Append a line to a text file with the command prompt:
 ```euo
 set %task mining
 execute cmd.exe /c echo %task #CharPosX #CharPosY >> C:\EasyUO\log.txt
+halt
+```
+
+In EasyUO Reforged, [`logfile`](/commands/logfile/) writes the file itself: no two-second wait, no console
+window, no trouble with `>`, `|`, `&` or `%` in the text, and [`#LogRes`](/variables/logres/) says when the
+file can't be written:
+
+```euo
+set %task mining
+logfile open notes C:\EasyUO\log.txt
+logfile write notes %task #CharPosX #CharPosY
 halt
 ```

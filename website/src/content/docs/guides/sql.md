@@ -79,7 +79,8 @@ large.
 [`sql save`](/commands/sql/save/), [`sql load`](/commands/sql/load/) and
 [`sql delete`](/commands/sql/delete/) keep variables in a table called `euo_vars` (it is created when first
 needed). It works like the `*` variables, but in a file of your choice instead of the registry.
-[SQL or * variables?](/guides/sql-or-persistent-variables/) helps you choose between the two.
+[Keeping data between runs](/guides/persistence/) helps you choose between them, `*` variables and
+settings files.
 
 ```euo
 sql open mychar.db

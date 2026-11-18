@@ -39,6 +39,7 @@ type
     procedure TestHaltOnTheLastLineIsNoRestart;
     procedure TestBlockedCommandStopsTheRun;
     procedure TestAllowOption;
+    procedure TestLogfileStaysInTheProgramFolder;
     procedure TestTimeout;
     procedure TestNothingRunsAfterATimeout;
     procedure TestTrace;
@@ -312,6 +313,48 @@ begin
   AssertEquals('[2] log: after',Output[1]);
   AssertEquals('several, in any case',CLI_OK,Run('run|'+FN+'|--allow|Execute,TERMINATE'));
   AssertEquals('only blocked commands can be allowed',CLI_USAGE,Run('run|'+FN+'|--allow|finditem'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Whether a program can have the file to itself within 2 s: LOGFILE holds it while its target is open.
+function ClosedSoon(const FN : String) : Boolean;
+var
+  FS    : TFileStream;
+  Start : QWord;
+begin
+  Start:=GetTickCount64;
+  repeat
+    try
+      FS:=TFileStream.Create(FN,fmOpenReadWrite or fmShareExclusive);
+      FS.Free;
+      Exit(True);
+    except
+      Sleep(20);
+    end;
+  until GetTickCount64-Start>2000;
+  Result:=False;
+end;
+
+// The owner's decision (2026-11-18): under EUOCli run, LOGFILE writes files only by a relative name
+// inside the program folder, unless --allow logfile. Its log lines are printed like LOG's.
+procedure TEuoCliRunTests.TestLogfileStaysInTheProgramFolder;
+var
+  FN, Target : String;
+begin
+  Target:=Dir+PathDelim+'outside.log';
+  FN:=Script('lf.euo',['logfile open f '+Target,'log #LogRes','logfile warning hi','logfile write f x','halt']);
+  AssertEquals(CLI_OK,Run('run|'+FN));
+  AssertEquals('[2] log: outside the program folder: '+Target,Output[1]);
+  AssertEquals('[3] log: [Warning] hi',Output[2]);
+  AssertFalse('nothing was written',FileExists(Target));
+
+  AssertEquals('logfile is a word --allow takes',CLI_OK,Run('run|'+FN+'|--allow|logfile'));
+  AssertEquals('[2] log: OK',Output[1]);
+  AssertTrue('the file is written',FileExists(Target));
+  AssertTrue('and closed when the run ended',ClosedSoon(Target));
+  DeleteFile(Target);
+  AssertEquals('it allows no blocked command',CLI_BLOCKED,
+    Run('run|'+Script('t.euo',['terminate nothing','halt'])+'|--allow|logfile'));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

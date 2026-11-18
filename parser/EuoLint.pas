@@ -131,7 +131,7 @@ const
   HarmlessWords : array[0..0] of String = ('INITEVENTS');
   // The commands whose sub-commands are checked: the families whose first level
   // tests\tools\CheckDocsCoverage.ps1 compares with the interpreter.
-  Families : array[0..6] of String = ('EVENT','EXEVENT','MENU','NAMESPACE','STR','SQL','PATH');
+  Families : array[0..7] of String = ('EVENT','EXEVENT','MENU','NAMESPACE','STR','SQL','PATH','LOGFILE');
   // The commands that open a block or govern the next line (EuoBlocks.EuoBlockStep), and SUB.
   Headers : array[0..6] of String = ('IF','ELSE','FOR','WHILE','ONHOTKEY','CMPPIX','SUB');
   // What ends the main part of a script on purpose. EXIT restarts a main script, but who

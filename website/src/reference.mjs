@@ -14,6 +14,7 @@ export const COMMAND_CATEGORIES = [
 	['event', 'Event'],
 	['exevent', 'ExEvent'],
 	['flow', 'Flow control'],
+	['logging', 'Logging'],
 	['menu', 'Menu'],
 	['misc', 'Miscellaneous'],
 	['namespace', 'Namespace'],

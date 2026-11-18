@@ -231,6 +231,10 @@ These are the owner's decisions. Don't loosen one to make something else easier:
 - **No client unless one is named.** `EUOCli run` uses a client only with `--client N`.
 - **`execute`, `shutdown`, `terminate`, `uoxl` and `send` are blocked** unless `--allow` names them, and a
   blocked command stops the run. `DefaultBlocked` in `clisession.pas` is the list.
+- **`logfile` writes files only by a relative name inside the program folder** unless `--allow logfile`
+  (`euo_run_live`'s `"allow": ["logfile"]`). It is not a blocked command: a refused file is an error in
+  `#LogRes` and the run goes on. `TRunOptions.ConfineFiles` sets `TEuoInterpreter.ConfineFiles`;
+  `AllowFilesWord` in `clisession.pas` is the word.
 - **Every run ends:** at its timeout, or when a script without `halt` starts over.
 - **`euo_run` has no argument for a client or a blocked command.** `euo_run_live` is the only tool with
   `client` and `allow`. Agent programs let a user allow a tool for good, whatever its arguments, so a

@@ -49,6 +49,7 @@ type
     procedure TestRunToItsEnd;
     procedure TestBlockedCommandStopsTheRun;
     procedure TestRunLive;
+    procedure TestLogfileFilesOverMcp;
     procedure TestAScriptWithoutHaltIsStoppedAtItsRestart;
     procedure TestTimeout;
     procedure TestFollowAndStop;
@@ -423,6 +424,49 @@ begin
     AssertEquals('nothing after the blocked line ran','log:before|',Events(R));
     AssertTrue('it names the tool that could run it',Pos('euo_run_live',R.Get('detail',''))>0);
   end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Whether a program can have the file to itself within 2 s: LOGFILE holds it while its target is open.
+function ClosedSoon(const FN : String) : Boolean;
+var
+  FS    : TFileStream;
+  Start : QWord;
+begin
+  Start:=GetTickCount64;
+  repeat
+    try
+      FS:=TFileStream.Create(FN,fmOpenReadWrite or fmShareExclusive);
+      FS.Free;
+      Exit(True);
+    except
+      Sleep(20);
+    end;
+  until GetTickCount64-Start>2000;
+  Result:=False;
+end;
+
+// The owner's decision (2026-11-18): euo_run's LOGFILE writes only inside the program folder;
+// euo_run_live with "allow": ["logfile"] writes anywhere. euo_run still has no allow argument.
+procedure TEuoCliMcpTests.TestLogfileFilesOverMcp;
+var
+  R      : TJSONObject;
+  Target : String;
+begin
+  Target:=IncludeTrailingPathDelimiter(GetTempDir)+'euoclimcp-'+IntToStr(GetProcessID)+'.log';
+  DeleteFile(Target);
+  R:=Tool('euo_run','{'+Scr(['logfile open f '+Target,'log #LogRes','logfile warning hi','halt'])+'}');
+  AssertFalse(Text,IsError);
+  AssertEquals('log:outside the program folder: '+Target+'|log:[Warning] hi|',Events(R));
+  AssertFalse(FileExists(Target));
+
+  R:=Tool('euo_run_live','{'+Scr(['logfile open f '+Target,'log #LogRes','halt'])+',"allow":["logfile"]}');
+  AssertFalse(Text,IsError);
+  AssertEquals('log:OK|',Events(R));
+  AssertEquals('every blocked command stays blocked',5,R.Arrays['blocked'].Count);
+  AssertTrue(FileExists(Target));
+  AssertTrue('closed when the run ended',ClosedSoon(Target));
+  DeleteFile(Target);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

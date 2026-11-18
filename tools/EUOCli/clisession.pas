@@ -35,6 +35,11 @@ uses
 const
   // What a run will not run unless its host allows it.
   DefaultBlocked : array[0..4] of String = ('EXECUTE','SHUTDOWN','TERMINATE','UOXL','SEND');
+  // The word --allow and euo_run_live's "allow" take to let LOGFILE write files anywhere. Without it
+  // a run's file targets stay inside the program folder (TEuoInterpreter.ConfineFiles): the owner's
+  // decision of 2026-11-18. Not a blocked command: LOGFILE always runs.
+  AllowFilesWord = 'LOGFILE';
+  AllowWordsText = 'execute, shutdown, terminate, uoxl, send or logfile';
   DefaultTimeoutSec = 60;
   MaxTraceLines     = 5000;
   // Events kept for a host that is not taking them; the oldest go first.
@@ -49,6 +54,8 @@ type
     Answer     : String;    // 'OK', 'YES', 'NO', 'CANCEL', or '' = the box's first button
     PauseEnds  : Boolean;   // a paused script is a finished run: nobody can press Play
     AllowHint  : String;    // what to tell about a blocked command; %s is the command
+    ConfineFiles : Boolean; // LOGFILE's files only inside the program folder (no "allow logfile")
+    ScriptName : String;    // the name LOGFILE's "script" field shows; '' = main
   end;
 
   // What the running script reports, queued on its thread and taken on the main one.
@@ -130,6 +137,8 @@ type
     property  EndLine : Integer read FEndLine;   // 1-based, 0 when nothing ran
   end;
 
+// Whether Word (upper-case) is one --allow / "allow" takes.
+function IsAllowWord(const Word : String) : Boolean;
 // An event as one line of JSON, with no spaces to pay for.
 function OneLineJson(Obj : TJSONData) : String;
 // The LCL's window classes, once per program: MENU builds real windows.
@@ -144,6 +153,16 @@ uses
 
 var
   LclReady : Boolean = False;
+
+////////////////////////////////////////////////////////////////////////////////
+function IsAllowWord(const Word : String) : Boolean;
+var
+  k : Integer;
+begin
+  Result:=Word=AllowFilesWord;
+  for k:=Low(DefaultBlocked) to High(DefaultBlocked) do
+    if DefaultBlocked[k]=Word then Result:=True;
+end;
 
 ////////////////////////////////////////////////////////////////////////////////
 function OneLineJson(Obj : TJSONData) : String;
@@ -418,6 +437,8 @@ begin
   FHost.Answer:=Opt.Answer;
   if not Opt.ShowBoxes then FExec.Parser.OnDisplay:=FHost.Display;
   FExec.Parser.BlockCommands(Blocked);
+  FExec.Parser.ConfineFiles:=Opt.ConfineFiles;
+  FExec.Parser.ScriptName:=Opt.ScriptName;
   FExec.StopOnRestart:=True;
   FExec.OnLine:=FHost.Line;
   FExec.LoadScript(Script);

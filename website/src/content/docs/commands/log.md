@@ -2,10 +2,10 @@
 title: "Log"
 description: "Writes a line to the editor's Output panel, or to EUOCli's output, without stopping the script."
 kind: command
-category: misc
+category: logging
 syntax: "log [text]"
 origin: reforged
-related: ["Display", "event SysMessage"]
+related: ["Display", "event SysMessage", "LogFile"]
 aliases: ["print", "echo", "output", "debug", "trace", "write line"]
 ---
 
@@ -17,6 +17,9 @@ It is the way to see what a script is doing while it runs:
 - [`display`](/commands/display/) stops the script until you click, so it can't go in a loop.
 - [`event sysmessage`](/commands/event/sysmessage/) needs a client, and the line scrolls away in the game.
 - `log` never waits, needs no client, and the lines stay in the panel.
+
+To keep the lines in a file, or to give them levels (debug, info, warning, error) you can turn up or down,
+use [`logfile`](/commands/logfile/): its messages go to the same panel and to the files the script opens.
 
 ```euo
 set %sum 0

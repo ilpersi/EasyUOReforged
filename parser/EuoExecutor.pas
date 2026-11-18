@@ -62,6 +62,10 @@ unit EuoExecutor;
     line does not run a second time. Restarted then says that is why it stopped.
   - OnLine: called on the script's thread with the 0-based line about to run, for a trace.
 
+  One more, for the LOGFILE command: when the run is stopped (Halt, Stop, an error), the thread asks the
+  interpreter to close the files the run opened (TEuoInterpreter.RunStopped), so nothing stays locked by a
+  script that has ended. It does nothing for a run that opened no file.
+
   One deliberate change to the original's behaviour, made at the owner's request
   (2026-11-11): Stop marks the script stopped BEFORE it breaks the script's current wait.
   The original's SetState did it the other way round -- Parser.Brk:=True, then the search
@@ -611,6 +615,9 @@ begin
       if Stat=Play then CheckBreakpoints;
 
     end;
+    // Port addition (LOGFILE): a stopped run closes its files (Halt, Stop or an error alike).
+    // Nothing to do, and no file touched, for a script that opened none.
+    if Stat=Stop then Parser.RunStopped;
     Parser.Paused:=True;
 
   end;

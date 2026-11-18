@@ -1486,6 +1486,25 @@ sub sec_misc
   set %r %r , after
   gosub t_eq log_never_waits_and_changes_nothing %r beforeafter
 
+  ; ---- logFile  [Reforged]  (levels and targets; #logRes: OK or what went wrong) -------------------
+  ; Only the "output" target (the Output panel) is used: this test writes no file.
+  gosub t_eq logres_is_NA_before_any_logfile_line #logres N/A
+  logFile info all-commands-test: this line comes from logfile, at the info level
+  gosub t_eq logfile_info_to_the_output_target #logres OK
+  logFile write nosuch text
+  set %exp no , #spc , target , #spc , nosuch
+  gosub t_eq logfile_write_to_a_target_never_opened #logres %exp
+  logFile level loud
+  str left #logres 18
+  set %exp unknown , #spc , level , #spc , loud
+  gosub t_eq logfile_level_takes_only_known_levels #strres %exp
+  logFile level warning
+  logFile debug below the minimum: not shown
+  gosub t_eq logfile_a_message_below_the_level_is_ok #logres OK
+  logFile level debug
+  log logfile open x y
+  gosub t_eq log_still_logs_words_that_look_like_logfile_options #logres OK
+
   ; ---- deleteVar of something that does not exist ---------------------------------------------
   deleteVar v_surely_not_defined
   deleteVar
