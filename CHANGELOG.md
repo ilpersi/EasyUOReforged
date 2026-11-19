@@ -6,11 +6,14 @@ What changes for script users in each release of EasyUO Reforged. New entries go
 
 ### Added
 
+- **An outline of the script, left of the editor.** A new panel lists the script's subs, its labels (under the sub they are in) and the lines that build `menu` windows: click one to jump there, and *Edit → Go Back* (Alt+Left) returns. It selects the sub the cursor is in, its filter box finds an entry by name, **A-Z** sorts the list, and a sub that no `gosub` names is grey. *Control → Show Outline* hides it; its width is kept. See [The outline](https://ilpersi.github.io/EasyUOReforged/guide/debugging/#the-outline).
 - **`logfile`: write log files and text files from a script.** `logfile open run mining.log` opens a file, and `logfile info Started`, `logfile warning Low on picks` write timestamped lines with their level, script and line number to it and to the Output panel; `logfile level` and `logfile set` choose which levels each one keeps, the line format, and a new file by size or every day (`logfile set run daily`). `logfile write cfg set % , hp %hp` writes a line exactly as given, so settings saved this way load back with `call`, with no two-second wait, no console window and no trouble with `>`, `|`, `&` or `%` in the text, as `execute cmd /c echo ... >> file` had. The new `#LogRes` says `OK` or why a file can't be written. Under `EUOCli run` files stay in the program folder unless `--allow logfile`. A line starting with the word `logfile` used to be ignored and is now this command; `log` is unchanged. See [`logfile`](https://ilpersi.github.io/EasyUOReforged/commands/logfile/).
 
 ### Changed
 
 ### Fixed
+
+- **Ctrl+V and the other Edit keys work in the variable filter box.** While you typed in the filter box above the variable inspector, Ctrl+V, Ctrl+C, Ctrl+X, Ctrl+A and Ctrl+Z pasted, copied, cut, selected or undid in the script instead of the box. They now act on the box, and so do the same commands from the *Edit* menu.
 
 ## v26.11.16 - 2026-11-16
 

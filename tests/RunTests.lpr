@@ -21,7 +21,7 @@ uses
   MenuDesignerGeometryTests, MenuDesignerInspectorTests, MenuDesignerMainTests,
   MainIconsTests, PathWalkTests, UoWrapPathTests, EuoJournalSearchTests, DocsExampleTests, EuoLintTests, EuoCliCheckTests, DocsLintTests, EuoHostHooksTests, EuoCliRunTests, EuoOutputTests,
   EuoCliMcpTests, EuoCliInitTests, ClientArchiverTests, EuoItemMoveTests, EuoGumpsTests, GumpReplyTests,
-  EuoLogFileTests;
+  EuoLogFileTests, EuoOutlineTests, EuoOutlineViewTests;
 
 type
   TEasyUOTestRunner = class(TTestRunner)

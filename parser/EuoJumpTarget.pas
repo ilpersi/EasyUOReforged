@@ -19,6 +19,10 @@ unit EuoJumpTarget;
   Words are split by Parameterize's rules (EuoScriptWords.ScanLineWords, which
   EuoMenuSelect.SplitScriptLine calls too): spaces and tabs separate words, and a word that
   starts with ';' ends the line. ScanLineWords keeps each word's position in the line.
+
+  EuoStaticJumpName is that run-time-name rule on its own, for the editor's outline
+  (EuoOutline.pas), which counts the subs a GOSUB names: one rule, so the outline never calls
+  a sub used that Ctrl+click can't reach, or the other way round.
 }
 
 {$mode delphi}{$H+}
@@ -38,6 +42,11 @@ function EuoFindSub(Lines : TStrings; const Name : String) : Integer;
 
 // GoToProc's lookup: the line of the label that "goto Name" on line FromLine jumps to, or -1.
 function EuoFindLabel(Lines : TStrings; FromLine : Integer; const Name : String) : Integer;
+
+// The GOSUB or GOTO on line LineIdx (0-based) and the name after it, when that name is written
+// in the script: Cmd is 'GOSUB' or 'GOTO'. False for any other line, and for a name that only
+// exists at run time (see the header comment).
+function EuoStaticJumpName(Lines : TStrings; LineIdx : Integer; out Cmd, Name : String) : Boolean;
 
 implementation
 
@@ -104,6 +113,39 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// EuoStaticJumpName for a line already split into W.
+function StaticName(Lines : TStrings; LineIdx : Integer; const W : TEuoWords; out Cmd : String) : Boolean;
+begin
+  Result:=False;
+  Cmd:='';
+  if Length(W)<2 then Exit;
+  Cmd:=UpperCase(W[0].Text);
+  if (Cmd<>'GOSUB') and (Cmd<>'GOTO') then Exit;
+
+  // Names the script only knows at run time -- see the header comment.
+  if IsVar(W[1].Text) then Exit;
+  if Length(W)>2 then
+    if (W[2].Text='.') or (W[2].Text=',') then Exit;
+  if LineIdx+1<Lines.Count then
+    if Copy(Trim(Lines[LineIdx+1]),1,1)='+' then Exit;
+  Result:=True;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function EuoStaticJumpName(Lines : TStrings; LineIdx : Integer; out Cmd, Name : String) : Boolean;
+var
+  W : TEuoWords;
+begin
+  Name:='';
+  Cmd:='';
+  Result:=False;
+  if (LineIdx<0) or (LineIdx>=Lines.Count) then Exit;
+  ScanLineWords(Lines[LineIdx],W);
+  Result:=StaticName(Lines,LineIdx,W,Cmd);
+  if Result then Name:=W[1].Text;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 function EuoJumpTargetAt(Lines : TStrings; LineIdx, Col : Integer) : Integer;
 var
   W   : TEuoWords;
@@ -114,16 +156,8 @@ begin
 
   ScanLineWords(Lines[LineIdx],W);
   if Length(W)<2 then Exit;
-  Cmd:=UpperCase(W[0].Text);
-  if (Cmd<>'GOSUB') and (Cmd<>'GOTO') then Exit;
   if (Col<W[1].Start) or (Col>=W[1].Start+Length(W[1].Text)) then Exit;
-
-  // Names the script only knows at run time -- see the header comment.
-  if IsVar(W[1].Text) then Exit;
-  if Length(W)>2 then
-    if (W[2].Text='.') or (W[2].Text=',') then Exit;
-  if LineIdx+1<Lines.Count then
-    if Copy(Trim(Lines[LineIdx+1]),1,1)='+' then Exit;
+  if not StaticName(Lines,LineIdx,W,Cmd) then Exit;
 
   if Cmd='GOSUB' then
     Result:=EuoFindSub(Lines,W[1].Text)

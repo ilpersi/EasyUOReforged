@@ -62,7 +62,8 @@ uses Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Types,
      SynEdit, SynEditMiscClasses, SynEditSearch, SynEditTypes, SynCompletion,
      SynMacroRecorder, SynEditHighlighter, SynEditKeyCmds, ShellApi,
      Registry, vartree, access, ReforgedVersion, insthandler, mainicons, eufoldsyn,
-     eucomplete, eufinddlg, EuoScriptStack, EuoCallStackFormat, EuoBlocks, euoutput;
+     eucomplete, eufinddlg, EuoScriptStack, EuoCallStackFormat, EuoBlocks, euoutput,
+     euoutline;
 
 type
   TMainForm = class(TForm)
@@ -87,6 +88,8 @@ type
                 Shift: TShiftState);
     procedure CallStackListBoxDblClick(Sender: TObject);
     procedure ShowOutputPanel(AVisible : Boolean);
+    procedure ShowOutlinePanel(AVisible : Boolean);
+    procedure OutlineJump(Ed : TSynEdit; Line : Integer);
     procedure AddOutput(TabIdx : Integer; Lines : TStrings);
     procedure FormatScript;
     procedure BuildComponents;
@@ -108,6 +111,7 @@ type
     ToggleBreakpoint1,RunToCursor1,BreakpointCondition1,ClearBreakpoints1 : TMenuItem;
     CallStackPanel1 : TMenuItem;
     OutputPanel1,ClearOutput1 : TMenuItem;
+    OutlinePanel1 : TMenuItem;
     NewClient1,SwapToNextClient1,VarDump1,UserVars1,DontMoveCursor1 : TMenuItem;
     Help2,GoToWebsite1,About1 : TMenuItem;
     Undo2,Redo2,Cut2,Copy2,Paste2,Delete2,SelectAll2,Close2,CloseAll2 : TMenuItem;
@@ -126,6 +130,9 @@ type
     VarPanel          : TPanel;  // port addition: holds the filter box and the tree
     VarFilterEdit     : TEdit;   // port addition: see vartree.pas
     VarTreeView       : TTreeView;
+    OutlinePanel      : TPanel;           // port addition: the outline, see euoutline.pas
+    OutlineSplitter   : TSplitter;        // between the outline and the script
+    Outline           : TEuoOutlineView;
     ClientPathDialog  : TOpenDialog;
     SynPopupMenu      : TPopupMenu;
     TabPopupMenu      : TPopupMenu;
@@ -351,6 +358,8 @@ begin
   BreakpointCondition1  := AddMenu(Control1, 202, 'Breakpoint &Condition...');
   ClearBreakpoints1     := AddMenu(Control1, 203, 'C&lear All Breakpoints');
   AddSep(Control1);
+  // Port addition: the outline panel left of the script (euoutline.pas).
+  OutlinePanel1 := AddMenu(Control1, 213, 'Show Outli&ne');
   // New addition (not present in the original app): a live call-stack panel.
   // Tag continues the same "new debug features get tags far outside every
   // original range" convention as the breakpoint block above (200-203).
@@ -498,6 +507,22 @@ begin
   VarSplitter.Parent := MidPanel;
   VarSplitter.Align := alRight;
 
+  // Port addition: the outline, an index of the script's subs, labels and MENU windows
+  // (euoutline.pas, EuoOutline.pas), left of the script. Shown unless the user hid it
+  // (FormCreate); ShowOutlinePanel puts the splitter next to it.
+  OutlinePanel := TPanel.Create(Self);
+  OutlinePanel.Parent := MidPanel;
+  OutlinePanel.Align := alLeft;
+  OutlinePanel.Width := 180;
+  OutlinePanel.BevelOuter := bvNone;
+
+  OutlineSplitter := TSplitter.Create(Self);
+  OutlineSplitter.Parent := MidPanel;
+  OutlineSplitter.Align := alLeft;
+
+  Outline := TEuoOutlineView.Create(Self, OutlinePanel);
+  Outline.OnJump := OutlineJump;
+
   ScrPanel := TPanel.Create(Self);
   ScrPanel.Parent := MidPanel;
   ScrPanel.Align := alClient;
@@ -632,6 +657,10 @@ begin
   CallStackPanel1.Checked := Reg.ValueExists('CallStackVisible') and Reg.ReadBool('CallStackVisible');
   // Port addition: the Output panel's state, the same way. It lays out both panels.
   ShowOutputPanel(Reg.ValueExists('OutputVisible') and Reg.ReadBool('OutputVisible'));
+  // Port addition: the outline, shown unless the user hid it, with its width and order.
+  if Reg.ValueExists('OutlineWidth') and (Reg.GetDataType('OutlineWidth')=rdInteger) then
+    OutlinePanel.Width := Reg.ReadInteger('OutlineWidth');
+  Outline.Sorted := Reg.ValueExists('OutlineSorted') and Reg.ReadBool('OutlineSorted');
 
   // EUOSyn.hlr (copied verbatim from the original) can't be loaded directly:
   // it uses the original Delphi-era UniHighlighter's file schema (Keywords/
@@ -653,6 +682,7 @@ begin
   VarTreeFormCreate;                                       // Initialize VarTree
   VarTreeLoad('');                                          //
   UpdateTimer.Enabled:=True;                                // Enable Updatetimer
+  ShowOutlinePanel(not Reg.ValueExists('OutlineVisible') or Reg.ReadBool('OutlineVisible'));
   UpdateTimerTimer(nil);
   OnDestroy := FormDestroy;
 
@@ -677,6 +707,8 @@ end;
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
   if Assigned(FindDlg) then FindDlg.SaveSettings(Reg);       // new: Find history
+  Reg.WriteInteger('OutlineWidth',OutlinePanel.Width);       // port addition: the outline
+  Reg.WriteBool('OutlineSorted',Outline.Sorted);             //
   VarTreeFormClose;                                        // Finalize VarTree
   IH.Free;                                                  // Free instance handler
   Reg.Free;
@@ -802,7 +834,28 @@ procedure TMainForm.MenuHandler(Tag : Integer);
 var
   Cnt  : Integer;
   sBuf : String;
+  Box  : TCustomEdit;
 begin
+  // Port fix: in the filter boxes (the outline's and the variable inspector's), the Edit
+  // commands and their Ctrl+Z/X/C/V/A act on the box. LCL offers a key to the form's menu
+  // shortcuts before the box sees it (TWinControl.DoKeyDownBeforeInterface), so Ctrl+V in
+  // the variable filter pasted into the script instead.
+  Box := nil;
+  if (ActiveControl = Outline.FilterEdit) or (ActiveControl = VarFilterEdit) then
+    Box := TCustomEdit(ActiveControl);
+  if (Tag >= 20) and (Tag <= 26) and (Box <> nil) then
+  begin
+    case Tag of
+      20 : Box.Undo;
+      22 : Box.CutToClipboard;
+      23 : Box.CopyToClipboard;
+      24 : Box.PasteFromClipboard;
+      25 : Box.ClearSelection;
+      26 : Box.SelectAll;
+    end;
+    Exit;
+  end;
+
   case Tag of
     01 : IH.New;
     02 : IH.Open;
@@ -923,6 +976,10 @@ begin
            Reg.WriteBool('OutputVisible',OutputPanel1.Checked);
          end;
    212 : OutputMemo.Lines.Clear;
+   213 : begin // Toggle the outline (port addition)
+           ShowOutlinePanel(not OutlinePanel1.Checked);
+           Reg.WriteBool('OutlineVisible',OutlinePanel1.Checked);
+         end;
 
     // New additions (not present in the original app): Format Script and
     // code folding -- see BuildComponents' Edit menu.
@@ -1085,6 +1142,34 @@ procedure TMainForm.OutputSplitterMoved(Sender: TObject);
 begin
   if BottomPanel.ClientWidth>0 then
     FStackShare:=CallStackListBox.Width/BottomPanel.ClientWidth;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition: shows or hides the outline. The splitter is put right of the panel each
+// time, as LayoutBottomPanel does: two alLeft controls made visible together can come up in
+// either order. The width stays between a sliver and half the window.
+procedure TMainForm.ShowOutlinePanel(AVisible : Boolean);
+begin
+  OutlinePanel1.Checked := AVisible;
+  if OutlinePanel.Width < 80 then OutlinePanel.Width := 80;
+  if (ClientWidth > 160) and (OutlinePanel.Width > ClientWidth div 2) then
+    OutlinePanel.Width := ClientWidth div 2;
+  OutlinePanel.Visible := AVisible;
+  OutlineSplitter.Visible := AVisible;
+  if AVisible then
+  begin
+    OutlineSplitter.Left := OutlinePanel.Left + OutlinePanel.Width;
+    if Assigned(IH) then Outline.Refresh(CSyn);
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition: a click in the outline. JumpTo keeps the place for Go Back.
+procedure TMainForm.OutlineJump(Ed : TSynEdit; Line : Integer);
+begin
+  if (Line < 1) or (Line > Ed.Lines.Count) then Exit;
+  JumpTo(Ed, Line);
+  if Ed.CanFocus then Ed.SetFocus;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1345,6 +1430,11 @@ begin
   // switches and edits (eufinddlg.pas's Poll only recounts on a change).
   if Assigned(FindDlg) and FindDlg.Visible then
     FindDlg.Poll;
+
+  (***Update the outline***)
+  // Port addition: follows the script's text and caret (euoutline.pas).
+  if OutlinePanel.Visible then
+    Outline.Poll(CSyn);
 
   (***Update Statusbar***)
   StatusBar.Panels[0].Text:=IntToStr(CSyn.CaretY)+': '+IntToStr(CSyn.CaretX);

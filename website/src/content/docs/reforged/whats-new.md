@@ -144,6 +144,8 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 - Code folding for subs, `{ }` blocks and `repeat`, with Fold All / Unfold All.
 - Format Script (**Ctrl+Shift+F**) re-indents a script in one step.
 - **Ctrl+click** the name after `gosub` or `goto` to jump to its `sub` or label, **Alt+Left** to go back.
+- An outline left of the script lists its subs, labels and `menu` windows: click one to jump there. It
+  follows the cursor, has a filter and an A-Z order, and shows in grey the subs no `gosub` reaches.
 - Breakpoints, conditional breakpoints, step into / over / out, run to cursor and a live call stack.
 - An Output panel that shows what scripts write with [`log`](/commands/log/).
 

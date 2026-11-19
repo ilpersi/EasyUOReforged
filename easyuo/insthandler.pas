@@ -21,7 +21,8 @@ unit insthandler;
   scriptfile.pas, shared with the MENU designer.
 
   New additions besides breakpoints: Ctrl+click on a GOSUB/GOTO name jumps to its SUB or
-  label, and JumpBack (Edit > Go Back) returns -- see SynMouseUp.
+  label, and JumpBack (Edit > Go Back) returns -- see SynMouseUp. JumpTo is that jump, which
+  the outline panel (euoutline.pas) makes too, so Go Back returns from it as well.
 }
 
 {$mode delphi}{$H+}
@@ -69,6 +70,7 @@ type
   function CFN   : String;
   function CExec : TExecutor;
   procedure JumpBack(Ed : TSynEdit);
+  procedure JumpTo(Ed : TSynEdit; Line : Integer);
 
 const
   STOP     = 0;
@@ -218,6 +220,24 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Puts the caret at the start of Line (1-based) and centres it, after keeping where it was
+// for Go Back.
+procedure JumpTo(Ed : TSynEdit; Line : Integer);
+var
+  H : TJumpHistory;
+begin
+  H:=JumpHistoryOf(Ed);
+  if Length(H.Stack)>=MaxJumpBack then
+    Delete(H.Stack,0,1);
+  SetLength(H.Stack,Length(H.Stack)+1);
+  H.Stack[High(H.Stack)].Caret:=Ed.LogicalCaretXY;
+  H.Stack[High(H.Stack)].TopLine:=Ed.TopLine;
+
+  Ed.LogicalCaretXY:=Point(1,Line);
+  GotoLineAndCenter(Ed,Line);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 // Only a name that leads somewhere underlines. X is the logical start column
 // of the word under the mouse, Y its line (both 1-based).
 procedure TInstHandler.SynMouseLink(Sender: TObject; X, Y: Integer; var AllowMouseLink: Boolean);
@@ -238,7 +258,6 @@ var
   Ed     : TSynEdit;
   P      : TPoint;
   Target : Integer;
-  H      : TJumpHistory;
 begin
   if Button<>mbLeft then Exit;
   if Shift*[ssShift,ssAlt,ssCtrl]<>[ssCtrl] then Exit;
@@ -249,16 +268,7 @@ begin
   P:=Ed.PhysicalToLogicalPos(Ed.PixelsToRowColumn(Point(X,Y),[scmLimitToLines,scmForceLeftSidePos]));
   Target:=EuoJumpTargetAt(Ed.Lines,P.Y-1,P.X);
   if Target<0 then Exit;
-
-  H:=JumpHistoryOf(Ed);
-  if Length(H.Stack)>=MaxJumpBack then
-    Delete(H.Stack,0,1);
-  SetLength(H.Stack,Length(H.Stack)+1);
-  H.Stack[High(H.Stack)].Caret:=Ed.LogicalCaretXY;
-  H.Stack[High(H.Stack)].TopLine:=Ed.TopLine;
-
-  Ed.LogicalCaretXY:=Point(1,Target+1);
-  GotoLineAndCenter(Ed,Target+1);
+  JumpTo(Ed,Target+1);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -584,7 +594,7 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-// Edit > Go Back: undoes the last Ctrl+click jump in Ed (see SynMouseUp).
+// Edit > Go Back: undoes the last jump in Ed (JumpTo: a Ctrl+click, see SynMouseUp, or the outline).
 procedure JumpBack(Ed : TSynEdit);
 var
   H : TJumpHistory;

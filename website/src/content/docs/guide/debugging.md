@@ -1,6 +1,6 @@
 ---
 title: Editing and debugging
-description: "Breakpoints, conditional breakpoints, stepping, run to cursor, the call stack, VarDump and the editor's autocomplete, code folding, Format Script, Ctrl+click to a sub or label and Find and Replace."
+description: "Breakpoints, conditional breakpoints, stepping, run to cursor, the call stack, VarDump and the editor's autocomplete, code folding, Format Script, Ctrl+click to a sub or label, the outline and Find and Replace."
 sidebar:
   order: 3
 ---
@@ -95,6 +95,33 @@ A script that runs for days can start a new file each day: `logfile set dbg dail
   returns to where you clicked, and pressed again goes further back. The jump goes where the script would
   go: to the last `sub` of that name when there are two, and to the nearest label, the one below first
   when two are as close. A name the script only knows when it runs, such as `gosub %next`, is not a link.
+
+## The outline
+
+The outline, the list left of the script, is an index of the script: its subs, its labels and the lines
+that build [`menu`](/commands/menu/) windows. Click an entry to jump there, or select it and press
+**Enter**. *Edit → Go Back* (**Alt+Left**) returns, as after a Ctrl+click.
+
+| Entry | What it is |
+|---|---|
+| `sub Name` | A [`sub`](/commands/sub/). |
+| `Name:` | A [label](/commands/label/). A label between a sub's `sub` line and its `return` is listed under the sub: click the **+** in front of the sub to see it. |
+| `menu Title` | A [`menu Window Title`](/commands/menu/window/title/) line, where a script builds its menu window. |
+| `menu form name` | A [`menu Form`](/commands/menu/form/) line, which makes another window. |
+
+- **It follows the cursor**: the entry the cursor is in is selected. When that is a label in a closed sub,
+  the sub is.
+- **The filter box** above the list keeps the entries whose text matches, and the subs they are in, with
+  every sub open. It works like the variable inspector's filter: a regular expression that ignores case,
+  so plain text finds itself. A pattern with a mistake turns the box red and leaves the list as it was.
+  **Esc** empties the box, **Enter** jumps to the selected entry (or the first), **Down** goes to the list.
+- **A-Z**, next to the filter box, lists the entries by name instead of in script order, and the labels
+  under each sub too.
+- **A grey sub** is one no `gosub` reaches: no `gosub` in the script names it, or a later sub has the same
+  name (`gosub` runs the last one). It is only a hint. A sub run with a name the script builds when it runs,
+  such as `gosub %next`, or from another script with [`call`](/commands/call/), is grey too.
+- *Control → Show Outline* hides it or shows it again. Drag the bar between it and the script to change its
+  width. Whether it is shown, its width and its order are kept for the next time.
 
 ## Find and replace
 
