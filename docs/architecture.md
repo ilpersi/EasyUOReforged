@@ -57,8 +57,11 @@ common/   OS-facing primitives  ── package: uocommon
   (`EuoVocabulary`) and the script checker (`EuoLint`; see
   [The script checker](#the-script-checker) below).
 - **`easyuo/`** — the GUI: a multi-tab `TSynEdit` editor, the syntax
-  highlighter, a live variable-inspector tree, and the menu/toolbar that drive
-  `TExecutor`. The whole window is built in code (see below).
+  highlighter, a live variable-inspector tree, the Watches panel (`euwatch.pas`:
+  the user's watches per script file and the variables the script uses, with the
+  variables a step changed in red; what it lists and marks is `parser/EuoVarUsage.pas`),
+  and the menu/toolbar that drive `TExecutor`. The whole window is built in code
+  (see below).
 - **`tools/`** — `EUOUpdater/` (a standalone utility for deriving offsets for a
   new client version; keeps its own forked copies of a couple of units),
   `EUOMenuDesigner/`, `EUOCli/` (the command-line program) and
@@ -175,6 +178,8 @@ calling-convention meaning — they're inert historical strings. `uo.lpi` sets
 The GUI creates one `TExecutor` per open script tab (`easyuo/insthandler.pas`).
 Script variables (`EuoVariables`) are guarded by a critical section because the
 GUI thread polls them for the inspector while the script thread mutates them.
+The Watches panel tells a new pause from the same pause seen twice by two counters
+on `TExecutor`, `RunNo` and `LinesRun`, which only count.
 
 Stop is the one transition that differs from the original on purpose: it marks the
 script stopped *before* it breaks the wait the script is in. The original broke the

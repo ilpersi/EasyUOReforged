@@ -157,6 +157,9 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 - An outline left of the script lists its subs, labels and `menu` windows: click one to jump there. It
   follows the cursor, has a filter and an A-Z order, and shows in grey the subs no `gosub` reaches.
 - Breakpoints, conditional breakpoints, step into / over / out, run to cursor and a live call stack.
+- A Watches panel: the variables you chose (**Ctrl+F5** adds the one under the cursor), kept per script file,
+  and every variable the script uses, found by itself. At each step the variables that changed turn red, with the
+  old value in their hint, as EasyUO 1.42's variable view did.
 - An Output panel that shows what scripts write with [`log`](/commands/log/).
 
 See [Editing and debugging](/guide/debugging/).

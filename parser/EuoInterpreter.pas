@@ -87,6 +87,8 @@ unit EuoInterpreter;
   parameter-count gate it needs; the original operations, their order and quirks are untouched.
   Likewise GetCommandNames and GetVariableNames, two read-only views of the command registry and
   of VarNamesR/VarNamesRW for the script checker (EuoLint.pas). No script reaches them.
+  Likewise GetUserVarNames, a read-only view of the run's % variables and the ! variables of the
+  current namespace, for the editor's Watches panel (easyuo\euwatch.pas). No script reaches it.
   Likewise the LOG command (docs\agent-support.md phase 3): it hands a line of text to whoever
   runs the script, the editor's Output panel or EUOCli's output, through a queue the host empties
   with TakeLog. It is the one way a script can report without stopping (DISPLAY waits for a click)
@@ -379,6 +381,10 @@ type
     // for a read/write one. Read-only: nothing here is used when a script runs.
     procedure    GetCommandNames(List : TStrings);
     procedure    GetVariableNames(List : TStrings);
+    // Port addition (the editor's Watches panel): adds the names of the % variables that exist
+    // now ('%A', upper-case as stored) and of the ! variables of the current namespace ('!A').
+    // Read-only, like GetVarDump.
+    procedure    GetUserVarNames(List : TStrings);
   public
     // Port additions for hosts (docs\agent-support.md phase 3). See the unit header.
     // How often the main script started over in this run: an EXIT, or the end of the script,
@@ -2539,6 +2545,33 @@ begin
     List.AddObject(VarNamesR[Cnt],nil);
   for Cnt:=0 to High(VarNamesRW) do
     List.AddObject(VarNamesRW[Cnt],TObject(PtrUInt(1)));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (the editor's Watches panel). The stores keep '!' names as '!NS~NAME'; the
+// current namespace's are listed without that prefix and given their '!' back.
+procedure TEuoInterpreter.GetUserVarNames(List : TStrings);
+var
+  Cnt  : Integer;
+  Tmp  : TStringList;
+  Src  : TVarList;
+begin
+  CS.BeginWrite;
+  Tmp:=TStringList.Create;
+  try
+    Tmp.Text:=Vars.UserVars.ListVars('');
+    for Cnt:=0 to Tmp.Count-1 do
+      if Tmp[Cnt]<>'' then List.Add(Tmp[Cnt]);
+
+    if Vars.NSType=global then Src:=Vars.NSGlobal
+    else Src:=Vars.NSLocal;
+    Tmp.Text:=Src.ListVars('!'+Vars.NSName+'~');
+    for Cnt:=0 to Tmp.Count-1 do
+      if Tmp[Cnt]<>'' then List.Add('!'+Tmp[Cnt]);
+  finally
+    Tmp.Free;
+    CS.EndWrite;
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

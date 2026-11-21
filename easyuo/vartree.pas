@@ -39,6 +39,8 @@ unit vartree;
     the filter is cleared.
   - FormMouseWheel returns when the tree is empty (no TopItem), which a
     filter that matches nothing makes possible.
+  - The node menu has Add Watch, which adds the variable to the current
+    tab's watches (MainForm.AddWatchName, the Watches panel in euwatch.pas).
 }
 
 {$mode delphi}{$H+}
@@ -601,6 +603,7 @@ begin
     0: Clipboard.SetTextBuf(PChar(sBuf1));
     2: Clipboard.SetTextBuf(PChar(sBuf2));
     3: CExec.SetVar(sBuf1,InputBox('Set Variable',sBuf1+':',sBuf2));
+    5: MainForm.AddWatchName(sBuf1);   // port addition (Watches panel)
   end;
 end;
 
@@ -623,7 +626,8 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 procedure VarTreeFormCreate;
 const
-  Caps : Array[0..3] of String = ('Copy Name','-','Copy Value','Set Value');
+  // Port addition: '-' and 'Add Watch' (tags 4 and 5) after the original four.
+  Caps : Array[0..5] of String = ('Copy Name','-','Copy Value','Set Value','-','Add Watch');
 var
   Cnt  : Integer;
   Item : TMenuItem;

@@ -66,6 +66,12 @@ unit EuoExecutor;
   interpreter to close the files the run opened (TEuoInterpreter.RunStopped), so nothing stays locked by a
   script that has ended. It does nothing for a run that opened no file.
 
+  One more, for the editor's Watches panel (easyuo\euwatch.pas): two counters it reads to tell a new pause
+  from the same pause seen again. RunNo goes up each time a new run starts -- in LoadScript, which the
+  editor calls before every start from Stop, and in SetState's own new-run branch, which a start without
+  LoadScript takes (both may count one start: only a change matters). LinesRun counts the lines PlayLine
+  ran in that run (back to 0 with each new run). Nothing reads them while a script runs: they only count.
+
   One deliberate change to the original's behaviour, made at the owner's request
   (2026-11-11): Stop marks the script stopped BEFORE it breaks the script's current wait.
   The original's SetState did it the other way round -- Parser.Brk:=True, then the search
@@ -161,6 +167,11 @@ type
     OnLine        : TEuoLineEvent;  // default nil
     // The run was stopped by StopOnRestart.
     function    Restarted : Boolean;
+  public
+    // Port additions for the editor's Watches panel; see the unit header. Read them while the
+    // script is paused or stopped.
+    RunNo       : Cardinal;   // goes up when a new run starts
+    LinesRun    : Cardinal;   // lines run in this run
   end;
 
 const
@@ -212,6 +223,8 @@ begin
   StopOnRestart:=False;
   FRestarted:=False;
   OnLine:=nil;
+  RunNo:=0;
+  LinesRun:=0;
   Thrd:=TExeThread.Create(True);
   Thrd.Parent:=self;
   Thrd.Resume;
@@ -260,6 +273,8 @@ begin
     ScrList.Scrs[0].Text:=Scr;
     Clear;
     ScrList.Scr.Text:=Scr;
+    Inc(RunNo);    // port addition (Watches panel): a new run
+    LinesRun:=0;   //
   end;
 end;
 
@@ -490,6 +505,8 @@ begin
     begin
       Parser.Clear;
       FRestarted:=False;   // port addition: a new run
+      Inc(RunNo);          // port addition (Watches panel)
+      LinesRun:=0;         //
     end;
     Brk:=False;
     Slp:=False;
@@ -562,6 +579,7 @@ begin
       try
         if Assigned(OnLine) then OnLine(Parser.NextLine);   // port addition, nil in the editor
         Parser.PlayLine;
+        Inc(LinesRun);                                      // port addition (Watches panel)
       except
         on E: Exception do
         begin

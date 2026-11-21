@@ -42,6 +42,7 @@ type
     procedure TestWaitForPauseDoesNotUseUpTheTimeout;
     procedure TestWaitForConditionMetDuringPauseCounts;
     procedure TestWaitForIsOneStep;
+    procedure TestRunNoAndLinesRunCountRunsAndLines;
   end;
 
 implementation
@@ -327,6 +328,40 @@ begin
   Sleep(150);
   AssertEquals('N/A', Exec.GetVar('%b'));
   AssertEquals(Cardinal(PAUSE), Exec.State);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (the editor's Watches panel): RunNo goes up with each new run, LinesRun counts
+// the lines of this run and starts again from 0 with the next.
+procedure TEuoExecutorTests.TestRunNoAndLinesRunCountRunsAndLines;
+var
+  Run0, Run1, StartTick : Cardinal;
+begin
+  Run0 := Exec.RunNo;
+  Exec.LoadScript('SET %a 1' + #13#10 + 'SET %b 2' + #13#10 + 'SET %c 3' + #13#10 + 'HALT');
+  Exec.State := STEPINTO;
+  AssertTrue(WaitForVar('%a', '1'));
+  Sleep(150);
+  AssertTrue('a new run', Exec.RunNo <> Run0);
+  Run1 := Exec.RunNo;
+  AssertEquals('one line run', Cardinal(1), Exec.LinesRun);
+
+  Exec.State := STEPINTO;
+  AssertTrue(WaitForVar('%b', '2'));
+  Sleep(150);
+  AssertEquals('the same run', Run1, Exec.RunNo);
+  AssertEquals('two lines run', Cardinal(2), Exec.LinesRun);
+
+  Exec.State := STOP;
+  StartTick := GetTickCount;
+  while (not Exec.Paused) and (GetTickCount - StartTick < 2000) do
+    Sleep(5);
+  Exec.LoadScript('SET %x 1' + #13#10 + 'HALT');
+  Exec.State := STEPINTO;
+  AssertTrue(WaitForVar('%x', '1'));
+  Sleep(150);
+  AssertTrue('the next run', Exec.RunNo <> Run1);
+  AssertEquals('counted from 0 again', Cardinal(1), Exec.LinesRun);
 end;
 
 initialization

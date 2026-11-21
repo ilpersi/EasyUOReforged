@@ -125,6 +125,7 @@ type
     procedure TestSubAndLabelNamedMoveItemStillWork;
     procedure TestMoveItemArgsReadsItsWords;
     procedure TestMoveItemArgsRefusesBadWords;
+    procedure TestGetUserVarNamesListsTheRunsVariables;
   end;
 
 implementation
@@ -1885,6 +1886,33 @@ begin
   AssertEquals('y no number', 'bad', MoveArgs(['moveitem', I, D, '5', '40', 'abc']));
   AssertEquals('a negative x', 'bad', MoveArgs(['moveitem', I, D, '5', '-1', '40']));
   AssertEquals('a word too many', 'bad', MoveArgs(['moveitem', I, D, '5', '40', '40', 'x']));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (the editor's Watches panel): the % variables of the run, and the ! variables of
+// the current namespace only, each with its sigil, upper-case as stored.
+procedure TEuoInterpreterTests.TestGetUserVarNamesListsTheRunsVariables;
+var
+  L : TStringList;
+begin
+  PlayScript(
+    'set %a 1'#13#10+
+    'set %list . 3 x'#13#10+
+    'namespace local foo'#13#10+
+    'set !b 2'#13#10+
+    'namespace local bar'#13#10+
+    'set !c 3'#13#10+
+    'halt');
+  L := TStringList.Create;
+  try
+    Interp.GetUserVarNames(L);
+    L.Delimiter := ',';
+    L.StrictDelimiter := True;
+    AssertEquals('%A,%LIST3,!C', L.DelimitedText);
+  finally
+    L.Free;
+  end;
+  AssertEquals('the glued name reads its value', 'x', Interp.GetVar('%list3'));
 end;
 
 initialization

@@ -13,7 +13,7 @@ uses
   EuoMenu16, EuoMenuSelect, EuoInterpreter, EuoBreakCondition, 
   EuoCallStackFormat, EuoExecutor, EuoSql, EuoBlocks, EuoScriptWords, 
   EuoJumpTarget, EuoJournalSearch, EuoStrOps, EuoVocabulary, EuoLint, 
-  EuoItemMove, EuoGumps, EuoLogFile, EuoOutline, EuoHttp;
+  EuoItemMove, EuoGumps, EuoLogFile, EuoOutline, EuoHttp, EuoVarUsage;
 
 implementation
 

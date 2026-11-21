@@ -1,6 +1,6 @@
 ---
 title: Editing and debugging
-description: "Breakpoints, conditional breakpoints, stepping, run to cursor, the call stack, VarDump and the editor's autocomplete, code folding, Format Script, Ctrl+click to a sub or label, the outline and Find and Replace."
+description: "Breakpoints, conditional breakpoints, stepping, run to cursor, the call stack, watches and the values a step changed, VarDump and the editor's autocomplete, code folding, Format Script, Ctrl+click to a sub or label, the outline and Find and Replace."
 sidebar:
   order: 3
 ---
@@ -18,6 +18,7 @@ the Delphi and Lazarus conventions.
 | *Control → Breakpoint Condition…* | Make the breakpoint conditional. |
 | *Control → Clear All Breakpoints* | Remove every breakpoint. |
 | *Control → Show Call Stack* | A live panel of the nested [`gosub`](/commands/gosub/) calls. |
+| **Ctrl+F5** | Add the variable under the cursor to the [watches](#watches). |
 
 A **conditional breakpoint** only stops when its condition is true. The condition is a single comparison,
 `<variable> <operator> <value>`, for example `%i > 10` or `#FindCnt = 0`:
@@ -34,6 +35,52 @@ It is not a full EasyUO expression: there is no `&&`, `||` or arithmetic.
 While the script is paused, the variable inspector shows the live values. *Tools → VarDump* writes every
 variable to a text window you can copy, which is handy for bug reports.
 
+## Watches
+
+The Watches panel, at the bottom of the window, follows the variables of the script in the current tab. It is
+shown when the editor starts; *Control → Show Watches* hides it or shows it again, and the editor remembers
+which. It has two parts:
+
+- **Watches**: the variables you chose, in the order you added them.
+- **Script variables**: every variable the script uses, found by itself. They are the `%`, `!`, `*` and `#`
+  variables written in the script (outside comments), plus the ones the run made without their name written
+  anywhere, such as `%list3` from `set %list . %i x`. They are listed `%` first, then `!`, `*` and `#`, each in
+  A-Z order. `#true`, `#false`, `#spc`, `#smc` and `#dot` never change and are left out.
+
+**Adding a watch:**
+
+- Put the cursor on a variable in the script, or select one, and press **Ctrl+F5** (*Control → Add Watch*, or
+  *Add Watch* on the script's right-click menu). With no variable there, it asks for the name.
+- In the panel, right-click a script variable and choose *Watch*, or choose *Add Watch…* to type a name.
+- In the variable inspector, click a variable and choose *Add Watch*.
+
+A watch is one variable name: `%name`, `!name`, `*name` or `#name`. Adding one opens the panel.
+
+**While you step**, each time the script pauses (a step, a breakpoint or the [`pause`](/commands/pause/)
+command), the variables whose value changed since the previous pause turn **red**, name and value. Hover over
+one to see what it was. A
+variable that had no value before was `N/A`. Nothing is red at the first pause of a run, and the red goes when
+the script plays on or stops. Variables that change on their own, such as `#time`, `#scnt` or `#random`, turn
+red at every step.
+
+```euo
+set %a 1
+set %a 2       ; step here: %a and its value turn red, and its hint says it was 1
+set %list . 3 x
+halt
+```
+
+Right-click a row for *Remove Watch* (or **Delete**), *Clear Watches*, *Copy Name*, *Copy Value* and *Set
+Value…* (or a double-click, or **Enter**). A value you set while paused does not count as a change at the next
+step.
+
+Each script file keeps its own watches: they come back when you open the file again. A new script keeps them
+from its first *Save As*.
+
+The call stack, the Watches panel and the Output panel share the bottom of the window, under the outline,
+the script and the variable inspector, in that order from left to right. Each one shown gets an equal part of
+the width; drag the bars between them to give one more room, and the bar above them to make them taller.
+
 ## The Output panel
 
 [`log`](/commands/log/) writes a line to the Output panel without stopping the script: put it where you want
@@ -45,12 +92,13 @@ log finditem found #FindCnt stacks
 halt
 ```
 
-The panel opens by itself, under the script, at the first line a script logs. Each line has the time, and
+The panel opens by itself, at the bottom of the window, at the first line a script logs. Each line has the time, and
 the tab's name when more than one tab is open. *Control → Show Output* shows or hides it and *Control → Clear
 Output* empties it. It keeps the newest 5000 lines.
 
-When the call stack is shown too, the two share the space under the script: the call stack on the left, the
-Output panel on the right. Drag the bar between them to give one more room.
+When the call stack or the [Watches panel](#watches) is shown too, they share the bottom of the window: the
+call stack on the left, then the watches, then the Output panel. Drag the bars between them to give one more
+room.
 
 ## Logging to a file
 

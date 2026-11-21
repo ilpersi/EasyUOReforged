@@ -60,7 +60,7 @@ The Output panel then shows:
 
 ## The Output panel
 
-The panel opens by itself, under the script, when a script logs its first line. *Control → Show Output*
+The panel opens by itself, at the bottom of the window, when a script logs its first line. *Control → Show Output*
 shows or hides it, and *Control → Clear Output* empties it.
 
 - There is one panel for all tabs. When more than one tab is open, each line also names its tab.

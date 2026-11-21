@@ -72,8 +72,9 @@ section is the full reference.
 
 - **Tools → Don't Move Cursor** is on by default: [`click`](/commands/click/) and target commands work
   without moving your real mouse pointer. Turn it off if a script needs the real cursor moved.
-- **Tools → Manage VarList** chooses which variables the inspector shows. Add your script's own
-  `%variables` there to watch them too.
+- **Tools → Manage VarList** chooses which variables the inspector shows. To follow your script's own
+  `%variables`, use the [Watches panel](/guide/debugging/#watches) (*Control → Show Watches*): it lists them
+  by itself, and **Ctrl+F5** adds the one under the cursor to your watches.
 - **Building a big [`menu`](/commands/menu/) window?** A script runs [`#LPC`](/variables/lpc/) lines
   (10 by default) and then pauses 50 ms, so a menu with a hundred controls takes about half a second to
   appear. Put `set #LPC 1000` before building it, and `set #LPC 10` once it is on screen if you want the

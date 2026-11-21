@@ -63,15 +63,19 @@ uses Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Types,
      SynMacroRecorder, SynEditHighlighter, SynEditKeyCmds, ShellApi,
      Registry, vartree, access, ReforgedVersion, insthandler, mainicons, eufoldsyn,
      eucomplete, eufinddlg, EuoScriptStack, EuoCallStackFormat, EuoBlocks, euoutput,
-     euoutline;
+     euoutline, euwatch;
 
 type
   TMainForm = class(TForm)
   private
-    FStackShare : Double;  // port addition: the call stack's part of BottomPanel's width
+    // Port addition: the width share of the call stack (0) and the Watches panel (1) in
+    // BottomPanel, once the user has dragged the splitter right of it (see LayoutBottomPanel).
+    FShares     : array[0..1] of Double;
+    FShareSet   : array[0..1] of Boolean;
     procedure LayoutBottomPanel;
+    function  PartWidth(Part, Shown : Integer) : Integer;
     procedure BottomPanelResize(Sender: TObject);
-    procedure OutputSplitterMoved(Sender: TObject);
+    procedure PartSplitterMoved(Sender: TObject);
     procedure WMDropFiles(Sender: TObject; const FileNames: array of string);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure TabCtrlChange(Sender: TObject);
@@ -89,6 +93,9 @@ type
     procedure CallStackListBoxDblClick(Sender: TObject);
     procedure ShowOutputPanel(AVisible : Boolean);
     procedure ShowOutlinePanel(AVisible : Boolean);
+    procedure ShowWatchesPanel(AVisible : Boolean);
+    procedure WatchesChanged(Ed : TSynEdit);
+    procedure AddWatchAtCaret;
     procedure OutlineJump(Ed : TSynEdit; Line : Integer);
     procedure AddOutput(TabIdx : Integer; Lines : TStrings);
     procedure FormatScript;
@@ -112,6 +119,7 @@ type
     CallStackPanel1 : TMenuItem;
     OutputPanel1,ClearOutput1 : TMenuItem;
     OutlinePanel1 : TMenuItem;
+    WatchesPanel1,AddWatch1,AddWatch2 : TMenuItem;  // port addition: the Watches panel
     NewClient1,SwapToNextClient1,VarDump1,UserVars1,DontMoveCursor1 : TMenuItem;
     Help2,GoToWebsite1,Discord1,About1 : TMenuItem;
     Undo2,Redo2,Cut2,Copy2,Paste2,Delete2,SelectAll2,Close2,CloseAll2 : TMenuItem;
@@ -138,11 +146,14 @@ type
     TabPopupMenu      : TPopupMenu;
     FindDlg           : TEuoFindDialog;  // created on first use, see FindDialog
     ScrPanel          : TPanel;
-    BottomPanel       : TPanel;     // port addition: holds the call stack and the Output panel
-    BottomSplitter    : TSplitter;  // between the script and BottomPanel
+    BottomPanel       : TPanel;     // port addition: holds the call stack, the Watches and the Output panel
+    BottomSplitter    : TSplitter;  // between the outline/script/variables and BottomPanel
     CallStackListBox  : TListBox;
-    OutputSplitter    : TSplitter;  // port addition: between the call stack and the Output panel
+    OutputSplitter    : TSplitter;  // port addition: right of the call stack
     OutputMemo        : TMemo;      // port addition: the Output panel, see euoutput.pas
+    WatchPanel        : TPanel;     // port addition: the Watches panel, see euwatch.pas
+    WatchSplitter     : TSplitter;  // between the Watches panel and the Output panel
+    Watches           : TEuoWatchView;
     ToolButton14, ToolButton15, ToolButton16, ToolButton24 : TToolButton;
     ToolButton4, ToolButton7, ToolButton8, ToolButton9      : TToolButton;
     FormatButton      : TToolButton;
@@ -151,6 +162,9 @@ type
     procedure   FormDestroy(Sender: TObject);
     procedure   MenuHandler(Tag : Integer);
     procedure   ShowTab(Ind : Integer);
+    // Port addition: adds Name to the current tab's watches and shows the Watches panel; False
+    // when Name is not one variable name.
+    function    AddWatchName(const Name : String) : Boolean;
   end;
 
 var
@@ -162,7 +176,7 @@ var
 procedure GotoLineAndCenter(Editor : TSynEdit; Line : Integer);
 
 implementation
-uses text, uoselector, EuoMenuSelect;
+uses text, uoselector, EuoMenuSelect, EuoVarUsage;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Port addition: a client running elevated can't be opened by a non-elevated
@@ -364,6 +378,10 @@ begin
   // Tag continues the same "new debug features get tags far outside every
   // original range" convention as the breakpoint block above (200-203).
   CallStackPanel1 := AddMenu(Control1, 210, 'Show Call &Stack');
+  // Port addition: the Watches panel (euwatch.pas), between the call stack and the Output
+  // panel. Ctrl+F5 is Delphi's Add Watch key; SynEdit binds no F5 key (syneditkeycmds.pp).
+  WatchesPanel1 := AddMenu(Control1, 214, 'Show &Watches');
+  AddWatch1     := AddMenu(Control1, 215, 'A&dd Watch', ShortCut(VK_F5, [ssCtrl]));
   // Port addition (the LOG command): the Output panel, where the lines scripts log appear.
   OutputPanel1 := AddMenu(Control1, 211, 'Show &Output');
   ClearOutput1 := AddMenu(Control1, 212, 'Clear Out&put');
@@ -532,22 +550,26 @@ begin
 
   ////////////////////////////////////////////////////////////////////////////
   // New addition (not present in the original app): a live call-stack panel.
-  // It sits in BottomPanel, which is parented to ScrPanel (not MidPanel) so
-  // it's automatically shared across every tab's TSynEdit the same way
-  // ScrPanel itself already is (see insthandler.pas's CreateSyn: every tab's
-  // editor gets Parent:=MainForm.ScrPanel with Align:=alClient) -- an alBottom
-  // sibling here shrinks whichever editor is currently visible with no per-tab
-  // bookkeeping needed. Hidden by default (Visible:=False here, restored
-  // from the registry in FormCreate) so this doesn't change any existing
-  // user's screen layout unless they opt in via Control > Show Call Stack.
+  // It sits in BottomPanel, which is parented to MidPanel, so it is shared by
+  // every tab the same way ScrPanel is (see insthandler.pas's CreateSyn: every
+  // tab's editor gets Parent:=MainForm.ScrPanel with Align:=alClient) and
+  // needs no per-tab bookkeeping. Port change (2026-11-21, the owner's layout):
+  // it was in ScrPanel, between the outline and the variable panel; in MidPanel
+  // it runs the whole width of the window, and the outline, the script and the
+  // variable panel end above it -- LCL aligns alBottom controls before alLeft
+  // and alRight ones (TWinControl.AlignControls). Hidden by default
+  // (Visible:=False here, restored from the registry in FormCreate) so this
+  // doesn't change any existing user's screen layout unless they opt in via
+  // Control > Show Call Stack.
   //
   // BottomPanel is a port addition: it holds the call stack on the left and
   // the Output panel on the right, with OutputSplitter between them. Either
   // of the two fills it when the other is hidden. LayoutBottomPanel arranges it.
-  FStackShare := 0.5;
+  // The Watches panel (port addition, euwatch.pas) sits between them, with WatchSplitter
+  // right of it; the last of the three that is shown fills the panel.
 
   BottomPanel := TPanel.Create(Self);
-  BottomPanel.Parent := ScrPanel;
+  BottomPanel.Parent := MidPanel;
   BottomPanel.Align := alBottom;
   BottomPanel.Height := 100;
   BottomPanel.BevelOuter := bvNone;
@@ -555,7 +577,7 @@ begin
   BottomPanel.OnResize := BottomPanelResize;
 
   BottomSplitter := TSplitter.Create(Self);
-  BottomSplitter.Parent := ScrPanel;
+  BottomSplitter.Parent := MidPanel;
   BottomSplitter.Align := alBottom;
   BottomSplitter.Visible := False;
 
@@ -569,7 +591,21 @@ begin
   OutputSplitter.Parent := BottomPanel;
   OutputSplitter.Align := alLeft;
   OutputSplitter.Visible := False;
-  OutputSplitter.OnMoved := OutputSplitterMoved;
+  OutputSplitter.OnMoved := PartSplitterMoved;
+
+  WatchPanel := TPanel.Create(Self);
+  WatchPanel.Parent := BottomPanel;
+  WatchPanel.Align := alLeft;
+  WatchPanel.BevelOuter := bvNone;
+  WatchPanel.Visible := False;
+  Watches := TEuoWatchView.Create(Self, WatchPanel);
+  Watches.OnWatchesChanged := WatchesChanged;
+
+  WatchSplitter := TSplitter.Create(Self);
+  WatchSplitter.Parent := BottomPanel;
+  WatchSplitter.Align := alLeft;
+  WatchSplitter.Visible := False;
+  WatchSplitter.OnMoved := PartSplitterMoved;
 
   ////////////////////////////////////////////////////////////////////////////
   // Port addition (the LOG command, docs folder, agent-support.md, phase 3): the Output panel,
@@ -600,6 +636,9 @@ begin
   FormatScript2 := AddMenu(SynPopupMenu.Items, 220, 'F&ormat Script', FormatScript1.ShortCut);
   FoldAll2      := AddMenu(SynPopupMenu.Items, 221, 'Fo&ld All', FoldAll1.ShortCut);
   UnfoldAll2    := AddMenu(SynPopupMenu.Items, 222, 'U&nfold All', UnfoldAll1.ShortCut);
+  // Port addition: Add Watch for the variable under the caret (see the Control menu's).
+  MI := TMenuItem.Create(Self); MI.Caption:='-'; SynPopupMenu.Items.Add(MI);
+  AddWatch2     := AddMenu(SynPopupMenu.Items, 215, 'A&dd Watch', AddWatch1.ShortCut);
 
   ////////////////////////////////////////////////////////////////////////////
   // TSynEUOSyn (eufoldsyn.pas) wraps the TSynUniSyn coloring that used to be
@@ -657,7 +696,9 @@ begin
   // silently default), hence the ValueExists guard, matching vartree.pas's
   // own defensive pattern for the same reason.
   CallStackPanel1.Checked := Reg.ValueExists('CallStackVisible') and Reg.ReadBool('CallStackVisible');
-  // Port addition: the Output panel's state, the same way. It lays out both panels.
+  // Port addition: the Watches panel's state, shown unless the user hid it (as the outline).
+  WatchesPanel1.Checked := not Reg.ValueExists('WatchesVisible') or Reg.ReadBool('WatchesVisible');
+  // Port addition: the Output panel's state, the same way. It lays out the three panels.
   ShowOutputPanel(Reg.ValueExists('OutputVisible') and Reg.ReadBool('OutputVisible'));
   // Port addition: the outline, shown unless the user hid it, with its width and order.
   if Reg.ValueExists('OutlineWidth') and (Reg.GetDataType('OutlineWidth')=rdInteger) then
@@ -984,6 +1025,11 @@ begin
            ShowOutlinePanel(not OutlinePanel1.Checked);
            Reg.WriteBool('OutlineVisible',OutlinePanel1.Checked);
          end;
+   214 : begin // Toggle the Watches panel (port addition)
+           ShowWatchesPanel(not WatchesPanel1.Checked);
+           Reg.WriteBool('WatchesVisible',WatchesPanel1.Checked);
+         end;
+   215 : AddWatchAtCaret; // port addition
 
     // New additions (not present in the original app): Format Script and
     // code folding -- see BuildComponents' Edit menu.
@@ -1092,60 +1138,106 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-// Port addition: arranges BottomPanel from the two menu items, Show Call Stack and Show
-// Output. With both on, the call stack takes its share of the width on the left
-// (FStackShare, half until the user drags OutputSplitter) and the Output panel the rest;
-// with one on, that one fills the panel; with none, the panel is hidden.
+// Port addition: arranges BottomPanel from three menu items, Show Call Stack, Show Watches and
+// Show Output, left to right in that order. Each one shown but the last takes its share of the
+// width on the left (PartWidth) with its splitter right of it, and the last one fills the rest;
+// with none shown, the panel is hidden.
 // Each splitter is put right next to its panel each time: two controls of the same Align
 // made visible together can come up in either order, and a splitter on the wrong side of
 // its panel resizes nothing.
 procedure TMainForm.LayoutBottomPanel;
 var
-  Stack,Output : Boolean;
+  Parts  : array[0..2] of TControl;
+  Splits : array[0..1] of TSplitter;
+  Shown  : array[0..2] of Boolean;
+  Cnt, Last, NShown, X : Integer;
 begin
-  Stack:=CallStackPanel1.Checked;
-  Output:=OutputPanel1.Checked;
+  Parts[0]:=CallStackListBox;  Shown[0]:=CallStackPanel1.Checked;
+  Parts[1]:=WatchPanel;        Shown[1]:=WatchesPanel1.Checked;
+  Parts[2]:=OutputMemo;        Shown[2]:=OutputPanel1.Checked;
+  Splits[0]:=OutputSplitter;   // right of the call stack
+  Splits[1]:=WatchSplitter;    // right of the Watches panel
+  Last:=-1;
+  NShown:=0;
+  for Cnt:=0 to 2 do
+    if Shown[Cnt] then
+    begin
+      Last:=Cnt;
+      Inc(NShown);
+    end;
 
   BottomPanel.DisableAlign;
   try
-    OutputSplitter.Visible:=False;
-    CallStackListBox.Visible:=Stack;
-    OutputMemo.Visible:=Output;
-    if Stack and Output then
+    for Cnt:=0 to 1 do Splits[Cnt].Visible:=False;
+    X:=0;
+    for Cnt:=0 to 2 do
     begin
-      CallStackListBox.Align:=alLeft;
-      CallStackListBox.Left:=0;
-      CallStackListBox.Width:=Round(BottomPanel.ClientWidth*FStackShare);
-      OutputSplitter.Left:=CallStackListBox.Width;
-      OutputSplitter.Visible:=True;
-    end
-    else if Stack then
-      CallStackListBox.Align:=alClient;
+      Parts[Cnt].Visible:=Shown[Cnt];
+      if not Shown[Cnt] then Continue;
+      if Cnt=Last then Parts[Cnt].Align:=alClient
+      else begin
+        Parts[Cnt].Align:=alLeft;
+        Parts[Cnt].Left:=X;
+        Parts[Cnt].Width:=PartWidth(Cnt,NShown);
+        Inc(X,Parts[Cnt].Width);
+        Splits[Cnt].Left:=X;
+        Splits[Cnt].Visible:=True;
+        Inc(X,Splits[Cnt].Width);
+      end;
+    end;
   finally
     BottomPanel.EnableAlign;
   end;
 
-  BottomPanel.Visible:=Stack or Output;
-  BottomSplitter.Visible:=Stack or Output;
-  if Stack or Output then
+  BottomPanel.Visible:=NShown>0;
+  BottomSplitter.Visible:=NShown>0;
+  if NShown>0 then
     BottomSplitter.Top:=BottomPanel.Top-BottomSplitter.Height;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-// Port addition: the two panels keep their shares of the width when the window changes size.
-procedure TMainForm.BottomPanelResize(Sender: TObject);
+// Port addition: the width of part 0 (call stack) or 1 (Watches) when Shown parts share the
+// panel: the share the user dragged it to, or an equal share (half for two, a third for three).
+function TMainForm.PartWidth(Part, Shown : Integer) : Integer;
+var
+  Share : Double;
 begin
-  if OutputSplitter.Visible then
-    CallStackListBox.Width:=Round(BottomPanel.ClientWidth*FStackShare);
+  if FShareSet[Part] then Share:=FShares[Part]
+  else if Shown>0 then Share:=1/Shown
+  else Share:=0.5;
+  Result:=Round(BottomPanel.ClientWidth*Share);
+  if Result<20 then Result:=20;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-// Port addition: the user dragged the splitter between the call stack and the Output
-// panel: that is the share to keep from now on.
-procedure TMainForm.OutputSplitterMoved(Sender: TObject);
+// Port addition: the panels keep their shares of the width when the window changes size.
+procedure TMainForm.BottomPanelResize(Sender: TObject);
+var
+  NShown : Integer;
 begin
-  if BottomPanel.ClientWidth>0 then
-    FStackShare:=CallStackListBox.Width/BottomPanel.ClientWidth;
+  NShown:=Ord(CallStackPanel1.Checked)+Ord(WatchesPanel1.Checked)+Ord(OutputPanel1.Checked);
+  if OutputSplitter.Visible then
+    CallStackListBox.Width:=PartWidth(0,NShown);
+  if WatchSplitter.Visible then
+    WatchPanel.Width:=PartWidth(1,NShown);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition: the user dragged the splitter right of the call stack (OutputSplitter) or of
+// the Watches panel (WatchSplitter): that panel's share is the one to keep from now on.
+procedure TMainForm.PartSplitterMoved(Sender: TObject);
+begin
+  if BottomPanel.ClientWidth<=0 then Exit;
+  if Sender=OutputSplitter then
+  begin
+    FShares[0]:=CallStackListBox.Width/BottomPanel.ClientWidth;
+    FShareSet[0]:=True;
+  end
+  else if Sender=WatchSplitter then
+  begin
+    FShares[1]:=WatchPanel.Width/BottomPanel.ClientWidth;
+    FShareSet[1]:=True;
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1182,6 +1274,51 @@ procedure TMainForm.ShowOutputPanel(AVisible : Boolean);
 begin
   OutputPanel1.Checked := AVisible;
   LayoutBottomPanel;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition: shows or hides the Watches panel (euwatch.pas), filled at once when shown.
+procedure TMainForm.ShowWatchesPanel(AVisible : Boolean);
+begin
+  WatchesPanel1.Checked := AVisible;
+  LayoutBottomPanel;
+  if AVisible and Assigned(IH) then Watches.Refresh(CSyn, CExec);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition: a tab's watches changed; a saved script keeps them (insthandler.pas).
+procedure TMainForm.WatchesChanged(Ed : TSynEdit);
+begin
+  IH.SaveWatchesOf(Ed);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition: Control > Add Watch (Ctrl+F5). The selected text (one line), or else the
+// variable at the caret (EuoVarAt), becomes a watch; without one, or when it is not a variable
+// name, the name is asked for. Adding a watch shows the panel, and keeps it shown.
+function TMainForm.AddWatchName(const Name : String) : Boolean;
+begin
+  Result := Watches.AddWatch(CSyn, Name);
+  if Result and not WatchesPanel1.Checked then
+  begin
+    ShowWatchesPanel(True);
+    Reg.WriteBool('WatchesVisible', True);
+  end;
+end;
+
+procedure TMainForm.AddWatchAtCaret;
+var
+  S : String;
+begin
+  S := '';
+  if CSyn.SelAvail and (Pos(#10, CSyn.SelText) = 0) then S := Trim(CSyn.SelText)
+  else S := EuoVarAt(CSyn.LineText, CSyn.LogicalCaretXY.X);
+  if (S <> '') and AddWatchName(S) then Exit;
+  if Watches.AskAndAddWatch(CSyn, S) and not WatchesPanel1.Checked then
+  begin
+    ShowWatchesPanel(True);
+    Reg.WriteBool('WatchesVisible', True);
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1439,6 +1576,12 @@ begin
   // Port addition: follows the script's text and caret (euoutline.pas).
   if OutlinePanel.Visible then
     Outline.Poll(CSyn);
+
+  (***Update the Watches panel***)
+  // Port addition (euwatch.pas): every other tick, as the variable tree; at once for another tab.
+  if WatchPanel.Visible then
+    if (UpdateCnt mod 2 = 0) or (Watches.Editor <> CSyn) then
+      Watches.Poll(CSyn, CExec);
 
   (***Update Statusbar***)
   StatusBar.Panels[0].Text:=IntToStr(CSyn.CaretY)+': '+IntToStr(CSyn.CaretX);

@@ -23,6 +23,10 @@ unit insthandler;
   New additions besides breakpoints: Ctrl+click on a GOSUB/GOTO name jumps to its SUB or
   label, and JumpBack (Edit > Go Back) returns -- see SynMouseUp. JumpTo is that jump, which
   the outline panel (euoutline.pas) makes too, so Go Back returns from it as well.
+
+  The Watches panel (euwatch.pas) keeps one watch list per script file: Reopen loads the file's
+  list into the new editor, SaveAs keeps the tab's list under the new name, and SaveWatchesOf
+  saves it whenever the panel changes it. An unsaved tab's list lives only in its editor.
 }
 
 {$mode delphi}{$H+}
@@ -62,6 +66,8 @@ type
     procedure   SaveAll;
     function    Close : Boolean;
     function    CloseAll : Boolean;
+    // Port addition: saves Ed's watches for its script, when it has been saved (euwatch.pas).
+    procedure   SaveWatchesOf(Ed : TSynEdit);
     property    Syn[Ind : Integer] : TSynEdit read GetSyn;
     property    Exec[Ind : Integer] : TExecutor read GetExec;
   end;
@@ -86,7 +92,7 @@ var
   ReopenList : TStringList;
 
 implementation
-uses main;
+uses main, euwatch;
 
 const ReopenNr = 8;
 
@@ -419,6 +425,7 @@ begin
   SynEdit:=CreateSyn;
   SynEdit.Lines.Text:=LoadScriptFileAsUTF8(FN);
   SynList.AddObject(FN,SynEdit);
+  LoadWatches(SynEdit,FN);   // port addition: the file's watches
 
   ExecObj:=TExecutor.Create(MainForm.Handle);
   ExecList.Add(ExecObj);
@@ -502,6 +509,7 @@ begin
   Syn[Cur].Lines.SaveToFile(FN);
   Syn[Cur].Modified:=False;
   SynList[Cur]:=FN;
+  SaveWatches(Syn[Cur],FN);   // port addition: the tab's watches go with the new name
   MainForm.TabCtrl.Tabs[Cur]:=ExtractFileName(FN);
   Exec[Cur].Parser.ScriptName:=ExtractFileName(FN);   // port addition (LOGFILE's "script" field)
 end;
@@ -579,6 +587,16 @@ begin
     end;
   end;
   Cur:=MainForm.TabCtrl.TabIndex;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TInstHandler.SaveWatchesOf(Ed : TSynEdit);
+var
+  Ind : Integer;
+begin
+  Ind:=SynList.IndexOfObject(Ed);
+  if Ind<0 then Exit;
+  SaveWatches(Ed,SynList[Ind]);   // does nothing for an unsaved tab ('')
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
