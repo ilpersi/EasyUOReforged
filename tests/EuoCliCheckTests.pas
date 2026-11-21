@@ -35,6 +35,7 @@ type
     procedure TestStdIn;
     procedure TestSeveralFiles;
     procedure TestCurPath;
+    procedure TestCallPath;
     procedure TestOldEncodingIsRead;
   end;
 
@@ -238,6 +239,30 @@ begin
   AssertEquals('not found from another folder',CLI_WARNINGS,Run('check|--strict|--curpath|'+Other+'|'+FN));
   AssertTrue(Pos('[missing-call-file]',Output.Text)>0);
   AssertEquals('--curpath=folder too',CLI_WARNINGS,Run('check|--strict|--curpath='+Other+'|'+FN));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The CALL folders: the editor's saved list, then --callpath (EUOCALLPATH between them is
+// tested in EuoCallPathTests).
+procedure TEuoCliCheckTests.TestCallPath;
+var
+  FN, Other : String;
+begin
+  Script('cpchecklib.euo',['exit']);
+  FN:=Script('main.euo',['call cpchecklib','halt']);
+  Other:=IncludeTrailingPathDelimiter(GetTempDir);
+  AssertEquals('not in the folder given',CLI_WARNINGS,Run('check|--strict|--curpath|'+Other+'|'+FN));
+  AssertEquals('found through --callpath',CLI_OK,
+    Run('check|--strict|--curpath|'+Other+'|--callpath|C:\nothere;'+Dir+'|'+FN));
+  AssertEquals('--callpath= and more than one',CLI_OK,
+    Run('check|--strict|--curpath|'+Other+'|--callpath=C:\nothere|--callpath='+Dir+'|'+FN));
+  CliSavedCallPath:=Dir;
+  try
+    AssertEquals('found through the editor''s saved list',CLI_OK,Run('check|--strict|--curpath|'+Other+'|'+FN));
+  finally
+    CliSavedCallPath:='';
+  end;
+  AssertEquals('--callpath needs folders',CLI_USAGE,Run('check|'+FN+'|--callpath'));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

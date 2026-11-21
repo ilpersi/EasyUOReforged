@@ -383,6 +383,16 @@ begin
     AssertEquals('.txt is tried','',Warn(['call plain','halt']));
     AssertEquals('an absolute path','',Warn(['call '+Dir+PathDelim+'here.euo a b','halt']));
     AssertEquals('a name held in a variable','',Warn(['call %file','halt']));
+
+    // The CALL folders, as TEuoInterpreter searches them after #CurPath.
+    Linter.CurPath:=IncludeTrailingPathDelimiter(GetTempDir);
+    AssertEquals('missing-call-file@1',Warn(['call here','halt']));
+    Linter.CallPath:=Dir;
+    AssertEquals('found in a folder of the saved list','',Warn(['call here','halt']));
+    Linter.CallPath:='';
+    Linter.CallPathLast:='C:\nothere;'+Dir;
+    AssertEquals('found in a folder searched last','',Warn(['call plain','halt']));
+    Linter.CallPathLast:='';
   finally
     SL.Free;
     DeleteFile(Dir+PathDelim+'here.euo');

@@ -121,6 +121,7 @@ type
     OutlinePanel1 : TMenuItem;
     WatchesPanel1,AddWatch1,AddWatch2 : TMenuItem;  // port addition: the Watches panel
     NewClient1,SwapToNextClient1,VarDump1,UserVars1,DontMoveCursor1 : TMenuItem;
+    CallFolders1 : TMenuItem;  // port addition: the CALL folders, see eucallpath.pas
     Help2,GoToWebsite1,Discord1,About1 : TMenuItem;
     Undo2,Redo2,Cut2,Copy2,Paste2,Delete2,SelectAll2,Close2,CloseAll2 : TMenuItem;
     FormatScript2,FoldAll2,UnfoldAll2 : TMenuItem;
@@ -176,7 +177,7 @@ var
 procedure GotoLineAndCenter(Editor : TSynEdit; Line : Integer);
 
 implementation
-uses text, uoselector, EuoMenuSelect, EuoVarUsage;
+uses text, uoselector, EuoMenuSelect, EuoVarUsage, eucallpath;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Port addition: a client running elevated can't be opened by a non-elevated
@@ -393,6 +394,8 @@ begin
   SwapToNextClient1 := AddMenu(ools1, 82, '&Swap To Next Client', 49235);
   VarDump1          := AddMenu(ools1, 83, '&VarDump');
   UserVars1         := AddMenu(ools1, 85, '&Manage VarList');
+  // Port addition: the folders CALL searches after #CurPath (eucallpath.pas).
+  CallFolders1      := AddMenu(ools1, 231, '&CALL Folders...');
   AddSep(ools1);
   DontMoveCursor1   := AddMenu(ools1, 84, '&Don''t Move Cursor');
   DontMoveCursor1.Checked := True;
@@ -721,6 +724,7 @@ begin
   // happens inside TSynEUOSyn's constructor (BuildComponents above), on the
   // TSynUniSyn it wraps for code folding.
 
+  LoadEditorCallPath;   // port addition: the CALL folders, which every tab gets (eucallpath.pas)
   IH:=TInstHandler.Create;                                 // Create instance handler
   VarTreeFormCreate;                                       // Initialize VarTree
   VarTreeLoad('');                                          //
@@ -981,6 +985,11 @@ begin
            'https://github.com/ilpersi/EasyUOReforged');
     // Port addition: the project's Discord channel (Help menu and toolbar, right of Website).
    230 : ShellExecute(0,'open','https://discord.com/channels/1302456481903284255/1550342103756836904','','',SW_SHOW);
+    // Port addition: Tools > CALL Folders. Every tab gets the new list; a running script uses it
+    // from its next CALL.
+   231 : if EditCallFolders(Self) then
+           for Cnt:=0 to IH.Count-1 do
+             IH.Exec[Cnt].Parser.CallPath:=EditorCallPath;
 
     // New additions (not present in the original app): breakpoint debugging
     // support. Tags deliberately far outside every range the original ever

@@ -36,6 +36,11 @@ unit climcp;
   One run at a time. The script stops when the agent's program closes the connection (end
   of standard input), so a run never outlives the session that started it.
 
+  CALL folders: as "EUOCli run", CALL looks in #CurPath, the editor's saved list and EUOCALLPATH,
+  then in the server's --callpath folders (CallPathLast) and the call's "callpath" (on euo_check,
+  euo_run and euo_run_live). It names folders to read scripts from, not a client or a blocked
+  command, so euo_run may have it: a CALL with a full path can already read any file.
+
   The protocol: JSON-RPC 2.0, one message per line. Both ways of opening a session are
   answered. A client that starts with "initialize" (protocol versions 2024-11-05 to
   2025-11-25) gets the handshake; one that sends the protocol version with every request
@@ -100,7 +105,11 @@ type
     function  ToolBreakpoint(Args : TJSONObject) : TJSONData;
     function  ToolVars(Args : TJSONObject) : TJSONData;
     function  ToolDocs(Args : TJSONObject) : TJSONData;
+    function  CallFolders(Args : TJSONObject) : String;
   public
+    // The folders of "EUOCli mcp --callpath": CALL looks in them after EUOCALLPATH, before the
+    // folders a call's "callpath" adds. '' by default.
+    CallPathLast : String;
     // PackDir: the agent pack euo_docs reads, '' for the one next to the program.
     constructor Create(const ExeDir, PackDir : String);
     destructor  Destroy; override;
@@ -147,6 +156,11 @@ const
   PropsScript =
     '"script":{"type":"string","description":"The script''s text. Give this or file."},'+
     '"file":{"type":"string","description":"Path of a .euo file. Give this or script."}';
+  PropsCallPath =
+    '"callpath":{"type":"array","items":{"type":"string"},"description":"More folders call looks in for a '+
+      'file whose name is not a full path. They come last: after the EasyUO Reforged folder, the user''s '+
+      'CALL Folders list and the EUOCALLPATH environment variable. A relative folder starts from the '+
+      'folder EUOCli was started in."}';
   PropsRun =
     '"timeout":{"type":"integer","minimum":0,"description":"Seconds the script may run before it is stopped. '+
       'Default 60. Time spent paused does not count. 0: no timeout."},'+
@@ -161,7 +175,7 @@ const
       '"items":{"anyOf":[{"type":"integer","minimum":1},{"type":"object","properties":{"line":{"type":"integer",'+
       '"minimum":1},"condition":{"type":"string"}},"required":["line"]}]}},'+
     '"watch":{"type":"array","items":{"type":"string"},"description":"Variables to report whenever the run '+
-      'is paused or has ended: %count, !local, #Result."}';
+      'is paused or has ended: %count, !local, #Result."},'+PropsCallPath;
   PropsWait =
     '"wait":{"type":"number","minimum":0,"maximum":50,"description":"Seconds to wait for the run to end or '+
       'pause before answering."}';
@@ -169,7 +183,7 @@ const
 ////////////////////////////////////////////////////////////////////////////////
 procedure McpHelp(Output : TStrings);
 begin
-  Output.Add('EUOCli mcp [--pack <folder>]');
+  Output.Add('EUOCli mcp [--pack <folder>] [--callpath <folders>]');
   Output.Add('');
   Output.Add('Runs as a Model Context Protocol server on standard input and output, for AI coding');
   Output.Add('agents: the same checks and runs as the other commands, as tools, and a run that stays');
@@ -179,6 +193,9 @@ begin
   Output.Add('  { "mcpServers": { "easyuo": { "command": "C:\\path\\to\\EUOCli.exe", "args": ["mcp"] } } }');
   Output.Add('');
   Output.Add('  --pack <folder>   the agent pack euo_docs reads. Default: agent\euo-script next to EUOCli.exe');
+  Output.Add('  --callpath <folders>  more folders "call" looks in, separated by ; (may be given more');
+  Output.Add('                    than once): after the program folder, the editor''s Tools > CALL');
+  Output.Add('                    Folders list and EUOCALLPATH, before a tool call''s "callpath"');
   Output.Add('');
   Output.Add('The tool euo_run never uses a UO client and never runs a blocked command. Running on a');
   Output.Add('client, or with a blocked command allowed, is a tool of its own: euo_run_live.');
@@ -551,7 +568,25 @@ var
   Script, Shown : String;
 begin
   ReadScriptArg(Args,Script,Shown);
-  Result:=CheckScriptJson(Script,Shown,ArgStr(Args,'curpath',FExeDir));
+  Result:=CheckScriptJson(Script,Shown,ArgStr(Args,'curpath',FExeDir),CallFolders(Args));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The CALL folders searched after EUOCALLPATH for one tool call: --callpath's, then the call's
+// "callpath" (a list, or one text with ';' between folders), relative ones from the current folder.
+function TMcpServer.CallFolders(Args : TJSONObject) : String;
+var
+  L : TStringList;
+  i : Integer;
+begin
+  Result:=CallPathLast;
+  L:=TStringList.Create;
+  try
+    ArgList(Args,'callpath',L);
+    for i:=0 to L.Count-1 do AddCallPathArg(L[i],Result);
+  finally
+    L.Free;
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -618,6 +653,8 @@ begin
     Opt.ConfineFiles:=Allow.IndexOf(AllowFilesWord)<0;
     Opt.ScriptName:='';
     if Shown<>'<script>' then Opt.ScriptName:=ExtractFileName(Shown);
+    Opt.CallPath:=CliSavedCallPath;
+    Opt.CallPathLast:=CallFolders(Args);
     Step:=ArgBool(Args,'step');
     Wait:=ArgNum(Args,'wait',5,0,McpMaxWait);
     ArgList(Args,'watch',Watch);
@@ -917,7 +954,7 @@ begin
     'repeat/until that do not pair up, a gosub or goto that leads nowhere, a script that restarts because it '+
     'has no halt. EasyUO itself gives no error for any of these. Fix every warning; a note is information.',
     PropsScript+',"curpath":{"type":"string","description":"The folder call lines start from. Default: the '+
-    'EasyUO Reforged folder."}',True,False,False));
+    'EasyUO Reforged folder."},'+PropsCallPath,True,False,False));
   Result.Add(Tool('euo_run','Run a script without a UO client',
     'Runs a script on the real EasyUO engine with NO UO client: commands that need a client are skipped, '+
     'client variables read N/A, and nothing happens in the game. execute, shutdown, terminate, uoxl and send '+
@@ -1288,12 +1325,14 @@ var
   Server : TMcpServer;
   Reader : TStdInReader;
   Pack   : String;
+  CallLast : String;
   Line   : String;
   Reply  : String;
   i      : Integer;
 begin
   Result:=CLI_OK;
   Pack:='';
+  CallLast:='';
   i:=0;
   while i<Args.Count do
   begin
@@ -1307,6 +1346,17 @@ begin
       end;
       Pack:=Args[i];
     end
+    else if Args[i]='--callpath' then
+    begin
+      Inc(i);
+      if i>=Args.Count then
+      begin
+        Output.Add('EUOCli mcp: --callpath needs one or more folders, separated by ;');
+        Exit(CLI_USAGE);
+      end;
+      AddCallPathArg(Args[i],CallLast);
+    end
+    else if Copy(Args[i],1,11)='--callpath=' then AddCallPathArg(Copy(Args[i],12,MaxInt),CallLast)
     else begin
       Output.Add('EUOCli mcp: unknown option '+Args[i]);
       Output.Add('Try: EUOCli help mcp');
@@ -1318,6 +1368,7 @@ begin
   EnsureLcl;
   CliInterrupted:=False;
   Server:=TMcpServer.Create(ExeDir,Pack);
+  Server.CallPathLast:=CallLast;
   Reader:=TStdInReader.Create(Server);
   try
     repeat

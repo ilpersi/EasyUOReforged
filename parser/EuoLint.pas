@@ -17,7 +17,8 @@ unit EuoLint;
   - blocks: EuoBlocks.EuoBlockStep, which the editor's folding and Format Script run;
   - where GOSUB and GOTO lead: EuoJumpTarget.EuoFindSub / EuoFindLabel;
   - which MENU logic a run uses: EuoMenuSelect.ReadMenuSettings / UsesMenu16 / IsMenu16Only;
-  - sub-commands: EuoVocabulary.EuoSubCommands, the table autocomplete offers.
+  - sub-commands: EuoVocabulary.EuoSubCommands, the table autocomplete offers;
+  - where CALL finds its file: EuoCallPath.ResolveCallName, TEuoInterpreter.ResolveCallFile's lookup.
 
   The command and variable names are given to the constructor. A caller takes them from the
   interpreter (TEuoInterpreter.GetCommandNames / GetVariableNames), so there is no copy here.
@@ -107,6 +108,10 @@ type
     // The folder CALL resolves a relative name from: #CurPath, the folder of
     // EasyUOReforged.exe. '' (the default) leaves CALL lines unchecked.
     CurPath : String;
+    // The CALL folders searched after it, as TEuoInterpreter.CallPath and CallPathLast take them:
+    // before EUOCALLPATH's (the editor's saved list) and after them (EUOCli's --callpath).
+    CallPath     : String;
+    CallPathLast : String;
     // Commands: Objects[i] non-nil for a client-dependent one. Variables: without the '#'.
     // Case does not matter. Both are copied.
     constructor Create(Commands, Variables : TStrings);
@@ -120,7 +125,7 @@ const
 implementation
 
 uses
-  EuoBlocks, EuoScriptWords, EuoJumpTarget, EuoMenuSelect, EuoVocabulary;
+  EuoBlocks, EuoScriptWords, EuoJumpTarget, EuoMenuSelect, EuoVocabulary, EuoCallPath;
 
 const
   NameChars = ['0'..'9','A'..'Z','a'..'z','_'];
@@ -370,6 +375,8 @@ var
 begin
   inherited Create;
   CurPath:='';
+  CallPath:='';
+  CallPathLast:='';
   FCommands:=NewList;
   for i:=0 to Commands.Count-1 do
     FCommands.AddObject(UpperCase(Commands[i]),Commands.Objects[i]);
@@ -423,16 +430,18 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-// TEuoInterpreter.ResolveCallFile's lookup: the name as written, from CurPath when it is
-// not absolute, then with .txt, then with .euo.
+// TEuoInterpreter.ResolveCallFile's lookup, the same function: CurPath, then the CALL folders.
 function TEuoLinter.CallFileExists(const Name : String) : Boolean;
 var
-  S : String;
+  Folders : TStringList;
 begin
-  S:=Name;
-  if not ((Copy(S,2,2)=':\') or (Copy(S,1,1)='\')) then
-    S:=IncludeTrailingPathDelimiter(CurPath)+S;
-  Result:=FileExists(S) or FileExists(S+'.txt') or FileExists(S+'.euo');
+  Folders:=TStringList.Create;
+  try
+    CallSearchFolders(CallPath,CallPathLast,Folders);
+    Result:=ResolveCallName(Name,IncludeTrailingPathDelimiter(CurPath),Folders)<>'';
+  finally
+    Folders.Free;
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -542,7 +551,8 @@ begin
     if (First='CALL') and (CurPath<>'') and not CallFileExists(Words[1]) then
       Add('missing-call-file',lsWarning,LineIdx+1,Col(1),Words[1],
         'The file "'+Words[1]+'" was not found: the call does nothing.',
-        'A relative name starts from the folder of EasyUOReforged.exe (#CurPath); .txt and .euo are tried too.');
+        'A relative name is looked for in the folder of EasyUOReforged.exe (#CurPath), then in the CALL '+
+        'folders (Tools > CALL Folders, EUOCALLPATH, --callpath); .txt and .euo are tried too.');
   end;
 end;
 

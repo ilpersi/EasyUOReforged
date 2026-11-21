@@ -46,6 +46,7 @@ type
     procedure TestRunHasNoWayToAClientOrABlockedCommand;
     procedure TestUnknownTool;
     procedure TestCheck;
+    procedure TestCallPath;
     procedure TestRunToItsEnd;
     procedure TestBlockedCommandStopsTheRun;
     procedure TestRunLive;
@@ -374,6 +375,48 @@ begin
   AssertTrue('both is one too many',IsError);
   Tool('euo_check','{"script":5}');
   AssertTrue('a wrong kind of value',IsError);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// "callpath" on euo_check, euo_run and euo_run_live, and the server's --callpath before it.
+procedure TEuoCliMcpTests.TestCallPath;
+var
+  R      : TJSONObject;
+  Tools  : TJSONArray;
+  i      : Integer;
+  Other  : String;
+  InDir  : String;
+begin
+  Tools:=Ask('tools/list').Objects['result'].Arrays['tools'];
+  for i:=0 to 2 do
+    AssertNotNull(Tools.Objects[i].Get('name','')+' takes callpath',
+      Tools.Objects[i].Objects['inputSchema'].Objects['properties'].Find('callpath'));
+
+  SaveText(Dir+PathDelim+'cpmcplib.euo','log from the library'+LineEnding+'exit');
+  Other:=StringToJSONString(IncludeTrailingPathDelimiter(GetTempDir));
+  InDir:=StringToJSONString(Dir);
+  R:=Tool('euo_check','{'+Scr(['call cpmcplib','halt'])+',"curpath":"'+Other+'"}');
+  AssertFalse(Text,IsError);
+  AssertEquals('missing-call-file',R.Arrays['findings'].Objects[0].Get('rule',''));
+  R:=Tool('euo_check','{'+Scr(['call cpmcplib','halt'])+',"curpath":"'+Other+'","callpath":["'+InDir+'"]}');
+  AssertEquals('found through callpath',0,R.Objects['summary'].Get('warnings',-1));
+
+  R:=Tool('euo_run','{'+Scr(['call cpmcplib','log back','halt'])+'}');
+  AssertEquals('not found without it','log:back|',Events(R));
+  R:=Tool('euo_run','{'+Scr(['call cpmcplib','log back','halt'])+',"callpath":"C:\\nothere;'+InDir+'"}');
+  AssertFalse(Text,IsError);
+  AssertEquals('one text with ; between folders','log:from the library|log:back|',Events(R));
+
+  Server.CallPathLast:=Dir;
+  try
+    R:=Tool('euo_run','{'+Scr(['call cpmcplib','halt'])+'}');
+    AssertEquals('the server''s --callpath','log:from the library|',Events(R));
+  finally
+    Server.CallPathLast:='';
+  end;
+
+  Tool('euo_run','{"script":"halt","callpath":5}');
+  AssertTrue('callpath is a list of texts',IsError);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

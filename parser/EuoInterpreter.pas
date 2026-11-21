@@ -129,6 +129,10 @@ unit EuoInterpreter;
   BlockCommands (commands that stop the run instead of running; none by default), Restarts (how
   often the main script started over, counted in ExitProc, which restarts exactly as before) and
   ClientSkips (how many lines were skipped for lack of a client).
+  Likewise the CALL folders: a relative name CALL does not find in #CurPath is looked for in more
+  folders (EuoCallPath.pas): the host's CallPath (the editor's saved list), EUOCALLPATH, then the
+  host's CallPathLast (EUOCli's --callpath). #CurPath is searched first and in full, exactly as
+  before, so a script that works without them loads the same file with them.
 }
 
 {$mode delphi}{$H+}
@@ -141,7 +145,7 @@ uses
   EuoScriptWords,
   uotypes, access, ReforgedVersion, uoselector, uovariables, uocommands, uoevents, EuoLock,
   EuoSql, walkrules, walkmap, pathplan, walklive, pathwalk, EuoJournalSearch, EuoStrOps, EuoItemMove,
-  EuoGumps, uogumpreply, EuoLogFile, EuoHttp;
+  EuoGumps, uogumpreply, EuoLogFile, EuoHttp, EuoCallPath;
 
 const
   RES_OK    = 0;
@@ -234,6 +238,9 @@ type
     SendCode     : String;             //   #SendCode
     SendReply    : String;             //   #SendReply
     FScriptName  : String;             // port addition for hosts: the main script's name in log lines
+    FCallPath    : String;             // port addition for hosts: CALL folders before EUOCALLPATH
+    FCallPathLast: String;             //   and after it (EuoCallPath.pas)
+    FCallPathLock: TEuoLock;           // its own lock: the editor changes CallPath while a script runs
 
     procedure    LogProc;
     procedure    QueueLog(const Text : String; Line : Integer);
@@ -241,6 +248,10 @@ type
     function     LogScriptName : String;
     function     GetConfineFiles : Boolean;
     procedure    SetConfineFiles(Value : Boolean);
+    function     GetCallPath : String;
+    procedure    SetCallPath(const Value : String);
+    function     GetCallPathLast : String;
+    procedure    SetCallPathLast(const Value : String);
     procedure    CommandBlocked(const Name : String);
     function     GetOnDisplay : TDisplayHandler;
     procedure    SetOnDisplay(Value : TDisplayHandler);
@@ -412,6 +423,12 @@ type
     // File targets only by a relative name inside #CurPath's folder (EUOCli without --allow logfile).
     // False by default: the editor writes where the script says.
     property     ConfineFiles : Boolean read GetConfineFiles write SetConfineFiles;
+    // Port additions (CALL folders, EuoCallPath.pas): folders, separated by ';', that CALL searches
+    // for a relative name it does not find in #CurPath: CallPath before EUOCALLPATH's folders,
+    // CallPathLast after them. '' by default; a script never changes them. Safe to set while a script
+    // runs: its next CALL uses them.
+    property     CallPath : String read GetCallPath write SetCallPath;
+    property     CallPathLast : String read GetCallPathLast write SetCallPathLast;
     // The run has stopped (Halt, Stop, an error): its files are closed. Called by TExeThread on the
     // script's thread, again and again while the run stays stopped; cheap when there is nothing open.
     procedure    RunStopped;
@@ -737,6 +754,9 @@ begin
   SendCode:='N/A';
   SendReply:='N/A';
   FScriptName:='';
+  FCallPath:='';
+  FCallPathLast:='';
+  FCallPathLock:=TEuoLock.Create;
   Restarts:=0;
   BlockedCmd:='';
   BlockedLine:=-1;
@@ -772,6 +792,7 @@ begin
   Logger.Free;   // closes its files; before FLog, which its output target writes to
   FLog.Free;
   FLogLock.Free;
+  FCallPathLock.Free;
   inherited Free;
 end;
 
@@ -2267,27 +2288,19 @@ end;
 // The file a CALL line naming Name loads, or '' when there is none: a relative name is taken
 // from #CurPath, then .txt and .euo are tried. The original's lookup, from CallProc, which calls
 // this; the "menu reforge includecall" scan uses it too (port addition, MENU 1.5/1.6).
+// Port addition (CALL folders): the lookup is EuoCallPath.ResolveCallName, which does the
+// original's first, character for character, and only then searches the folders.
 function TEuoInterpreter.ResolveCallFile(const Name : String) : String;
 var
-  sBuf  : String;
-  sBuf2 : String;
+  Folders : TStringList;
 begin
-  Result:='';
-  sBuf:=Name;
-  if not IsAbsolutePath(sBuf) then
-    sBuf:=GetVar('#curpath')+sBuf;
-
-  if not FileExists(sBuf) then
-  repeat
-    sBuf2:=sBuf;
-    sBuf:=sBuf2+'.txt';
-    if FileExists(sBuf) then Break;
-    sBuf:=sBuf2+'.euo';
-    if FileExists(sBuf) then Break;
-    Exit;
-  until True;
-
-  Result:=sBuf;
+  Folders:=TStringList.Create;
+  try
+    CallSearchFolders(CallPath,CallPathLast,Folders);
+    Result:=ResolveCallName(Name,GetVar('#curpath'),Folders);
+  finally
+    Folders.Free;
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2469,6 +2482,48 @@ end;
 procedure TEuoInterpreter.SetConfineFiles(Value : Boolean);
 begin
   Logger.ConfineFiles:=Value;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (CALL folders): set by the host's thread, read by the script's.
+function TEuoInterpreter.GetCallPath : String;
+begin
+  FCallPathLock.BeginRead;
+  try
+    Result:=FCallPath;
+  finally
+    FCallPathLock.EndRead;
+  end;
+end;
+
+procedure TEuoInterpreter.SetCallPath(const Value : String);
+begin
+  FCallPathLock.BeginWrite;
+  try
+    FCallPath:=Value;
+  finally
+    FCallPathLock.EndWrite;
+  end;
+end;
+
+function TEuoInterpreter.GetCallPathLast : String;
+begin
+  FCallPathLock.BeginRead;
+  try
+    Result:=FCallPathLast;
+  finally
+    FCallPathLock.EndRead;
+  end;
+end;
+
+procedure TEuoInterpreter.SetCallPathLast(const Value : String);
+begin
+  FCallPathLock.BeginWrite;
+  try
+    FCallPathLast:=Value;
+  finally
+    FCallPathLock.EndWrite;
+  end;
 end;
 
 procedure TEuoInterpreter.RunStopped;

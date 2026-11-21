@@ -75,6 +75,9 @@ section is the full reference.
 - **Tools → Manage VarList** chooses which variables the inspector shows. To follow your script's own
   `%variables`, use the [Watches panel](/guide/debugging/#watches) (*Control → Show Watches*): it lists them
   by itself, and **Ctrl+F5** adds the one under the cursor to your watches.
+- **Tools → CALL Folders** lists the folders where [`call`](/commands/call/) looks for a script it doesn't
+  find in the folder of `EasyUOReforged.exe`. Add a folder of scripts you share between scripts, and call them
+  by name. See [Where call looks for the file](/commands/call/#where-call-looks-for-the-file).
 - **Building a big [`menu`](/commands/menu/) window?** A script runs [`#LPC`](/variables/lpc/) lines
   (10 by default) and then pauses 50 ms, so a menu with a hundred controls takes about half a second to
   appear. Put `set #LPC 1000` before building it, and `set #LPC 10` once it is on screen if you want the

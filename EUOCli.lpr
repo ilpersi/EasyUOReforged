@@ -11,6 +11,10 @@ program EUOCli;
   MENU command's LCL controls (as tests\RunTests.lpr does); no window is ever made here.
   The executable carries EasyUO Reforged's own icon (easyuo\appicon.res).
 
+  Besides the arguments it reads one setting of the editor's: the CALL folder list
+  (Tools > CALL Folders, in the registry), which it hands to the commands as
+  clicheck.CliSavedCallPath, so CALL finds the same files here as in the editor.
+
   It ends with TerminateProcess, not by returning. Linking the engine brings in
   uo\uoselector.pas, whose initialization starts the thread that looks for UO clients (so
   this program looks for them when it starts, as the editor does, whatever the command) and
@@ -30,7 +34,9 @@ program EUOCli;
 uses
   Interfaces,
   Windows, SysUtils, Classes,
+  EuoCallPath,
   climain in 'tools\EUOCli\climain.pas',
+  clicheck in 'tools\EUOCli\clicheck.pas',
   clirun in 'tools\EUOCli\clirun.pas',
   climcp in 'tools\EUOCli\climcp.pas';
 
@@ -115,6 +121,7 @@ begin
     CliOnLine:=WriteLineNow;
     McpOut:=WriteMcpLine;
     SetConsoleCtrlHandler(@CtrlHandler,True);
+    CliSavedCallPath:=ReadSavedCallPath;   // the editor's CALL folders (see the header)
     Code:=RunCli(Args,StdInText,ExtractFilePath(ParamStr(0)),Output);
     WriteStdOut(Output.Text);
   finally

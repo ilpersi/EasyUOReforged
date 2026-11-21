@@ -47,6 +47,7 @@ type
     procedure TestPauseEndsTheRun;
     procedure TestMenuScriptRuns;
     procedure TestStdIn;
+    procedure TestCallPath;
     procedure TestClientThatIsNotThere;
     procedure TestRunUsageErrors;
     procedure TestVars;
@@ -459,6 +460,30 @@ begin
   AssertEquals(CLI_OK,Run('run|-','log from stdin'+LineEnding+'halt'+LineEnding));
   AssertEquals('running <stdin> without a client (commands that need one are skipped)',Output[0]);
   AssertEquals('[1] log: from stdin',Output[1]);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// #CurPath of a run is the test program's folder, and CALL never looks in the script's own
+// folder: the library is found only through --callpath or the editor's saved list.
+procedure TEuoCliRunTests.TestCallPath;
+var
+  FN : String;
+begin
+  Script('cprunlib.euo',['log from the library %1','exit']);
+  FN:=Script('main.euo',['call cprunlib hi','log back','halt']);
+  AssertEquals(CLI_OK,Run('run|'+FN+'|--callpath|'+Dir));
+  AssertTrue(Output.Text,Pos('log: from the library hi',Output.Text)>0);
+  AssertTrue(Output.Text,Pos('log: back',Output.Text)>0);
+  AssertEquals(CLI_OK,Run('run|'+FN));
+  AssertTrue('without it the call does nothing',Pos('from the library',Output.Text)=0);
+  CliSavedCallPath:=Dir;
+  try
+    AssertEquals(CLI_OK,Run('run|'+FN));
+    AssertTrue('the editor''s saved list',Pos('log: from the library hi',Output.Text)>0);
+  finally
+    CliSavedCallPath:='';
+  end;
+  AssertEquals(CLI_USAGE,Run('run|'+FN+'|--callpath'));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

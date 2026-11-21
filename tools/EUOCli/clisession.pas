@@ -57,6 +57,8 @@ type
     AllowHint  : String;    // what to tell about a blocked command; %s is the command
     ConfineFiles : Boolean; // LOGFILE's and SEND DOWNLOAD's files only inside the program folder (no "allow logfile")
     ScriptName : String;    // the name LOGFILE's "script" field shows; '' = main
+    CallPath     : String;  // CALL folders before EUOCALLPATH: the editor's saved list (TEuoInterpreter.CallPath)
+    CallPathLast : String;  // CALL folders after it: --callpath, the MCP "callpath" (TEuoInterpreter.CallPathLast)
   end;
 
   // What the running script reports, queued on its thread and taken on the main one.
@@ -440,6 +442,8 @@ begin
   FExec.Parser.BlockCommands(Blocked);
   FExec.Parser.ConfineFiles:=Opt.ConfineFiles;
   FExec.Parser.ScriptName:=Opt.ScriptName;
+  FExec.Parser.CallPath:=Opt.CallPath;
+  FExec.Parser.CallPathLast:=Opt.CallPathLast;
   FExec.StopOnRestart:=True;
   FExec.OnLine:=FHost.Line;
   FExec.LoadScript(Script);

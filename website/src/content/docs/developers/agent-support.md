@@ -219,6 +219,7 @@ them:** the editor and `uo.dll` run scripts exactly as before. `TEuoHostHooksTes
 | `TExecutor.OnLine` | Called with each line about to run, for a trace. |
 | `TEuoInterpreter.ClientSkips` | How many lines were skipped for lack of a client. |
 | `TEuoInterpreter.TakeLog` | The lines the script wrote with `log`. |
+| `TEuoInterpreter.CallPath`, `CallPathLast` | The folders `call` searches after `#CurPath`: before `EUOCALLPATH` (the editor's saved list, which `EUOCli.lpr` reads into `clicheck.CliSavedCallPath`) and after it (`--callpath`, the tools' `callpath`). The lookup is `parser\EuoCallPath.pas`, shared with the checker. |
 
 The host's part: **the main thread keeps pumping the LCL message loop** while a run is alive (`menu` builds
 its windows there, through `TThread.Synchronize`) and calls `Tick`, which notices how the run ends. The
