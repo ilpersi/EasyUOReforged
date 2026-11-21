@@ -27,6 +27,7 @@ unit mainiconsdata;
     17 NewClient  general_purpose Window_02_16 with ovl_Plus_06_16
     18 SwapClient general_purpose Window_02_16 with drawn arrows
     19 Format     general_purpose Align_05_16
+    20 Discord    general_purpose Comment_01_16, Discord blurple
 }
 
 {$mode delphi}{$H+}
@@ -34,7 +35,7 @@ unit mainiconsdata;
 interface
 
 const
-  ToolbarIcons : array[0..19] of String = (
+  ToolbarIcons : array[0..20] of String = (
     // 0 New
     'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAA7DAAAOwwHHb6hkAAAA' +
     'GXRFWHRTb2Z0d2FyZQB3d3cuaW5rc2NhcGUub3Jnm+48GgAAAJ5JREFUOI29kcEJg0AQRf+K2ExM' +
@@ -189,7 +190,13 @@ const
     'GXRFWHRTb2Z0d2FyZQB3d3cuaW5rc2NhcGUub3Jnm+48GgAAAIJJREFUOI3d0sENglAQhOF/iPbh' +
     'WSgBu4AQa6Ahe3hYgBdDE4+rpYwHThgTeHKQsMdJdvJtsrLNmjl8BgpxUaPrXADamUAhRuTWVdHP' +
     'ab4KFIYSfAddXZ+fiwQK8QWcJqn8AI7pgm64YHdJgmmtb8iNq7wfT0oU/DIb+4O/CLJV28AbiCdR' +
-    'eGXjcHAAAAAASUVORK5CYII=');
+    'eGXjcHAAAAAASUVORK5CYII=',
+    // 20 Discord
+    'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAzklEQVR42r3TPUoDURTF8d/IiApu' +
+    'IEYXkMIy7kNIYS24BisjiE3IDqaMkLWMneASDGMfLBIQx+aNvGKcDwI5cJv37vlzuPe95OZubRcd' +
+    '2FEV4AhzFChbqsAseP4AzxhhjKSlrnCJJ0jCDIpwseqY/AI5hmk4GETmssWc4ANnkP7T0Fl1gC4J' +
+    'GgH7TVCt8RPnUUNTVVsoYsALsgjStsIMixgwxTteAzkN0LqXmOMNj/EMtrjHA76wxClOsOkzxG8c' +
+    '4hjXAdzrN/7gFpMuZvgF6lExSQUS7A4AAAAASUVORK5CYII=');
 
 implementation
 

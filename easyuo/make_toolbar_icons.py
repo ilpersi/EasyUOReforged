@@ -4,7 +4,8 @@
 The style is the MENU Designer's (tools/EUOMenuDesigner/make_icons.py, whose helpers are used here):
 Lazarus' general_purpose outline set by Roland Hahn, CC0 1.0, as Lazarus' images/copyright.txt and
 general_purpose/lazarus_general_purpose_images.txt say. The run controls are recoloured to the set's
-own green, orange and red, so a script's state can be read at a glance. The set has nothing for
+own green, orange and red, so a script's state can be read at a glance, and the Discord button's
+speech bubble to Discord's blurple, so it is not taken for a comment command. The set has nothing for
 Reopen, Save All, Stop All, Swap Client or Website: those are drawn here in the set's colour and line
 width, and are this project's own.
 
@@ -28,6 +29,7 @@ OUT = os.path.join(HERE, 'mainiconsdata.pas')
 GREEN = (0x01, 0xA9, 0x01)    # the set's own signal colours (Add_09, Time_08, Cancel_05)
 ORANGE = (0xFF, 0x7F, 0x00)
 RED = (0xFA, 0x03, 0x02)
+BLURPLE = (0x58, 0x65, 0xF2)  # Discord's brand colour, for the Discord button
 SS = 8                        # the rings are drawn this much bigger, then box-filtered down
 
 
@@ -134,6 +136,7 @@ def toolbar_icons(s):
                         'general_purpose Window_02_16 with ovl_Plus_06_16')),
         ('SwapClient', (png(swap_client(window)), 'general_purpose Window_02_16 with drawn arrows')),
         ('Format',     gp('Align_05')),
+        ('Discord',    tinted('Comment_01', BLURPLE, 'Discord blurple')),
     ]
     return [(n, data, what) for n, (data, what) in icons]
 

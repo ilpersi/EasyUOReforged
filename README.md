@@ -2,6 +2,8 @@
 
 [![Documentation](https://img.shields.io/badge/Documentation-read%20online-1f6feb?style=for-the-badge)](https://ilpersi.github.io/EasyUOReforged/)
 
+[![Discord](https://img.shields.io/badge/Discord-community%20channel-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/channels/1302456481903284255/1550342103756836904)
+
 [![CI](https://github.com/ilpersi/EasyUOReforged/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ilpersi/EasyUOReforged/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/ilpersi/EasyUOReforged)](https://github.com/ilpersi/EasyUOReforged/releases/latest)
 [![License: BSD-2-Clause](https://img.shields.io/github/license/ilpersi/EasyUOReforged)](LICENSE)

@@ -50,7 +50,7 @@ uses
 function TagToImageIndex(ATag : Integer) : Integer;
 
 // Populates AList with the icons in mainiconsdata.pas, in ImageIndex order: the
-// original 19 slots (0..18), plus this port's Format Script icon (19). Safe to
+// original 19 slots (0..18), plus this port's Format Script (19) and Discord (20) icons. Safe to
 // call on a freshly-created, empty TImageList only.
 procedure LoadToolbarIcons(AList : TImageList);
 
@@ -101,6 +101,7 @@ begin
     100 : Result := 12; // Help
     101 : Result := 13; // Go To Website
     220 : Result := 19; // Format Script (new addition)
+    230 : Result := 20; // Discord (new addition)
     else  Result := -1; // no icon for this Tag in the original DFM either
   end;
 end;
@@ -149,7 +150,7 @@ begin
   end;
   // 0=New 1=Open 2=Save 3=Cut 4=Copy 5=Paste 6=Find 7=Replace 8=Start 9=Pause
   // 10=Stop 11=StopAll 12=Help 13=Website 14=Reopen 15=SaveAll 16=Close
-  // 17=NewClient 18=SwapClient 19=Format (new) -- matches TagToImageIndex
+  // 17=NewClient 18=SwapClient 19=Format (new) 20=Discord (new) -- matches TagToImageIndex
   // above exactly.
 end;
 

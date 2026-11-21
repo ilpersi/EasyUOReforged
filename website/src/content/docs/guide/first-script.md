@@ -9,7 +9,8 @@ sidebar:
 
 - **Toolbar**: the commands you use most, each with its name under the icon. A button that can't be used
   right now is grey: *Start* turns green once the tab has a script, *Pause* orange and *Stop* red while
-  it runs.
+  it runs. The last two, *Website* and *Discord*, open the project's GitHub page and its official
+  Discord channel; both are also in the *Help* menu.
 - **Tabs**: one open script per tab. Use *File → New* or *Open*, or drag a `.euo` file onto the window.
   The tabs of the last session come back when you start the app again.
 - **Editor** (left and centre): a code editor with syntax highlighting and line numbers.

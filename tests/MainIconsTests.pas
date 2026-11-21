@@ -59,7 +59,7 @@ begin
   end;
 end;
 
-// Tags go up to 220 in main.pas; the range is wider so a new one is covered too.
+// Tags go up to 230 in main.pas; the range is wider so a new one is covered too.
 procedure TMainIconsTests.TestEveryTagHasARealSlotAndEverySlotATag;
 var
   Tag, Slot : Integer;

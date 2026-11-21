@@ -113,7 +113,7 @@ type
     OutputPanel1,ClearOutput1 : TMenuItem;
     OutlinePanel1 : TMenuItem;
     NewClient1,SwapToNextClient1,VarDump1,UserVars1,DontMoveCursor1 : TMenuItem;
-    Help2,GoToWebsite1,About1 : TMenuItem;
+    Help2,GoToWebsite1,Discord1,About1 : TMenuItem;
     Undo2,Redo2,Cut2,Copy2,Paste2,Delete2,SelectAll2,Close2,CloseAll2 : TMenuItem;
     FormatScript2,FoldAll2,UnfoldAll2 : TMenuItem;
     ToolBar           : TToolBar;
@@ -193,7 +193,7 @@ begin
 
   Left := 200;
   Top := 122;
-  Width := 860;  // was 661: the toolbar's captions need the width for one row
+  Width := 910;  // was 661: the toolbar's captions need the width for one row (860 before Discord)
   Height := 394; // was 381: the same editor height under the taller toolbar
   Caption := 'EasyUO Reforged ' + REFORGED_VERSION;
   Position := poScreenCenter;
@@ -384,6 +384,7 @@ begin
   MainMenu.Items.Add(Help1);
   Help2        := AddMenu(Help1, 100, '&Help...', 112);
   GoToWebsite1 := AddMenu(Help1, 101, '&Website...');
+  Discord1     := AddMenu(Help1, 230, '&Discord...'); // port addition: the project's Discord channel
   AddSep(Help1);
   About1       := AddMenu(Help1, 102, '&About...');
 
@@ -439,6 +440,7 @@ begin
   AddToolSep;
   AddTool('Help', 'Help', 100);
   AddTool('Go To Website', 'Website', 101);
+  AddTool('Discord Channel', 'Discord', 230); // port addition
 
   ////////////////////////////////////////////////////////////////////////////
   StatusBar := TStatusBar.Create(Self);
@@ -936,6 +938,8 @@ begin
            'A community port of EasyUO (originally by Cheffe) to Lazarus/'+
            'Free Pascal.'+#13#10+
            'https://github.com/ilpersi/EasyUOReforged');
+    // Port addition: the project's Discord channel (Help menu and toolbar, right of Website).
+   230 : ShellExecute(0,'open','https://discord.com/channels/1302456481903284255/1550342103756836904','','',SW_SHOW);
 
     // New additions (not present in the original app): breakpoint debugging
     // support. Tags deliberately far outside every range the original ever

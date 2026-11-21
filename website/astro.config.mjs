@@ -58,7 +58,11 @@ export default defineConfig({
 			description:
 				'Reference and guides for EasyUO Reforged: every script command, every #variable and the uo.dll API.',
 			favicon: '/favicon.ico',
-			social: [{ icon: 'github', label: 'GitHub', href: REPO }],
+			// The same Discord channel as the app's toolbar button and the README's badge.
+			social: [
+				{ icon: 'github', label: 'GitHub', href: REPO },
+				{ icon: 'discord', label: 'Discord', href: 'https://discord.com/channels/1302456481903284255/1550342103756836904' },
+			],
 			editLink: { baseUrl: `${REPO}/edit/main/website/` },
 			lastUpdated: true,
 			customCss: ['./src/styles/custom.css'],
