@@ -307,3 +307,24 @@ flashes a console window, and breaks on `>`, `|`, `&` or `%` in the text. `logfi
 
 A value in a settings file must be one word: `call` reads `set %name Dr Who` as `Dr`.
 [Keeping data between runs](/guides/persistence/) says when a settings file is the right choice.
+
+## Talk to a web server
+
+[`send get`](/commands/send/) reads a page, and `send post` sends data to one, over `http` or `https`. The answer
+is kept, never run: [`#SendRes`](/variables/sendres/) is `OK` when the server answered,
+[`#SendCode`](/variables/sendcode/) is its status (`200` when all went well), and
+[`#SendReply`](/variables/sendreply/) holds what it sent. Pass a value that may hold spaces or `&` through
+[`str urlencode`](/commands/str/#encode-for-send-reforged) before you glue it into form data. For JSON, use
+`str jsonescape` and set [`#SendHeader`](/variables/sendheader/) to `Content-Type: application/json$` first.
+These forms and the two `str` operations are new in Reforged. Don't use `send httppost` for this in Reforged: it
+runs the server's reply as a script. It is still the only form EasyUO 1.5 has: for a script that must also run
+there, see [a script for both](/commands/send/#a-script-for-both).
+
+```euo
+str urlencode #CharName
+set %data name= , #StrRes , &gold= , #Gold
+send post https://example.com/euo/report.php %data
+if #SendRes <> OK || #SendCode <> 200
+  event sysmessage Not sent: #SendRes #SendCode
+halt
+```

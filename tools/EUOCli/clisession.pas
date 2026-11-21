@@ -35,9 +35,10 @@ uses
 const
   // What a run will not run unless its host allows it.
   DefaultBlocked : array[0..4] of String = ('EXECUTE','SHUTDOWN','TERMINATE','UOXL','SEND');
-  // The word --allow and euo_run_live's "allow" take to let LOGFILE write files anywhere. Without it
-  // a run's file targets stay inside the program folder (TEuoInterpreter.ConfineFiles): the owner's
-  // decision of 2026-11-18. Not a blocked command: LOGFILE always runs.
+  // The word --allow and euo_run_live's "allow" take to let LOGFILE (and SEND DOWNLOAD, when send
+  // is allowed) write files anywhere. Without it a run's files stay inside the program folder
+  // (TEuoInterpreter.ConfineFiles): the owner's decision of 2026-11-18. Not a blocked command:
+  // LOGFILE always runs.
   AllowFilesWord = 'LOGFILE';
   AllowWordsText = 'execute, shutdown, terminate, uoxl, send or logfile';
   DefaultTimeoutSec = 60;
@@ -54,7 +55,7 @@ type
     Answer     : String;    // 'OK', 'YES', 'NO', 'CANCEL', or '' = the box's first button
     PauseEnds  : Boolean;   // a paused script is a finished run: nobody can press Play
     AllowHint  : String;    // what to tell about a blocked command; %s is the command
-    ConfineFiles : Boolean; // LOGFILE's files only inside the program folder (no "allow logfile")
+    ConfineFiles : Boolean; // LOGFILE's and SEND DOWNLOAD's files only inside the program folder (no "allow logfile")
     ScriptName : String;    // the name LOGFILE's "script" field shows; '' = main
   end;
 

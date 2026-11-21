@@ -937,8 +937,8 @@ begin
       'euo_clients lists them. 0 or left out: no client."},'+
     '"allow":{"type":"array","items":{"type":"string","enum":["execute","shutdown","terminate","uoxl","send","logfile"]},'+
       '"description":"Blocked commands this run may use. They start programs, switch the computer off, close '+
-      'or start clients, and fetch a reply from the web and run it. logfile lets logfile open write files '+
-      'outside the EasyUO Reforged folder."},'+
+      'or start clients, and talk to web servers (send httppost also runs the reply as a script). logfile lets '+
+      'logfile open and send download write files outside the EasyUO Reforged folder."},'+
     PropsRun,False,True,True));
   Result.Add(Tool('euo_status','Follow the running script',
     'Where the run is now, and the events since the last answer: log lines, display boxes, traced lines. '+

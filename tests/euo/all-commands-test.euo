@@ -85,8 +85,8 @@ set %DO_SHOP 0
 set %DO_EXECUTE 1
 ; execute cmd.exe /c exit
 set %DO_SEND 1
-; send HTTPPost to euo-selftest.invalid (a host name that can never resolve,
-; so no connection is made and nothing can answer)
+; send HTTPPost, get, post, put, delete and download to euo-selftest.invalid (a host
+; name that can never resolve, so no connection is made and nothing can answer)
 set %DO_UOXL_NEW 0
 ; uoXL new - STARTS ANOTHER UO CLIENT
 set %DO_TERMINATE_UO 0
@@ -1443,12 +1443,37 @@ sub sec_misc
   gosub t_eq menubutton_is_writable #menubutton Nothing
 
   ; ---- send: bad arguments never touch the network --------------------------------------
+  set %sc0 #sendcode
   set %r before
   send HTTPPost 127.0.0.1
   send nonsense a b c d
   send
   set %r %r , after
   gosub t_eq send_with_bad_arguments_is_a_noop %r beforeafter
+  set %ok #sendcode = %sc0
+  gosub t_chk send_bad_words_leave_sendcode_alone #sendcode %sc0 %ok
+
+  ; ---- send's new forms: lines refused before any request ----------------------------------
+  send get
+  set %ok #sendcode = 0 && #sendres <> OK
+  gosub t_chk send_get_without_url_is_refused #sendcode 0 %ok
+  send get euo-selftest.invalid/x
+  set %ok #sendcode = 0 && #sendres <> OK
+  gosub t_chk send_get_bad_url_is_refused #sendcode 0 %ok
+  send download http://euo-selftest.invalid/x.txt
+  set %ok #sendcode = 0 && #sendres <> OK
+  gosub t_chk send_download_without_file_is_refused #sendcode 0 %ok
+  str len #sendreply
+  gosub t_eq send_refused_reply_is_empty #strres 0
+
+  ; ---- str urlencode / jsonescape (for send's data) ----------------------------------------
+  str urlencode a&b=c
+  gosub t_eq str_urlencode #strres a%26b%3Dc
+  set %t a , #spc , b
+  str urlencode %t
+  gosub t_eq str_urlencode_space #strres a%20b
+  str jsonescape a\b
+  gosub t_eq str_jsonescape #strres a\\b
 
   ; ---- sleep / wait with bad arguments are no-ops ----------------------------------------
   set %r before
@@ -2039,6 +2064,9 @@ sub sec_vartable
   gosub v_any menuRes
   gosub v_any lpc
   gosub v_any sendHeader
+  gosub v_any sendRes
+  gosub v_any sendCode
+  gosub v_any sendReply
   gosub v_any sqlCnt
   gosub v_any sqlChanges
   gosub v_any sqlLastID
@@ -2883,6 +2911,24 @@ sub sec_send
   set %dt #systime - %t0
   set %ok %dt <= 15000
   gosub t_chk send_to_an_unresolvable_host_returns_and_runs_nothing %dt 0..15000_ms %ok
+  ; the new forms, to the same host: no answer, so #sendCode 0 and #sendRes says why
+  set %t0 #systime
+  send get http://euo-selftest.invalid/euo-selftest?a=1
+  set %dt #systime - %t0
+  set %ok #sendcode = 0 && #sendres <> OK && %dt <= 15000
+  gosub t_chk send_get_to_an_unresolvable_host_says_why #sendcode 0 %ok
+  send post http://euo-selftest.invalid/euo-selftest a=1
+  set %ok #sendcode = 0 && #sendres <> OK
+  gosub t_chk send_post_to_an_unresolvable_host_says_why #sendcode 0 %ok
+  send put https://euo-selftest.invalid/euo-selftest a=1
+  set %ok #sendcode = 0 && #sendres <> OK
+  gosub t_chk send_put_to_an_unresolvable_host_says_why #sendcode 0 %ok
+  send delete https://euo-selftest.invalid/euo-selftest
+  set %ok #sendcode = 0 && #sendres <> OK
+  gosub t_chk send_delete_to_an_unresolvable_host_says_why #sendcode 0 %ok
+  send download http://euo-selftest.invalid/x.txt euo-selftest-download.txt
+  set %ok #sendcode = 0 && #sendres <> OK
+  gosub t_chk send_download_from_an_unresolvable_host_says_why #sendcode 0 %ok
   set #sendHeader N/A
 return
 

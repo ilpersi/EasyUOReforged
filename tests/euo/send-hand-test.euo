@@ -1,0 +1,141 @@
+; ============================================================================
+;  send hand test: the new forms (get, post, put, delete, download) on real https servers, which
+;  the automated tests can't reach (they serve plain http on 127.0.0.1). No UO client is needed.
+;  Run one case at a time: set %case below, run the script in the editor, and watch its Output
+;  panel. Each result is a line: RESULT <case> <PASS|FAIL|INFO> <what> observed=... expected=...
+;  It ends in halt.
+;
+;  The cases contact public test sites only: example.com, httpbin.org and badssl.com. Nothing about
+;  you or your game is sent. (EUOCli check warns that send-hand-test-dl.euo is missing: the download
+;  case makes it.)
+;
+;  %case https    : GET https://example.com/ : OK, 200, the page in #SendReply.
+;  %case form     : POST form data with a space and an & (str urlencode) to httpbin.org, which echoes
+;                   what it got: the fields must come back whole.
+;  %case json     : POST a JSON body (Content-Type from #SendHeader, text through str jsonescape) to
+;                   httpbin.org: the text must come back whole, quotes included.
+;  %case putdel   : PUT and DELETE to httpbin.org: 200 each, and the echo names the method.
+;  %case status   : a 404 and a followed redirect: OK 404, then OK 200.
+;  %case tls      : an expired and a self-signed certificate (badssl.com): #SendCode 0 and #SendRes
+;                   starting "secure connection failed:" with Windows' reason.
+;  %case download : downloads a two-line script (httpbin decodes base64 for us) to
+;                   send-hand-test-dl.euo next to EasyUO Reforged, CALLs it: %got must be 7. Then a
+;                   download of a 404 must leave that file as it was.
+;  %case stop     : asks httpbin for an answer that takes 10 s. Press Stop during the wait: the
+;                   script must stop at once (not after 10 s). Nothing more is printed.
+;  %case pause    : the same 10 s wait: press Pause during it, wait, press Play. The script goes on
+;                   and prints OK 200 (the answer is not lost).
+; ============================================================================
+set %case https
+
+if %case = https
+{
+  send get https://example.com/
+  str pos #SendReply Example
+  set %ok #SendRes = OK && #SendCode = 200 && #StrRes > 0
+  gosub result https_get #SendRes , _ , #SendCode OK_200_page_with_Example %ok
+}
+
+if %case = form
+{
+  set %t hello , #spc , world&more
+  str urlencode %t
+  set %data text= , #StrRes , &name=Bob
+  send post https://httpbin.org/post %data
+  log raw reply: #SendReply
+  set %want hello , #spc , world&more
+  str pos #SendReply %want
+  set %ok #SendRes = OK && #SendCode = 200 && #StrRes > 0
+  gosub result form_fields_come_back_whole #SendCode 200 %ok
+  log CHECK by eye in the raw reply: "text": "hello world&more" and "name": "Bob" under "form"
+}
+
+if %case = json
+{
+  set %t say , #spc , "hi" , #spc , \o/
+  str jsonescape %t
+  set %body {"content":" , #StrRes , "}
+  set #SendHeader Content-Type: , #spc , application/json$
+  send post https://httpbin.org/post %body
+  set #SendHeader N/A
+  log raw reply: #SendReply
+  str pos #SendReply \"hi\"
+  set %ok #SendRes = OK && #SendCode = 200 && #StrRes > 0
+  gosub result json_post #SendCode 200 %ok
+  log CHECK by eye: "json" holds "content": "say \"hi\" \\o/"
+}
+
+if %case = putdel
+{
+  send put https://httpbin.org/put a=1
+  set %ok #SendRes = OK && #SendCode = 200
+  gosub result put #SendCode 200 %ok
+  send delete https://httpbin.org/delete
+  set %ok #SendRes = OK && #SendCode = 200
+  gosub result delete #SendCode 200 %ok
+}
+
+if %case = status
+{
+  send get https://httpbin.org/status/404
+  set %ok #SendRes = OK && #SendCode = 404
+  gosub result status_404_is_an_answer #SendCode 404 %ok
+  send get https://httpbin.org/redirect-to?url=/get
+  set %ok #SendRes = OK && #SendCode = 200
+  gosub result redirect_followed #SendCode 200 %ok
+}
+
+if %case = tls
+{
+  send get https://expired.badssl.com/
+  log expired: #SendRes
+  set %ok #SendCode = 0 && #SendRes <> OK
+  gosub result expired_certificate #SendCode 0 %ok
+  send get https://self-signed.badssl.com/
+  log self-signed: #SendRes
+  set %ok #SendCode = 0 && #SendRes <> OK
+  gosub result self_signed_certificate #SendCode 0 %ok
+}
+
+if %case = download
+{
+  ; "set %got 7" and a new line, base64-encoded: httpbin answers it decoded.
+  send download https://httpbin.org/base64/c2V0ICVnb3QgNwo= send-hand-test-dl.euo
+  set %ok #SendRes = OK && #SendCode = 200
+  gosub result download_saved #SendCode 200 %ok
+  set %got 0
+  call send-hand-test-dl.euo
+  set %ok %got = 7
+  gosub result downloaded_script_runs %got 7 %ok
+  send download https://httpbin.org/status/404 send-hand-test-dl.euo
+  set %ok #SendCode = 404 && #SendRes <> OK
+  gosub result refused_download_not_saved #SendCode 404 %ok
+  set %got 0
+  call send-hand-test-dl.euo
+  set %ok %got = 7
+  gosub result old_file_left_as_it_was %got 7 %ok
+}
+
+if %case = stop
+{
+  log NOW: press Stop within 10 seconds. The script must stop at once.
+  send get https://httpbin.org/delay/10
+  log FAIL: this line must not be reached (the send ended by itself: #SendRes #SendCode )
+}
+
+if %case = pause
+{
+  log NOW: press Pause, wait a few seconds, press Play.
+  send get https://httpbin.org/delay/10
+  set %ok #SendRes = OK && #SendCode = 200
+  gosub result answer_kept_through_pause #SendCode 200 %ok
+}
+halt
+
+; result {what} {observed} {expected} {ok}
+sub result
+  if %4 = #true
+    log RESULT %case PASS %1 observed= %2 expected= %3
+  else
+    log RESULT %case FAIL %1 observed= %2 expected= %3
+return

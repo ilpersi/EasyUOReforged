@@ -1,13 +1,13 @@
 ---
 title: "Str"
-description: "Works on a piece of text (length, position, part, case, replace, split, trim, join, insert, delete, count); the result goes to #StrRes."
+description: "Works on a piece of text (length, position, part, case, replace, split, trim, join, insert, delete, count, encode); the result goes to #StrRes."
 kind: command
 category: misc
 changed: true
 syntax: "str {operation} {text} [parameters...]"
 sets: ["#StrRes"]
-related: ["#StrRes", "#SPC", "#DOT", "#SMC"]
-aliases: ["string", "text", "substring", "length", "replace", "split", "trim", "join", "concat", "concatenate"]
+related: ["#StrRes", "#SPC", "#DOT", "#SMC", "Send"]
+aliases: ["string", "text", "substring", "length", "replace", "split", "trim", "join", "concat", "concatenate", "url encode", "json escape", "encode"]
 source: wiki
 ---
 
@@ -30,10 +30,12 @@ source: wiki
 | `str trim {text} [chars]` | The text without those characters at either end. Without `chars`: spaces and `_`. | **No:** new in Reforged |
 | `str join {separator} {text} [text...]` | The texts in order, with the separator between them. | **No:** new in Reforged |
 | `str concat {text} [text...]` | The texts in order, with nothing between them. | **No:** new in Reforged |
+| `str urlencode {text}` | The text made safe inside a URL's query or form data: every character but `A-Z a-z 0-9 - _ . ~` written as `%XX`. | **No:** new in Reforged |
+| `str jsonescape {text}` | The text made safe between the quotes of a JSON string: `"`, `\` and line breaks escaped. | **No:** new in Reforged |
 
 :::note[Writing for EasyUO 1.5 too]
-`replace`, `part`, `trim`, `join` and `concat` are new in EasyUO Reforged. EasyUO 1.5 knows only the other ten:
-there, these five set `#StrRes` to `N/A` and do nothing else, with no error. A script that must also run on
+`replace`, `part`, `trim`, `join`, `concat`, `urlencode` and `jsonescape` are new in EasyUO Reforged. EasyUO 1.5
+knows only the other ten: there, these seven set `#StrRes` to `N/A` and do nothing else, with no error. A script that must also run on
 EasyUO 1.5 uses only the operations marked *Yes*, and does the rest with `pos`, `left`, `mid` and `del`.
 :::
 
@@ -147,6 +149,27 @@ halt
 An empty value keeps its place in `join`, so `str part` finds the same fields again. `str join _ a %empty c`, with
 `%empty` holding empty text, gives `a__c`.
 
+### Encode for send (Reforged)
+
+Data that [`send`](/commands/send/) carries has its own special characters: `&` and `=` separate the fields of form
+data, and `"` and `\` end or escape a JSON string. Pass a value that may hold them, or spaces, through `urlencode`
+(form data, a URL's query) or `jsonescape` (JSON) before you glue it in:
+
+```euo
+set %msg Gold , #SPC , & , #SPC , gems
+str urlencode %msg
+set %enc #StrRes              ; => %enc = Gold%20%26%20gems
+set %data text= , %enc        ; => %data = text=Gold%20%26%20gems
+set %say He , #SPC , said , #SPC , "hi"
+str jsonescape %say
+set %esc #StrRes              ; => %esc = He said \"hi\"
+set %body {"content":" , %esc , "}
+halt
+```
+
+Both work on the bytes of the text, so letters with accents keep working: `urlencode` writes each of their bytes as
+`%XX`, `jsonescape` leaves them as they are. Neither cares about case.
+
 ## Spaces and `_`
 
 Text from the client holds its spaces in one of two ways, and `replace` and `part` take you at your word: `_` doesn't
@@ -200,6 +223,6 @@ and give `N/A`. To cut a text at a comma, use `str pos %s ,` followed by `str le
 
 ## Reforged notes
 
-- `str replace`, `str part`, `str trim`, `str join` and `str concat` are new. In EasyUO 1.5 these words did nothing but
-  set `#StrRes` to `N/A`, as any unknown operation still does.
+- `str replace`, `str part`, `str trim`, `str join`, `str concat`, `str urlencode` and `str jsonescape` are new. In
+  EasyUO 1.5 these words did nothing but set `#StrRes` to `N/A`, as any unknown operation still does.
 - The other operations are unchanged.

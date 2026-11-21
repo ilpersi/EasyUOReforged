@@ -95,6 +95,8 @@ foreach ($e in $names.Path)      { Need "path $e"      (Test-Page "commands/path
 foreach ($e in $names.LogFile)   { Need "logfile $e"   (Test-Page "commands/logfile/$($e.ToLower())") }
 $strText = if (Test-Page 'commands/str') { $pages['commands/str'].Text } else { '' }
 foreach ($e in $names.Str)       { Need "str $e"       ($strText -match "(?i)\bstr\s+$e\b") }
+$sendText = if (Test-Page 'commands/send') { $pages['commands/send'].Text } else { '' }
+foreach ($e in $names.Send)      { Need "send $e"      ($sendText -match "(?i)\bsend\s+(?:\[debug\])?$e\b") }
 $dllOn = Test-Path (Join-Path $Docs 'dll')
 if ($dllOn) {
   foreach ($d in @($names.DllMembers) + @($names.DllCalls) | Sort-Object -Unique) { Need "uo.dll $d" (Test-Page "dll/$($d.ToLower())") }
@@ -283,7 +285,7 @@ if ($hlOnly.Count -gt 0) { Write-Host "Warning: highlighted, but the interpreter
 $complFamilies = [ordered]@{
   EVENT = $names.Events; EXEVENT = $names.ExEvents; MENU = $names.Menu
   NAMESPACE = $names.NameSpace; STR = $names.Str; SQL = $names.Sql; PATH = $names.Path
-  LOGFILE = $names.LogFile
+  LOGFILE = $names.LogFile; SEND = $names.Send
 }
 $notOffered = @(); $offeredOnly = @()
 foreach ($cmd in $complFamilies.Keys) {

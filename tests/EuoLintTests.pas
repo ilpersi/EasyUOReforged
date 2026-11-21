@@ -34,6 +34,7 @@ type
     procedure TestWordsThatAreNotCommandsButAllowed;
     procedure TestUnknownVariable;
     procedure TestUnknownSubcommand;
+    procedure TestSendForms;
     procedure TestRunTimeWordsAreNeverReported;
     procedure TestGluedWords;
     procedure TestGluedWordsOnlyWhereTheCommandCalculates;
@@ -231,6 +232,18 @@ begin
   AssertEquals('',Warn(['event Macro 17 0','exevent drag %id 1','str len abc','namespace push',
     'sql open :memory:','path stop','menu clear','menu font size 10','halt']));
   AssertEquals('other commands take anything','',Warn(['display nosuchword','wait 5','halt']));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// SEND's original form takes any word with HTTPPOST in it, as the interpreter does (Pos).
+procedure TEuoLintTests.TestSendForms;
+begin
+  AssertEquals('',Warn(['send httppost www.example.com /p a=1','send HTTPPost8080 h /p a',
+    'send debughttppost h /p a','send debughttppost8080 h /p a','halt']));
+  AssertEquals('',Warn(['send get https://example.com/x?a=1','send post http://h/p a=1','send put http://h/p x',
+    'send delete http://h/p','send download http://h/f f.euo','str urlencode %a','str jsonescape %a','halt']));
+  AssertEquals('unknown-subcommand@1',Warn(['send gett http://h/','halt']));
+  AssertTrue('the hint lists the forms',Pos('download',Find('unknown-subcommand').Hint)>0);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -15,6 +15,13 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 
 ## New commands and variables
 
+- **[`send get`, `post`, `put`, `delete` and `download`](/commands/send/)**: talk to web servers over HTTP and
+  HTTPS without running what they answer. The answer's body goes to [`#SendReply`](/variables/sendreply/) (or to a
+  file, for `download`), its HTTP status to [`#SendCode`](/variables/sendcode/), and whether the server answered to
+  [`#SendRes`](/variables/sendres/). Post to a Discord webhook, read a version number or a price list from a web
+  page, or fetch a script and `call` it. Stop and Pause work while a request waits.
+  [`str urlencode` and `str jsonescape`](/commands/str/#encode-for-send-reforged) make values safe in form data and
+  JSON. The original `send httppost`, which runs the reply as a script, is unchanged.
 - **[`LogFile`](/commands/logfile/)**: a logging system for scripts. Messages at a level (`debug`, `info`,
   `warning`, `error`) go to the Output panel and to the files the script opens, each target with its own level
   and line format (date, time, level, script, line, or the text alone); a file can start again by size or every
@@ -96,9 +103,12 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 
 ## Changed behaviour
 
-- **[`Str`](/commands/str/)** has five new operations, instead of hand-written loops of `str pos` and `str del`:
+- **[`Str`](/commands/str/)** has seven new operations, instead of hand-written loops of `str pos` and `str del`:
   `replace` replaces every occurrence of a text, `part` takes the `n`-th field between separators, `trim` cleans up
-  both ends, and `join` and `concat` put texts together. The other operations are unchanged.
+  both ends, `join` and `concat` put texts together, and `urlencode` and `jsonescape` prepare data for `send`. The
+  other operations are unchanged.
+- **[`#SendHeader`](/variables/sendheader/)** also applies to the new forms of `send`. For `send httppost` nothing
+  changed.
 - **[`Display`](/commands/display/)**'s message box is titled *Reforged Message* instead of *EUO Message*.
 - **[`FindItem`](/commands/finditem/)** also fills [`#FindLayer`](/variables/findlayer/). Nothing else it
   does has changed.

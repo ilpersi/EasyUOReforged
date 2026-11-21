@@ -29,9 +29,10 @@ unit EuoLint;
   The rules, by id (TEuoFinding.Rule):
     unknown-command       the first word is not a command, a label, a brace or a '+' line
     unknown-variable      a #name the interpreter does not have (it reads N/A)
-    unknown-subcommand    EVENT/EXEVENT/MENU/NAMESPACE/STR/SQL/PATH and a word that is not one
-                          of its sub-commands (first level only: the level
-                          tests\tools\CheckDocsCoverage.ps1 verifies against the interpreter)
+    unknown-subcommand    EVENT/EXEVENT/MENU/NAMESPACE/STR/SQL/PATH/LOGFILE/SEND and a word that is
+                          not one of its sub-commands (first level only: the level
+                          tests\tools\CheckDocsCoverage.ps1 verifies against the interpreter); for
+                          SEND any word containing HTTPPOST is one, as the interpreter has it
     glued-words           in the expression of a command that calculates: (%a  1)  %a=1  !%a
     brace-on-header-line  an opening brace at the end of an IF, FOR, ... line: it is a parameter
                           there, not a block
@@ -131,7 +132,7 @@ const
   HarmlessWords : array[0..0] of String = ('INITEVENTS');
   // The commands whose sub-commands are checked: the families whose first level
   // tests\tools\CheckDocsCoverage.ps1 compares with the interpreter.
-  Families : array[0..7] of String = ('EVENT','EXEVENT','MENU','NAMESPACE','STR','SQL','PATH','LOGFILE');
+  Families : array[0..8] of String = ('EVENT','EXEVENT','MENU','NAMESPACE','STR','SQL','PATH','LOGFILE','SEND');
   // The commands that open a block or govern the next line (EuoBlocks.EuoBlockStep), and SUB.
   Headers : array[0..6] of String = ('IF','ELSE','FOR','WHILE','ONHOTKEY','CMPPIX','SUB');
   // What ends the main part of a script on purpose. EXIT restarts a main script, but who
@@ -492,6 +493,8 @@ begin
     try
       Before.Add(First);
       Sub:=UpperCase(Words[1]);
+      // SEND takes the original form for any word with HTTPPOST in it (debughttppost, httppost8080).
+      if (First='SEND') and (Pos('HTTPPOST',Sub)>0) then Sub:='HTTPPOST';
       if EuoWordsAfter(Before,After) and (After.IndexOf(Sub)<0) then
         Add('unknown-subcommand',lsWarning,LineIdx+1,Col(1),Words[1],
           '"'+LowerCase(First)+' '+Words[1]+'" is not a sub-command of '+LowerCase(First)+': the line does nothing.',

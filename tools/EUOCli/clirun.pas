@@ -22,10 +22,11 @@ unit clirun;
     over because it has no HALT (TExecutor.StopOnRestart), which would otherwise repeat for ever.
   - EXECUTE, SHUTDOWN, TERMINATE, UOXL and SEND stop the run instead of running
     (TEuoInterpreter.BlockCommands) unless --allow names them. They reach beyond the script:
-    start programs, switch the computer off, close or start clients, fetch and run a reply.
-  - LOGFILE writes files only by a relative name inside the program folder, where CALL starts
-    one, unless --allow logfile (TEuoInterpreter.ConfineFiles). Its log lines are printed
-    like LOG's.
+    start programs, switch the computer off, close or start clients, talk to web servers (and,
+    for SEND HTTPPOST, run the reply).
+  - LOGFILE, and SEND DOWNLOAD when send is allowed, write files only by a relative name inside
+    the program folder, where CALL starts one, unless --allow logfile
+    (TEuoInterpreter.ConfineFiles). LOGFILE's log lines are printed like LOG's.
 
   The run itself, with these rules, is clisession.pas's TRunSession, which the MCP server
   (climcp.pas) uses too. This unit reads the command line, starts a session, pumps the LCL
@@ -116,7 +117,8 @@ begin
   Output.Add('  --show-display      open the real message boxes instead, and wait for a click');
   Output.Add('  --allow <commands>  run these although they are blocked: execute,shutdown,terminate,');
   Output.Add('                      uoxl,send. A blocked command stops the run. logfile lets');
-  Output.Add('                      "logfile open" write outside the program folder');
+  Output.Add('                      "logfile open" and "send download" write outside the');
+  Output.Add('                      program folder');
   Output.Add('');
   Output.Add('Exit code: 0 the script stopped itself; 2 wrong command line or unreadable script;');
   Output.Add('3 timeout; 4 a command raised an error; 5 the client is not there; 6 a blocked command;');

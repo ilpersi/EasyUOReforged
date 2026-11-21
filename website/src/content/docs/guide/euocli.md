@@ -196,10 +196,13 @@ The number in brackets is the line of the script.
 - **Some commands stop the run instead of running:** [`execute`](/commands/execute/),
   [`shutdown`](/commands/shutdown/), [`terminate`](/commands/terminate/), [`uoxl`](/commands/uoxl/) and
   [`send`](/commands/send/). They reach beyond the script: they start programs, switch the computer off,
-  close or start clients, and fetch a reply from the web and run it. `--allow` lets them through.
+  close or start clients, and talk to web servers (`send httppost` also runs the reply as a script).
+  `--allow` lets them through.
 - **[`logfile`](/commands/logfile/) writes files only inside the folder of `EUOCli.exe`,** by a relative name;
   another name is refused in [`#LogRes`](/variables/logres/) and the script goes on. `--allow logfile` lets it
-  write anywhere. Its lines for the Output panel are printed as `log` lines are.
+  write anywhere. Its lines for the Output panel are printed as `log` lines are. The same goes for
+  [`send download`](/commands/send/), once `send` is allowed: a file outside the folder is refused in
+  [`#SendRes`](/variables/sendres/).
 - **`pause` ends the run:** nobody is there to press Start again.
 
 [`menu`](/commands/menu/) works: the window opens on your screen. A script that waits for a click in it
@@ -222,7 +225,7 @@ EUOCli run <script.euo> [--client <n>] [--timeout <seconds>] [--json] [--trace]
 | `--dump <variables>` | Print these variables when the run ends: `--dump %a,%b,#FindCnt`. |
 | `--answer <button>` | Answer `display` boxes that have this button with it: `ok`, `yes`, `no` or `cancel`. |
 | `--show-display` | Open the real message boxes and wait for a click. |
-| `--allow <commands>` | Run these although they are blocked: `--allow execute,send`. `logfile` lets [`logfile open`](/commands/logfile/open/) write outside the folder of `EUOCli.exe`. |
+| `--allow <commands>` | Run these although they are blocked: `--allow execute,send`. `logfile` lets [`logfile open`](/commands/logfile/open/) and [`send download`](/commands/send/) write outside the folder of `EUOCli.exe`. |
 
 A [`call`](/commands/call/) starts from the folder of `EUOCli.exe`, as it starts from the folder of
 `EasyUOReforged.exe` in the editor.
@@ -410,8 +413,9 @@ this stays safe:
   [`terminate`](/commands/terminate/), [`uoxl`](/commands/uoxl/) or [`send`](/commands/send/) through, and
   only the ones it names. **Allow it one run at a time**, and read the script first: the request shows the
   client number and the commands it wants allowed.
-- Under both, [`logfile`](/commands/logfile/) writes files only inside the EasyUO Reforged folder.
-  `euo_run_live` with `"allow": ["logfile"]` lets it write anywhere.
+- Under both, [`logfile`](/commands/logfile/) writes files only inside the EasyUO Reforged folder, and so does
+  [`send download`](/commands/send/) where `send` is allowed. `euo_run_live` with `"allow": ["logfile"]` lets
+  them write anywhere.
 - `euo_vars` and `euo_clients` read from the client. They change nothing.
 
 **The script stops when the agent's program closes** or ends its session: a run never outlives the agent

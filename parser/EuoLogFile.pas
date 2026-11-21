@@ -156,6 +156,11 @@ function  ParseLevel(const Word : String; AllowOff : Boolean; out Rank : Integer
 function  ParseLogSize(const Word : String; out Size : Int64) : Boolean;
 // The files the process has open now (tests).
 function  OpenLogFileCount : Integer;
+// The full name of FileName, relative to BaseDir (#CurPath, with a trailing '\') unless absolute, or
+// the reason it is refused ('' when it is fine). With ConfineFiles (EUOCli without --allow logfile)
+// only a relative name that stays inside BaseDir is fine. A logger's file targets go through it, and
+// so does SEND DOWNLOAD's file.
+function  ResolveScriptPath(const BaseDir, FileName : String; ConfineFiles : Boolean; out Full : String) : String;
 
 implementation
 
@@ -678,6 +683,11 @@ end;
 
 // The full name of a file target, or the reason it is refused.
 function TEuoScriptLogger.ResolvePath(const FileName : String; out Full : String) : String;
+begin
+  Result:=ResolveScriptPath(BaseDir,FileName,ConfineFiles,Full);
+end;
+
+function ResolveScriptPath(const BaseDir, FileName : String; ConfineFiles : Boolean; out Full : String) : String;
 var
   Abs   : Boolean;
   Parts : TStringList;

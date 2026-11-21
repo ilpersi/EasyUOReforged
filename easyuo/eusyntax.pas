@@ -84,7 +84,7 @@ const
     'WAITFOR', 'WHILE'
   );
 
-  SystemKeywords : array[0..178] of String = (
+  SystemKeywords : array[0..181] of String = (
     '#AR', '#BACKPACKID', '#BUFFBAROPEN', '#BUFFCLILOC', '#BUFFCNT', '#BUFFDESC', '#BUFFID',
     '#BUFFINDEX', '#BUFFNAME', '#BUFFTIME', '#CHARDIR', '#CHARGHOST', '#CHARID', '#CHARNAME',
     '#CHARPOSX', '#CHARPOSY', '#CHARPOSZ', '#CHARSTATUS', '#CLICNT',
@@ -109,7 +109,7 @@ const
     '#PATHCNT', '#PATHDIR', '#PATHSTATE', '#PATHX', '#PATHY', '#PATHZ',
     '#PIXCOL', '#PR', '#PROPERTY', '#RANDOM', '#REFORGEDVER', '#RESULT',
     '#RHANDID',
-    '#SCNT', '#SCNT2', '#SENDHEADER', '#SEX', '#SHARD', '#SHOPCNT',
+    '#SCNT', '#SCNT2', '#SENDCODE', '#SENDHEADER', '#SENDREPLY', '#SENDRES', '#SEX', '#SHARD', '#SHOPCNT',
     '#SHOPCURPOS', '#SHOPITEMID', '#SHOPITEMMAX', '#SHOPITEMNAME',
     '#SHOPITEMPRICE', '#SHOPITEMTYPE', '#SKILL', '#SKILLCAP', '#SKILLLOCK',
     '#SMC', '#SPC', '#SQLCHANGES', '#SQLCNT', '#SQLLASTID', '#SQLRES',

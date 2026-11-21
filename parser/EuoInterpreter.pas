@@ -116,6 +116,12 @@ unit EuoInterpreter;
   never by a host polling the variables from its own thread) they also follow the answers clicked by hand. EasyUO 1.5's ExEventProc
   did nothing for a sub-command it did not know, so a line with it was a silent no-op before; no other
   sub-command changes.
+  Likewise the new SEND forms GET, POST, PUT, DELETE and DOWNLOAD plus the read-only #SendRes, #SendCode
+  and #SendReply (indices 147..149): HTTP and HTTPS through WinHTTP (EuoHttp.pas), the reply kept in
+  the variables or a file and never run. SendProc's only change is its first test: a first word
+  without HTTPPOST goes to SendHttpProc, where an unknown word does nothing, as it did before; a word
+  with HTTPPOST takes the original path exactly as before (EuoComm.pas, its reply run as a script, none
+  of the three variables touched). Likewise STR URLENCODE and JSONESCAPE (EuoStrOps.pas).
   Likewise four things only a host uses, none of which changes what a script does unless a host
   asks: OnDisplay (a host answers DISPLAY instead of the message box; nil by default),
   BlockCommands (commands that stop the run instead of running; none by default), Restarts (how
@@ -133,7 +139,7 @@ uses
   EuoScriptWords,
   uotypes, access, ReforgedVersion, uoselector, uovariables, uocommands, uoevents, EuoLock,
   EuoSql, walkrules, walkmap, pathplan, walklive, pathwalk, EuoJournalSearch, EuoStrOps, EuoItemMove,
-  EuoGumps, uogumpreply, EuoLogFile;
+  EuoGumps, uogumpreply, EuoLogFile, EuoHttp;
 
 const
   RES_OK    = 0;
@@ -222,6 +228,9 @@ type
     FLogDropped  : Cardinal;      // lines thrown away because nobody took them
     Logger       : TEuoScriptLogger;   // port addition (LOGFILE)
     LogRes       : String;             // port addition (LOGFILE): #LogRes
+    SendRes      : String;             // port additions (the new SEND forms): #SendRes
+    SendCode     : String;             //   #SendCode
+    SendReply    : String;             //   #SendReply
     FScriptName  : String;             // port addition for hosts: the main script's name in log lines
 
     procedure    LogProc;
@@ -258,6 +267,7 @@ type
     procedure    UntilProc;
     procedure    WhileProc;
     procedure    SendProc;
+    procedure    SendHttpProc;
     procedure    ForProc;
     procedure    ExitProc;
     procedure    CallProc;
@@ -584,7 +594,7 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 const
-  VarNamesR : Array[0..146] of String = (
+  VarNamesR : Array[0..149] of String = (
     'CliCnt','CliNr','Time','Date','SysTime','Random','OSVer','CharPosX',
     'CharPosY','CharPosZ','CharID','CharGhost','CharStatus','CharDir',
     'CharName','Sex','Str','MaxWeight','Dex','Int','Hits','MaxHits',
@@ -622,7 +632,9 @@ const
     // Port additions (EXEVENT GUMPREPLY): indices 143..145.
     'GumpReply','GumpReplyRes','GumpReplyCnt',
     // Port addition (LOGFILE): index 146.
-    'LogRes');
+    'LogRes',
+    // Port additions (the new SEND forms): indices 147..149.
+    'SendRes','SendCode','SendReply');
 
   VarNamesRW : Array[0..34] of String = (
     'SCnt','SCnt2','LShard','ContPosX','ContPosY','NextCPosX','NextCPosY',
@@ -715,6 +727,9 @@ begin
   Logger:=TEuoScriptLogger.Create(QueueLog);
   Logger.BaseDir:=ExtractPath(ParamStr(0));   // #CurPath: where CALL starts a relative name
   LogRes:='N/A';
+  SendRes:='N/A';
+  SendCode:='N/A';
+  SendReply:='N/A';
   FScriptName:='';
   Restarts:=0;
   BlockedCmd:='';
@@ -790,6 +805,9 @@ begin
   GumpHookSeen:=-1;
   Logger.Reset;     // port addition (LOGFILE): a run's files are closed, targets and levels back to defaults
   LogRes:='N/A';
+  SendRes:='N/A';   // port additions (the new SEND forms)
+  SendCode:='N/A';
+  SendReply:='N/A';
   Restarts:=0;      // port additions for hosts: a new run has not restarted or been blocked.
   BlockedCmd:='';   // (What LOG queued stays: the host has not read it yet.)
   BlockedLine:=-1;
@@ -1160,6 +1178,10 @@ begin
          else Result:=IntToStr(GumpReplyCnt);
     // Port addition (LOGFILE).
     146: Result:=            LogRes        ;
+    // Port additions (the new SEND forms).
+    147: Result:=            SendRes       ;
+    148: Result:=            SendCode      ;
+    149: Result:=            SendReply     ;
     500: Result:=IntToStr   (GetTickCount div 1000 - SCntBase);
     501: Result:=IntToStr   (GetTickCount div 100 - SCnt2Base);
     525: Result:=            _Result       ;
@@ -1909,6 +1931,14 @@ var
   Cnt  : Integer;
   Port : Cardinal;
 begin
+  // Port addition: a first word without HTTPPOST is one of the new forms (SendHttpProc) or, as any
+  // such word was before, nothing. From here on the original form is untouched.
+  if (ParList.Count>1) and (Pos('HTTPPOST',ParList[1].StrU)<1) then
+  begin
+    SendHttpProc;
+    Exit;
+  end;
+
   if ParList.Count<4 then Exit;
   Cnt:=Pos('HTTPPOST',ParList[1].StrU);
   if Cnt<1 then Exit;
@@ -1929,6 +1959,74 @@ begin
   ScrList.AddCall(NextLine,'send');
   ScrList.Scr.Text:=CommObj.StrRes;
   NextLine:=0;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition: the new SEND forms, through WinHTTP (EuoHttp.pas). The reply is never run.
+//   GET {url}   POST {url} {data}   PUT {url} {data}   DELETE {url} [data]   DOWNLOAD {url} {file}
+// Data is the rest of the line, taken as the original form takes its own (GetParStr). #SendHeader
+// applies, with EuoHttp's rules. The file is resolved as LOGFILE's are (ResolveScriptPath: #CurPath,
+// ConfineFiles). Every line of one of these forms sets #SendRes, #SendCode and #SendReply; another word
+// does nothing, as before. The request runs on a thread of its own and the script waits through Delay,
+// with CS released, so Stop and Pause work and the GUI keeps reading variables; Stop cancels the
+// request and leaves the three variables as they were, as WAITFOR leaves #WaitRes.
+procedure TEuoInterpreter.SendHttpProc;
+var
+  Sub  : String;
+  Req  : TEuoHttpRequest;
+  Res  : TEuoHttpResult;
+  Err  : String;
+  Full : String;
+  Job  : IEuoHttpJob;
+begin
+  Sub:=ParList[1].StrU;
+  if (Sub<>'GET') and (Sub<>'POST') and (Sub<>'PUT') and (Sub<>'DELETE') and (Sub<>'DOWNLOAD') then Exit;
+
+  Err:='';
+  Req.Method:=Sub;
+  Req.Url:='';
+  if ParList.Count>2 then Req.Url:=ParList[2].Str;
+  Req.Headers:=CommObj.SendHeader;
+  Req.Body:='';
+  Req.SaveTo:='';
+  Req.Timeout:=0;
+  if Req.Url='' then Err:='no url given: send '+LowerCase(Sub)+' {url}'
+  else if Sub='DOWNLOAD' then
+  begin
+    Req.Method:='GET';
+    if ParList.Count<4 then Err:='no file given: send download {url} {file}'
+    else if ParList.Count>4 then Err:='download takes one file name: glue a name that has spaces with ,'
+    else
+    begin
+      Err:=ResolveScriptPath(Logger.BaseDir,ParList[3].Str,Logger.ConfineFiles,Full);
+      Req.SaveTo:=Full;
+    end;
+  end
+  else if Sub='GET' then
+  begin
+    if ParList.Count>3 then Err:='get takes only a url: put the data in its query (?name=value)';
+  end
+  else Req.Body:=GetParStr(3);
+
+  if Err<>'' then
+  begin
+    SendRes:=Err;
+    SendCode:='0';
+    SendReply:='';
+    Exit;
+  end;
+
+  Job:=StartEuoHttp(Req);
+  while not Job.Done do
+    if not Delay(1) then
+    begin
+      Job.Cancel;   // the job's thread ends on its own; nothing waits for it
+      Exit;
+    end;
+  Res:=Job.Outcome;
+  SendRes:=Res.Res;
+  SendCode:=IntToStr(Res.Code);
+  SendReply:=Res.Reply;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2954,6 +3052,11 @@ begin
     for Cnt1:=2 to ParList.Count-1 do
       StrRes:=StrRes+ParList[Cnt1].Str;
   end;
+  // Port addition: URLENCODE and JSONESCAPE (EuoStrOps.pas), for the data the new SEND forms carry
+  if ParList[1].StrU='URLENCODE' then
+    StrRes:=StrUrlEncode(ParList[2].Str);
+  if ParList[1].StrU='JSONESCAPE' then
+    StrRes:=StrJsonEscape(ParList[2].Str);
 
   if ParList.Count<4 then Exit;
 

@@ -233,7 +233,8 @@ These are the owner's decisions. Don't loosen one to make something else easier:
   blocked command stops the run. `DefaultBlocked` in `clisession.pas` is the list.
 - **`logfile` writes files only by a relative name inside the program folder** unless `--allow logfile`
   (`euo_run_live`'s `"allow": ["logfile"]`). It is not a blocked command: a refused file is an error in
-  `#LogRes` and the run goes on. `TRunOptions.ConfineFiles` sets `TEuoInterpreter.ConfineFiles`;
+  `#LogRes` and the run goes on. `send download`, where `send` is allowed, follows the same rule (its refusal is
+  in `#SendRes`): both resolve names with `EuoLogFile.ResolveScriptPath`. `TRunOptions.ConfineFiles` sets `TEuoInterpreter.ConfineFiles`;
   `AllowFilesWord` in `clisession.pas` is the word.
 - **Every run ends:** at its timeout, or when a script without `halt` starts over.
 - **`euo_run` has no argument for a client or a blocked command.** `euo_run_live` is the only tool with

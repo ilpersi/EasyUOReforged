@@ -27,6 +27,7 @@
 #   Sql         'sql <command>' sub-commands, from the Sub='...' tests in SqlProc
 #   Path        'path <command>' sub-commands, the same in PathProc
 #   LogFile     'logfile <command>' sub-commands, the same in LogFileProc
+#   Send        'send <form>' words: the Sub='...' tests in SendHttpProc, and HTTPPOST from SendProc's Pos test
 #   DllMembers  uo.dll names (properties, methods), from UOTbl in uo\uowrap.pas
 #   DllCalls    uo.dll generic calls (Call, Get, Set, ...), from Commands in uo\uowrap.pas
 #   Highlighted the #variables and commands easyuo\eusyntax.pas colours and offers for autocomplete
@@ -172,6 +173,9 @@ function Get-EuoNames {
     Sql         = @(& $subTypes (Get-EuoProcBody $interp 'SqlProc' $interpFile) "Sub\s*(?:=|<>)\s*'([A-Z]+)'")
     Path        = @(& $subTypes (Get-EuoProcBody $interp 'PathProc' $interpFile) "Sub\s*(?:=|<>)\s*'([A-Z]+)'")
     LogFile     = @(& $subTypes (Get-EuoProcBody $interp 'LogFileProc' $interpFile) "Sub\s*(?:=|<>)\s*'([A-Z]+)'")
+    # SEND: the new forms' words, plus the word the original form looks for inside its first word.
+    Send        = @(@(& $subTypes (Get-EuoProcBody $interp 'SendHttpProc' $interpFile) "Sub\s*(?:=|<>)\s*'([A-Z]+)'") +
+                    @(& $subTypes (Get-EuoProcBody $interp 'SendProc' $interpFile) "Pos\('([A-Z]+)'") | Sort-Object -Unique)
     DllMembers  = @(& $itemNames $uoTbl)
     DllCalls    = @(& $itemNames $calls)
     Highlighted = [pscustomobject]@{

@@ -106,6 +106,9 @@ EasyUO for anything important, until you have checked that the scripts and featu
   [`GetPath`](/dll/getpath/), [`PathCan`](/dll/pathcan/) and [`PathCheck`](/dll/pathcheck/) methods. The rest
   of its methods have not been tried from an external program.
 - **EUOUpdater**, the tool for new client versions, has had only light testing.
+- **[`send`](/commands/send/)**'s `get`, `post`, `put`, `delete` and `download` use the proxy set for Windows'
+  web service (`netsh winhttp set proxy`), not the browser's. Their `https` is tested by hand on public sites
+  only. The original `send httppost` can't reach a server that only answers `https`.
 
 Expect bugs in less common commands and menu features, and please
 [report them](/guide/troubleshooting/#reporting-a-bug).

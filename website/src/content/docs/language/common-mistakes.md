@@ -38,6 +38,11 @@ examples are run through the interpreter every time EasyUO Reforged is tested, s
 11. **The client holds back speech that comes too fast.** Lines sent with [`msg`](/commands/msg/) or the
     speech macros past its spam limit arrive late, and so do their answers in the journal. Allow about a
     second for every 12 characters: see [the spam limit](/commands/msg/#the-spam-limit).
+12. **`send httppost` runs whatever the server answers as a script.** To read a page or post data in Reforged,
+    use [`send get`](/commands/send/) or `send post`: the answer stays in [`#SendReply`](/variables/sendreply/),
+    and [`#SendRes`](/variables/sendres/) and [`#SendCode`](/variables/sendcode/) say whether it worked. These
+    forms are new in Reforged: a script that must also run on EasyUO 1.5 can only use `send httppost`, to a
+    server you control (see [a script for both](/commands/send/#a-script-for-both)).
 
 Each rule in a script:
 

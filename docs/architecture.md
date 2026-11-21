@@ -42,7 +42,10 @@ common/   OS-facing primitives  ── package: uocommon
   the loaded-script / call-return model (`EuoScriptStack`), the `MENU` command
   driving real LCL controls in two logics, EasyUO 1.5's (`EuoMenu`) and
   EasyUO 1.6's (`EuoMenu16`), chosen per script (`EuoMenuSelect`; see
-  [Two MENU logics](#two-menu-logics) below), `Send` (`EuoComm`), the `SQL`
+  [Two MENU logics](#two-menu-logics) below), `Send` (`EuoComm`, the original raw-WinSock
+  `HTTPPOST` form whose reply runs as a script; `EuoHttp`, a port addition, the WinHTTP client behind
+  `GET`/`POST`/`PUT`/`DELETE`/`DOWNLOAD`, run on a worker thread the interpreter waits for through
+  `Delay`), the `SQL`
   command's SQLite engine (`EuoSql`, a port addition that loads Windows'
   `winsqlite3.dll` lazily through FPC's `sqlite3dyn`; see
   [`sql.md`](sql.md)), and the background execution state machine with

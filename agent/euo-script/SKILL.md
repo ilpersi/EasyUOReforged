@@ -112,7 +112,8 @@ happens in the game. This is the run you do by yourself, as often as you like:
 
 **Blocked commands.** `execute`, `shutdown`, `terminate`, `uoxl` and `send` stop the run instead of
 running (`reason: blocked`). They start programs, switch the computer off, close or start clients,
-and fetch a reply from the web and run it as a script. Don't write them unless the task needs them.
+and talk to web servers (`send httppost` also runs the reply as a script; use `send get` / `send post`,
+which keep it in `#SendReply`). Don't write them unless the task needs them.
 If it does, tell the user what the line does and why, and add `--allow <command>` only after they
 agree.
 
@@ -192,8 +193,9 @@ stopped when your session ends.
 - A line that looks wrong may be a line the interpreter ignores, or one that works by a quirk.
   Check it against `commands.md` before you "fix" it, and say what you found.
 - Commands marked `[new]` in `commands.md` don't exist in the original EasyUO 1.5: `log`, `waitfor`,
-  `findjournal` and others, and so are some forms of old commands, such as `str replace` and
-  `str part`. If the user also runs the script there, don't add them.
+  `findjournal` and others, and so are some forms of old commands, such as `str replace`,
+  `str part` and `send get` / `send post` (EasyUO 1.5 has only `send httppost`). If the user also
+  runs the script there, don't add them.
 - `menu` has two logics, EasyUO 1.5's and 1.6's, and a script runs under one. Read
   `reference/commands/menu/versions.md` before touching `menu` lines, and don't mix the two.
 

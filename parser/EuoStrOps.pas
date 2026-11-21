@@ -16,6 +16,13 @@ unit EuoStrOps;
     such field. A separator at either end or a doubled one makes an empty field, so a text always
     has STR COUNT + 1 fields. An empty separator finds nothing, so the text is its only field.
   - StrTrimChars: Text without any character of Chars at either end. Empty Chars strips nothing.
+
+  Port addition (STR URLENCODE, JSONESCAPE), for the data SEND's new forms carry. Both work on bytes,
+  so a UTF-8 text stays UTF-8, and neither cares about case:
+  - StrUrlEncode: RFC 3986. The unreserved characters (A-Z a-z 0-9 - _ . ~) stay, every other byte
+    becomes %XX (upper-case hex), a space too (%20, which both a query and form data read as a space).
+  - StrJsonEscape: the text as it goes between the quotes of a JSON string: " and \ escaped, the
+    control characters as \b \t \n \f \r or \u00XX, every other byte left alone.
 }
 
 {$mode delphi}{$H+}
@@ -32,6 +39,8 @@ const
 function StrReplaceAll(const Text, Search, Repl : String) : String;
 function StrField(const Text, Sep : String; N : Int64) : String;
 function StrTrimChars(const Text, Chars : String) : String;
+function StrUrlEncode(const Text : String) : String;
+function StrJsonEscape(const Text : String) : String;
 
 implementation
 
@@ -114,6 +123,50 @@ begin
   while (Last>=First) and (Pos(TextU[Last],CharsU)>0) do Dec(Last);
 
   Result:=Copy(Text,First,Last-First+1);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function StrUrlEncode(const Text : String) : String;
+const
+  Hex : array[0..15] of Char = '0123456789ABCDEF';
+var
+  i : Integer;
+  B : Byte;
+begin
+  Result:='';
+  for i:=1 to Length(Text) do
+  begin
+    B:=Ord(Text[i]);
+    if Chr(B) in ['A'..'Z','a'..'z','0'..'9','-','_','.','~'] then Result:=Result+Chr(B)
+    else Result:=Result+'%'+Hex[B shr 4]+Hex[B and 15];
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function StrJsonEscape(const Text : String) : String;
+const
+  Hex : array[0..15] of Char = '0123456789abcdef';
+var
+  i : Integer;
+  C : Char;
+begin
+  Result:='';
+  for i:=1 to Length(Text) do
+  begin
+    C:=Text[i];
+    case C of
+      '"' : Result:=Result+'\"';
+      '\' : Result:=Result+'\\';
+      #8  : Result:=Result+'\b';
+      #9  : Result:=Result+'\t';
+      #10 : Result:=Result+'\n';
+      #12 : Result:=Result+'\f';
+      #13 : Result:=Result+'\r';
+      #0..#7,#11,#14..#31 : Result:=Result+'\u00'+Hex[Ord(C) shr 4]+Hex[Ord(C) and 15];
+    else
+      Result:=Result+C;
+    end;
+  end;
 end;
 
 end.

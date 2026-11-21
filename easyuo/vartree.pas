@@ -205,6 +205,9 @@ var
    '#PIXCOL'#13#10+
    '#PROPERTY'#13#10+
    '#RESULT'#13#10+
+   '#SENDCODE'#13#10+
+   '#SENDREPLY'#13#10+
+   '#SENDRES'#13#10+
    '#STRRES'#13#10+
    '#WAITRES'#13#10+
 
