@@ -7,7 +7,7 @@ changed: true
 syntax: "send {get|post|put|delete|download} {url} [data|file]\nsend [debug]httppost[port] {host} {path} {data}"
 sets: ["#SendRes", "#SendCode", "#SendReply"]
 related: ["#SendHeader", "#SendRes", "#SendCode", "#SendReply", "Str", "Call", "Execute", "SQL"]
-aliases: ["http", "https", "web request", "post", "get", "download", "webhook", "discord", "rest api", "url", "web page"]
+aliases: ["http", "https", "web request", "post", "get", "download", "webhook", "discord", "telegram", "rest api", "url", "web page"]
 source: wiki
 ---
 
@@ -68,8 +68,8 @@ and pass values that may hold spaces, `&`, `=` or quotes through [`str urlencode
 - A `send` line never stops the script: check `#SendRes` and `#SendCode` after it.
 
 :::caution[A web address can be a password]
-A webhook address or an API key written in a script works for whoever reads the script. Don't share a script
-that has one in it.
+A webhook address, a bot token or an API key written in a script works for whoever reads the script. Don't
+share a script that has one in it.
 :::
 
 ## Examples (Reforged)
@@ -107,7 +107,7 @@ The webhook's address is in the channel's settings, under *Integrations*, *Webho
 
 ```euo
 set %hook https://discord.com/api/webhooks/123/abc   ; your webhook's address
-set %text #CharName , #SPC , is at , #SPC , #CharPosX , #SPC , #CharPosY
+set %text #CharName , #SPC , is , #SPC , at , #SPC , #CharPosX , #SPC , #CharPosY
 str jsonescape %text
 set %body {"content":" , #StrRes , "}
 set #SendHeader Content-Type: , #SPC , application/json$
@@ -116,6 +116,28 @@ if #SendCode <> 204
   display ok Discord answered #SendCode #SendRes
 halt
 ```
+
+### Post to a Telegram group
+
+A Telegram bot posts for the script. Create one with [@BotFather](https://t.me/BotFather), which gives you its
+token, and add the bot to the group. To find the group's chat ID, write any message in the group, then open
+`https://api.telegram.org/bot{token}/getUpdates` in a browser: it is the `"id"` after `"chat"`, a negative number.
+
+```euo
+set %token 123456789:ABCdefGhIJKlmNoPQRstuVWXyz   ; your bot's token
+set %chat -1001234567890                          ; your group's chat ID
+set %url https://api.telegram.org/bot , %token , /sendMessage
+set %text #CharName , #SPC , is , #SPC , at , #SPC , #CharPosX , #SPC , #CharPosY
+str urlencode %text
+set %data chat_id= , %chat , &text= , #StrRes
+send post %url %data
+if #SendCode <> 200
+  display ok Telegram answered #SendCode #SendReply
+halt
+```
+
+Telegram answers `200` when the message went out. Otherwise `#SendReply` holds its reason, such as
+`chat not found` (a wrong chat ID, or the bot is not in the group) or `Unauthorized` (a wrong token).
 
 ### Send form data
 
