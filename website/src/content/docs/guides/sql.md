@@ -103,7 +103,8 @@ halt
 
 - Each script tab has **one** database connection. Scripts started with `call` share it. To use several
   files at once, `sql exec ATTACH 'C:\data\other.db' AS other` and write `other.table`. `ATTACH` paths are
-  relative to the working directory of EasyUO Reforged, not to `#CurPath`, so give a full path.
+  relative to the working directory of EasyUO Reforged, not to `#CurPath`, and the
+  [search folders](/commands/sql/open/#where-sql-open-looks-for-the-file) are not searched, so give a full path.
 - Several tabs can use the same file. While one is writing, the others wait up to 5 seconds before
   giving up with `database is locked` in `#SqlRes`.
 - **Stop** interrupts a running query or a wait at once (`#SqlRes` reads `interrupted`).

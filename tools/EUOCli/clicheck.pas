@@ -15,9 +15,9 @@ unit clicheck;
   Exit codes: 0 checked; 1 checked, --strict was given and there is at least one warning;
   2 the command line is wrong or a file cannot be read.
 
-  CALL folders (parser\EuoCallPath.pas): EUOCli searches what the editor searches -- #CurPath, the
-  editor's saved list (CliSavedCallPath, which EUOCli.lpr reads from the registry; '' in the tests),
-  EUOCALLPATH -- and then the --callpath folders. AddCallPathArg is how every command reads them.
+  search folders (parser\EuoSearchPath.pas): EUOCli searches what the editor searches -- #CurPath, the
+  editor's saved list (CliSavedSearchPath, which EUOCli.lpr reads from the registry; '' in the tests),
+  EUOPATH -- and then the --euopath folders. AddEuoPathArg is how every command reads them.
 }
 
 {$mode delphi}{$H+}
@@ -33,13 +33,13 @@ const
   CLI_USAGE    = 2;
 
 var
-  // The editor's saved CALL folder list (EuoCallPath.ReadSavedCallPath), which every command
-  // passes on as the CALL folders searched before EUOCALLPATH. EUOCli.lpr sets it; '' otherwise.
-  CliSavedCallPath : String = '';
+  // The editor's saved search folder list (EuoSearchPath.ReadSavedSearchPath), which every command
+  // passes on as the search folders searched before EUOPATH. EUOCli.lpr sets it; '' otherwise.
+  CliSavedSearchPath : String = '';
 
-// The folders of a --callpath value (';' between them), made absolute from the current folder as
+// The folders of a --euopath value (';' between them), made absolute from the current folder as
 // any command-line path, added to the end of Acc (a ';' folder list).
-procedure AddCallPathArg(const Value : String; var Acc : String);
+procedure AddEuoPathArg(const Value : String; var Acc : String);
 
 // "EUOCli check <Args>". StdInText is the script "-" stands for. ExeDir is the folder CALL
 // lines are resolved from when --curpath is not given: the program's own folder, which in a
@@ -49,17 +49,17 @@ function RunCheck(Args : TStrings; const StdInText, ExeDir : String; Output : TS
 procedure CheckHelp(Output : TStrings);
 
 // One script's findings, as "check --json" gives them for one file: for the MCP server.
-// Shown is the name to report; CurPath the folder CALL lines are resolved from; CallPathLast the
-// CALL folders searched after EUOCALLPATH (--callpath; the saved list comes before it by itself).
-function CheckScriptJson(const Text, Shown, CurPath, CallPathLast : String) : TJSONObject;
+// Shown is the name to report; CurPath the folder CALL lines are resolved from; SearchPathLast the
+// search folders searched after EUOPATH (--euopath; the saved list comes before it by itself).
+function CheckScriptJson(const Text, Shown, CurPath, SearchPathLast : String) : TJSONObject;
 
 implementation
 
 uses
-  EuoInterpreter, EuoLint, EuoCallPath, scriptfile, ReforgedVersion;
+  EuoInterpreter, EuoLint, EuoSearchPath, scriptfile, ReforgedVersion;
 
 ////////////////////////////////////////////////////////////////////////////////
-procedure AddCallPathArg(const Value : String; var Acc : String);
+procedure AddEuoPathArg(const Value : String; var Acc : String);
 var
   L : TStringList;
   i : Integer;
@@ -67,9 +67,9 @@ var
 begin
   L:=TStringList.Create;
   try
-    SplitCallPath(Value,L);
+    SplitSearchPath(Value,L);
     for i:=0 to L.Count-1 do L[i]:=ExpandFileName(L[i]);
-    S:=JoinCallPath(L);
+    S:=JoinSearchPath(L);
     if S='' then Exit;
     if Acc<>'' then Acc:=Acc+';';
     Acc:=Acc+S;
@@ -82,7 +82,7 @@ end;
 procedure CheckHelp(Output : TStrings);
 begin
   Output.Add('EUOCli check <script.euo> [more scripts] [--json] [--strict] [--curpath <folder>]');
-  Output.Add('                         [--callpath <folders>]');
+  Output.Add('                         [--euopath <folders>]');
   Output.Add('');
   Output.Add('Reports what EasyUO would skip or misread in a script, without running it: a word that');
   Output.Add('is not a command, a #variable that does not exist, words with no space between them,');
@@ -94,9 +94,9 @@ begin
   Output.Add('  --strict            exit with code 1 when there is a warning');
   Output.Add('  --curpath <folder>  the folder "call" starts from: the folder of EasyUOReforged.exe.');
   Output.Add('                      Default: the folder of EUOCli.exe');
-  Output.Add('  --callpath <folders> more folders "call" looks in, separated by ; (may be given more');
+  Output.Add('  --euopath <folders> more folders "call" looks in, separated by ; (may be given more');
   Output.Add('                      than once). They come last: after the folder, the editor''s');
-  Output.Add('                      Tools > CALL Folders list and the EUOCALLPATH environment variable');
+  Output.Add('                      Tools > Search Folders list and the EUOPATH environment variable');
   Output.Add('');
   Output.Add('Exit code: 0 checked; 1 a warning was found and --strict was given; 2 the command line');
   Output.Add('is wrong or a file cannot be read.');
@@ -172,7 +172,7 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-function CheckScriptJson(const Text, Shown, CurPath, CallPathLast : String) : TJSONObject;
+function CheckScriptJson(const Text, Shown, CurPath, SearchPathLast : String) : TJSONObject;
 var
   Interp     : TEuoInterpreter;
   Cmds, Vars : TStringList;
@@ -191,8 +191,8 @@ begin
     Interp.GetVariableNames(Vars);
     Linter:=TEuoLinter.Create(Cmds,Vars);
     Linter.CurPath:=CurPath;
-    Linter.CallPath:=CliSavedCallPath;
-    Linter.CallPathLast:=CallPathLast;
+    Linter.SearchPath:=CliSavedSearchPath;
+    Linter.SearchPathLast:=SearchPathLast;
     Lines.Text:=Text;
     Linter.Check(Lines,Res);
     Result:=ToJson(Shown,Res);
@@ -213,7 +213,7 @@ var
   Json        : Boolean;
   Strict      : Boolean;
   CurPath     : String;
-  CallLast    : String;
+  LastPath    : String;
   i           : Integer;
   A           : String;
   Interp      : TEuoInterpreter;
@@ -247,7 +247,7 @@ begin
     Json:=False;
     Strict:=False;
     CurPath:=ExeDir;
-    CallLast:='';
+    LastPath:='';
     i:=0;
     while i<Args.Count do
     begin
@@ -261,13 +261,13 @@ begin
         CurPath:=Args[i];
       end
       else if Copy(A,1,10)='--curpath=' then CurPath:=Copy(A,11,MaxInt)
-      else if A='--callpath' then
+      else if A='--euopath' then
       begin
         Inc(i);
-        if i>=Args.Count then Exit(Fail('--callpath needs one or more folders, separated by ;'));
-        AddCallPathArg(Args[i],CallLast);
+        if i>=Args.Count then Exit(Fail('--euopath needs one or more folders, separated by ;'));
+        AddEuoPathArg(Args[i],LastPath);
       end
-      else if Copy(A,1,11)='--callpath=' then AddCallPathArg(Copy(A,12,MaxInt),CallLast)
+      else if Copy(A,1,10)='--euopath=' then AddEuoPathArg(Copy(A,11,MaxInt),LastPath)
       else if (A<>'-') and (Copy(A,1,1)='-') then Exit(Fail('unknown option '+A))
       else Files.Add(A);
       Inc(i);
@@ -284,8 +284,8 @@ begin
     Interp.GetVariableNames(Vars);
     Linter:=TEuoLinter.Create(Cmds,Vars);
     Linter.CurPath:=CurPath;
-    Linter.CallPath:=CliSavedCallPath;
-    Linter.CallPathLast:=CallLast;
+    Linter.SearchPath:=CliSavedSearchPath;
+    Linter.SearchPathLast:=LastPath;
 
     Total:=0;
     TotalNotes:=0;

@@ -70,8 +70,9 @@ EUOCli check script.euo --json --strict
 - With `--strict` the exit code is `1` when there is a warning, `0` when there is none, `2` when
   the file can't be read. `-` instead of a file name reads the script from standard input.
 - `missing-call-file`: `call` found no file. It looks in the EasyUO Reforged folder, the user's
-  CALL Folders list and `EUOCALLPATH`, never in the script's own folder. When the called script is
-  elsewhere, add `--callpath <folder>` (to `check` and `run` alike) instead of changing the `call`.
+  Search Folders list and `EUOPATH`, never in the script's own folder. When the called script is
+  elsewhere, add `--euopath <folder>` (to `check` and `run` alike) instead of changing the `call`.
+  `sql open` finds a database by name in the same folders.
 - **Fix every warning, and run it again until none is left.** A warning you believe is wrong (an
   old script doing something odd on purpose) you leave, and you tell the user which and why.
 - A `note` is information, not a mistake: which commands need a client, which MENU logic applies.
@@ -146,8 +147,8 @@ Everything above about what a check, a run and a read mean holds for them too.
 
 | Tool | Instead of | Notes |
 |---|---|---|
-| `euo_check` | `EUOCli check` | Takes the script's text (`script`) or its path (`file`). `callpath` (as `--callpath`): more folders `call` looks in. |
-| `euo_run` | `EUOCli run` | **Never uses a client and never runs a blocked command.** It has no argument for either. `callpath` works as for `euo_check`. |
+| `euo_check` | `EUOCli check` | Takes the script's text (`script`) or its path (`file`). `euopath` (as `--euopath`): more folders `call` and `sql open` look in. |
+| `euo_run` | `EUOCli run` | **Never uses a client and never runs a blocked command.** It has no argument for either. `euopath` works as for `euo_check`. |
 | `euo_run_live` | `EUOCli run --client` / `--allow` | Runs on the user's character (`client`), or lets blocked commands through (`allow`). **Only after the user's yes for that script.** |
 | `euo_status`, `euo_stop` | | What the run did since your last call; end it. |
 | `euo_vars` | `EUOCli vars`, `--dump` | After a run: the script's `%` and `!` variables and the `#variables` its commands filled. With `client`, or before any run: `#variables` of the game. |

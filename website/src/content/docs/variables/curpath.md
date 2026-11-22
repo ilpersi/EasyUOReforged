@@ -13,8 +13,9 @@ aliases: ["current path", "install folder"]
 `C:\Games\EasyUO\`.
 
 Relative paths in [`call`](/commands/call/) and [`sql open`](/commands/sql/open/) start from this folder.
-A file `call` doesn't find here is then looked for in the CALL folders: see
-[Where call looks for the file](/commands/call/#where-call-looks-for-the-file).
+A file they don't find here is then looked for in the search folders: see
+[Where call looks for the file](/commands/call/#where-call-looks-for-the-file) and
+[Where sql open looks for the file](/commands/sql/open/#where-sql-open-looks-for-the-file).
 
 ## Example
 

@@ -46,7 +46,7 @@ type
     procedure TestRunHasNoWayToAClientOrABlockedCommand;
     procedure TestUnknownTool;
     procedure TestCheck;
-    procedure TestCallPath;
+    procedure TestEuoPath;
     procedure TestRunToItsEnd;
     procedure TestBlockedCommandStopsTheRun;
     procedure TestRunLive;
@@ -378,8 +378,8 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-// "callpath" on euo_check, euo_run and euo_run_live, and the server's --callpath before it.
-procedure TEuoCliMcpTests.TestCallPath;
+// "euopath" on euo_check, euo_run and euo_run_live, and the server's --euopath before it.
+procedure TEuoCliMcpTests.TestEuoPath;
 var
   R      : TJSONObject;
   Tools  : TJSONArray;
@@ -389,8 +389,8 @@ var
 begin
   Tools:=Ask('tools/list').Objects['result'].Arrays['tools'];
   for i:=0 to 2 do
-    AssertNotNull(Tools.Objects[i].Get('name','')+' takes callpath',
-      Tools.Objects[i].Objects['inputSchema'].Objects['properties'].Find('callpath'));
+    AssertNotNull(Tools.Objects[i].Get('name','')+' takes euopath',
+      Tools.Objects[i].Objects['inputSchema'].Objects['properties'].Find('euopath'));
 
   SaveText(Dir+PathDelim+'cpmcplib.euo','log from the library'+LineEnding+'exit');
   Other:=StringToJSONString(IncludeTrailingPathDelimiter(GetTempDir));
@@ -398,25 +398,25 @@ begin
   R:=Tool('euo_check','{'+Scr(['call cpmcplib','halt'])+',"curpath":"'+Other+'"}');
   AssertFalse(Text,IsError);
   AssertEquals('missing-call-file',R.Arrays['findings'].Objects[0].Get('rule',''));
-  R:=Tool('euo_check','{'+Scr(['call cpmcplib','halt'])+',"curpath":"'+Other+'","callpath":["'+InDir+'"]}');
-  AssertEquals('found through callpath',0,R.Objects['summary'].Get('warnings',-1));
+  R:=Tool('euo_check','{'+Scr(['call cpmcplib','halt'])+',"curpath":"'+Other+'","euopath":["'+InDir+'"]}');
+  AssertEquals('found through euopath',0,R.Objects['summary'].Get('warnings',-1));
 
   R:=Tool('euo_run','{'+Scr(['call cpmcplib','log back','halt'])+'}');
   AssertEquals('not found without it','log:back|',Events(R));
-  R:=Tool('euo_run','{'+Scr(['call cpmcplib','log back','halt'])+',"callpath":"C:\\nothere;'+InDir+'"}');
+  R:=Tool('euo_run','{'+Scr(['call cpmcplib','log back','halt'])+',"euopath":"C:\\nothere;'+InDir+'"}');
   AssertFalse(Text,IsError);
   AssertEquals('one text with ; between folders','log:from the library|log:back|',Events(R));
 
-  Server.CallPathLast:=Dir;
+  Server.SearchPathLast:=Dir;
   try
     R:=Tool('euo_run','{'+Scr(['call cpmcplib','halt'])+'}');
-    AssertEquals('the server''s --callpath','log:from the library|',Events(R));
+    AssertEquals('the server''s --euopath','log:from the library|',Events(R));
   finally
-    Server.CallPathLast:='';
+    Server.SearchPathLast:='';
   end;
 
-  Tool('euo_run','{"script":"halt","callpath":5}');
-  AssertTrue('callpath is a list of texts',IsError);
+  Tool('euo_run','{"script":"halt","euopath":5}');
+  AssertTrue('euopath is a list of texts',IsError);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

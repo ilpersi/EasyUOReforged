@@ -1,9 +1,9 @@
-unit EuoCallPathTests;
+unit EuoSearchPathTests;
 
 {
-  Tests for parser\EuoCallPath.pas, the folders CALL searches, and for CALL using them through
-  TEuoInterpreter.CallPath / CallPathLast. Each test works in its own folder under the temp
-  folder; EUOCALLPATH is emptied for every test and put back after, so the machine's own value
+  Tests for parser\EuoSearchPath.pas, the folders CALL and SQL OPEN search, and for CALL using them through
+  TEuoInterpreter.SearchPath / SearchPathLast. Each test works in its own folder under the temp
+  folder; EUOPATH is emptied for every test and put back after, so the machine's own value
   never shows.
 }
 
@@ -12,10 +12,10 @@ unit EuoCallPathTests;
 interface
 
 uses
-  Classes, SysUtils, fpcunit, testregistry, EuoCallPath, EuoInterpreter;
+  Classes, SysUtils, fpcunit, testregistry, EuoSearchPath, EuoInterpreter;
 
 type
-  TEuoCallPathTests = class(TTestCase)
+  TEuoSearchPathTests = class(TTestCase)
   private
     Dir    : String;    // with a trailing '\'
     OldEnv : String;
@@ -27,14 +27,15 @@ type
     procedure SetUp; override;
     procedure TearDown; override;
   published
-    procedure TestSplitCallPath;
-    procedure TestJoinCallPath;
+    procedure TestSplitSearchPath;
+    procedure TestJoinSearchPath;
     procedure TestTheOriginalLookupIsUnchanged;
     procedure TestCurPathIsSearchedFirstAndInFull;
     procedure TestFoldersAreSearchedOneAfterTheOther;
     procedure TestRelativeFolderStartsFromCurPath;
     procedure TestAbsoluteNameSearchesNoFolder;
     procedure TestMissingAndRepeatedFoldersAreSkipped;
+    procedure TestSqlExtensions;
     procedure TestEnvFoldersComeBetweenTheTwoLists;
     procedure TestCallUsesTheFolders;
   end;
@@ -62,27 +63,27 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-procedure TEuoCallPathTests.SetUp;
+procedure TEuoSearchPathTests.SetUp;
 begin
-  Dir:=IncludeTrailingPathDelimiter(GetTempDir)+'euocallpath-'+IntToStr(GetProcessID)+PathDelim;
+  Dir:=IncludeTrailingPathDelimiter(GetTempDir)+'euosearchpath-'+IntToStr(GetProcessID)+PathDelim;
   RemoveTree(Dir);
   ForceDirectories(Dir+'cur');
   ForceDirectories(Dir+'a');
   ForceDirectories(Dir+'b');
   ForceDirectories(Dir+'c');
-  OldEnv:=EnvCallPath;
+  OldEnv:=EnvEuoPath;
   SetEnv('');
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-procedure TEuoCallPathTests.TearDown;
+procedure TEuoSearchPathTests.TearDown;
 begin
   SetEnv(OldEnv);
   RemoveTree(Dir);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-procedure TEuoCallPathTests.MakeFile(const RelPath : String; const Text : String);
+procedure TEuoSearchPathTests.MakeFile(const RelPath : String; const Text : String);
 var
   SL : TStringList;
 begin
@@ -97,11 +98,11 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-procedure TEuoCallPathTests.SetEnv(const Value : String);
+procedure TEuoSearchPathTests.SetEnv(const Value : String);
 var
   Name, V : UnicodeString;
 begin
-  Name:=CallPathEnvVar;
+  Name:=EuoPathEnvVar;
   if Value='' then SetEnvironmentVariableW(PWideChar(Name),nil)
   else begin
     V:=UTF8Decode(Value);
@@ -110,8 +111,8 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-// ResolveCallName with #CurPath = Dir\cur\, the result without Dir in front.
-function TEuoCallPathTests.Resolve(const Name : String; const Folders : array of String) : String;
+// ResolveSearchName for CALL (CallExts) with #CurPath = Dir\cur\, the result without Dir in front.
+function TEuoSearchPathTests.Resolve(const Name : String; const Folders : array of String) : String;
 var
   L : TStringList;
   i : Integer;
@@ -119,7 +120,7 @@ begin
   L:=TStringList.Create;
   try
     for i:=Low(Folders) to High(Folders) do L.Add(Folders[i]);
-    Result:=ResolveCallName(Name,Dir+'cur\',L);
+    Result:=ResolveSearchName(Name,Dir+'cur\',L,CallExts);
   finally
     L.Free;
   end;
@@ -127,15 +128,15 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-// SplitCallPath's entries joined with '|'.
-function TEuoCallPathTests.Split(const Text : String) : String;
+// SplitSearchPath's entries joined with '|'.
+function TEuoSearchPathTests.Split(const Text : String) : String;
 var
   L : TStringList;
   i : Integer;
 begin
   L:=TStringList.Create;
   try
-    SplitCallPath(Text,L);
+    SplitSearchPath(Text,L);
     Result:='';
     for i:=0 to L.Count-1 do
     begin
@@ -148,7 +149,7 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-procedure TEuoCallPathTests.TestSplitCallPath;
+procedure TEuoSearchPathTests.TestSplitSearchPath;
 begin
   AssertEquals('C:\a|D:\b',Split('C:\a;D:\b'));
   AssertEquals('spaces around and empty entries go','C:\a|D:\b',Split('  C:\a ; ;;D:\b ;'));
@@ -160,7 +161,7 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-procedure TEuoCallPathTests.TestJoinCallPath;
+procedure TEuoSearchPathTests.TestJoinSearchPath;
 var
   L : TStringList;
 begin
@@ -170,10 +171,10 @@ begin
     L.Add('');
     L.Add('C:\My;Scripts');
     L.Add('lib');
-    AssertEquals('C:\a;"C:\My;Scripts";lib',JoinCallPath(L));
-    AssertEquals('it splits back the same','C:\a|C:\My;Scripts|lib',Split(JoinCallPath(L)));
+    AssertEquals('C:\a;"C:\My;Scripts";lib',JoinSearchPath(L));
+    AssertEquals('it splits back the same','C:\a|C:\My;Scripts|lib',Split(JoinSearchPath(L)));
     L.Clear;
-    AssertEquals('',JoinCallPath(L));
+    AssertEquals('',JoinSearchPath(L));
   finally
     L.Free;
   end;
@@ -181,7 +182,7 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 // What the original CallProc found, it still finds: the name as written, then .txt, then .euo.
-procedure TEuoCallPathTests.TestTheOriginalLookupIsUnchanged;
+procedure TEuoSearchPathTests.TestTheOriginalLookupIsUnchanged;
 begin
   MakeFile('cur\one');
   MakeFile('cur\one.txt');
@@ -195,11 +196,11 @@ begin
   AssertEquals('a name with its extension','cur\three.euo',Resolve('three.euo',[]));
   AssertEquals('a relative path is put after #CurPath as written','cur\..\cur\one.txt',Resolve('..\cur\one.txt',[]));
   AssertEquals('not found','',Resolve('none',[]));
-  AssertEquals('no folder list at all',Dir+'cur\two.txt',ResolveCallName('two',Dir+'cur\',nil));
+  AssertEquals('no folder list at all',Dir+'cur\two.txt',ResolveSearchName('two',Dir+'cur\',nil,CallExts));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-procedure TEuoCallPathTests.TestCurPathIsSearchedFirstAndInFull;
+procedure TEuoSearchPathTests.TestCurPathIsSearchedFirstAndInFull;
 begin
   MakeFile('cur\helper.euo');
   MakeFile('a\helper');
@@ -211,7 +212,7 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-procedure TEuoCallPathTests.TestFoldersAreSearchedOneAfterTheOther;
+procedure TEuoSearchPathTests.TestFoldersAreSearchedOneAfterTheOther;
 begin
   MakeFile('a\x.euo');
   MakeFile('b\x');
@@ -226,7 +227,7 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-procedure TEuoCallPathTests.TestRelativeFolderStartsFromCurPath;
+procedure TEuoSearchPathTests.TestRelativeFolderStartsFromCurPath;
 begin
   MakeFile('cur\lib\r.euo');
   MakeFile('a\s.euo');
@@ -235,7 +236,7 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-procedure TEuoCallPathTests.TestAbsoluteNameSearchesNoFolder;
+procedure TEuoSearchPathTests.TestAbsoluteNameSearchesNoFolder;
 begin
   MakeFile('a\abs.euo');
   AssertEquals('an absolute name as written, then .euo','a\abs.euo',Resolve(Dir+'a\abs',[Dir+'b']));
@@ -243,7 +244,7 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-procedure TEuoCallPathTests.TestMissingAndRepeatedFoldersAreSkipped;
+procedure TEuoSearchPathTests.TestMissingAndRepeatedFoldersAreSkipped;
 begin
   MakeFile('b\m.euo');
   AssertEquals('b\m.euo',Resolve('m',[Dir+'nothere',Dir+'a',Dir+'A\',Dir+'cur',Dir+'b']));
@@ -252,19 +253,52 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-procedure TEuoCallPathTests.TestEnvFoldersComeBetweenTheTwoLists;
+// SQL OPEN's list: the name, then .db, then .sqlite, folder by folder as for CALL.
+procedure TEuoSearchPathTests.TestSqlExtensions;
+var
+  L : TStringList;
+
+  function Db(const Name : String) : String;
+  begin
+    Result:=ResolveSearchName(Name,Dir+'cur\',L,SqlExts);
+    if Copy(Result,1,Length(Dir))=Dir then Delete(Result,1,Length(Dir));
+  end;
+
+begin
+  L:=TStringList.Create;
+  try
+    L.Add(Dir+'a');
+    MakeFile('cur\data.sqlite');
+    MakeFile('a\data.db');
+    MakeFile('cur\both.db');
+    MakeFile('cur\both.sqlite');
+    MakeFile('a\only.sqlite');
+    MakeFile('cur\script.txt');
+    AssertEquals('#CurPath in full first: its .sqlite before a list folder''s .db','cur\data.sqlite',Db('data'));
+    AssertEquals('.db before .sqlite','cur\both.db',Db('both'));
+    AssertEquals('from a list folder','a\only.sqlite',Db('only'));
+    AssertEquals('the name as written','cur\data.sqlite',Db('data.sqlite'));
+    AssertEquals('CALL''s .txt is not tried','',Db('script'));
+    AssertEquals('and SQL''s are not tried for CALL','',Resolve('data',[Dir+'a']));
+  finally
+    L.Free;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoSearchPathTests.TestEnvFoldersComeBetweenTheTwoLists;
 var
   L : TStringList;
 begin
   L:=TStringList.Create;
   try
-    CallSearchFolders('C:\list1;C:\list2','D:\last',L);
-    AssertEquals('without EUOCALLPATH','C:\list1|C:\list2|D:\last',StringReplace(Trim(L.Text),LineEnding,'|',[rfReplaceAll]));
+    SearchFolders('C:\list1;C:\list2','D:\last',L);
+    AssertEquals('without EUOPATH','C:\list1|C:\list2|D:\last',StringReplace(Trim(L.Text),LineEnding,'|',[rfReplaceAll]));
     SetEnv('E:\env1; "E:\env;2"');
-    AssertEquals('read as it is set','E:\env1; "E:\env;2"',EnvCallPath);
+    AssertEquals('read as it is set','E:\env1; "E:\env;2"',EnvEuoPath);
     L.Clear;
-    CallSearchFolders('C:\list1','D:\last',L);
-    AssertEquals('the saved list, EUOCALLPATH, then the last folders',
+    SearchFolders('C:\list1','D:\last',L);
+    AssertEquals('the saved list, EUOPATH, then the last folders',
       'C:\list1|E:\env1|E:\env;2|D:\last',StringReplace(Trim(L.Text),LineEnding,'|',[rfReplaceAll]));
   finally
     L.Free;
@@ -274,7 +308,7 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 // CALL itself, played line by line as EuoHostHooksTests plays scripts. #CurPath is the test
 // program's folder, which has none of these files.
-procedure TEuoCallPathTests.TestCallUsesTheFolders;
+procedure TEuoSearchPathTests.TestCallUsesTheFolders;
 var
   Interp : TEuoInterpreter;
   Tag    : String;
@@ -312,18 +346,18 @@ begin
   Interp:=TEuoInterpreter.Create(0);
   try
     AssertEquals('no folders: not found, the line does nothing','none',CallOf(Tag+'list'));
-    Interp.CallPath:=Dir+'a';
-    AssertEquals('CallPath','list',CallOf(Tag+'list'));
+    Interp.SearchPath:=Dir+'a';
+    AssertEquals('SearchPath','list',CallOf(Tag+'list'));
     SetEnv(Dir+'b');
-    AssertEquals('EUOCALLPATH','env',CallOf(Tag+'env'));
+    AssertEquals('EUOPATH','env',CallOf(Tag+'env'));
     AssertEquals('the call''s parameter arrives','x',Interp.GetVar('%arg'));
     AssertEquals('none',CallOf(Tag+'last'));
-    Interp.CallPathLast:=Dir+'c';
-    AssertEquals('CallPathLast','last',CallOf(Tag+'last'));
-    AssertEquals('CallPath comes before CallPathLast','list',CallOf(Tag+'both'));
-    AssertEquals('Clear leaves the host''s folders alone',Dir+'a',Interp.CallPath);
-    Interp.CallPath:='';
-    Interp.CallPathLast:='';
+    Interp.SearchPathLast:=Dir+'c';
+    AssertEquals('SearchPathLast','last',CallOf(Tag+'last'));
+    AssertEquals('SearchPath comes before SearchPathLast','list',CallOf(Tag+'both'));
+    AssertEquals('Clear leaves the host''s folders alone',Dir+'a',Interp.SearchPath);
+    Interp.SearchPath:='';
+    Interp.SearchPathLast:='';
     SetEnv('');
     AssertEquals('none',CallOf(Tag+'both'));
   finally
@@ -332,6 +366,6 @@ begin
 end;
 
 initialization
-  RegisterTest(TEuoCallPathTests);
+  RegisterTest(TEuoSearchPathTests);
 
 end.

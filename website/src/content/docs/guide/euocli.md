@@ -64,7 +64,7 @@ line what to do about it. A script with nothing to report prints `loot.euo: noth
 
 ```text
 EUOCli check <script.euo> [more scripts] [--json] [--strict] [--curpath <folder>]
-             [--callpath <folders>]
+             [--euopath <folders>]
 ```
 
 | Part | Meaning |
@@ -73,7 +73,7 @@ EUOCli check <script.euo> [more scripts] [--json] [--strict] [--curpath <folder>
 | `--json` | Print the findings as JSON, for a program to read. |
 | `--strict` | Exit with code `1` when there is a warning. Without it the exit code is `0` whatever is found. |
 | `--curpath <folder>` | The folder [`call`](/commands/call/) starts from: the folder of `EasyUOReforged.exe` ([`#CurPath`](/variables/curpath/)). Default: the folder of `EUOCli.exe`. |
-| `--callpath <folders>` | More folders `call` looks in, separated by `;`. It can be given more than once. See [Where call looks for a file](#where-call-looks-for-a-file). |
+| `--euopath <folders>` | More folders `call` looks in, separated by `;`. It can be given more than once. See [Where call and sql open look for a file](#where-call-and-sql-open-look-for-a-file). |
 
 The exit code is `0` when the scripts were checked, `1` with `--strict` when a warning was found, and `2`
 when the command line is wrong or a file can't be read.
@@ -95,7 +95,7 @@ may be meant. A note is information about the whole script.
 | `repeat-until` | An `until` without a `repeat`, or the other way round. |
 | `missing-sub` | A `gosub` to a sub the file doesn't have. |
 | `missing-label` | A `goto` to a label the file doesn't have. |
-| `missing-call-file` | A `call` of a file that isn't found in the folder or in the [CALL folders](#where-call-looks-for-a-file). |
+| `missing-call-file` | A `call` of a file that isn't found in the folder or in the [search folders](#where-call-and-sql-open-look-for-a-file). |
 | `restarts-at-end` | The main part of the script doesn't end with `halt`, `stop`, `exit` or a `goto`, so it can reach the last line, and EasyUO then starts it again from the top. |
 | `menu-logic` | A `menu` sub-command of the [MENU system](/commands/menu/versions/) the script doesn't run under. |
 | `needs-client` (note) | Which commands of the script act on the UO client. They are skipped when no client is attached. |
@@ -215,7 +215,7 @@ runs until the timeout.
 ```text
 EUOCli run <script.euo> [--client <n>] [--timeout <seconds>] [--json] [--trace]
            [--dump <variables>] [--answer ok|yes|no|cancel] [--allow <commands>]
-           [--callpath <folders>]
+           [--euopath <folders>]
 ```
 
 | Part | Meaning |
@@ -229,23 +229,25 @@ EUOCli run <script.euo> [--client <n>] [--timeout <seconds>] [--json] [--trace]
 | `--answer <button>` | Answer `display` boxes that have this button with it: `ok`, `yes`, `no` or `cancel`. |
 | `--show-display` | Open the real message boxes and wait for a click. |
 | `--allow <commands>` | Run these although they are blocked: `--allow execute,send`. `logfile` lets [`logfile open`](/commands/logfile/open/) and [`send download`](/commands/send/) write outside the folder of `EUOCli.exe`. |
-| `--callpath <folders>` | More folders [`call`](/commands/call/) looks in, separated by `;`. It can be given more than once. See [Where call looks for a file](#where-call-looks-for-a-file). |
+| `--euopath <folders>` | More folders [`call`](/commands/call/) and [`sql open`](/commands/sql/open/) look in, separated by `;`. It can be given more than once. See [Where call and sql open look for a file](#where-call-and-sql-open-look-for-a-file). |
 
-### Where call looks for a file
+### Where call and sql open look for a file
 
-A [`call`](/commands/call/) looks where it looks in the editor, plus one last place:
+A [`call`](/commands/call/), and a [`sql open`](/commands/sql/open/) of an existing database, look where they
+look in the editor, plus one last place:
 
 1. A full path is used as written.
 2. The folder of `EUOCli.exe`, as the editor looks in the folder of `EasyUOReforged.exe`
    ([`#CurPath`](/variables/curpath/)). With `check`, `--curpath` names another folder.
-3. The folders of the editor's *Tools → CALL Folders* list, which `EUOCli` reads.
-4. The folders of the `EUOCALLPATH` environment variable.
-5. The `--callpath` folders, in the order given. Under [`EUOCli mcp`](#tools-for-an-agent-euocli-mcp): the
-   `--callpath` folders of `EUOCli mcp`, then those of the tool's `callpath` argument.
+3. The folders of the editor's *Tools → Search Folders* list, which `EUOCli` reads.
+4. The folders of the `EUOPATH` environment variable.
+5. The `--euopath` folders, in the order given. Under [`EUOCli mcp`](#tools-for-an-agent-euocli-mcp): the
+   `--euopath` folders of `EUOCli mcp`, then those of the tool's `euopath` argument.
 
-In each folder the name as written, then with `.txt`, then with `.euo`, before the next folder. A relative
-`--callpath` folder starts from the folder you run `EUOCli` in. See
-[Where call looks for the file](/commands/call/#where-call-looks-for-the-file) for the rest.
+In each folder the name as written, then with `.txt` and `.euo` for `call`, or `.db` and `.sqlite` for
+`sql open`, before the next folder. A relative `--euopath` folder starts from the folder you run `EUOCli` in.
+See [Where call looks for the file](/commands/call/#where-call-looks-for-the-file) and
+[Where sql open looks for the file](/commands/sql/open/#where-sql-open-looks-for-the-file) for the rest.
 
 ### How a run ends
 
@@ -441,8 +443,8 @@ that started it.
 It speaks the protocol versions from 2024-11-05 to 2026-07-28, over standard input and output, and offers
 tools only. `--pack <folder>` names the pack `euo_docs` reads, as for `EUOCli docs`.
 
-`euo_check`, `euo_run` and `euo_run_live` take a `callpath` argument: more folders
-[`call`](/commands/call/) looks in, searched after the editor's *CALL Folders* list and `EUOCALLPATH`. To
-give the agent a library folder for every call, add `--callpath` to the entry instead:
-`"args": ["mcp", "--callpath", "C:\\Games\\UO\\Library"]`. See
-[Where call looks for a file](#where-call-looks-for-a-file).
+`euo_check`, `euo_run` and `euo_run_live` take an `euopath` argument: more folders
+[`call`](/commands/call/) and [`sql open`](/commands/sql/open/) look in, searched after the editor's
+*Search Folders* list and `EUOPATH`. To give the agent a library folder for every call, add `--euopath` to the
+entry instead: `"args": ["mcp", "--euopath", "C:\\Games\\UO\\Library"]`. See
+[Where call and sql open look for a file](#where-call-and-sql-open-look-for-a-file).

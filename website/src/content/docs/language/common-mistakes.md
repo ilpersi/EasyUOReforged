@@ -218,7 +218,7 @@ halt
   first.
 - A [`gosub`](/commands/gosub/) to a sub that doesn't exist does nothing, and so does a
   [`call`](/commands/call/) of a file that isn't found. EasyUO 1.5 finds a file only by a full path or in its own
-  folder ([`#CurPath`](/variables/curpath/)); Reforged also looks in the CALL folders. In a script that must also
+  folder ([`#CurPath`](/variables/curpath/)); Reforged also looks in the search folders. In a script that must also
   run on EasyUO 1.5, call files in the program's folder or a folder inside it (`call lib\healing.euo`): see
   [where call looks for the file](/commands/call/#where-call-looks-for-the-file).
 - `return %x` puts `%x` in [`#Result`](/variables/result/).

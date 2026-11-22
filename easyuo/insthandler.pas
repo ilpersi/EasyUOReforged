@@ -28,8 +28,8 @@ unit insthandler;
   list into the new editor, SaveAs keeps the tab's list under the new name, and SaveWatchesOf
   saves it whenever the panel changes it. An unsaved tab's list lives only in its editor.
 
-  The CALL folders (eucallpath.pas): New and Reopen give the tab's interpreter the saved folder
-  list (EditorCallPath) as its CallPath.
+  The search folders (eusearchpath.pas): New and Reopen give the tab's interpreter the saved folder
+  list (EditorSearchPath) as its SearchPath.
 }
 
 {$mode delphi}{$H+}
@@ -95,7 +95,7 @@ var
   ReopenList : TStringList;
 
 implementation
-uses main, euwatch, eucallpath;
+uses main, euwatch, eusearchpath;
 
 const ReopenNr = 8;
 
@@ -392,7 +392,7 @@ begin
   Inc(NewCnt);
   MainForm.TabCtrl.Tabs.Add('new'+IntToStr(NewCnt));
   ExecObj.Parser.ScriptName:='new'+IntToStr(NewCnt);   // port addition (LOGFILE's "script" field)
-  ExecObj.Parser.CallPath:=EditorCallPath;              // port addition (CALL folders)
+  ExecObj.Parser.SearchPath:=EditorSearchPath;          // port addition (search folders)
   SwitchTo(Count-1);
 end;
 
@@ -436,7 +436,7 @@ begin
 
   MainForm.TabCtrl.Tabs.Add(ExtractFileName(FN));
   ExecObj.Parser.ScriptName:=ExtractFileName(FN);   // port addition (LOGFILE's "script" field)
-  ExecObj.Parser.CallPath:=EditorCallPath;           // port addition (CALL folders)
+  ExecObj.Parser.SearchPath:=EditorSearchPath;       // port addition (search folders)
   SwitchTo(Count-1);
 
   if (Count<3)and(SynList[0]='')and not Syn[0].Modified then

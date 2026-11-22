@@ -22,7 +22,7 @@ uses
   MainIconsTests, PathWalkTests, UoWrapPathTests, EuoJournalSearchTests, DocsExampleTests, EuoLintTests, EuoCliCheckTests, DocsLintTests, EuoHostHooksTests, EuoCliRunTests, EuoOutputTests,
   EuoCliMcpTests, EuoCliInitTests, ClientArchiverTests, EuoItemMoveTests, EuoGumpsTests, GumpReplyTests,
   EuoLogFileTests, EuoOutlineTests, EuoOutlineViewTests, EuoHttpTests, EuoVarUsageTests,
-  EuoWatchViewTests, EuoCallPathTests;
+  EuoWatchViewTests, EuoSearchPathTests;
 
 type
   TEasyUOTestRunner = class(TTestRunner)

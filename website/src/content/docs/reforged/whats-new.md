@@ -74,6 +74,7 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
   [`save`](/commands/sql/save/) / [`load`](/commands/sql/load/) of variables. Results come back in
   [`#SqlRes`](/variables/sqlres/), [`#SqlCnt`](/variables/sqlcnt/),
   [`#SqlChanges`](/variables/sqlchanges/) and [`#SqlLastID`](/variables/sqllastid/).
+  [`sql open`](/commands/sql/open/) finds a database by name in the same folders as `call`.
   See [Using SQL](/guides/sql/).
 - **[`ScanBuffs`](/commands/scanbuffs/)**: read the buff bar, with names, descriptions and timers, through
   [`#BuffCnt`](/variables/buffcnt/), [`#BuffIndex`](/variables/buffindex/), [`#BuffID`](/variables/buffid/),
@@ -104,8 +105,8 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 ## Changed behaviour
 
 - **[`Call`](/commands/call/)** looks for a file it doesn't find in [`#CurPath`](/variables/curpath/) in more
-  folders: the list of *Tools → CALL Folders*, the `EUOCALLPATH` environment variable and, under `EUOCli`, the
-  `--callpath` folders. `#CurPath` is still searched first and in full, so a script loads the same file as
+  folders: the list of *Tools → Search Folders*, the `EUOPATH` environment variable and, under `EUOCli`, the
+  `--euopath` folders. `#CurPath` is still searched first and in full, so a script loads the same file as
   before. See [Where call looks for the file](/commands/call/#where-call-looks-for-the-file).
 - **[`Str`](/commands/str/)** has seven new operations, instead of hand-written loops of `str pos` and `str del`:
   `replace` replaces every occurrence of a text, `part` takes the `n`-th field between separators, `trim` cleans up
@@ -165,8 +166,9 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
   and every variable the script uses, found by itself. At each step the variables that changed turn red, with the
   old value in their hint, as EasyUO 1.42's variable view did.
 - An Output panel that shows what scripts write with [`log`](/commands/log/).
-- *Tools → CALL Folders*: the folders where [`call`](/commands/call/) looks for a script after `#CurPath`,
-  such as a folder of library scripts, kept in a list like the one Windows has for `PATH`.
+- *Tools → Search Folders*: the folders where [`call`](/commands/call/) looks for a script and
+  [`sql open`](/commands/sql/open/) for a database after `#CurPath`, such as a folder of library scripts, kept
+  in a list like the one Windows has for `PATH`.
 
 See [Editing and debugging](/guide/debugging/).
 
@@ -192,8 +194,8 @@ See [Editing and debugging](/guide/debugging/).
   through it and read its variables. Running on your character is a tool of its own, with its own approval.
   [`EUOCli init`](/guide/euocli/#set-a-folder-up-for-an-agent) sets a script folder up for an agent in one
   step, and [`EUOCli docs`](/guide/euocli/#look-up-the-documentation) prints a documentation page in the
-  terminal. `call` finds the same files as in the editor, and `--callpath` (or the tools' `callpath`) adds
-  more folders.
+  terminal. `call` and `sql open` find the same files as in the editor, and `--euopath` (or the tools'
+  `euopath`) adds more folders.
 - **[The agent pack](/guide/agents/)** (the `agent` folder of the release zip): the language rules, every
   command and `#variable`, and this documentation as plain files, so that Claude Code, Codex, Cursor and other
   AI coding agents write EasyUO scripts from names they looked up instead of ones they made up. The site

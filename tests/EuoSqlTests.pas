@@ -46,6 +46,7 @@ type
     procedure TestSqlErrorsLandInSqlResAndTheScriptGoesOn;
     procedure TestTrailingCommentAndContinuationLines;
     procedure TestRelativePathResolvesAgainstCurPath;
+    procedure TestOpenFindsAFileInTheSearchFolders;
     procedure TestSaveLoadDeletePersistAcrossInterpreters;
     procedure TestSaveRejectsOtherVariableKinds;
     procedure TestClearClosesTheDatabase;
@@ -369,6 +370,68 @@ begin
     AssertTrue(FileName + ' should exist', FileExists(FileName));
   finally
     DeleteFile(FileName);
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// SQL OPEN finds an existing database as CALL finds a script (EuoSearchPath, tested in full in
+// EuoSearchPathTests), trying .db and .sqlite; with none found it makes one in #CurPath, as before.
+procedure TEuoSqlTests.TestOpenFindsAFileInTheSearchFolders;
+var
+  Dir, Name, CurPath : String;
+
+  function Opened(const OpenName : String) : String;
+  begin
+    PlayScript(
+      'set %v none' + CRLF +
+      'sql open ' + OpenName + CRLF +
+      'sql query SELECT v FROM t' + CRLF +
+      'sql close' + CRLF +
+      'HALT');
+    Result := Interp.GetVar('%v');
+  end;
+
+begin
+  NeedLibrary;
+  Name := 'sqltest_search' + IntToStr(GetProcessID);
+  Dir := IncludeTrailingPathDelimiter(GetTempDir) + Name + PathDelim;
+  CurPath := Interp.GetVar('#CurPath');
+  ForceDirectories(Dir + 'a');
+  ForceDirectories(Dir + 'b');
+  try
+    PlayScript(
+      'sql open ' + Dir + 'a\' + Name + '.db' + CRLF +
+      'sql exec CREATE TABLE t(v TEXT)' + CRLF +
+      'sql exec INSERT INTO t VALUES(''a'')' + CRLF +
+      'sql open ' + Dir + 'b\' + Name + '.sqlite' + CRLF +
+      'sql exec CREATE TABLE t(v TEXT)' + CRLF +
+      'sql exec INSERT INTO t VALUES(''b'')' + CRLF +
+      'sql close' + CRLF +
+      'HALT');
+    AssertEquals('OK', Interp.GetVar('#SqlRes'));
+
+    Interp.SearchPath := Dir + 'a';
+    Interp.SearchPathLast := Dir + 'b';
+    AssertEquals('the saved list first, with .db', 'a', Opened(Name));
+    Interp.SearchPath := '';
+    AssertEquals('then the folders searched last, with .sqlite', 'b', Opened(Name));
+    AssertFalse('nothing was made in #CurPath', FileExists(CurPath + Name));
+    AssertEquals('a full path written with / still works', 'a',
+      Opened(StringReplace(Dir, '\', '/', [rfReplaceAll]) + 'a/' + Name + '.db'));
+
+    Interp.SearchPathLast := '';
+    PlayScript('sql open ' + Name + '.db' + CRLF + 'sql close' + CRLF + 'HALT');
+    AssertEquals('OK', Interp.GetVar('#SqlRes'));
+    AssertTrue('found nowhere: a new database in #CurPath, as before', FileExists(CurPath + Name + '.db'));
+  finally
+    Interp.SearchPath := '';
+    Interp.SearchPathLast := '';
+    DeleteFile(CurPath + Name + '.db');
+    DeleteFile(Dir + 'a\' + Name + '.db');
+    DeleteFile(Dir + 'b\' + Name + '.sqlite');
+    RemoveDir(Dir + 'a');
+    RemoveDir(Dir + 'b');
+    RemoveDir(Dir);
   end;
 end;
 

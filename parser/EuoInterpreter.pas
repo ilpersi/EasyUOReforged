@@ -129,10 +129,11 @@ unit EuoInterpreter;
   BlockCommands (commands that stop the run instead of running; none by default), Restarts (how
   often the main script started over, counted in ExitProc, which restarts exactly as before) and
   ClientSkips (how many lines were skipped for lack of a client).
-  Likewise the CALL folders: a relative name CALL does not find in #CurPath is looked for in more
-  folders (EuoCallPath.pas): the host's CallPath (the editor's saved list), EUOCALLPATH, then the
-  host's CallPathLast (EUOCli's --callpath). #CurPath is searched first and in full, exactly as
-  before, so a script that works without them loads the same file with them.
+  Likewise the search folders: a relative name CALL does not find in #CurPath is looked for in more
+  folders (EuoSearchPath.pas): the host's SearchPath (the editor's saved list), EUOPATH, then the
+  host's SearchPathLast (EUOCli's --euopath). #CurPath is searched first and in full, exactly as
+  before, so a script that works without them loads the same file with them. SQL OPEN finds an
+  existing database file the same way (ResolveSqlFile), and makes a new one where it always did.
 }
 
 {$mode delphi}{$H+}
@@ -145,7 +146,7 @@ uses
   EuoScriptWords,
   uotypes, access, ReforgedVersion, uoselector, uovariables, uocommands, uoevents, EuoLock,
   EuoSql, walkrules, walkmap, pathplan, walklive, pathwalk, EuoJournalSearch, EuoStrOps, EuoItemMove,
-  EuoGumps, uogumpreply, EuoLogFile, EuoHttp, EuoCallPath;
+  EuoGumps, uogumpreply, EuoLogFile, EuoHttp, EuoSearchPath;
 
 const
   RES_OK    = 0;
@@ -238,9 +239,9 @@ type
     SendCode     : String;             //   #SendCode
     SendReply    : String;             //   #SendReply
     FScriptName  : String;             // port addition for hosts: the main script's name in log lines
-    FCallPath    : String;             // port addition for hosts: CALL folders before EUOCALLPATH
-    FCallPathLast: String;             //   and after it (EuoCallPath.pas)
-    FCallPathLock: TEuoLock;           // its own lock: the editor changes CallPath while a script runs
+    FSearchPath    : String;             // port addition for hosts: search folders before EUOPATH
+    FSearchPathLast: String;             //   and after it (EuoSearchPath.pas)
+    FSearchPathLock: TEuoLock;           // its own lock: the editor changes SearchPath while a script runs
 
     procedure    LogProc;
     procedure    QueueLog(const Text : String; Line : Integer);
@@ -248,10 +249,10 @@ type
     function     LogScriptName : String;
     function     GetConfineFiles : Boolean;
     procedure    SetConfineFiles(Value : Boolean);
-    function     GetCallPath : String;
-    procedure    SetCallPath(const Value : String);
-    function     GetCallPathLast : String;
-    procedure    SetCallPathLast(const Value : String);
+    function     GetSearchPath : String;
+    procedure    SetSearchPath(const Value : String);
+    function     GetSearchPathLast : String;
+    procedure    SetSearchPathLast(const Value : String);
     procedure    CommandBlocked(const Name : String);
     function     GetOnDisplay : TDisplayHandler;
     procedure    SetOnDisplay(Value : TDisplayHandler);
@@ -293,6 +294,8 @@ type
     procedure    Menu16ProcSync;
     procedure    MenuStart;
     function     ResolveCallFile(const Name : String) : String;
+    function     ResolveSearchFile(const Name : String; const Exts : array of String) : String;
+    function     ResolveSqlFile(const Name : String) : String;
     procedure    NoteMenu16Needed(const Sub : String);
     procedure    NameSpaceProc;
     procedure    StrProc;
@@ -423,12 +426,12 @@ type
     // File targets only by a relative name inside #CurPath's folder (EUOCli without --allow logfile).
     // False by default: the editor writes where the script says.
     property     ConfineFiles : Boolean read GetConfineFiles write SetConfineFiles;
-    // Port additions (CALL folders, EuoCallPath.pas): folders, separated by ';', that CALL searches
-    // for a relative name it does not find in #CurPath: CallPath before EUOCALLPATH's folders,
-    // CallPathLast after them. '' by default; a script never changes them. Safe to set while a script
-    // runs: its next CALL uses them.
-    property     CallPath : String read GetCallPath write SetCallPath;
-    property     CallPathLast : String read GetCallPathLast write SetCallPathLast;
+    // Port additions (search folders, EuoSearchPath.pas): folders, separated by ';', that CALL and
+    // SQL OPEN search for a relative name they do not find in #CurPath: SearchPath before EUOPATH's
+    // folders, SearchPathLast after them. '' by default; a script never changes them. Safe to set while
+    // a script runs: its next CALL or SQL OPEN uses them.
+    property     SearchPath : String read GetSearchPath write SetSearchPath;
+    property     SearchPathLast : String read GetSearchPathLast write SetSearchPathLast;
     // The run has stopped (Halt, Stop, an error): its files are closed. Called by TExeThread on the
     // script's thread, again and again while the run stays stopped; cheap when there is nothing open.
     procedure    RunStopped;
@@ -465,11 +468,8 @@ begin
   Result:=ExtractFileDir(Path)+'\';
 end;
 
-////////////////////////////////////////////////////////////////////////////////
-function IsAbsolutePath(Path : String) : Boolean;
-begin
-  Result:=(Copy(Path,2,2)=':\')or(Copy(Path,1,1)='\');
-end;
+// Port change: the original's IsAbsolutePath, which only CallProc's lookup (and later SQL OPEN) used,
+// is EuoSearchPath.IsAbsoluteName now, with that lookup.
 
 ////////////////////////////////////////////////////////////////////////////////
 // Port addition (SQL): everything after the first two words (SQL and the
@@ -754,9 +754,9 @@ begin
   SendCode:='N/A';
   SendReply:='N/A';
   FScriptName:='';
-  FCallPath:='';
-  FCallPathLast:='';
-  FCallPathLock:=TEuoLock.Create;
+  FSearchPath:='';
+  FSearchPathLast:='';
+  FSearchPathLock:=TEuoLock.Create;
   Restarts:=0;
   BlockedCmd:='';
   BlockedLine:=-1;
@@ -792,7 +792,7 @@ begin
   Logger.Free;   // closes its files; before FLog, which its output target writes to
   FLog.Free;
   FLogLock.Free;
-  FCallPathLock.Free;
+  FSearchPathLock.Free;
   inherited Free;
 end;
 
@@ -2288,19 +2288,43 @@ end;
 // The file a CALL line naming Name loads, or '' when there is none: a relative name is taken
 // from #CurPath, then .txt and .euo are tried. The original's lookup, from CallProc, which calls
 // this; the "menu reforge includecall" scan uses it too (port addition, MENU 1.5/1.6).
-// Port addition (CALL folders): the lookup is EuoCallPath.ResolveCallName, which does the
+// Port addition (search folders): the lookup is EuoSearchPath.ResolveSearchName, which does the
 // original's first, character for character, and only then searches the folders.
 function TEuoInterpreter.ResolveCallFile(const Name : String) : String;
+begin
+  Result:=ResolveSearchFile(Name,CallExts);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (search folders): the file Name stands for, from #CurPath and the search folders,
+// with Exts tried after the name as written (EuoSearchPath.ResolveSearchName); '' when none.
+function TEuoInterpreter.ResolveSearchFile(const Name : String; const Exts : array of String) : String;
 var
   Folders : TStringList;
 begin
   Folders:=TStringList.Create;
   try
-    CallSearchFolders(CallPath,CallPathLast,Folders);
-    Result:=ResolveCallName(Name,GetVar('#curpath'),Folders);
+    SearchFolders(SearchPath,SearchPathLast,Folders);
+    Result:=ResolveSearchName(Name,GetVar('#curpath'),Folders,Exts);
   finally
     Folders.Free;
   end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (search folders): the database file SQL OPEN opens. An existing one is found as
+// CALL finds a script, trying .db and .sqlite; when there is none, the name is where SQL OPEN always
+// made a new database: as written when absolute, else in #CurPath. '/' is read as '\' first, so
+// "C:/data/x.db" stays the absolute path it always was.
+function TEuoInterpreter.ResolveSqlFile(const Name : String) : String;
+var
+  N : String;
+begin
+  N:=StringReplace(Name,'/','\',[rfReplaceAll]);
+  Result:=ResolveSearchFile(N,SqlExts);
+  if Result<>'' then Exit;
+  if IsAbsoluteName(N) then Result:=N
+  else Result:=GetVar('#curpath')+N;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2485,44 +2509,44 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-// Port addition (CALL folders): set by the host's thread, read by the script's.
-function TEuoInterpreter.GetCallPath : String;
+// Port addition (search folders): set by the host's thread, read by the script's.
+function TEuoInterpreter.GetSearchPath : String;
 begin
-  FCallPathLock.BeginRead;
+  FSearchPathLock.BeginRead;
   try
-    Result:=FCallPath;
+    Result:=FSearchPath;
   finally
-    FCallPathLock.EndRead;
+    FSearchPathLock.EndRead;
   end;
 end;
 
-procedure TEuoInterpreter.SetCallPath(const Value : String);
+procedure TEuoInterpreter.SetSearchPath(const Value : String);
 begin
-  FCallPathLock.BeginWrite;
+  FSearchPathLock.BeginWrite;
   try
-    FCallPath:=Value;
+    FSearchPath:=Value;
   finally
-    FCallPathLock.EndWrite;
+    FSearchPathLock.EndWrite;
   end;
 end;
 
-function TEuoInterpreter.GetCallPathLast : String;
+function TEuoInterpreter.GetSearchPathLast : String;
 begin
-  FCallPathLock.BeginRead;
+  FSearchPathLock.BeginRead;
   try
-    Result:=FCallPathLast;
+    Result:=FSearchPathLast;
   finally
-    FCallPathLock.EndRead;
+    FSearchPathLock.EndRead;
   end;
 end;
 
-procedure TEuoInterpreter.SetCallPathLast(const Value : String);
+procedure TEuoInterpreter.SetSearchPathLast(const Value : String);
 begin
-  FCallPathLock.BeginWrite;
+  FSearchPathLock.BeginWrite;
   try
-    FCallPathLast:=Value;
+    FSearchPathLast:=Value;
   finally
-    FCallPathLock.EndWrite;
+    FSearchPathLock.EndWrite;
   end;
 end;
 
@@ -3413,9 +3437,9 @@ begin
     else if Sub='OPEN' then
     begin
       Arg:=GetParStr(2);
+      // Port addition (search folders): an existing file in the search folders is found too.
       if (Arg<>'')and(LowerCase(Arg)<>':memory:') then
-        if not(IsAbsolutePath(Arg)or(Copy(Arg,2,2)=':/')) then
-          Arg:=GetVar('#curpath')+Arg;
+        Arg:=ResolveSqlFile(Arg);
     end
     else if (Sub='SAVE')or(Sub='LOAD')or(Sub='DELETE') then
     begin

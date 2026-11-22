@@ -27,8 +27,8 @@ unit clirun;
   - LOGFILE, and SEND DOWNLOAD when send is allowed, write files only by a relative name inside
     the program folder, where CALL starts one, unless --allow logfile
     (TEuoInterpreter.ConfineFiles). LOGFILE's log lines are printed like LOG's.
-  - CALL looks where the editor looks (#CurPath, the editor's saved list, EUOCALLPATH), then in
-    the --callpath folders (clicheck.pas, AddCallPathArg).
+  - CALL and SQL OPEN look where the editor looks (#CurPath, the editor's saved list, EUOPATH),
+    then in the --euopath folders (clicheck.pas, AddEuoPathArg).
 
   The run itself, with these rules, is clisession.pas's TRunSession, which the MCP server
   (climcp.pas) uses too. This unit reads the command line, starts a session, pumps the LCL
@@ -102,7 +102,7 @@ procedure RunHelp(Output : TStrings);
 begin
   Output.Add('EUOCli run <script.euo> [--client <n>] [--timeout <seconds>] [--json] [--trace]');
   Output.Add('           [--dump <variables>] [--answer ok|yes|no|cancel] [--allow <commands>]');
-  Output.Add('           [--callpath <folders>]');
+  Output.Add('           [--euopath <folders>]');
   Output.Add('');
   Output.Add('Runs a script with nobody watching and prints what happens: what it logs with "log",');
   Output.Add('what "display" would have shown, and why and where the run ended.');
@@ -122,9 +122,9 @@ begin
   Output.Add('                      uoxl,send. A blocked command stops the run. logfile lets');
   Output.Add('                      "logfile open" and "send download" write outside the');
   Output.Add('                      program folder');
-  Output.Add('  --callpath <folders> more folders "call" looks in, separated by ; (may be given more');
-  Output.Add('                      than once). They come last: after the program folder, the');
-  Output.Add('                      editor''s Tools > CALL Folders list and EUOCALLPATH');
+  Output.Add('  --euopath <folders> more folders "call" and "sql open" look in, separated by ; (may');
+  Output.Add('                      be given more than once). They come last: after the program');
+  Output.Add('                      folder, the editor''s Tools > Search Folders list and EUOPATH');
   Output.Add('');
   Output.Add('Exit code: 0 the script stopped itself; 2 wrong command line or unreadable script;');
   Output.Add('3 timeout; 4 a command raised an error; 5 the client is not there; 6 a blocked command;');
@@ -248,8 +248,8 @@ begin
     Opt.AllowHint:='rerun with --allow %s if the user agrees';
     Opt.ConfineFiles:=True;
     Opt.ScriptName:='';
-    Opt.CallPath:=CliSavedCallPath;
-    Opt.CallPathLast:='';
+    Opt.SearchPath:=CliSavedSearchPath;
+    Opt.SearchPathLast:='';
     Json:=False;
     i:=0;
     while i<Args.Count do
@@ -288,12 +288,12 @@ begin
         if (Opt.Answer<>'OK') and (Opt.Answer<>'YES') and (Opt.Answer<>'NO') and (Opt.Answer<>'CANCEL') then
           Exit(Fail(Output,'run','--answer is ok, yes, no or cancel'));
       end
-      else if A='--callpath' then
+      else if A='--euopath' then
       begin
         if not Next(A,A) then Exit;
-        AddCallPathArg(A,Opt.CallPathLast);
+        AddEuoPathArg(A,Opt.SearchPathLast);
       end
-      else if Copy(A,1,11)='--callpath=' then AddCallPathArg(Copy(A,12,MaxInt),Opt.CallPathLast)
+      else if Copy(A,1,10)='--euopath=' then AddEuoPathArg(Copy(A,11,MaxInt),Opt.SearchPathLast)
       else if (A<>'-') and (Copy(A,1,1)='-') then Exit(Fail(Output,'run','unknown option '+A))
       else if FileName<>'' then Exit(Fail(Output,'run','one script at a time'))
       else FileName:=A;
