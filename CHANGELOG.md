@@ -6,6 +6,14 @@ What changes for script users in each release of EasyUO Reforged. New entries go
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## v26.11.23 - 2026-11-23
+
+### Added
+
 - **`timer`: named timers for deadlines, "every 30 seconds" and stopwatches.** `timer start save 30s` starts a timer; `timer due save`, `timer left save` and `timer elapsed save` say in the new `#TimerRes` whether it is due (`#true`/`#false`), how many milliseconds are left, or how long it has run. A timer that was never started counts as due, so a loop's first round runs at once. Unlike deadlines built on `#SCnt`, nothing but `timer start` moves a timer, and timers survive the restart at the end of a script. A line starting with the word `timer` used to be ignored and is now this command; a sub or label called `timer` keeps working. See [`timer`](https://ilpersi.github.io/EasyUOReforged/commands/timer/).
 - **`str decimal`, `duration`, `date`, `clock` and `datetime`: times, dates and decimals ready to show.** `str decimal 953 1` gives `95.3` (skill tenths), `str duration 3725` gives `1:02:05`, `str date #Date` gives `2026-11-22` and `str clock #Time` gives `14:30:05`. All but `decimal` take an optional format with the usual `dd`, `mmmm`, `yyyy`, `hh`, `nn`, `am/pm` letters and plain text with no quotes, such as `str date #Date dddd d mmmm yyyy` (`Sunday 22 November 2026`) or `str duration %secs [n] min`; names, separators and the decimal point are the same on every computer, whatever the Windows settings. See [Time and numbers](https://ilpersi.github.io/EasyUOReforged/commands/str/#time-and-numbers-reforged).
 - **An outline of the script, left of the editor.** A new panel lists the script's subs, its labels (under the sub they are in) and the lines that build `menu` windows: click one to jump there, and *Edit → Go Back* (Alt+Left) returns. It selects the sub the cursor is in, its filter box finds an entry by name, **A-Z** sorts the list, and a sub that no `gosub` names is grey. *Control → Show Outline* hides it; its width is kept. See [The outline](https://ilpersi.github.io/EasyUOReforged/guide/debugging/#the-outline).
