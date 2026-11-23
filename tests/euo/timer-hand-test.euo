@@ -1,0 +1,74 @@
+; ============================================================================
+;  timer and str formats hand test: real time, Pause, and the Output panel.
+;  Needs NO client. Open in the editor, press Play, read the Output panel.
+;  Each line starts with PASS or FAIL; the timing lines also show the number.
+;
+;  What to watch:
+;  - the run takes about 4 seconds, then the script stops by itself (halt);
+;  - "pause" line: press Pause when the log says "press Pause now", wait about
+;    5 s, press Play. Timers count real time, so "elapsed after pause" is about
+;    2000 + the time you were paused, and the line says so (no PASS/FAIL);
+;  - "now" lines show today's date and the time in several formats: check them
+;    against the clock of Windows.
+; ============================================================================
+set %fail 0
+
+; ---- timers on the real clock ----------------------------------------------
+timer start t 2s
+timer due t
+gosub check due_at_start #TimerRes 0
+wait 2s
+timer due t
+gosub check due_after_2s #TimerRes -1
+timer elapsed t
+set %ms #TimerRes
+set %ok #false
+if %ms >= 2000 && %ms < 2600
+  set %ok #true
+gosub check elapsed_about_2000ms_was_ , %ms %ok #true
+
+set #SCnt 0
+timer elapsed t
+set %ok #false
+if #TimerRes >= %ms
+  set %ok #true
+gosub check set_scnt_does_not_move_it %ok #true
+
+; ---- pause -------------------------------------------------------------------
+timer start p
+log press Pause now, wait about 5 s, then press Play
+wait 2s
+timer elapsed p
+log elapsed after pause: #TimerRes ms (about 2000 + the time you were paused)
+
+; ---- formats -----------------------------------------------------------------
+str decimal 953 1
+gosub check decimal #StrRes 95.3
+str duration 3725
+gosub check duration #StrRes 1:02:05
+str date 261122 dddd d mmmm yyyy
+log date long: #StrRes (expect Sunday 22 November 2026)
+
+str date #Date
+log now date: #StrRes
+str date #Date dddd d mmmm yyyy
+log now date long: #StrRes
+str clock #Time
+log now time: #StrRes
+str clock #Time h:nn am/pm
+log now time 12h: #StrRes
+str datetime #Date #Time dd/mm/yyyy hh:nn:ss
+log now both: #StrRes
+
+log done: %fail failure(s)
+halt
+
+sub check
+  if %2 = %3
+    log PASS %1
+  else
+  {
+    log FAIL %1 got %2 expected %3
+    set %fail %fail + 1
+  }
+return

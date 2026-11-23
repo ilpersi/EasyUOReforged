@@ -216,6 +216,44 @@ set %length #StrRes                 ; => %length = 4
 halt
 ```
 
+## Time things and show progress
+
+In EasyUO Reforged, a [`timer`](/commands/timer/) does what deadlines built on `#SCnt` did: give up after a
+while, do something every so often, measure how long the script has run. Its answer is in
+[`#TimerRes`](/variables/timerres/), in milliseconds. [`str duration`](/commands/str/#time-and-numbers-reforged)
+writes seconds as `h:mm:ss` and `str decimal` writes skill tenths as `95.3`, for a status line. A skill gain per
+hour is `gain * 3600 / seconds`, in tenths, then `str decimal`.
+
+```euo
+timer start run
+set %start #Skill
+mainloop:
+  timer due status
+  if #TimerRes
+  {
+    gosub showStatus
+    timer start status 10s
+  }
+  wait 1s
+goto mainloop
+
+sub showStatus
+  timer elapsed run
+  set %secs #TimerRes / 1000 + 1
+  set %gain #Skill - %start
+  set %rate %gain * 3600 / %secs
+  str duration %secs
+  set %ran #StrRes
+  str decimal %gain 1
+  set %gained #StrRes
+  str decimal %rate 1
+  log Running %ran gained %gained ( , #StrRes , /h)
+return
+```
+
+[`str date` and `str clock`](/commands/str/#date-and-time-formats-reforged) write [`#Date`](/variables/date/) and
+[`#Time`](/variables/time/) for people, in a format of your choice: `str clock #Time h:nn am/pm` gives `2:30 pm`.
+
 ## Ask with a window
 
 [`menu`](/commands/menu/) builds a window of your own. A click on a button puts its name in

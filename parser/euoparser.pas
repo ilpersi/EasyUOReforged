@@ -13,7 +13,8 @@ uses
   EuoMenu16, EuoMenuSelect, EuoInterpreter, EuoBreakCondition, 
   EuoCallStackFormat, EuoExecutor, EuoSql, EuoBlocks, EuoScriptWords, 
   EuoJumpTarget, EuoJournalSearch, EuoStrOps, EuoVocabulary, EuoLint, 
-  EuoItemMove, EuoGumps, EuoLogFile, EuoOutline, EuoHttp, EuoVarUsage, EuoSearchPath;
+  EuoItemMove, EuoGumps, EuoLogFile, EuoOutline, EuoHttp, EuoVarUsage, 
+  EuoSearchPath, EuoTimers;
 
 implementation
 

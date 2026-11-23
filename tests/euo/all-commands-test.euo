@@ -1475,6 +1475,29 @@ sub sec_misc
   str jsonescape a\b
   gosub t_eq str_jsonescape #strres a\\b
 
+  ; ---- str decimal / duration / date / clock / datetime  [Reforged] -------------------------
+  str decimal 953 1
+  gosub t_eq str_decimal #strres 95.3
+  str decimal -5 1
+  gosub t_eq str_decimal_negative #strres -0.5
+  str duration 3725
+  gosub t_eq str_duration #strres 1:02:05
+  str duration 3725 [n]min
+  gosub t_eq str_duration_total_minutes #strres 62min
+  str date 261122
+  gosub t_eq str_date #strres 2026-11-22
+  str date 261122 dd/mm/yyyy
+  gosub t_eq str_date_format #strres 22/11/2026
+  set %t 093015 + 0
+  str clock %t
+  gosub t_eq str_clock_puts_the_zero_back #strres 09:30:15
+  str clock 143005 h:nnam/pm
+  gosub t_eq str_clock_12_hours #strres 2:30pm
+  str datetime 261122 143005 yyyymmdd_hhnn
+  gosub t_eq str_datetime #strres 20261122_1430
+  str clock 250000
+  gosub t_eq str_clock_out_of_range #strres N/A
+
   ; ---- sleep / wait with bad arguments are no-ops ----------------------------------------
   set %r before
   sleep abc
@@ -1501,6 +1524,28 @@ sub sec_misc
   gosub t_eq waitfor_nested_and_or_false #waitres 0
   waitFor
   gosub t_eq waitfor_with_no_condition_is_a_noop #waitres 0
+
+  ; ---- timer  [Reforged]  (#timerRes: -1/0, or milliseconds) ------------------------------
+  timer due allcmd_never
+  gosub t_eq timer_never_started_is_due #timerres -1
+  timer elapsed allcmd_never
+  gosub t_eq timer_never_started_has_no_elapsed #timerres N/A
+  timer start allcmd 1s
+  gosub t_eq timer_start #timerres -1
+  timer due allcmd
+  gosub t_eq timer_not_due_yet #timerres 0
+  wait 25
+  timer due allcmd
+  gosub t_eq timer_due_after_its_time #timerres -1
+  timer left allcmd
+  gosub t_eq timer_left_is_0_once_due #timerres 0
+  timer elapsed allcmd
+  set %r #timerres >= 1000
+  gosub t_eq timer_elapsed_counts_ms %r -1
+  timer stop allcmd
+  gosub t_eq timer_stop #timerres -1
+  timer start
+  gosub t_eq timer_without_a_name #timerres N/A
 
   ; ---- log  [Reforged]  (a line for whoever runs the script: the Output panel, or EUOCli) -------
   ; Nothing a script can read changes; the three lines show in the Output panel.

@@ -1,13 +1,13 @@
 ---
 title: "Str"
-description: "Works on a piece of text (length, position, part, case, replace, split, trim, join, insert, delete, count, encode); the result goes to #StrRes."
+description: "Works on a piece of text (length, position, part, case, replace, split, trim, join, insert, delete, count, encode) and formats times, dates and decimals; the result goes to #StrRes."
 kind: command
 category: misc
 changed: true
 syntax: "str {operation} {text} [parameters...]"
 sets: ["#StrRes"]
-related: ["#StrRes", "#SPC", "#DOT", "#SMC", "Send"]
-aliases: ["string", "text", "substring", "length", "replace", "split", "trim", "join", "concat", "concatenate", "url encode", "json escape", "encode"]
+related: ["#StrRes", "#SPC", "#DOT", "#SMC", "Send", "Timer", "#Time", "#Date"]
+aliases: ["string", "text", "substring", "length", "replace", "split", "trim", "join", "concat", "concatenate", "url encode", "json escape", "encode", "format", "decimal", "duration", "date format", "time format", "clock", "datetime", "h:mm:ss"]
 source: wiki
 ---
 
@@ -32,10 +32,16 @@ source: wiki
 | `str concat {text} [text...]` | The texts in order, with nothing between them. | **No:** new in Reforged |
 | `str urlencode {text}` | The text made safe inside a URL's query or form data: every character but `A-Z a-z 0-9 - _ . ~` written as `%XX`. | **No:** new in Reforged |
 | `str jsonescape {text}` | The text made safe between the quotes of a JSON string: `"`, `\` and line breaks escaped. | **No:** new in Reforged |
+| `str decimal {number} {places}` | The whole number written with `places` decimals: `str decimal 953 1` gives `95.3`. | **No:** new in Reforged |
+| `str duration {seconds} [format]` | A number of seconds as `h:mm:ss`, or in the format given. | **No:** new in Reforged |
+| `str date {yymmdd} [format]` | A [`#Date`](/variables/date/) value as `yyyy-mm-dd`, or in the format given. | **No:** new in Reforged |
+| `str clock {hhmmss} [format]` | A [`#Time`](/variables/time/) value as `hh:mm:ss`, or in the format given. | **No:** new in Reforged |
+| `str datetime {yymmdd} {hhmmss} [format]` | A date and a time together, as `yyyy-mm-dd hh:mm:ss`, or in the format given. | **No:** new in Reforged |
 
 :::note[Writing for EasyUO 1.5 too]
-`replace`, `part`, `trim`, `join`, `concat`, `urlencode` and `jsonescape` are new in EasyUO Reforged. EasyUO 1.5
-knows only the other ten: there, these seven set `#StrRes` to `N/A` and do nothing else, with no error. A script that must also run on
+`replace`, `part`, `trim`, `join`, `concat`, `urlencode`, `jsonescape`, `decimal`, `duration`, `date`, `clock` and
+`datetime` are new in EasyUO Reforged. EasyUO 1.5 knows only the other ten: there, these twelve set `#StrRes` to
+`N/A` and do nothing else, with no error. A script that must also run on
 EasyUO 1.5 uses only the operations marked *Yes*, and does the rest with `pos`, `left`, `mid` and `del`.
 :::
 
@@ -169,6 +175,106 @@ halt
 
 Both work on the bytes of the text, so letters with accents keep working: `urlencode` writes each of their bytes as
 `%XX`, `jsonescape` leaves them as they are. Neither cares about case.
+
+### Time and numbers (Reforged)
+
+Skill values are tenths (`953` is 95.3), and [`#Time`](/variables/time/), [`#Date`](/variables/date/) and
+[`timer`](/commands/timer/) give plain numbers. These operations write them for people to read:
+
+```euo
+str decimal 953 1
+set %skill #StrRes           ; => %skill = 95.3
+str decimal -5 1
+set %loss #StrRes            ; => %loss = -0.5
+str duration 3725
+set %ran #StrRes             ; => %ran = 1:02:05
+str date 261122
+set %day #StrRes             ; => %day = 2026-11-22
+str clock 143005
+set %at #StrRes              ; => %at = 14:30:05
+str datetime 261122 143005
+set %stamp #StrRes           ; => %stamp = 2026-11-22 14:30:05
+halt
+```
+
+- `decimal` puts the point `places` digits from the right and adds zeros where needed: `str decimal 7 2` gives
+  `0.07`. `places` goes from `0` (the number as it is) to `18`. The point is always `.`, whatever the Windows
+  settings say.
+- `duration` doesn't stop at 24 hours: `str duration 90000` gives `25:00:00`. A negative number gets a `-`.
+- `date` and `clock` take the value with or without its leading zeros, so `93015`, which arithmetic makes of
+  `093015`, is still `09:30:15`. The year is 20yy. A value that isn't a real date or time gives `N/A`.
+
+A skill gain per hour, from a gain in tenths and a number of seconds, is one line of arithmetic and a `decimal`:
+
+```euo
+set %gain 12                 ; 1.2 points, in tenths
+set %secs 1800               ; in half an hour
+set %rate %gain * 3600 / %secs
+str decimal %rate 1
+set %perHour #StrRes         ; => %perHour = 2.4
+halt
+```
+
+### Date and time formats (Reforged)
+
+`duration`, `date`, `clock` and `datetime` take a format after the value: everything else on the line, the words
+joined by one space. The letters of the format stand for parts of the time, as in FreePascal's `FormatDateTime`:
+
+| Letters | Gives | `date` | `clock` | `datetime` | `duration` |
+|---|---|---|---|---|---|
+| `d` `dd` | Day: `5`, `05` | Yes | | Yes | |
+| `ddd` `dddd` | Weekday: `Sun`, `Sunday` | Yes | | Yes | |
+| `m` `mm` | Month: `1`, `01` (minutes in `clock` and `duration`, and right after an `h`) | Yes | Yes | Yes | Yes |
+| `mmm` `mmmm` | Month: `Nov`, `November` | Yes | | Yes | |
+| `yy` `yyyy` | Year: `26`, `2026` | Yes | | Yes | |
+| `h` `hh` | Hour: `9`, `09` | | Yes | Yes | Yes |
+| `n` `nn` | Minutes: `5`, `05` | | Yes | Yes | Yes |
+| `s` `ss` | Seconds: `5`, `05` | | Yes | Yes | Yes |
+| `z` `zzz` | Milliseconds (always `0` here) | | Yes | Yes | Yes |
+| `am/pm` `a/p` `ampm` | A 12-hour clock: `am`/`pm` as written, `a`/`p`, or `AM`/`PM` | | Yes | Yes | |
+| `[h]` `[n]` `[s]` | All the hours, minutes or seconds, not stopping at 24 or 60 | | | | Yes |
+
+```euo
+str date 261122 dd/mm/yyyy
+set %eu #StrRes              ; => %eu = 22/11/2026
+str date 261122 dddd d mmmm yyyy
+set %long #StrRes            ; => %long = Sunday 22 November 2026
+str date 261122 yyyymmdd
+set %file #StrRes            ; => %file = 20261122
+str clock 143005 h:nn am/pm
+set %twelve #StrRes          ; => %twelve = 2:30 pm
+str datetime 261122 143005 dd/mm hh:nn
+set %short #StrRes           ; => %short = 22/11 14:30
+str duration 3725 [n] min
+set %mins #StrRes            ; => %mins = 62 min
+str duration 3725 h hours n min
+set %words #StrRes           ; => %words = 1 hours 2 min
+halt
+```
+
+**Text in a format needs no quotes.** A word is read as letters for the time only when every one of its letters
+is one of them for that operation; any other word is written as it is. `Today`, `hours` and `min` stay words, and
+so does `day:`, because `a` is not a time letter. Day and month names are always English, and `/` and `:` are
+always `/` and `:`, whatever the Windows settings say. The letters `c`, `f`, `t`, `e` and `g`, which mean something
+to `FormatDateTime`, are always plain letters here.
+
+Quote a word made only of time letters to write it as it is, with `'...'` or `"..."`:
+
+```euo
+str date 261122 dd mmmm 'my' birthday
+set %a #StrRes               ; => %a = 22 November my birthday
+str date 261122 dd mmmm my birthday
+set %b #StrRes               ; => %b = 22 November 1126 birthday
+str duration 1500 [s] 'ms'
+set %c #StrRes               ; => %c = 1500 ms
+str clock 143005 hh:nn 'h'
+set %d #StrRes               ; => %d = 14:30 h
+halt
+```
+
+Without the quotes `my` is a month and a year, `ms` minutes and seconds, and `h` the hour again. A quoted text may
+hold spaces. Five or more `d` in a row, and a result longer than 254 characters, give `N/A`. A duration goes up to
+2147483647 seconds (68 years).
 
 ## Spaces and `_`
 

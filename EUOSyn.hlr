@@ -95,6 +95,7 @@
       <word value="TARGET"/>
       <word value="TERMINATE"/>
       <word value="TILE"/>
+      <word value="TIMER"/>
       <word value="UNTIL"/>
       <word value="UOXL"/>
       <word value="WAIT"/>
@@ -266,6 +267,7 @@
       <word value="#TILETYPE"/>
       <word value="#TILEZ"/>
       <word value="#TIME"/>
+      <word value="#TIMERRES"/>
       <word value="#TP"/>
       <word value="#TRUE"/>
       <word value="#WAITRES"/>

@@ -134,6 +134,13 @@ unit EuoInterpreter;
   host's SearchPathLast (EUOCli's --euopath). #CurPath is searched first and in full, exactly as
   before, so a script that works without them loads the same file with them. SQL OPEN finds an
   existing database file the same way (ResolveSqlFile), and makes a new one where it always did.
+  Likewise the TIMER command plus the read-only #TimerRes (index 150): named timers (EuoTimers.pas) on
+  GetTickCount64, which nothing a script does moves, unlike #SCnt/#SCnt2. A line starting with it was a
+  silent no-op before, and a sub or label called "timer" keeps working. Clear forgets the timers (a new
+  run); ExitProc does not, so they survive the restart, as % variables do. The Timers property is for
+  tests, which set its clock.
+  Likewise the STR operations DECIMAL, DATE, CLOCK, DATETIME and DURATION (EuoStrOps.pas), added to
+  StrProc the way REPLACE and the others were.
 }
 
 {$mode delphi}{$H+}
@@ -146,7 +153,7 @@ uses
   EuoScriptWords,
   uotypes, access, ReforgedVersion, uoselector, uovariables, uocommands, uoevents, EuoLock,
   EuoSql, walkrules, walkmap, pathplan, walklive, pathwalk, EuoJournalSearch, EuoStrOps, EuoItemMove,
-  EuoGumps, uogumpreply, EuoLogFile, EuoHttp, EuoSearchPath;
+  EuoGumps, uogumpreply, EuoLogFile, EuoHttp, EuoSearchPath, EuoTimers;
 
 const
   RES_OK    = 0;
@@ -242,6 +249,8 @@ type
     FSearchPath    : String;             // port addition for hosts: search folders before EUOPATH
     FSearchPathLast: String;             //   and after it (EuoSearchPath.pas)
     FSearchPathLock: TEuoLock;           // its own lock: the editor changes SearchPath while a script runs
+    FTimers      : TEuoTimers;         // port addition (TIMER)
+    TimerRes     : String;             //   #TimerRes
 
     procedure    LogProc;
     procedure    QueueLog(const Text : String; Line : Integer);
@@ -299,6 +308,7 @@ type
     procedure    NoteMenu16Needed(const Sub : String);
     procedure    NameSpaceProc;
     procedure    StrProc;
+    function     StrFormatFrom(First : Integer) : String;
     procedure    SoundProc;
     procedure    UOXLProc;
     procedure    TerminateProc;
@@ -314,6 +324,7 @@ type
     procedure    SetProc;
     procedure    WaitProc;
     procedure    WaitForProc;
+    procedure    TimerProc;
     procedure    SqlProc;
     procedure    PathProc;
     procedure    PathReset;
@@ -432,6 +443,8 @@ type
     // a script runs: its next CALL or SQL OPEN uses them.
     property     SearchPath : String read GetSearchPath write SetSearchPath;
     property     SearchPathLast : String read GetSearchPathLast write SetSearchPathLast;
+    // Port addition (TIMER): the run's timers, for tests (which set Timers.Clock). No script reaches it.
+    property     Timers : TEuoTimers read FTimers;
     // The run has stopped (Halt, Stop, an error): its files are closed. Called by TExeThread on the
     // script's thread, again and again while the run stays stopped; cheap when there is nothing open.
     procedure    RunStopped;
@@ -617,7 +630,7 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 const
-  VarNamesR : Array[0..149] of String = (
+  VarNamesR : Array[0..150] of String = (
     'CliCnt','CliNr','Time','Date','SysTime','Random','OSVer','CharPosX',
     'CharPosY','CharPosZ','CharID','CharGhost','CharStatus','CharDir',
     'CharName','Sex','Str','MaxWeight','Dex','Int','Hits','MaxHits',
@@ -657,7 +670,9 @@ const
     // Port addition (LOGFILE): index 146.
     'LogRes',
     // Port additions (the new SEND forms): indices 147..149.
-    'SendRes','SendCode','SendReply');
+    'SendRes','SendCode','SendReply',
+    // Port addition (TIMER): index 150.
+    'TimerRes');
 
   VarNamesRW : Array[0..34] of String = (
     'SCnt','SCnt2','LShard','ContPosX','ContPosY','NextCPosX','NextCPosY',
@@ -757,6 +772,8 @@ begin
   FSearchPath:='';
   FSearchPathLast:='';
   FSearchPathLock:=TEuoLock.Create;
+  FTimers:=TEuoTimers.Create;   // port addition (TIMER)
+  TimerRes:='N/A';
   Restarts:=0;
   BlockedCmd:='';
   BlockedLine:=-1;
@@ -793,6 +810,7 @@ begin
   FLog.Free;
   FLogLock.Free;
   FSearchPathLock.Free;
+  FTimers.Free;
   inherited Free;
 end;
 
@@ -835,6 +853,8 @@ begin
   SendRes:='N/A';   // port additions (the new SEND forms)
   SendCode:='N/A';
   SendReply:='N/A';
+  FTimers.Clear;    // port addition (TIMER): a new run starts with no timers
+  TimerRes:='N/A';
   Restarts:=0;      // port additions for hosts: a new run has not restarted or been blocked.
   BlockedCmd:='';   // (What LOG queued stays: the host has not read it yet.)
   BlockedLine:=-1;
@@ -1209,6 +1229,8 @@ begin
     147: Result:=            SendRes       ;
     148: Result:=            SendCode      ;
     149: Result:=            SendReply     ;
+    // Port addition (TIMER).
+    150: Result:=            TimerRes      ;
     500: Result:=IntToStr   (GetTickCount div 1000 - SCntBase);
     501: Result:=IntToStr   (GetTickCount div 100 - SCnt2Base);
     525: Result:=            _Result       ;
@@ -1664,6 +1686,7 @@ begin
   CmdRegistry.Register('WaitFor',WaitForProc); // port addition
   CmdRegistry.Register('Log',LogProc);         // port addition
   CmdRegistry.Register('LogFile',LogFileProc); // port addition
+  CmdRegistry.Register('Timer',TimerProc);     // port addition
 
   // Cmd2 -- client-dependent (RequiresClient=True).
   CmdRegistry.Register('Key',KeyProc,True);
@@ -1744,6 +1767,44 @@ begin
   until True;
 
   StdCmd.Wait(D1*50,D2*50);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition. Timer {START|ELAPSED|LEFT|DUE|STOP} {name} [duration]: the run's named timers
+// (EuoTimers.pas), each answer in #TimerRes. START's duration is a time as WAIT reads it (ticks, or
+// seconds with S), 0 when it is missing or can't be read: due at once. A missing name or another word
+// gives N/A and changes nothing.
+procedure TEuoInterpreter.TimerProc;
+var
+  Sub  : String;
+  Name : String;
+  Ms   : QWord;
+  Due  : QWord;
+begin
+  TimerRes:='N/A';
+  if ParList.Count<3 then Exit;
+  Sub:=ParList[1].StrU;
+  Name:=ParList[2].Str;
+  if Sub='START' then
+  begin
+    Due:=0;
+    if ParList.Count>3 then Due:=QWord(ParseTicksOrSeconds(ParList[3],0))*50;
+    FTimers.Start(Name,Due);
+    TimerRes:='-1';
+  end
+  else if Sub='ELAPSED' then
+  begin
+    if FTimers.Elapsed(Name,Ms) then TimerRes:=IntToStr(Ms);
+  end
+  else if Sub='LEFT' then TimerRes:=IntToStr(FTimers.Left(Name))
+  else if Sub='DUE' then
+  begin
+    if FTimers.Due(Name) then TimerRes:='-1' else TimerRes:='0';
+  end
+  else if Sub='STOP' then
+  begin
+    if FTimers.Stop(Name) then TimerRes:='-1' else TimerRes:='0';
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3137,6 +3198,21 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Port addition: the words of the line from word First on, joined by one space ('' when there are
+// none), the format of STR DATE, CLOCK, DATETIME and DURATION.
+function TEuoInterpreter.StrFormatFrom(First : Integer) : String;
+var
+  Cnt : Integer;
+begin
+  Result:='';
+  for Cnt:=First to ParList.Count-1 do
+  begin
+    if Cnt>First then Result:=Result+' ';
+    Result:=Result+ParList[Cnt].Str;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 procedure TEuoInterpreter.StrProc;
 var
   Cnt1 : Integer;
@@ -3169,6 +3245,17 @@ begin
     StrRes:=StrUrlEncode(ParList[2].Str);
   if ParList[1].StrU='JSONESCAPE' then
     StrRes:=StrJsonEscape(ParList[2].Str);
+  // Port addition: DURATION, DATE, CLOCK, DATETIME (EuoStrOps.pas). The format is every word after the
+  // value(s), joined by one space; without one, each has its default.
+  if ParList[1].StrU='DURATION' then
+    if ParList[2].IntValid then
+      StrRes:=StrDuration(ParList[2].Int,StrFormatFrom(3))
+    else
+      StrRes:=STR_NO_FIELD;
+  if ParList[1].StrU='DATE' then
+    StrRes:=StrDate(ParList[2].Str,StrFormatFrom(3));
+  if ParList[1].StrU='CLOCK' then
+    StrRes:=StrClock(ParList[2].Str,StrFormatFrom(3));
 
   if ParList.Count<4 then Exit;
 
@@ -3200,6 +3287,14 @@ begin
     for Cnt1:=4 to ParList.Count-1 do
       StrRes:=StrRes+ParList[2].Str+ParList[Cnt1].Str;
   end;
+  // Port addition: DECIMAL and DATETIME
+  if ParList[1].StrU='DECIMAL' then
+    if ParList[2].IntValid and ParList[3].CardValid then
+      StrRes:=StrDecimal(ParList[2].Int,ParList[3].Int)
+    else
+      StrRes:=STR_NO_FIELD;
+  if ParList[1].StrU='DATETIME' then
+    StrRes:=StrDateTime(ParList[2].Str,ParList[3].Str,StrFormatFrom(4));
 
   if ParList.Count<5 then Exit;
 

@@ -15,6 +15,10 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 
 ## New commands and variables
 
+- **[`Timer`](/commands/timer/)**: named timers, as many as a script needs. `timer start save 30s` starts one,
+  `timer due`, `timer left` and `timer elapsed` say whether it is due, how long is left and how long it has run, in
+  [`#TimerRes`](/variables/timerres/), instead of deadlines built by hand on `#SCnt`, which any `set #SCnt` moves.
+  Timers survive the restart at the end of a script.
 - **[`send get`, `post`, `put`, `delete` and `download`](/commands/send/)**: talk to web servers over HTTP and
   HTTPS without running what they answer. The answer's body goes to [`#SendReply`](/variables/sendreply/) (or to a
   file, for `download`), its HTTP status to [`#SendCode`](/variables/sendcode/), and whether the server answered to
@@ -108,10 +112,13 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
   folders: the list of *Tools → Search Folders*, the `EUOPATH` environment variable and, under `EUOCli`, the
   `--euopath` folders. `#CurPath` is still searched first and in full, so a script loads the same file as
   before. See [Where call looks for the file](/commands/call/#where-call-looks-for-the-file).
-- **[`Str`](/commands/str/)** has seven new operations, instead of hand-written loops of `str pos` and `str del`:
+- **[`Str`](/commands/str/)** has twelve new operations, instead of hand-written loops of `str pos` and `str del`:
   `replace` replaces every occurrence of a text, `part` takes the `n`-th field between separators, `trim` cleans up
-  both ends, `join` and `concat` put texts together, and `urlencode` and `jsonescape` prepare data for `send`. The
-  other operations are unchanged.
+  both ends, `join` and `concat` put texts together, and `urlencode` and `jsonescape` prepare data for `send`.
+  [`decimal`, `duration`, `date`, `clock` and `datetime`](/commands/str/#time-and-numbers-reforged) write skill
+  tenths as `95.3`, seconds as `1:02:05`, and `#Date`/`#Time` as `2026-11-22`/`14:30:05` or in a
+  [format of your choice](/commands/str/#date-and-time-formats-reforged), such as `Sunday 22 November 2026` or
+  `2:30 pm`, the same on every computer. The other operations are unchanged.
 - **[`#SendHeader`](/variables/sendheader/)** also applies to the new forms of `send`. For `send httppost` nothing
   changed.
 - **[`Display`](/commands/display/)**'s message box is titled *Reforged Message* instead of *EUO Message*.

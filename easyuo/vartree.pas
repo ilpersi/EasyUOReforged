@@ -211,6 +211,7 @@ var
    '#SENDREPLY'#13#10+
    '#SENDRES'#13#10+
    '#STRRES'#13#10+
+   '#TIMERRES'#13#10+
    '#WAITRES'#13#10+
 
     #13#10+

@@ -72,7 +72,7 @@ uses
 // vocabulary -- see this unit's header comment -- no reason to also risk a
 // second, independent copy for completion).
 const
-  CommandKeywords : array[0..63] of String = (
+  CommandKeywords : array[0..64] of String = (
     'BREAK', 'CALL', 'CHOOSESKILL', 'CLICK', 'CMPPIX', 'CONTINUE', 'CONTPOS',
     'DELETEJOURNAL', 'DELETEVAR', 'DISPLAY', 'ELSE', 'EVENT', 'EXECUTE',
     'EXEVENT', 'EXIT', 'FINDITEM', 'FINDJOURNAL', 'FOR', 'GETSHOPINFO', 'GETUOTITLE',
@@ -80,11 +80,11 @@ const
     'KEY', 'LOG', 'LOGFILE', 'MENU', 'MOVE', 'MOVEITEM', 'MSG', 'NAMESPACE', 'NEXTCPOS', 'ONHOTKEY',
     'PATH', 'PAUSE', 'REPEAT', 'RETURN', 'SAVEPIX', 'SCANBUFFS', 'SCANGUMPS', 'SCANJOURNAL', 'SEND', 'SET',
     'SETSHOPITEM', 'SETUOTITLE', 'SHUTDOWN', 'SLEEP', 'SOUND', 'SQL', 'STOP',
-    'STR', 'SUB', 'TARGET', 'TERMINATE', 'TILE', 'UNTIL', 'UOXL', 'WAIT',
+    'STR', 'SUB', 'TARGET', 'TERMINATE', 'TILE', 'TIMER', 'UNTIL', 'UOXL', 'WAIT',
     'WAITFOR', 'WHILE'
   );
 
-  SystemKeywords : array[0..181] of String = (
+  SystemKeywords : array[0..182] of String = (
     '#AR', '#BACKPACKID', '#BUFFBAROPEN', '#BUFFCLILOC', '#BUFFCNT', '#BUFFDESC', '#BUFFID',
     '#BUFFINDEX', '#BUFFNAME', '#BUFFTIME', '#CHARDIR', '#CHARGHOST', '#CHARID', '#CHARNAME',
     '#CHARPOSX', '#CHARPOSY', '#CHARPOSZ', '#CHARSTATUS', '#CLICNT',
@@ -115,7 +115,7 @@ const
     '#SMC', '#SPC', '#SQLCHANGES', '#SQLCNT', '#SQLLASTID', '#SQLRES',
     '#STAMINA', '#STR', '#STRMAX', '#STRRES', '#SYSMSG',
     '#SYSMSGCOL', '#SYSTIME', '#TARGCURS', '#TILECNT', '#TILEFLAGS',
-    '#TILENAME', '#TILETYPE', '#TILEZ', '#TIME', '#TP', '#TRUE', '#WAITRES', '#WEIGHT'
+    '#TILENAME', '#TILETYPE', '#TILEZ', '#TIME', '#TIMERRES', '#TP', '#TRUE', '#WAITRES', '#WEIGHT'
   );
 
 // Populates Hilite's MainRules with the EasyUO script language definition.

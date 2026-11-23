@@ -97,7 +97,7 @@ function Need([string]$label, [bool]$found) {
 foreach ($c in $names.Commands | Sort-Object -Unique) { Need $c (Test-Syntax $c) }
 $families = [ordered]@{
   event = $names.Events; exevent = $names.ExEvents; menu = $names.Menu; namespace = $names.NameSpace
-  str = $names.Str; sql = $names.Sql; path = $names.Path
+  str = $names.Str; sql = $names.Sql; path = $names.Path; timer = $names.Timer
 }
 foreach ($f in $families.Keys) {
   foreach ($e in $families[$f]) { Need "$f $e" (Test-Syntax "$f $e") }

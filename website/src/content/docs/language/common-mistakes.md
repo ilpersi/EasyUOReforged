@@ -126,7 +126,7 @@ halt                            ; => %runs = 3
 |---|---|
 | Calculate their parameters | `set` `if` `while` `until` `return` `waitfor` |
 | Take a `{ }` block, or else the next line | `if` `else` `for` `while` `sub` `onhotkey` `cmppix` |
-| Take a time in ticks, or in seconds with `s` | `wait` `waitfor` `findjournal` `target` `move` `path` |
+| Take a time in ticks, or in seconds with `s` | `wait` `waitfor` `findjournal` `target` `move` `path` `timer` |
 
 ## Lines
 
@@ -157,6 +157,11 @@ halt                            ; => %text = abcdef
 - Numbers are whole numbers. `$1A` is hexadecimal. Text counts as `0` in arithmetic.
 - `%a , %b` joins two values into one word. `%item . %i` builds a variable name: with `%i` holding `2` it
   reads `%item2`. That is how scripts make lists.
+- Numbers are whole numbers, so a decimal is written from tenths or hundredths: `str decimal 953 1` gives `95.3`.
+  Seconds become `1:02:05` with `str duration`, `#Time` and `#Date` become `14:30:05` and `2026-11-22` with
+  `str clock` and `str date` (see [str](/commands/str/#time-and-numbers-reforged)).
+- `set #SCnt 0` moves every deadline the script built on `#SCnt` (`set %t #SCnt + 5`). For deadlines,
+  "every 30 seconds" and stopwatches, use [`timer`](/commands/timer/): nothing else moves it.
 
 ```euo
 set %a %never                   ; => %a = N/A

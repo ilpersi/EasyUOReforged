@@ -12,7 +12,7 @@ unit EuoVocabulary;
   STATLOCK's stats from uoevents.pas's ExEv_StatLock), plus the MENU words only the 1.6 logic
   has (TMenu16.Run and its property table in EuoMenu16.pas) and MENU REFORGE's settings.
   tests\tools\CheckDocsCoverage.ps1 fails when the first-level words here (what may follow
-  EVENT, EXEVENT, MENU, NAMESPACE, STR, SQL, PATH, LOGFILE, SEND) and the interpreter's drift apart; the
+  EVENT, EXEVENT, MENU, NAMESPACE, STR, SQL, PATH, LOGFILE, SEND, TIMER) and the interpreter's drift apart; the
   deeper rows are not read off the source, so nothing checks them. SEND's HTTPPOST stands for every
   word that contains it (the interpreter tests it with Pos: DEBUGHTTPPOST, HTTPPOST8080, ...).
 
@@ -30,7 +30,7 @@ const
   // 'KEY=WORDS': the words that may follow KEY, the words before them on the line
   // ('MENU FONT=...' is what may follow "menu font"). A '*' in KEY stands for any one word
   // (a skill name, a namespace pattern).
-  EuoSubCommands : array[0..45] of String = (
+  EuoSubCommands : array[0..46] of String = (
     'DISPLAY=OK OKCANCEL YESNO YESNOCANCEL',
     'EVENT=CONTTOP DRAG EXMSG MACRO PATHFIND PROPERTY SKILLLOCK STATBAR SYSMESSAGE',
     'EVENT SKILLLOCK *=DOWN LOCKED UP',
@@ -76,8 +76,10 @@ const
     'PATH SET MODE=AUTO CLIENT STEPS',
     'SEND=DELETE DOWNLOAD GET HTTPPOST POST PUT',
     'SQL=CLOSE DELETE EXEC LOAD OPEN QUERY ROW SAVE',
-    'STR=CONCAT COUNT DEL INS JOIN JSONESCAPE LEFT LEN LOWER MID PART POS REPLACE RIGHT TRIM UPPER URLENCODE',
+    'STR=CLOCK CONCAT COUNT DATE DATETIME DECIMAL DEL DURATION INS JOIN JSONESCAPE LEFT LEN LOWER MID PART POS ' +
+      'REPLACE RIGHT TRIM UPPER URLENCODE',
     'TILE=CNT GET INIT',
+    'TIMER=DUE ELAPSED LEFT START STOP',
     'TILE INIT=NOOVERRIDES',
     'UOXL=NEW SWAP'
   );

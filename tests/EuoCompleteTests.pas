@@ -92,7 +92,8 @@ begin
   AssertEquals(Words('menu getdef '),Words('menu setdef '));
   AssertEquals('NOOVERRIDES',Words('tile init '));
   AssertEquals('DEX,INT,STR',Words('exevent statlock '));
-  AssertEquals('CONCAT,COUNT,DEL,INS,JOIN,JSONESCAPE,LEFT,LEN,LOWER,MID,PART,POS,REPLACE,RIGHT,TRIM,UPPER,URLENCODE',Words('str '));
+  AssertEquals('CLOCK,CONCAT,COUNT,DATE,DATETIME,DECIMAL,DEL,DURATION,INS,JOIN,JSONESCAPE,LEFT,LEN,LOWER,MID,PART,POS,REPLACE,RIGHT,TRIM,UPPER,URLENCODE',Words('str '));
+  AssertEquals('DUE,ELAPSED,LEFT,START,STOP',Words('timer '));
   AssertEquals('DELETE,DOWNLOAD,GET,HTTPPOST,POST,PUT',Words('send '));
 end;
 
