@@ -44,7 +44,7 @@ unit uowrap;
   the frontmost open server gump of that type with the switches and texts in the script's word form
   ('3/7', '5:hello_world 6:x') and returns 'sent', 'nogump' or 'error'; GetGumpReply returns the last
   answer sent through this handle (type ID, button, switches, texts), or nil; with the click hook on the
-  client (GumpReply and GumpReplyCnt put it there), the last one recorded, clicks by hand included. The
+  client (GumpReply, GetGumpReply and GumpReplyCnt put it there), the last one recorded, clicks by hand included. The
   read-only property GumpReplyCnt (code 258) counts them: the hook's count, or this handle's answers.
 }
 
@@ -786,14 +786,19 @@ begin
              PushStrVal(PChar(s));
            end;
          end;
-    070: if HookRefresh(False,GCnt) or HasReply then
-         begin
-           PushInteger(LastReply.TypeID);
-           PushInteger(LastReply.Button);
-           PushStrVal(PChar(ReplySwitchesText(LastReply)));
-           PushStrVal(PChar(ReplyTextsText(LastReply)));
-         end
-         else PushNil;
+    // It puts the click hook on as GumpReplyCnt does (a click on a client without it was never recorded),
+    // and answers nil until there is an answer: the hook being on is not one.
+    070: begin
+           HookRefresh(True,GCnt);
+           if HasReply then
+           begin
+             PushInteger(LastReply.TypeID);
+             PushInteger(LastReply.Button);
+             PushStrVal(PChar(ReplySwitchesText(LastReply)));
+             PushStrVal(PChar(ReplyTextsText(LastReply)));
+           end
+           else PushNil;
+         end;
     -01: Result:=ERR_NOTFOUND;
     -02: Result:=ERR_WRONGPAR;
     else Result:=ERR_GENERIC;

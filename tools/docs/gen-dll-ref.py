@@ -124,7 +124,7 @@ METHODS = {
     'GetGumpReply': ([('', '')], [('typeid', 'number', 'The gump\'s type ID.'), ('button', 'number', 'The button.'),
         ('switches', 'string', 'The switches that were on, as `3/7`; `-` for none.'),
         ('texts', 'string', 'The text fields, as `5:hello_world 6:x`; empty for none.')],
-        'Returns the last answer `GumpReply` sent through this handle, or, once the click hook is in the client (`GumpReply` and `GumpReplyCnt` put it there), the last one recorded, clicks by hand included. Nil when there is none yet.',
+        'Returns the last answer `GumpReply` sent through this handle, or, once the click hook is in the client (`GumpReply`, `GetGumpReply` and `GumpReplyCnt` put it there), the last one recorded, clicks by hand included. A click made before the hook was in is not recorded. Nil when there is none yet.',
         ['exevent GumpReply', '#GumpReply', 'dll:GumpReply'], None),
     'GetItem': ([('n', 'index')], [('id', 'number', 'Item or character ID.'), ('type', 'number', 'Its type.'), ('kind', 'number', '0 in a container, 1 on the ground, -1 none.'),
         ('container', 'number', 'Container ID; 0 on the ground.'), ('x', 'number', 'X position: in the world, or inside the container gump.'),

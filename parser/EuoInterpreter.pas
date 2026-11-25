@@ -114,7 +114,7 @@ unit EuoInterpreter;
   with it was a silent no-op before.
   Likewise EXEVENT GUMPREPLY plus the read-only #GumpReply, #GumpReplyRes and #GumpReplyCnt (indices
   143..145): answers a server gump the way a click on one of its buttons does (uogumpreply.pas). With
-  the click hook on the client (installed by GUMPREPLY, or when the script itself reads #GumpReplyCnt;
+  the click hook on the client (installed by GUMPREPLY, or when the script itself reads #GumpReply or #GumpReplyCnt;
   never by a host polling the variables from its own thread) they also follow the answers clicked by hand. EasyUO 1.5's ExEventProc
   did nothing for a sub-command it did not know, so a line with it was a silent no-op before; no other
   sub-command changes.
@@ -1215,9 +1215,10 @@ begin
     // Port addition (MOVEITEM).
     130: Result:=            MoveRes       ;
     // Port additions (EXEVENT GUMPREPLY): the script's own state, read with or without a client; with
-    // the click hook on the client, what it recorded (GumpHookRefresh).
+    // the click hook on the client, what it recorded (GumpHookRefresh). Read by the script, #GumpReply puts
+    // the hook on as #GumpReplyCnt does: it stayed N/A after a click on a client that had no hook yet.
     143: begin
-           GumpHookRefresh(False,HCnt);
+           GumpHookRefresh(GetCurrentThreadId<>MainThreadID,HCnt);
            Result:=GumpReply;
          end;
     144: Result:=            GumpReplyRes  ;

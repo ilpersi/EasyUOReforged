@@ -103,10 +103,10 @@ looks for that type, and `exevent GumpReply %answer` sends the whole answer.
   for an answer, which does no harm; its newer gumps pass it to the gump, and a confirmation then takes it as
   "not OK", like Cancel. The client's window is closed either way.
 - **Clicks by hand are recorded too.** The first `exevent GumpReply`, or the first time a script reads
-  [`#GumpReplyCnt`](/variables/gumpreplycnt/), puts a small hook into the client that records every gump answer it
-  sends: `#GumpReplyCnt` goes up and `#GumpReply` holds the answer. The hook stays until the client closes and
-  changes nothing the client does. On a client build where it can't be put in safely, only this command's answers
-  are recorded.
+  `#GumpReply` or [`#GumpReplyCnt`](/variables/gumpreplycnt/), puts a small hook into the client that records every
+  gump answer it sends: `#GumpReplyCnt` goes up and `#GumpReply` holds the answer. A click made before that is
+  not recorded. The hook stays until the client closes and changes nothing the client does. On a client build
+  where it can't be put in safely, only this command's answers are recorded.
 - It needs the client's event hook, as every `exevent` does.
 
 ## Reforged notes

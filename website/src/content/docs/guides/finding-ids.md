@@ -76,7 +76,9 @@ A script then finds that gump with `scangumps T_` followed by the type ID: `#Gum
 
 To answer it, a script needs the button number, and the IDs of its checkboxes and text fields. Click the button
 once yourself, then read [`#GumpReply`](/variables/gumpreply/): it holds what the click sent, in the words
-[`exevent GumpReply`](/commands/exevent/gumpreply/) takes. Run this probe first, then click:
+[`exevent GumpReply`](/commands/exevent/gumpreply/) takes. Run this probe first, then click: a click is recorded
+only once a script has read `#GumpReply` or `#GumpReplyCnt` since the client started, so one made before is
+lost.
 
 ```euo
 set %n #GumpReplyCnt

@@ -1,6 +1,6 @@
 ---
 title: "GetGumpReply"
-description: "Returns the last answer `GumpReply` sent through this handle, or, once the click hook is in the client (`GumpReply` and `GumpReplyCnt` put it there), the last one recorded, clicks by hand included."
+description: "Returns the last answer `GumpReply` sent through this handle, or, once the click hook is in the client (`GumpReply`, `GetGumpReply` and `GumpReplyCnt` put it there), the last one recorded, clicks by hand included."
 kind: dll-method
 category: method
 syntax: "Call GetGumpReply"
@@ -9,7 +9,7 @@ related: ["exevent GumpReply", "#GumpReply", "dll:GumpReply"]
 aliases: ["UO.GetGumpReply"]
 ---
 
-Returns the last answer `GumpReply` sent through this handle, or, once the click hook is in the client (`GumpReply` and `GumpReplyCnt` put it there), the last one recorded, clicks by hand included. Nil when there is none yet.
+Returns the last answer `GumpReply` sent through this handle, or, once the click hook is in the client (`GumpReply`, `GetGumpReply` and `GumpReplyCnt` put it there), the last one recorded, clicks by hand included. A click made before the hook was in is not recorded. Nil when there is none yet.
 
 ## Returns
 
