@@ -187,6 +187,60 @@ if #GumpReplyRes <> sent
 halt
 ```
 
+## Bring a gump to the front
+
+[`event ContTop`](/commands/event/conttop/) brings a gump to the front by its place from the top, counting
+from `0` and skipping the gumps on the [`IgnoreCont`](/commands/ignorecont/) list.
+[`scangumps`](/commands/scangumps/) lists every gump, counting from `1` and skipping none. So the `ContTop`
+number of a gump found with `scangumps` is the number of entries in front of it that are not on the
+`IgnoreCont` list. Scan without a `T_` or `A_` filter, or the count is wrong.
+
+The script keeps its own copy of the list: the names it starts with, plus any `ignorecont` the script runs.
+A window that opens between the scan and the `event ContTop` moves the count by one, so the script scans
+again until the gump is in front. A gump on the `IgnoreCont` list (the map, the menu bar) can't be brought
+forward this way.
+
+```euo
+set %want JHEIIPI   ; the gump's #GumpTypeID on your shard
+; the IgnoreCont list a script starts with, each name between _
+set %ign _BARK_GUMP_DAMAGENUMBERS_GUMP_DUMB_GUMP_GAMEAREAEDGEGUMP_MAP_GUMP_MENUBAR_
+set %ign %ign , MISSILE_GUMP_NEW_ITEM_PROP_GUMP_RETICLE_GUMP_TARGET_GUMP_UNICODE_BARK_GUMP_
+for %try 1 3
+{
+  gosub ContTopIndex %want
+  if #result < 1
+    break
+  event conttop #result
+  wait 2
+}
+if #result < 0
+  event sysmessage That gump is not open.
+halt
+
+; ContTopIndex typeID: the event ContTop number of the frontmost server gump
+; of that type (0 = already in front), or -1 when none is open.
+sub ContTopIndex
+  scangumps
+  set %n 0
+  set %at -1
+  for #GumpIndex 1 #GumpCnt
+  {
+    set %k _ , #GumpName , _
+    if %k in %ign
+      continue
+    if #GumpTypeID = %1
+    {
+      set %at %n
+      break
+    }
+    set %n %n + 1
+  }
+return %at
+```
+
+To find the gump another way, change the `#GumpTypeID` line: `#GumpArt = YE` for the backpack, or
+`#GumpObjID = %id` for a container or a paperdoll.
+
 ## Walk somewhere
 
 [`path go`](/commands/path/go/) plans a route around walls and water and walks it. Always read

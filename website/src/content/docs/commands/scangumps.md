@@ -7,7 +7,7 @@ syntax: scangumps [T_typeIDs] [A_artIDs]
 origin: reforged
 needsClient: true
 sets: ['#GumpCnt', '#GumpIndex', '#GumpName', '#GumpKind', '#GumpPosX', '#GumpPosY', '#GumpSizeX', '#GumpSizeY', '#GumpArt', '#GumpMin', '#GumpObjID', '#GumpSerial', '#GumpTypeID']
-related: ['#GumpIndex', '#GumpTypeID', '#ContKind', 'ScanBuffs', 'FindItem', 'dll:ScanGumps', 'dll:GetGump']
+related: ['#GumpIndex', '#GumpTypeID', '#ContKind', 'event ContTop', 'ScanBuffs', 'FindItem', 'dll:ScanGumps', 'dll:GetGump']
 dll: ScanGumps
 aliases: ['gump list', 'gumps', 'windows', 'server gump', 'open gumps']
 ---
@@ -100,6 +100,10 @@ halt
   client build.
 - **It is a snapshot.** The values are read when `ScanGumps` runs. A window that moves or closes
   afterwards keeps its old values until the next `ScanGumps`.
+- **Bringing a window to the front.** [`event ContTop`](/commands/event/conttop/) does it, but counts
+  from `0` and skips the [`IgnoreCont`](/commands/ignorecont/) gumps, which `ScanGumps` lists: see
+  [Bring a gump to the front](/guides/patterns/#bring-a-gump-to-the-front) for how to turn
+  `#GumpIndex` into its number.
 
 ## Reforged notes
 
