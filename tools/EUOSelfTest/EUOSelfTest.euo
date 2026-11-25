@@ -54,7 +54,7 @@
 ; ============================================================================
 menu Reforge Mode 1.6
 ; this file's revision, in the report header: raise it with every change, so a report shows which copy ran
-set %st_rev 2026.11.25.1
+set %st_rev 2026.11.25.2
 
 ; ---------------------------------------------------------------------------
 ;  DEVELOPER SWITCHES (no game values here: the script finds or asks for them)
@@ -453,7 +453,9 @@ sub st_run
   }
   set %st_dagger N/A
   set %st_daggerasked 0
+  set %st_daggerlost 0
   set %st_goldid N/A
+  set %st_goldlost 0
   set %st_mageready 0
   set %st_canmage 0
   set %st_handssaved 0
@@ -4000,8 +4002,12 @@ sub st_gr_can
     set %st_gr 1
 return
 
-; one dagger in the backpack, named %st_grtok -> %st_newid
+; one dagger in the backpack, named %st_grtok -> %st_newid (N/A, and none made, where it could not be found)
 sub st_gr_dagger
+  set %st_newid N/A
+  gosub st_bp_can
+  if %st_bpcan = 0
+    return
   gosub st_newitem_begin %st_dtypes B
   gosub st_staff self addtopack Dagger
   gosub st_newitem_end Dagger_for_the_gump_checks
@@ -4073,8 +4079,13 @@ sub st_c518
   set %st_grtok %st_tok
   gosub st_gr_dagger
   set %st_grd1 %st_newid
-  gosub st_gr_dagger
-  set %st_grd2 %st_newid
+  ; the second one only when the first was found: one finditem cannot see would not be the last
+  set %st_grd2 N/A
+  if %st_grd1 <> N/A
+  {
+    gosub st_gr_dagger
+    set %st_grd2 %st_newid
+  }
   if %st_grd1 = N/A || %st_grd2 = N/A
   {
     gosub st_block no_daggers
@@ -4472,6 +4483,13 @@ sub st_c603
       set %st_a %st_dagger
       gosub st_info 6.03 the_weapon_you_picked %fx_ltid
     }
+    return
+  }
+  ; no dagger is made where it could not be found (it would stay behind, unrecorded)
+  gosub st_bp_can
+  if %st_bpcan = 0
+  {
+    gosub st_skip 6.03 test_weapon BackpackID_is_not_read_(1.06)
     return
   }
   gosub st_cancel_cursor
@@ -7682,10 +7700,18 @@ sub st_ensure_dagger
   set %st_dtypes %st_dt1 , _ , %st_dt2
   if %st_staffok = 1
   {
+    ; made only where finditem can find it, and once: every check that needs the weapon asks for it, and a
+    ; dagger finditem could not see was made again by each of them (run 141 on 7.0.119.0, where
+    ; #BackpackID read N/A, left a dozen in the backpack, none recorded)
+    gosub st_bp_can
+    if %st_bpcan = 0 || %st_daggerlost = 1
+      return
     gosub st_newitem_begin %st_dtypes B
     gosub st_staff self addtopack Dagger
     gosub st_newitem_end Dagger
     set %st_dagger %st_newid
+    if %st_newid = N/A
+      set %st_daggerlost 1
     return
   }
   if %st_daggerasked = 1
@@ -7714,10 +7740,25 @@ sub st_ensure_gold
   set %st_goldid N/A
   if %st_staffok = 0
     return
+  ; only where finditem can find it, and once (as st_ensure_dagger)
+  gosub st_bp_can
+  if %st_bpcan = 0 || %st_goldlost = 1
+    return
   gosub st_newitem_begin POF B
   gosub st_staff self addtopack Gold 1234
   gosub st_newitem_end Gold
   set %st_goldid %st_newid
+  if %st_newid = N/A
+    set %st_goldlost 1
+return
+
+; can an object made in the backpack be found? -> %st_bpcan 1/0: not when 1.06 failed (#BackpackID is not
+; read), as nothing made in it could be found, deleted at the end, or recorded for the clean-up
+sub st_bp_can
+  set %st_bpcan 1
+  set %st_bpk | , 1.06 , |
+  if %st_bpk in %st_bad || #BackpackID = N/A
+    set %st_bpcan 0
 return
 
 ; ---- what casting Magic Arrow and Bless needs -> %st_canmage ---------------

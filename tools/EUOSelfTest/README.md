@@ -241,7 +241,11 @@ A value that could not be read (`N/A`, empty) is never sent back (`[self set Hit
 the change is not recorded, and the CLEAN-UP line says `not_recorded:_the_old_value_is_unknown`; an open
 row with such a value is closed with `not_restored:_the_old_value_is_unknown`. An object the script made
 but `finditem` never saw (a table that reads the backpack wrong) has no ID to delete: it is listed as
-`created_not_found_[Gold]`, `result=not_found:_delete_the_Gold_by_hand`, so you know what to delete.
+`created_not_found_[Gold]`, `result=not_found:_delete_the_Gold_by_hand`, so you know what to delete. So
+that this stays rare, nothing is made in the backpack for later checks once 1.06 failed (`#BackpackID` not
+read: the test weapon, the gold pile, the gump checks' daggers), and the test weapon and the gold pile are
+made once only when `finditem` cannot see them: every check that needs one asks for it, and a run with
+`ST_NOSTOP` on 7.0.119.0 (run 141) left a dozen unrecorded daggers in the backpack that way.
 
 **The test spot** must be open ground with walkable tiles two steps east and two steps south: the walking
 checks use them, and check them first with `path can` (a blocked way is skipped, not failed). With staff
