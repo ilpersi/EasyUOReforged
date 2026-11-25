@@ -341,6 +341,10 @@ end;
 // call it, put the originals back. The index is at Tab+BMACROIDX: Tab+4 on the builds before
 // 7.0.118.132, Tab-4 on that beta (with +4 there the client's own index stayed as its last macro left
 // it, and the executor ran an empty step of our table).
+// The 7.0.119.0 beta's executor takes the two as a fastcall instead (table in ecx, index in edx; the
+// client's own step loads them from the same globals, and a one-entry call of its own passes an entry
+// and 0), so the cave also loads ecx and edx. The older executors read the globals and never look at
+// ecx / edx, which are scratch registers there: they run exactly as before.
 function TUOEvent.MacroFastCode(Par1, Par2 : Cardinal) : String;
 var
   s   : String;
@@ -352,7 +356,9 @@ begin
      #199#5+NumStr(Cst.EMACROTAB,4,True)+                   // mov  [Tab], 00800070
        NumStr(BaseAddr+$70,4,True)+                         //
      #199#5+NumStr(Idx,4,True)+                             // mov  [Idx], 0
-       #0#0#0#0;                                            //
+       #0#0#0#0+                                            //
+     #185+NumStr(BaseAddr+$70,4,True)+                      // mov  ecx, 00800070  (fastcall table)
+     #49#210;                                               // xor  edx, edx       (fastcall index 0)
   Result:=s+
      #104+NumStr(BaseAddr+$20+Length(s)+11,4,True)+         // push below ret
      #104+NumStr(Cst.EMACROADDR,4,True)+                    // push Proc
@@ -435,7 +441,8 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Port addition (relocated builds): BlockInfo's loop for a tile query that wants X in ecx, Y in
-// edx and the four stack arguments Z, 0, @T, 0 (caller pops). Same layout as the original: code
+// edx and the four stack arguments Z, 0, @T, @flag (caller pops; the function stores a byte through the
+// last one, on the 7.0.119.0 beta unconditionally). Same layout as the original: code
 // padded to BaseAddr+$70, then the dwords X, Y, W, T that the code reads and writes.
 function TUOEvent.BlockInfoFastCode(X,Y,Z,W,H : Integer) : String;
 const

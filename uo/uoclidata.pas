@@ -5901,25 +5901,90 @@ SysVarModernAddrs_6AE4B775 : array[0..17] of TSysVarList = (
   (Expr: LISTEND;     Val: 0)
 );
 
-ModernBuilds : array[0..2] of TModernBuild = (
+// The 7.0.119.0 beta, PE stamp $6AFC93F7 (seen on 2026-11-18). Every C_*/E_* address comes from
+// ScannerTable_Modern at runtime (an emulation of the scan over this exe finds all 48 fields; the lines
+// marked $6AFC93F7 there were added for it). It is the first beta whose OBJECT layout moved: the
+// serial is at object + $120, not + $118, so B_ITEMID is overridden here for this build only (B_POS,
+// B_ITEMTYPE, B_ITEMSTACK and everything addressed relative to the id but the notoriety are unchanged).
+// Self-test run 141 (2026-11-24) failed every check that reads the character or an item for that alone.
+// Each value below was read from this build's code (link-time addresses), and where the client shows
+// it, in the running client (read only, 2026-11-24):
+//   B_ITEMID    the player object has serial 1 at + $120, its status gump at id + $10 ('Boydon' at
+//               + $154), its backpack (40000003, slot byte id + $25 = 21) in the chain at id + $C; the
+//               code reads the serial as [obj + $120] everywhere (target handler $6FF398, pick-up $6DFDE1)
+//   B_FINDREP   notoriety 3 on the player at id + $218 (object + $338)
+//   B_LANG      'ENU' at $D78600 = C_LHANDID ($D78650) - $50
+//   B_TITHE     10000 at $B59650 = C_NEXTCPOS ($B595D0) + $80 (the layout's + $7C holds a 2)
+//   B_NEXTCX    the container gump code ($67F6CF) wraps [$B595CC] at the screen width and passes it as the
+//               gump's X, [$B595D0] (C_NEXTCPOS) as its Y
+//   B_CLITOP    the walk-to function ($6BC360) adds [C_CLILEFT] ($D7C730) to the screen X and [$D7C6FC] to
+//               the screen Y: the top sits $34 before the left, not 4
+//   B_LTARGID, B_LTARGTILE, B_LTARGKIND, B_LTARGX  the target handler ($6FF330) stores an object's serial
+//               at $D78664 (not when it is the player), a static's graphic at $D78688, the kind (1 object,
+//               2 ground, 3 static) at $D78690, and X, Y / Z at $2301C48 / $2301C4C
+//   B_LSKILL / B_LSPELL  the macro executor's Use Skill case stores the skill at $D78608 and Last Skill
+//               reads it there; Last Spell reads $D78618, which the cast routine ($45DD3D) writes
+//   B_LHAND / B_RHAND  the arm/disarm macro ($6AB9D0) reads and writes [hand*4 + $D78670], hand 1 or 2
+//   B_TARGPROC  [$D7BB9C] = C_TARGETCURS ($D7950C) + $2690 is compared with the client's target callbacks
+//               ($519080, $519270) next to `mov [C_TARGETCURS],0`
+//   B_LLIFTEDTYPE / B_LLIFTEDKIND  the pick-up function ($6DFC30, E_DRAGADDR) stores the serial at
+//               C_LLIFTEDID ($DAAF4C), the type word [item+$70] at $DAAF28 (- $24) and sets the dword at
+//               $DAAF18 (- $34) to 1; the arm/disarm macro returns early while that dword is set
+//   B_MACROIDX  the client's own macro start ($6A7300) stores the table at E_MACROTAB ($D78684) and zeroes
+//               the step index at $D78680, the dword before it, as on 7.0.118.132. The executor
+//               (E_MACROADDR $6A7510) takes the two in ecx / edx on this build: see uoevents.pas MacroFastCode
+//   B_PATHPROLOGUE  the walk-to function ($6BC320) builds its frame in $26 bytes (`push ecx` where the
+//               older betas had `sub esp,8`); E_PATHFINDMID $6BC389 reads X/Y/Z from [eax+48/4A/4C]
+// Unchanged and checked: B_CLIYRES (the height is the dword after the width again, 600), B_PROPFLAG (the
+// property function sets this + $15C), the stat-bar function's mobile at [ecx+$4C], C_BLOCKINFO's
+// arguments (Z, direction, @new Z, @flag; caller pops 16), the gump fields (EUOMigrate, from the code).
+// #CharDir (C_CHARDIR $5A84BD0, scanned) is the first record of the client's step queue: the direction of
+// the last step, 0 until the character has walked since login.
+SysVarModernAddrs_6AFC93F7 : array[0..19] of TSysVarList = (
+  (Expr: B_ITEMID;    Val: $00000120),   // object + $120: the serial
+  (Expr: B_FINDREP;   Val: $00000218),   // object + $338
+  (Expr: B_LANG;      Val: $00000050),   // $D78600 = C_LHANDID - $50
+  (Expr: B_LSPELL;    Val: $FFFFFFC8),   // $D78618
+  (Expr: B_LSKILL;    Val: $FFFFFFB8),   // $D78608
+  (Expr: B_LTARGX;    Val: $015895F8),   // $2301C48
+  (Expr: B_LTARGID;   Val: $00000014),   // $D78664
+  (Expr: B_LTARGTILE; Val: $00000038),   // $D78688
+  (Expr: B_LTARGKIND; Val: $00000040),   // $D78690: 1 object, 2 ground, 3 static
+  (Expr: B_LHAND;     Val: $00000024),   // $D78674: hand 1
+  (Expr: B_RHAND;     Val: $00000028),   // $D78678: hand 2
+  (Expr: B_NEXTCX;    Val: $FFFFFFFC),   // $B595CC: X, the dword before its Y
+  (Expr: B_TITHE;     Val: $00000080),   // $B59650
+  (Expr: B_CLITOP;    Val: $FFFFFFCC),   // $D7C6FC: the top, $34 before the left
+  (Expr: B_TARGPROC;  Val: $00002690),   // $D7BB9C
+  (Expr: B_LLIFTEDTYPE; Val: $00000024), // $DAAF28: the type sits $24 BEFORE the id
+  (Expr: B_LLIFTEDKIND; Val: $FFFFFFCC), // $DAAF18: 1 while an item is on the cursor
+  (Expr: B_MACROIDX;  Val: $FFFFFFFC),   // $D78680: the macro step index, the dword before the table
+  (Expr: B_PATHPROLOGUE; Val: $00000026),// the walk-to function's frame setup
+  (Expr: LISTEND;     Val: 0)
+);
+
+ModernBuilds : array[0..3] of TModernBuild = (
   (Stamp: $6AC94360; Layout: @SysVarModernLayout; Addrs: @SysVarModernAddrs),
   (Stamp: $6AD6CEB3; Layout: @SysVarModernLayout; Addrs: @SysVarModernAddrs_6AD6CEB3),
-  (Stamp: $6AE4B775; Layout: @SysVarModernLayout; Addrs: @SysVarModernAddrs_6AE4B775)
+  (Stamp: $6AE4B775; Layout: @SysVarModernLayout; Addrs: @SysVarModernAddrs_6AE4B775),
+  (Stamp: $6AFC93F7; Layout: @SysVarModernLayout; Addrs: @SysVarModernAddrs_6AFC93F7)
 );
 
 // Runtime signature scan for the relocatable ("modern") builds. Mirrors
 // tools\EUOUpdater\"EUO Updtr Strings modern.txt" line for line (see that file's header for how the
-// patterns were built and verified): 85 patterns for 48 fields, each unique in the 7.0.117.1 beta's
+// patterns were built and verified): 104 patterns for 48 fields, each unique in the 7.0.117.1 beta's
 // code section and resolving to the hand-verified address, statically and live (the C_SKILLSPOS and
 // B_SKILLDIST ones, and those marked $6AD6CEB3 below, in the beta stamped $6AD6CEB3, which
-// replaced it). Address operands, rel32 targets and ebp/esp displacements are wildcards; the joker
+// replaced it; those marked $6AFC93F7 in the 7.0.119.0 beta, generated by EUOMigrate and checked
+// against that build's code: each matches once there, and on the betas stamped $6AD6CEB3 and
+// $6AE4B775 either nothing or the address the older lines give). Address operands, rel32 targets and ebp/esp displacements are wildcards; the joker
 // is picked per pattern so it never collides with a fixed byte. They apply to the same compiler's code across rebuilds, so an unknown
 // beta of it fills in its own addresses here; nothing else is ever guessed for an unknown build.
 // A second pattern for a field is a fallback anchored in another function. Where several patterns
 // of a field match, the LAST one's result is kept (ScanMemory overwrites, EUO Updtr replaces its
 // line): a $6AD6CEB3 pattern for a function that changed sits before the older beta's, so that one
 // still decides on that beta.
-ScannerTable_Modern : array[0..87] of TScannerEntry = (
+ScannerTable_Modern : array[0..104] of TScannerEntry = (
     // E_REDIR
     (Joker: $11; Unused: (0,0,0); AddOffset1: 12; Mode: 1; AddOffset2: 0; Expr: E_REDIR;
      Pattern: '6A0068E8030000FF75C86A00E8111111118BF0B85917B7D1F765C4'),
@@ -5953,6 +6018,13 @@ ScannerTable_Modern : array[0..87] of TScannerEntry = (
     (Joker: $11; Unused: (0,0,0); AddOffset1: 31; Mode: 3; AddOffset2: 0; Expr: E_SENDECX;
      Pattern: 'C78174010000010000008B921801000074118D8D11111111E8111111118B0D11111111'),
     // E_MACROADDR
+    // $6AFC93F7: the frame grew from $2078 to $2090 bytes and the executor now takes the table in ecx and the
+    // step index in edx (`lea eax,[edx+edx*4]; mov edi,1; lea esi,[ecx+eax*4]`, part of the pattern). The
+    // fallback is the client's one-entry call ($50B6AD: `xor edx,edx; lea ecx,[entry]; call`).
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_MACROADDR;
+     Pattern: '558BEC6AFF681111111164A10000000050B890200000E811111111A11111111133C58945115657508D451164A3000000008D0492BF010000008D34818B4618'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 15; Mode: 2; AddOffset2: 0; Expr: E_MACROADDR;
+     Pattern: '89851111111133D28D8D11111111E8111111118BF0F7DE1BF64685DB'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_MACROADDR;
      Pattern: '558BEC6AFF681111111164A10000000050B878200000E811111111A11111111133C5894511'),
     // E_MACROTAB
@@ -5961,21 +6033,45 @@ ScannerTable_Modern : array[0..87] of TScannerEntry = (
     (Joker: $11; Unused: (0,0,0); AddOffset1: 18; Mode: 3; AddOffset2: 0; Expr: E_MACROTAB;
      Pattern: '64A300000000A111111111BF010000008B0D111111118D04808D3481'),
     // E_CONTTOP
+    // $6AFC93F7: the same body with the virtual call one slot further ($1AC -> $1B0); the fallback is a caller.
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_CONTTOP;
+     Pattern: '558BEC83E4F883EC2C53568BF1578B06FF90B001000085C0'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 26; Mode: 2; AddOffset2: 0; Expr: E_CONTTOP;
+     Pattern: '894138EB11C7413800000000E8111111118B0D111111116A00E811111111'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_CONTTOP;
      Pattern: '558BEC83E4F883EC2C53568BF1578B06FF90AC01000085C0'),
     // E_STATBAR
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_STATBAR;
      Pattern: '558BEC6AFF681111111164A1000000005083EC18A11111111133C589451153'),
     // E_DRAGADDR
+    // $6AFC93F7: a smaller frame ($14) and a busy-flag test (`cmp byte [g],0`) right after `mov ebx,edx;
+    // mov esi,ecx`; the fallback is a caller.
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_DRAGADDR;
+     Pattern: '558BEC6AFF681111111164A1000000005083EC14A11111111133C5894511535657508D451164A3000000008BDA8BF1803D1111111100'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 1; Mode: 2; AddOffset2: 0; Expr: E_DRAGADDR;
+     Pattern: 'E811111111C7866401000000000000C7865C01000000000000'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_DRAGADDR;
      Pattern: '558BEC6AFF681111111164A1000000005083EC1CA11111111133C5894511535657508D451164A3000000008BDA8BF1E811111111'),
     // C_BLOCKINFO
+    // $6AFC93F7: an 8-byte aligned frame (`and esp,-8`) of $1844 bytes; the fallback is the step check's call.
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: C_BLOCKINFO;
+     Pattern: '558BEC83E4F8B844180000E811111111A11111111133C489842411111111'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 1; Mode: 2; AddOffset2: 0; Expr: C_BLOCKINFO;
+     Pattern: 'E8111111118D4F0183CAFF6A0183E107E81111111183C414'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: C_BLOCKINFO;
      Pattern: '558BECB84C180000E811111111A11111111133C58945118B4511538B5D1156898D11111111'),
     // E_PATHFINDADDR
+    // $6AFC93F7: `push ecx` instead of `sub esp,8` in the prologue (B_PATHPROLOGUE $26); the fallback is a caller.
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_PATHFINDADDR;
+     Pattern: '558BEC6AFF681111111164A1000000005051535657A11111111133C5508D451164A300000000803D1111111100'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 13; Mode: 2; AddOffset2: 0; Expr: E_PATHFINDADDR;
+     Pattern: 'C78678010000000000005E5DE91111111183BE6C01000000'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_PATHFINDADDR;
      Pattern: '558BEC6AFF681111111164A1000000005083EC08535657A11111111133C5508D451164A300000000803D1111111100'),
     // E_PATHFINDMID
+    // $6AFC93F7: the same entry after the tile lookup, reading X/Y/Z from [eax+48/4A/4C] into other registers.
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_PATHFINDMID;
+     Pattern: '0FBF48488B15111111118B35111111118B3D111111118B1D11111111894D110FBF484A'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0; Expr: E_PATHFINDMID;
      Pattern: '0FBF70480FBF484A0FBF404C8B15111111118B3D111111118B1D11111111894511A111111111897511'),
     // E_ITEMCHECKADDR
@@ -6133,6 +6229,12 @@ ScannerTable_Modern : array[0..87] of TScannerEntry = (
     (Joker: $11; Unused: (0,0,0); AddOffset1: 24; Mode: 3; AddOffset2: 0; Expr: C_TARGETCURS;
      Pattern: 'C7876001000000000000FF9098020000FF0511111111833D1111111100'),
     // C_CURSORKIND
+    // $6AFC93F7: the two older lines no longer match; these two read the same byte (`movzx eax, byte [g]`)
+    // in two other functions.
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 10; Mode: 3; AddOffset2: 0; Expr: C_CURSORKIND;
+     Pattern: '0FBF404C89461C0FB605111111118946208B5704'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 23; Mode: 3; AddOffset2: 0; Expr: C_CURSORKIND;
+     Pattern: '8BC28985111111118BF133DB899D11111111FF300FB6051111111150'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 3; Mode: 3; AddOffset2: 0; Expr: C_CURSORKIND;
      Pattern: '0FB605111111118983340200008B01C6833802000000C6835C01000001'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 16; Mode: 3; AddOffset2: 0; Expr: C_CURSORKIND;
@@ -6143,6 +6245,13 @@ ScannerTable_Modern : array[0..87] of TScannerEntry = (
     (Joker: $11; Unused: (0,0,0); AddOffset1: 5; Mode: 3; AddOffset2: 0; Expr: C_POPUPID;
      Pattern: 'C1E80F893511111111C6442411BF85C07411B8030000006689442411'),
     // C_LLIFTEDID
+    // $6AFC93F7: the object's serial moved to +$120 (B_ITEMID), which the first older line spells out as
+    // +$118. These compare a serial with the lifted one: `cmp ecx,[edx+120h]; jne; ...; cmp [lifted],ecx`,
+    // and `mov ecx,[ebp-x]; cmp ecx,[lifted]; je` in another function.
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 20; Mode: 3; AddOffset2: 0; Expr: C_LLIFTEDID;
+     Pattern: '3B8A2001000075118BC285C00F8511111111390D111111110F8411111111'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 18; Mode: 3; AddOffset2: 0; Expr: C_LLIFTEDID;
+     Pattern: 'C645112083790C0075118B8D111111113B0D111111117411E81111111184C0'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 7; Mode: 3; AddOffset2: 0; Expr: C_LLIFTEDID;
      Pattern: '8B8618010000A3111111118BC1250080000066893D1111111181E1FF3F0000'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 29; Mode: 3; AddOffset2: 0; Expr: C_LLIFTEDID;
@@ -6153,6 +6262,12 @@ ScannerTable_Modern : array[0..87] of TScannerEntry = (
     (Joker: $11; Unused: (0,0,0); AddOffset1: 33; Mode: 3; AddOffset2: -12; Expr: C_LHANDID;
      Pattern: '8D5511B9F4000000E811111111E911111111833D11111111000F84111111118B0D1111111185C90F8411111111'),
     // C_CLILOC: the cliloc lookup wrapper, `mov esi,ecx; mov ecx,[manager]; push edx; push esi; call find`
+    // $6AFC93F7: the wrapper above no longer matches; these two load the manager elsewhere
+    // (`mov esi,[manager]; test esi,esi` and `mov edx,[manager]; mov esi,[edx+8]`).
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 26; Mode: 3; AddOffset2: 0; Expr: C_CLILOC;
+     Pattern: '64A300000000803D11111111000F8411111111E8111111118B351111111185F6'),
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 14; Mode: 3; AddOffset2: 0; Expr: C_CLILOC;
+     Pattern: 'C7451100000000B8111111118B15111111118B72088A0E3A08'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 7; Mode: 3; AddOffset2: 0; Expr: C_CLILOC;
      Pattern: '566A008BF18B0D111111115256E8111111118BC65EC3'),
     // C_BUFFTIMERS: in CBuffIconsGump::GetToolTipString, `mov eax,[timer map head]` just before the

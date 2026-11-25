@@ -6,6 +6,8 @@ What changes for script users in each release of EasyUO Reforged. New entries go
 
 ### Added
 
+- **`client_beta.exe` 7.0.119.0 is supported.** On this beta `#CharID`, `#CharName`, `#BackpackID`, the status values (`#Hits`, `#Str`, `#Gold`, …), `#CharStatus` and `#FindRep` read nothing or nonsense, `#CliLang`, `#TP`, `#CliTop`, `#NextCPosX`, the last target, the last spell and skill, the hands, `#LLiftedID`/`#LLiftedType`/`#LLiftedKind` and `#CursKind` read the wrong place, and `event macro`, `event ContTop`, `event Drag`, `event PathFind`, `path can` and `scanbuffs` did nothing. They now read and act where this build keeps them. See [Known limitations](https://ilpersi.github.io/EasyUOReforged/reforged/known-limitations/).
+
 ### Changed
 
 ### Fixed

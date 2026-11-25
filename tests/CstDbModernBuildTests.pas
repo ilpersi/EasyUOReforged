@@ -96,6 +96,9 @@ type
     procedure TestNextBetaOverridesOnlyItsMovedDistances;
     procedure TestBeta118132GetsItsRearrangedCluster;
     procedure TestBeta118132ReadsTheGameAreaHeightBeforeItsWidth;
+    procedure TestBeta119GetsItsOwnLayout;
+    procedure TestBeta119FindsItsChangedFunctionsByScanning;
+    procedure TestBeta119MacroCaveHandsTheExecutorItsRegisters;
     procedure TestUnknownModernBuildNeverInheritsFixedBaseAddresses;
     procedure TestFixedBaseBuildIsUntouched;
     procedure TestUnknownModernBuildFindsItsHookByScanning;
@@ -444,6 +447,108 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// The 7.0.119.0 beta ($6AFC93F7): the first build whose object layout moved (the serial at object
+// + $120), its own last-action cluster, lifted item, window top and walk-to prologue. Another build
+// read afterwards gets its own values back: a per-build row must never leak into the next client.
+procedure TCstDbModernBuildTests.TestBeta119GetsItsOwnLayout;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader($6AFC93F7, $8140);
+  Cst.Update('7.0.119.0', PHnd);
+  AssertTrue('modern', Cst.ISMODERN);
+  Eq('serial at object + $120', $120, Cst.BITEMID);
+  Eq('notoriety at object + $338', $218, Cst.BFINDREP);
+  Eq('client language string', $50, Cst.BLANG);
+  Eq('last spell', $FFFFFFC8, Cst.BLSPELL);
+  Eq('last skill', $FFFFFFB8, Cst.BLSKILL);
+  Eq('last target X/Y/Z', $015895F8, Cst.BLTARGX);
+  Eq('last target id', $14, Cst.BLTARGID);
+  Eq('last target tile', $38, Cst.BLTARGTILE);
+  Eq('last target kind', $40, Cst.BLTARGKIND);
+  Eq('left hand', $24, Cst.BLHAND);
+  Eq('right hand', $28, Cst.BRHAND);
+  Eq('next-container X before its Y', $FFFFFFFC, Cst.BNEXTCX);
+  Eq('tithing points', $80, Cst.BTITHE);
+  Eq('window top $34 before its left', $FFFFFFCC, Cst.BCLITOP);
+  Eq('target callback pointer', $2690, Cst.BTARGPROC);
+  Eq('lifted type $24 before the id', $24, Cst.BLLIFTEDTYPE);
+  Eq('lifted flag $34 before the id', $FFFFFFCC, Cst.BLLIFTEDKIND);
+  Eq('macro step index before the table', $FFFFFFFC, Cst.BMACROIDX);
+  Eq('walk-to prologue', $26, Cst.BPATHPROLOGUE);
+  Eq('B_POS: layout', $48, Cst.BPOS);
+  Eq('B_ITEMTYPE: layout', $70, Cst.BITEMTYPE);
+  Eq('status gump name: layout', $154, Cst.BSTATNAME);
+  Eq('game area height after its width again', 4, Cst.BCLIYRES);
+  Eq('C_LHANDID is left to the scan', 0, Cst.LHANDID);
+  Eq('E_MACROADDR is left to the scan', 0, Cst.EMACROADDR);
+  // the beta before it, read next, has its own values again
+  WriteHeader($6AE4B775, $8140);
+  Cst.Update('7.0.118.132', PHnd);
+  Eq('.132: serial at object + $118', $118, Cst.BITEMID);
+  Eq('.132: notoriety', $214, Cst.BFINDREP);
+  Eq('.132: last target kind', $14, Cst.BLTARGKIND);
+  Eq('.132: window top from the layout', $FFFFFFFC, Cst.BCLITOP);
+  Eq('.132: walk-to prologue from the layout', $28, Cst.BPATHPROLOGUE);
+  // and a build this file does not know gets the layout
+  WriteHeader($6AFC93F7 + 1, $8140);
+  Cst.Update('7.0.119.0', PHnd);
+  Eq('unknown: serial from the layout', $118, Cst.BITEMID);
+  Eq('unknown: language from the layout', $200, Cst.BLANG);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The nine fields the older patterns no longer found on the 7.0.119.0 beta, from that build's own bytes
+// (copied from the exe, absolute operands as they are there): the six functions whose start changed must
+// be found where they are laid, and the three globals read from the operand the pattern points at.
+procedure TCstDbModernBuildTests.TestBeta119FindsItsChangedFunctionsByScanning;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader($6AFC93F7, $8140, $2000);               // code = $401000..$403000
+  // E_MACROADDR $6A7510: frame $2090, then `lea eax,[edx+edx*4]; mov edi,1; lea esi,[ecx+eax*4]`
+  PutBytes($401100, [$55,$8B,$EC,$6A,$FF,$68,$9C,$10,$89,$00,$64,$A1,$00,$00,$00,$00,$50,$B8,$90,$20,
+                     $00,$00,$E8,$55,$C5,$10,$00,$A1,$2C,$3E,$A4,$00,$33,$C5,$89,$45,$F0,$56,$57,$50,
+                     $8D,$45,$F4,$64,$A3,$00,$00,$00,$00,$8D,$04,$92,$BF,$01,$00,$00,$00,$8D,$34,$81,
+                     $8B,$46,$18]);
+  // E_CONTTOP $67E9B0: `call [eax+$1B0]`
+  PutBytes($401200, [$55,$8B,$EC,$83,$E4,$F8,$83,$EC,$2C,$53,$56,$8B,$F1,$57,$8B,$06,$FF,$90,$B0,$01,
+                     $00,$00,$85,$C0]);
+  // E_DRAGADDR $6DFC30: frame $14, `mov ebx,edx; mov esi,ecx; cmp byte [g],0`
+  PutBytes($401300, [$55,$8B,$EC,$6A,$FF,$68,$08,$4E,$89,$00,$64,$A1,$00,$00,$00,$00,$50,$83,$EC,$14,
+                     $A1,$2C,$3E,$A4,$00,$33,$C5,$89,$45,$F0,$53,$56,$57,$50,$8D,$45,$F4,$64,$A3,$00,
+                     $00,$00,$00,$8B,$DA,$8B,$F1,$80,$3D,$D4,$0D,$30,$02,$00]);
+  // C_BLOCKINFO $6C2AA0: `and esp,-8`, frame $1844
+  PutBytes($401400, [$55,$8B,$EC,$83,$E4,$F8,$B8,$44,$18,$00,$00,$E8,$D0,$0F,$0F,$00,$A1,$2C,$3E,$A4,
+                     $00,$33,$C4,$89,$84,$24,$40,$18,$00,$00]);
+  // E_PATHFINDADDR $6BC320: `push ecx` in the prologue
+  PutBytes($401500, [$55,$8B,$EC,$6A,$FF,$68,$F0,$27,$89,$00,$64,$A1,$00,$00,$00,$00,$50,$51,$53,$56,
+                     $57,$A1,$2C,$3E,$A4,$00,$33,$C5,$50,$8D,$45,$F4,$64,$A3,$00,$00,$00,$00,$80,$3D,
+                     $65,$96,$A4,$00,$00]);
+  // E_PATHFINDMID $6BC389
+  PutBytes($401600, [$0F,$BF,$48,$48,$8B,$15,$E0,$91,$D7,$00,$8B,$35,$14,$8A,$D7,$00,$8B,$3D,$98,$8A,
+                     $D7,$00,$8B,$1D,$9C,$8A,$D7,$00,$89,$4D,$F0,$0F,$BF,$48,$4A]);
+  // C_CURSORKIND, read at $4C706D: movzx eax, byte [$D7996F]
+  PutBytes($401700, [$0F,$BF,$40,$4C,$89,$46,$1C,$0F,$B6,$05,$6F,$99,$D7,$00,$89,$46,$20,$8B,$57,$04]);
+  // C_LLIFTEDID, at $42774F: cmp ecx,[edx+$120] ... cmp [$DAAF4C],ecx
+  PutBytes($401800, [$3B,$8A,$20,$01,$00,$00,$75,$5D,$8B,$C2,$85,$C0,$0F,$85,$AA,$00,$00,$00,$39,$0D,
+                     $4C,$AF,$DA,$00,$0F,$84,$9E,$00,$00,$00]);
+  // C_CLILOC, at $4414DE: mov esi,[$A64970]; test esi,esi
+  PutBytes($401900, [$64,$A3,$00,$00,$00,$00,$80,$3D,$5F,$B9,$A5,$00,$00,$0F,$84,$91,$01,$00,$00,$E8,
+                     $6A,$44,$26,$00,$8B,$35,$70,$49,$A6,$00,$85,$F6]);
+
+  Cst.Update('7.0.119.0', PHnd);
+
+  Eq('E_MACROADDR', $401100, Cst.EMACROADDR);
+  Eq('E_CONTTOP', $401200, Cst.ECONTTOP);
+  Eq('E_DRAGADDR', $401300, Cst.EDRAGADDR);
+  Eq('C_BLOCKINFO', $401400, Cst.BLOCKINFO);
+  Eq('E_PATHFINDADDR', $401500, Cst.EPATHFINDADDR);
+  Eq('E_PATHFINDMID', $401600, Cst.EPATHFINDMID);
+  Eq('C_CURSORKIND', $00D7996F, Cst.CURSORKIND);
+  Eq('C_LLIFTEDID', $00DAAF4C, Cst.LLIFTEDID);
+  Eq('C_CLILOC', $00A64970, Cst.CLILOC);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 // The beta stamped $6AD6CEB3 lists only the distances between two globals that moved in it: it
 // gets those, the rest of the layout, and no address at all (the scan finds them).
 procedure TCstDbModernBuildTests.TestNextBetaOverridesOnlyItsMovedDistances;
@@ -706,8 +811,12 @@ begin
   Eq('saves the index', Sel.CstDB.EMACROTAB+4, Dw(C,8));
   Eq('zeroes the index', Sel.CstDB.EMACROTAB+4, Dw(C,24));
   Eq('restores the index', Sel.CstDB.EMACROTAB+4, Dw(C,Pop+2));
-  Eq('push below -> first pop', CaveBase+$20+Pop, Dw(C,33));
-  Eq('func', Sel.CstDB.EMACROADDR, Dw(C,38));
+  Eq('mov ecx (the 7.0.119.0 executor''s table argument)', $B9, Bt(C,32));
+  Eq('ecx = the one entry', CaveBase+$70, Dw(C,33));
+  Eq('xor edx,edx (its index argument)', $31, Bt(C,37));
+  Eq('xor edx,edx', $D2, Bt(C,38));
+  Eq('push below -> first pop', CaveBase+$20+Pop, Dw(C,40));
+  Eq('func', Sel.CstDB.EMACROADDR, Dw(C,45));
   Eq('the table points at the one entry at +$70', CaveBase+$70, Dw(C,18));
   AssertTrue('code stays clear of the table at +$70', Length(C)<=$70-$20);
 end;
@@ -746,6 +855,54 @@ begin
   Eq('restores the index before it', Tab-4, Dw(C,Pop+2));
   Eq('restores the table', Tab, Dw(C,Pop+8));
   AssertEquals('never the dword after the table', 0, Pos(NumStr(Tab+4,4,True), C));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The 7.0.119.0 beta's macro executor takes the table in ecx and the step index in edx. The cave still
+// points the two globals at its entry (and restores them), and loads ecx with the entry and edx with 0
+// right before it jumps to the executor.
+procedure TCstDbModernBuildTests.TestBeta119MacroCaveHandsTheExecutorItsRegisters;
+const
+  Tab  = $00D78684;
+  ExecAt = $00401200;
+var
+  C   : String;
+  Pop : Integer;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader($6AFC93F7, $8140, $2000);
+  // the client's macro start ($6A7342): mov [Tab],eax; mov [Tab-4],0; mov byte [running],1 -- the first
+  // E_MACROTAB line
+  PutBytes($401100, [$8B,$80,$E0,$00,$00,$00,$83,$E9,$01,$75,$F5,$A3,$84,$86,$D7,$00,$C7,$05,$80,$86,
+                     $D7,$00,$00,$00,$00,$00,$C6,$05,$FF,$85,$D7,$00,$01]);
+  // the executor's start ($6A7510), the first E_MACROADDR line
+  PutBytes(ExecAt, [$55,$8B,$EC,$6A,$FF,$68,$9C,$10,$89,$00,$64,$A1,$00,$00,$00,$00,$50,$B8,$90,$20,
+                  $00,$00,$E8,$55,$C5,$10,$00,$A1,$2C,$3E,$A4,$00,$33,$C5,$89,$45,$F0,$56,$57,$50,
+                  $8D,$45,$F4,$64,$A3,$00,$00,$00,$00,$8D,$04,$92,$BF,$01,$00,$00,$00,$8D,$34,$81,
+                  $8B,$46,$18]);
+  Sel:=TUOSel.Create;
+  Sel.CstDB.Update('7.0.119.0', PHnd);
+  Eq('E_MACROTAB', Tab, Sel.CstDB.EMACROTAB);
+  Eq('E_MACROADDR', ExecAt, Sel.CstDB.EMACROADDR);
+  Vr:=TUOVar.Create(Sel);
+  Ev:=TCaveEvent.Create(Sel, Vr, nil);
+  Ev.CavePrepare(CaveBase);
+  C:=Ev.CaveMacro(8, 1);
+  Pop:=Length(C)-13;
+  Eq('saves the table', Tab, Dw(C,2));
+  Eq('saves the index before it', Tab-4, Dw(C,8));
+  Eq('points the table at the entry', CaveBase+$70, Dw(C,18));
+  Eq('zeroes the index before it', Tab-4, Dw(C,24));
+  Eq('mov ecx', $B9, Bt(C,32));
+  Eq('ecx = the entry', CaveBase+$70, Dw(C,33));
+  Eq('xor edx,edx', $D231, Bt(C,37) or (Bt(C,38) shl 8));
+  Eq('push below', $68, Bt(C,39));
+  Eq('below -> the first pop', CaveBase+$20+Pop, Dw(C,40));
+  Eq('push the executor', ExecAt, Dw(C,45));
+  Eq('ret into it', $C3, Bt(C,49));
+  Eq('restores the index before the table', Tab-4, Dw(C,Pop+2));
+  Eq('restores the table', Tab, Dw(C,Pop+8));
+  AssertTrue('code stays clear of the entry at +$70', Length(C)<=$70-$20);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

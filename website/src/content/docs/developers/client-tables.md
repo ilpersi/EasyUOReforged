@@ -81,7 +81,12 @@ ones.
 - **A new relocatable build** also attaches, but starts with every address at zero. Only what
   `ScannerTable_Modern` finds is filled in, and every feature the scan misses stays off. Even a build
   whose addresses the scan all finds can need an entry: the beta 7.0.117.31 has one only for six `B_`
-  values that the shared layout has wrong for it.
+  values that the shared layout has wrong for it. The beta 7.0.119.0's entry goes further: its objects
+  grew, so it also overrides an object offset (`B_ITEMID`: the id moved from `+$118` to `+$120`), and the
+  scan needed new patterns for nine functions and globals whose code changed.
+- **Check how the hooked functions are called,** not only where they are. On 7.0.119.0 the macro executor
+  takes its table in `ecx` and its step index in `edx` instead of reading two globals; the event cave in
+  `uo/uoevents.pas` now sets both, so it works on either kind of executor.
 
 Either way, adding the build's own values to `uoclidata.pas` is what makes it reliable.
 

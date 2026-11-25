@@ -28,7 +28,7 @@ EasyUO for anything important, until you have checked that the scripts and featu
 ## Known gaps
 
 - **Client versions.** EasyUO Reforged knows the classic client (`client.exe`) from 2.0.0 up to 7.0.117.1,
-  and three builds of `client_beta.exe` (7.0.117.1, 7.0.117.31 and 7.0.118.132). A newer client needs its memory offsets
+  and four builds of `client_beta.exe` (7.0.117.1, 7.0.117.31, 7.0.118.132 and 7.0.119.0). A newer client needs its memory offsets
   added first; see [Add a new client](/developers/adding-a-client/).
 - **[`Path`](/commands/path/)** knows the map files everywhere, but player houses, items players placed,
   doors and creatures only where your client holds them, around the character. A long route can lead into
