@@ -50,7 +50,7 @@ The results go to `tools\EUOMigrate\out\<version>-<PE stamp>\` (git-ignored):
 
 | file | what |
 |---|---|
-| `report.md` | every field: value, confidence, status, the evidence, runners-up |
+| `report.md` | every field: value, confidence, status, the evidence, runners-up; calling conventions no field carries (`E_MACROADDR`) |
 | `uoclidata-snippet.pas` | a milestone delta + `Milestones`/`VersionIndex` rows (fixed-base build), or a `SysVarModernAddrs_<stamp>` list + `ModernBuilds` row (relocatable build) |
 | `EUO Updtr Strings <id>.txt`, `scanner-table.pas` | signatures for the usable values, unique in this build: the next build of the same compiler is then found by the runtime scan (`ScannerTable_*`, EUO Updtr) with no tool at all |
 | `candidates.json` | the hand-over between the steps below |
@@ -64,9 +64,15 @@ python tools/EUOMigrate/euomigrate.py probe  tools/EUOMigrate/out/<id>/candidate
 ```
 
 - **`verify`** applies a plausibility check ("oracle") to each value:
-  - `C_CHARPTR` must lead to a player object with a serial and an RTTI class.
+  - `C_CHARPTR` must lead to a player object with a vtable (an RTTI class, or without RTTI a table of
+    code pointers) and a serial at `B_ITEMID`; a serial a few dwords away is only `weak` (the layout may
+    have moved, `probe` finds it), never a `fail` for that alone; `verify` again after `probe` checks
+    the probed offset.
+  - `C_CHARDIR` must hold a direction byte (0..7, +$80 running), not a pointer.
   - The skill arrays must hold 58 sane values, with the base array tracking the real one.
-  - `C_CONTPOS` must head a chain of `...Gump` objects.
+  - `C_CONTPOS` must head a chain of `...Gump` objects (without RTTI: a vtable and `$FEEDBEEF` at +4).
+  - `E_MSGFLAGA` / `E_MSGFLAGB` must hold 0 or 1 (the refresh flags the event cave raises, a byte and a
+    dword).
   - `C_SHARDPOS` must equal the shard name in the window title.
   - The `E_REDIR` function must be on a thread stack, i.e. running.
   - `C_CLIXRES` must be a resolution, and imports and code bytes must match the exe.
@@ -79,6 +85,9 @@ python tools/EUOMigrate/euomigrate.py probe  tools/EUOMigrate/out/<id>/candidate
   whole lists consistent at once:
   - `B_ITEMID`, `B_ITEMTYPE`, `B_ITEMSLOT`, `B_POS` from the object list (anchors: a player with a
     human body, a backpack on layer 21);
+  - `B_FINDREP` from the same list: the dword after the serial that holds a notoriety 1..7 on every mobile
+    (stand near a mobile of another notoriety, a vendor; with all alike and several offsets fitting, no
+    value);
   - `B_CONTNEXT` from the gump list, `B_STATNAME` from the status gump (anchor: the character name
     in the window title);
   - the journal layout (`F_JOURNALDIRECT`, `B_JNEXTPTR`, `B_JCOL`, `B_JKIND`) from the journal chain
@@ -103,8 +112,11 @@ To finish:
    python tools/EUOMigrate/euomigrate.py fingerprint "<exe>" --candidates out/<id>/candidates.json
    ```
 
-   The first form applies once the build is in `uoclidata.pas`. The second form adds a migrated build
-   straight from its usable values. Then commit the new `kb\<version>-<stamp>.json.gz`.
+   The first form applies once the build is in `uoclidata.pas`; for a relocatable build it also runs the
+   runtime scan (`ScannerTable_Modern`) over the exe, since `uoclidata.pas` lists no addresses for the
+   betas after the first: each pattern at its first match, the last matching line of a field decides, as
+   `TCstDB.ScanMemory`. The second form adds a migrated build straight from its usable values. Then commit
+   the new `kb\<version>-<stamp>.json.gz`.
 
 `fingerprint` also takes `--set FIELD=VALUE` (repeatable) for a value checked in the live client that
 `uoclidata.pas` cannot hold for that exact build -- the fixed-base buff bar addresses `C_CLILOC` /
@@ -119,7 +131,7 @@ To finish:
 |---|---|---|
 | `accepted` | static evidence above confidence 0.50 | the value |
 | `verified` | passed its oracle / probe in the running client | the value |
-| `derived` | read from the code: `F_*` conventions, `B_*` distances between two globals, the `B_GUMP*` offsets | the value |
+| `derived` | read from the code: `F_*` conventions, `B_*` distances between two globals (the hands, last-target kind, lifted type and flag among them), the `B_GUMP*` offsets | the value |
 | `probed` | layout offset found in the running client, different from before | the value |
 | `candidate` | best guess below the threshold, not verified | **0**, with the guess in a comment |
 | `rejected` | failed its oracle, no runner-up passed | **0** |
@@ -174,12 +186,26 @@ groups** go to 0 together when one member is not usable:
 4. **Consensus** (`consensus.py`). Every knowledge-base build is matched on its own:
    - Hits of each build's signatures are pooled with the matcher's candidates.
    - The closest build (by matched-function coverage) decides each field's form.
+   - A value a kb build holds that EasyUO no longer means (`kb.SUPERSEDED`, for builds whose exe is gone)
+     is left out of the pool: the first beta's `C_ENEMYHITS` is the targeting system's bar, not the `0xAA`
+     attack bar EasyUO means, and put the targeting bar first on .31, .132 and .119.
    - On a fixed-base build, a value equal to the neighbouring milestones counts as corroboration.
 5. **Code-derived flags and offsets** (`conv.py`, `fields.RELATIVE`):
-   - The `F_*` flags come from the matched functions' entry code (ecx/edx inputs, `ret N`).
+   - The `F_*` flags come from the matched functions' entry code (ecx/edx inputs, `ret N`; a `__chkstk`
+     call after an SEH prologue does not end the scan).
    - `B_PATHPROLOGUE` comes from the walk-to function's SEH prologue.
    - Offsets like `B_SKILLDIST`, `B_CLITOP` and `B_LTARGX` are located as globals in their own right
-     ("base + offset").
+     ("base + offset"), and so are the ones around `C_LHANDID` / `C_LLIFTEDID`: `B_LTARGKIND` (+),
+     `B_LLIFTEDTYPE` (read at `C_LLIFTEDID` minus it), `B_LLIFTEDKIND` (+) and `B_LHAND`. The arm/disarm
+     macro reads the hands as `[hand*4 + table]`, so `B_LHAND` is located as that table (a `bias` of -4 in
+     `RELATIVE`) and `B_RHAND` follows as `B_LHAND + 4` (`fields.FOLLOWS`). A getter default may depend on
+     another field (`B_LTARGKIND` 0 = `B_LTARGTILE + 4`, `B_RHAND` 0 = `B_LHAND + 4`): a derived distance
+     equal to it is written as 0 where the inherited table has 0.
+   - The pseudo fields (`@B_*`) are stored in each kb file; a file made before a `RELATIVE` row gets it
+     from its table when it loads.
+   - `conv.notes` puts what no field carries into the report: `E_MACROADDR`'s convention (a fastcall with
+     the table in ecx and the index in edx on 7.0.119.0, no register inputs before; `uoevents.pas`
+     loads both registers on every build).
    - The gump offsets `ScanGumps` reads come from code shapes (`gumpfields.py`): `B_GUMPSERIAL` and
      `B_GUMPTYPE` from the server gump's `$B1` reply, which reads the serial and then the type ID (4 bytes
      further) from the gump; `B_GUMPART` from the `BuffIcons Gump` constructor storing its graphic `$4EC`
@@ -221,6 +247,10 @@ cache.
   it). Then `verify` and `probe` on the running client (logged in on a live shard) rejected nothing,
   confirmed 8 addresses and 6 layout offsets, and corrected the four journal values: the final
   result equals the verified table in all 114 fields.
+- **The betas, each from the knowledge base without itself** (7.0.117.31, 7.0.118.132, 7.0.119.0): all
+  `C_*`/`E_*` equal the runtime scan, the seven distances around `C_LHANDID`/`C_LLIFTEDID` equal the
+  hand-verified tables (on .31 `C_MULTILIST` stays 0: its closest reference, the first beta, lacks it).
+  `selftest` over the three: 141 of 141 right.
 - **Live (read-only, on `client.exe`):**
   - Every verified value passes or is neutral, and deliberately corrupted values fail.
   - `probe` reproduces `B_ITEMID`, `B_ITEMTYPE`, `B_ITEMSLOT`, `B_POS`, `B_CONTNEXT`, `B_STATNAME`
@@ -234,7 +264,6 @@ cache.
 - **Layouts without a probe** stay inherited and are listed in the report as such:
   - shop and bill;
   - `B_CHARSTATUS`;
-  - `B_FINDREP`;
   - the stat-gump fields.
 
   `tools\EUOSelfTest` exercises all of them (shop and bill in its opt-in vendor stage), and its report
@@ -251,18 +280,18 @@ euomigrate.py        CLI
 euomig/pe.py         PE reader: sections, imports, relocations, version resource, strings, RTTI
 euomig/disasm.py     linear sweep (capstone), function starts, operand helpers
 euomig/features.py   per-function fingerprints (FuncDB), hashed for the knowledge base
-euomig/tables.py     uoclidata.pas reader (milestones, ModernBuilds), as TCstDB.Update resolves them
+euomig/tables.py     uoclidata.pas reader (milestones, ModernBuilds, ScannerTable_Modern), as TCstDB.Update resolves them
 euomig/fields.py     field descriptors, global-relative B_* pseudo fields
 euomig/match.py      function matching, global votes
 euomig/resolve.py    descriptors -> ranked candidates for one reference
 euomig/consensus.py  all references -> one result per field
-euomig/sigs.py       EUOUpdtr signature format: parse, scan
+euomig/sigs.py       EUOUpdtr signature format: parse, scan; the runtime scan (TCstDB.ScanMemory) emulated
 euomig/siggen.py     signature generator, strings file, ScannerTable rows
 euomig/conv.py       calling conventions -> F_* flags, B_PATHPROLOGUE
 euomig/gumpfields.py gump object offsets from code shapes -> B_GUMPART, B_GUMPMIN, B_GUMPSERIAL, B_GUMPTYPE
 euomig/live.py       read-only process access (32-bit client from 64-bit Python), thread stacks
 euomig/oracles.py    per-field live checks
-euomig/probe.py      live layout probes
+euomig/probe.py      live layout probes (objects recognised by RTTI or, without it, by a vtable)
 euomig/emit.py       candidates.json, report, Pascal
 euomig/kb.py         knowledge-base files
 kb/                  one fingerprint file per known build (derived data only: hashed tokens, call

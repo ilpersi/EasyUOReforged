@@ -5,8 +5,8 @@ check(ctx, field, value) -> (verdict, note) with verdict
    'fail'  it cannot be that field (wrong kind of thing there)
    'weak'  nothing contradicts it, nothing confirms it
 Where an oracle needs a structure offset (B_ITEMID, B_SKILLDIST, ...), it takes the value from the
-candidates file -- inherited from the closest known layout, so a 'fail' there can also mean that
-the LAYOUT changed (probe checks those).
+candidates file -- inherited from the closest known layout unless probe found it, so an oracle that
+depends on one does not fail a value for that alone (C_CHARPTR looks for the serial nearby).
 """
 import struct
 
@@ -34,6 +34,15 @@ class Ctx:
             return None
         return self.t.vtables.get((vt - self.d) & 0xFFFFFFFF)
 
+    def has_vtable(self, ptr):
+        """does the object at (live) ptr start with a vtable pointer, RTTI or not? The game classes of
+        7.0.119.0 have no RTTI; their first dword still points into the image's read-only data at a
+        table of code pointers. Read from the exe file (link-time), cached per vtable."""
+        vt = self.p.u32(ptr) if ptr else None
+        if not vt:
+            return False
+        return vtable_at(self.t.pe, (vt - self.d) & 0xFFFFFFFF, self.__dict__.setdefault('_vtok', {}))
+
     def live_functions(self, samples=20):
         if self._live is None:
             import collections
@@ -47,6 +56,34 @@ class Ctx:
         return self._live
 
 
+VTABLE_MIN = 3                  # code pointers in a row that make a table a vtable
+IMAGE_SCN_MEM_WRITE = 0x80000000
+
+
+def vtable_at(pe, link, cache=None):
+    """link is in a read-only data section of the image and holds VTABLE_MIN code pointers in a row"""
+    if cache is not None and link in cache:
+        return cache[link]
+    s = pe.section_of(link) if pe.in_image(link) else None
+    ok = bool(s) and not s.executable and not (s.flags & IMAGE_SCN_MEM_WRITE) and link % 4 == 0
+    if ok:
+        d = pe.read(link, 4 * VTABLE_MIN)
+        ok = len(d) == 4 * VTABLE_MIN and all(pe.is_code(x) for x in struct.unpack('<%dI' % VTABLE_MIN, d))
+    if cache is not None:
+        cache[link] = ok
+    return ok
+
+
+def object_kind(c, ptr):
+    """'rtti' (an RTTI class), 'vtable' (a vtable without RTTI) or None (not an object)"""
+    if not ptr:
+        return None
+    if c.cls_of_object(ptr):
+        return 'rtti'
+    hv = getattr(c, 'has_vtable', None)
+    return 'vtable' if hv and hv(ptr) else None
+
+
 def printable(b):
     s = b.split(b'\0')[0]
     return len(s) >= 2 and all(32 <= c < 127 for c in s), s.decode('latin1')
@@ -58,18 +95,33 @@ def _words(p, a, n):
 
 
 # ---- per-field oracles ---------------------------------------------------------------------------
+SERIAL_NEAR = 4                 # dwords on each side of B_ITEMID where C_CHARPTR's oracle looks for the serial
+
+
 def o_charptr(c, v):
+    """the player object: a mobile serial at +B_ITEMID and a vtable (RTTI or not). B_ITEMID is probe's when
+    probe ran first, else inherited -- the object layout may have moved (7.0.119.0: $118 -> $120), so a
+    serial a few dwords away is 'weak' (probe then tells the offset), never a 'fail' for that alone."""
     obj = c.p.u32(c.at(v))
     if not obj:
         return 'fail', 'null pointer'
-    cls = c.cls_of_object(obj)
+    kind = object_kind(c, obj)
+    cls = c.cls_of_object(obj) or ('vtable without RTTI' if kind == 'vtable' else None)
     bid = c.v.get('B_ITEMID', 0)
-    serial = c.p.u32(obj + bid) if bid else None
-    if serial is None:
+    if not bid or c.p.u32(obj) is None:
         return 'fail', 'pointer %08X unreadable' % obj
-    ok = 0 < serial < 0x40000000
-    return ('pass' if ok and cls else 'weak' if ok else 'fail',
-            'object %08X class %s, serial at +$%X = %d' % (obj, cls or '?', bid, serial))
+    serial = c.p.u32(obj + bid)
+    ok = serial is not None and 0 < serial < 0x40000000
+    if ok:
+        return ('pass' if kind else 'weak',
+                'object %08X class %s, serial at +$%X = %d' % (obj, cls or '?', bid, serial))
+    near = [(abs(d), bid + 4 * d) for d in range(-SERIAL_NEAR, SERIAL_NEAR + 1) if d
+            and 0 < (c.p.u32(obj + bid + 4 * d) or 0) < 0x40000000]
+    if near and kind:
+        off = min(near)[1]
+        return 'weak', 'object %08X class %s, serial at +$%X = %s, but %d at +$%X (has the object layout moved? probe tells)' % (
+            obj, cls, bid, serial, c.p.u32(obj + off), off)
+    return 'fail', 'object %08X class %s, no mobile serial at or near +$%X (%s)' % (obj, cls or '?', bid, serial)
 
 
 def o_skills(kind):
@@ -110,6 +162,8 @@ def o_contpos(c, v):
     cls = c.cls_of_object(g)
     if cls and 'Gump' in cls:
         return 'pass', 'head gump %08X is a %s' % (g, cls)
+    if not cls and object_kind(c, g) == 'vtable' and c.p.u32(g + 4) == 0xFEEDBEEF:
+        return 'pass', 'head gump %08X: a vtable without RTTI and the gump marker $FEEDBEEF at +4' % g
     return ('fail' if cls else 'weak'), 'head %08X class %s' % (g, cls or '?')
 
 
@@ -143,6 +197,27 @@ def o_small(lo, hi, size=4):
         x = int.from_bytes(d, 'little', signed=True)
         return ('weak' if lo <= x <= hi else 'fail'), 'value %d' % x
     return f
+
+
+def o_flag(size):
+    """a refresh flag the event cave raises (uoevents.pas: `mov byte [E_MSGFLAGA], 1`, `mov dword
+    [E_MSGFLAGB], 1`) and the client clears: 0 or 1, never a pointer"""
+    def f(c, v):
+        d = c.p.read(c.at(v), size)
+        if len(d) != size:
+            return 'fail', 'unreadable'
+        x = int.from_bytes(d, 'little')
+        return ('weak' if x in (0, 1) else 'fail'), 'flag %s %d' % ('byte' if size == 1 else 'dword', x)
+    return f
+
+
+def o_dir(c, v):
+    """C_CHARDIR: #CharDir is the byte there (the first record of the step queue: the last step's
+    direction 0..7, with $80 while running), not a pointer"""
+    x = c.p.u8(c.at(v))
+    if x is None:
+        return 'fail', 'unreadable'
+    return ('weak' if (x & 0x7F) <= 7 else 'fail'), 'direction byte %d' % x
 
 
 def o_ptr_or_null(c, v):
@@ -298,6 +373,8 @@ ORACLES = {
     'C_SYSMSG': o_ptr_or_null, 'C_JOURNALPTR': o_ptr_or_null, 'C_ENEMYHITS': o_ptr_or_null,
     'C_CLILOC': o_cliloc, 'C_BUFFTIMERS': o_bufftimers, 'E_SENDECX': o_ptr_or_null,
     'E_REDIR': o_tick_site,
+    'E_MSGFLAGA': o_flag(1), 'E_MSGFLAGB': o_flag(4),
+    'C_CHARDIR': o_dir,
     'E_SLEEPADDR': o_import,
 }
 

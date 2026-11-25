@@ -17,10 +17,26 @@ import json
 import os
 
 from . import TOOL_VERSION
+from . import fields as FD
 from .features import FuncDB
 from .sigs import LINE, Sig
 
 KB_SCHEMA = 1
+
+# Values a knowledge-base build holds for a field that EasyUO no longer means by that field. The build's
+# candidates and signatures for it are left out of the pooling (consensus.py); its exe is not at hand to
+# fingerprint it again with the right value.
+SUPERSEDED = {
+    '7.0.117.1-6AC94360': {
+        # $C8B858, from uoclidata.pas, is the targeting system's health bar (the bar that exists while a
+        # mobile is selected; the first two C_ENEMYHITS lines of ScannerTable_Modern find it). EasyUO means
+        # the attack bar the 0xAA handler opens for a new enemy, as client.exe's C_ENEMYHITS is: the last
+        # C_ENEMYHITS line, verified on 7.0.117.31, 7.0.118.132 and 7.0.119.0. Its votes and signature put
+        # those builds' targeting bar first (00CB2F90 / 00D22108 / 00F027DC instead of 00CB2FA0 / 00D22118 /
+        # 00F027C0).
+        'C_ENEMYHITS': "its C_ENEMYHITS is the targeting system's bar, not the 0xAA attack bar EasyUO means",
+    },
+}
 HERE = os.path.dirname(os.path.abspath(__file__))
 KB_DIR = os.path.normpath(os.path.join(HERE, '..', 'kb'))
 
@@ -34,6 +50,16 @@ class KBEntry:
         self.source = d.get('source', '')
         self.table = d['table']
         self.fields = d['fields']
+        # the global-relative pseudo fields as fields.RELATIVE defines them today: drop the ones it no
+        # longer has, add the ones the file predates (from its table; the image bounds stand in for the
+        # section check the fingerprint made)
+        b = self.build
+        lo, hi = b.get('base', 0), b.get('base', 0) + b.get('image_size', 0)
+        for k in [k for k in self.fields if k.startswith('@') and k[1:] not in FD.RELATIVE]:
+            del self.fields[k]
+        for k, desc in FD.pseudo_fields(self.table, lambda a: lo <= a < hi).items():
+            self.fields.setdefault(k, desc)
+        self.superseded = SUPERSEDED.get(self.id, {})
         self.funcdb = FuncDB.from_json(d['funcdb'])
         self.notes = d.get('notes', {})
         self.sigs = []

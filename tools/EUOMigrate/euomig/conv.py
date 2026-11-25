@@ -15,6 +15,7 @@ _md = Cs(CS_ARCH_X86, CS_MODE_32)
 _md.detail = True
 
 REGS = {'ecx': ('ecx', 'cx', 'cl', 'ch'), 'edx': ('edx', 'dx', 'dl', 'dh')}
+CHKSTK_WITHIN = 10      # instructions from the entry within which a __chkstk call is part of the prologue
 
 
 def convention(code, start, max_insn=40):
@@ -45,8 +46,9 @@ def convention(code, start, max_insn=40):
                 inputs.add(r)
             if wr & set(names):
                 written.add(r)
-        # `mov eax, size; call __chkstk` in a prologue probes the stack and preserves ecx/edx
-        if mn == 'call' and k - k0 <= 4 and k > k0 and code.mn[k - 1] == 'mov' and code.op[k - 1].startswith('eax, 0x'):
+        # `mov eax, size; call __chkstk` in a prologue probes the stack and preserves ecx/edx; after an SEH
+        # frame's `push -1; push handler; mov eax, fs:[0]; push eax` it comes 7 instructions in
+        if mn == 'call' and k - k0 <= CHKSTK_WITHIN and k > k0 and code.mn[k - 1] == 'mov' and code.op[k - 1].startswith('eax, 0x'):
             continue
         if mn in ('call', 'ret', 'jmp') or mn.startswith('j'):
             break
@@ -70,6 +72,28 @@ def seh_prologue_len(code, start, max_insn=24):
         if code.mn[k] == 'mov' and code.op[k].startswith('dword ptr fs:[0],'):
             return n
     return None
+
+
+def notes(code, values):
+    """conventions the tables carry no flag for, as notes for the report: [text]
+    E_MACROADDR  the macro executor took no arguments up to 7.0.118.132 (it reads the table at E_MACROTAB
+                 and the step index at E_MACROTAB+B_MACROIDX); 7.0.119.0's takes the two as a fastcall,
+                 table in ecx and index in edx. uoevents.pas MacroFastCode loads both registers on every
+                 build (scratch registers to the older executors), so nothing changes in the table: the
+                 note says which form the build has."""
+    out = []
+    v = values.get('E_MACROADDR')
+    c = convention(code, v) if v else None
+    if c:
+        regs = sorted(c['inputs'] & {'ecx', 'edx'})
+        if {'ecx', 'edx'} <= c['inputs']:
+            how = 'a fastcall: the macro table in ecx and the step index in edx (uoevents.pas MacroFastCode loads both)'
+        elif regs:
+            how = 'reads %s on entry: check what the executor expects there before using event macro' % ', '.join(regs)
+        else:
+            how = 'no register inputs: the executor reads the table and the index from their globals'
+        out.append('E_MACROADDR %08X: inputs %s, ret %s -- %s' % (v, ', '.join(regs) or '-', c['ret'], how))
+    return out
 
 
 def derive(code, values):

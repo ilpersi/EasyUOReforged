@@ -57,9 +57,16 @@ verify <candidates.json> [--pid <process id>]
 Attaches to the running client, which must be the **same exe** the migration was made from (checked by
 its SHA-256), and runs a plausibility check on every `C_` and `E_` value:
 
-- `C_CHARPTR` must lead to a player object with a serial and a class name.
+- `C_CHARPTR` must lead to a player object with a vtable and a serial at `B_ITEMID`. A serial a few
+  dwords away only counts as `weak`, since the object layout may have moved (`probe` then finds the new
+  offset); it never fails for that alone. Run `verify` again after `probe` and it checks the serial at the
+  probed offset.
+- `C_CHARDIR` must hold a direction byte (0 to 7, plus `$80` while running): `#CharDir` is the last step's
+  direction, not a pointer.
 - The skill arrays must hold 58 plausible values, and the base and with-bonuses arrays must be told apart.
 - `C_CONTPOS` must head a chain of `…Gump` objects.
+- `E_MSGFLAGA` and `E_MSGFLAGB` must hold 0 or 1: they are the refresh flags the event code raises
+  (a byte and a dword), not pointers.
 - `C_SHARDPOS` must equal the shard name in the window title.
 - The function around `E_REDIR` must be running: it is looked for on the client's thread stacks.
 - `C_CLIXRES` must hold a screen resolution; imported functions and code bytes must match the exe.
@@ -87,6 +94,7 @@ objects consistent at once:
 | Values | Found from | Have this open or done first |
 |---|---|---|
 | `B_ITEMID`, `B_ITEMTYPE`, `B_ITEMSLOT`, `B_POS` | The object list (anchors: a player with a human body, a backpack on layer 21). | Logged in, with a backpack. |
+| `B_FINDREP` | The object list again: the dword after the serial that holds a notoriety from 1 to 7 on every mobile. | A mobile of another notoriety near you (a vendor is 7). |
 | `B_CONTNEXT` | The gump list. | A few gumps open. |
 | `B_STATNAME` | The status gump (anchor: the character name in the window title). | The status gump open. |
 | `F_JOURNALDIRECT`, `B_JNEXTPTR`, `B_JCOL`, `B_JKIND` | The journal chain. | A few journal lines. |
@@ -98,6 +106,16 @@ objects consistent at once:
 
 A value that matches the table becomes `verified`; a different one becomes `probed` and replaces it. The
 console shows each as `verified` or `CHANGED`.
+
+**Builds without class names.** The object and gump probes recognise an object by its vtable. Most builds
+have RTTI, which names each class. The game classes of the 7.0.119.0 beta have none, so there an object is
+anything whose first dword points into the exe's read-only data at a table of code pointers, and a gump
+also has the `$FEEDBEEF` marker at `+4`. RTTI stays the stronger evidence where it exists; the probe line
+says which one it used (`all with serial and vtable (no RTTI)`).
+
+When several offsets hold a notoriety on every mobile, `B_FINDREP` takes the one whose values differ
+between mobiles (the player's 3 and a vendor's 7). If all mobiles near you have the same notoriety and
+more than one offset fits, it gives no value and says so in a note.
 
 ### emit
 
@@ -120,7 +138,7 @@ Stores a build in the knowledge base, so later migrations can start from it. It 
 
 | Form | Takes the values from |
 |---|---|
-| `fingerprint <exe>` | `uoclidata.pas`, which must already have the exact build. |
+| `fingerprint <exe>` | `uoclidata.pas`, which must already have the exact build. For a relocatable build, whose `C_` / `E_` addresses come from the runtime scan, it also runs that scan (`ScannerTable_Modern`) over the exe, the way `TCstDB.ScanMemory` does: each pattern at its first match, and the last matching line of a field decides. |
 | `fingerprint <exe> --candidates out/<id>/candidates.json` | A migration: only its usable values (`accepted`, `verified`, `derived`, `probed`). |
 | `--set FIELD=VALUE` (repeatable) | A value you checked in the running client that `uoclidata.pas` cannot hold for this build. The fixed-base buff bar addresses, which only the runtime scan provides, were added this way: `--set C_CLILOC=0x00A01B9C`. |
 
@@ -131,7 +149,8 @@ selftest <exe> <exe> [<exe>...] [-v]
 ```
 
 For each exe that `uoclidata.pas` knows exactly, migrates it from the **other** exes alone and compares
-the result with its real table. It needs at least two such builds. Each field is reported as `right`,
+the result with its real table (for a relocatable build, `uoclidata.pas` plus its runtime scan, as for
+`fingerprint`). It needs at least two such builds. Each field is reported as `right`,
 `right-unsure` (right, but below the confidence threshold), `runner-up` (the real value is among the
 runners-up), `missing`, `wrong-unsure` or `WRONG`. `-v` lists the right ones too. Use it to measure a
 change to the matcher.
@@ -142,9 +161,11 @@ Lists the knowledge base:
 
 ```text
 > python tools/EUOMigrate/euomigrate.py kb
-7.0.117.1-6A8E6F9D       7.0.117.1 (fixed base, stamp 6A8E6F9D, uoclidata.pas + C_CLILOC from the live client + C_BUFFTIMERS from the live client + C_WORLDGRID from the live client + C_STATICVT from the live client)  22379 functions, 54 located fields
-7.0.117.1-6AC94360       7.0.117.1 (relocatable, stamp 6AC94360, uoclidata.pas)  34138 functions, 58 located fields
-7.0.117.31-6AD6CEB3      7.0.117.31 (relocatable, stamp 6AD6CEB3, migrated by EUOMigrate (0 values verified live) + C_MULTILIST from the live client)  38546 functions, 59 located fields
+7.0.117.1-6A8E6F9D       7.0.117.1 (fixed base, stamp 6A8E6F9D, uoclidata.pas + C_CLILOC from the live client + C_BUFFTIMERS from the live client + C_WORLDGRID from the live client + C_STATICVT from the live client)  22379 functions, 58 located fields
+7.0.117.1-6AC94360       7.0.117.1 (relocatable, stamp 6AC94360, uoclidata.pas)  34138 functions, 63 located fields
+7.0.117.31-6AD6CEB3      7.0.117.31 (relocatable, stamp 6AD6CEB3, uoclidata.pas + its runtime scan (ScannerTable_Modern))  38546 functions, 64 located fields
+7.0.118.132-6AE4B775     7.0.118.132 (relocatable, stamp 6AE4B775, uoclidata.pas + its runtime scan (ScannerTable_Modern))  50520 functions, 64 located fields
+7.0.119.0-6AFC93F7       7.0.119.0 (relocatable, stamp 6AFC93F7, uoclidata.pas + its runtime scan (ScannerTable_Modern))  108700 functions, 64 located fields
 ```
 
 ## Output files
@@ -154,7 +175,7 @@ the files in it.
 
 | File | What it is |
 |---|---|
-| `report.md` | Every field: value, confidence, status, the evidence, the runners-up. Start here. |
+| `report.md` | Every field: value, confidence, status, the evidence, the runners-up, and the calling conventions no table field carries (see [How it works](#how-it-works), step 5). Start here. |
 | `uoclidata-snippet.pas` | What to paste into `uoclidata.pas`: a milestone list with its `Milestones` and `VersionIndex` rows (fixed-base), or a `SysVarModernAddrs_<stamp>` list with its `ModernBuilds` row (relocatable). For a build `uoclidata.pas` already has, a comparison instead. |
 | `EUO Updtr Strings <id>.txt` | Signatures for every usable value, in the EUOUpdater format, each unique in this build. |
 | `scanner-table.pas` | The same signatures as `TScannerEntry` rows for a `ScannerTable_…` list. |
@@ -190,7 +211,7 @@ One entry per field. You can edit `status` and `value` by hand, then run [`emit`
 |---|---|---|
 | `accepted` | Static evidence above confidence 0.50. | The value. |
 | `verified` | Passed its check in the running client. | The value. |
-| `derived` | Read from the code: the `F_` calling conventions, `B_` distances between two globals, the `B_GUMP*` offsets inside a gump. | The value. |
+| `derived` | Read from the code: the `F_` calling conventions, `B_` distances between two globals (the hands, the last target's kind and the lifted item's type and flag among them), the `B_GUMP*` offsets inside a gump. | The value. |
 | `probed` | A layout offset found in the running client, different from before. | The value. |
 | `candidate` | The best guess, below the threshold and not verified. | **`0`**, with the guess in a comment. |
 | `rejected` | Failed its check, and no runner-up passed. | **`0`**. |
@@ -224,6 +245,16 @@ Each build in it is a reference: a new build is matched against all of them, and
 most. Add every build you support with [`fingerprint`](#fingerprint), so the next build of the same
 generation is matched against it rather than against an older relative.
 
+A build whose exe is gone cannot be fingerprinted again. When it holds a value that EasyUO no longer means
+by that field, the value is listed in `SUPERSEDED` (`euomig/kb.py`): that build's votes and signatures for
+the field are left out, and the report says so. The first beta (7.0.117.1, stamp `6AC94360`) holds the
+targeting system's health bar as `C_ENEMYHITS`; EasyUO means the attack bar the `0xAA` packet opens, as on
+every later beta. That one value used to put the targeting bar first on 7.0.117.31, 7.0.118.132 and
+7.0.119.0.
+
+The pseudo fields for the `B_` distances (step 5 below) are stored in each file. When `fields.RELATIVE`
+gains a distance, the files made before it get it from their stored table when they load.
+
 Capstone is pinned to one version (`capstone==5.0.7` in `requirements.txt`): the knowledge base stores
 instruction shapes in Capstone's text form, and another version may print some operands differently.
 
@@ -255,7 +286,21 @@ fingerprints are computed, raise it (or empty the cache), or old results will be
    fixed-base build, a value equal to the neighbouring milestones counts as confirmation.
 5. **Flags and offsets from the code.** The `F_` flags come from the matched functions' entry code (which
    registers they read, how many bytes they pop). Distances such as `B_SKILLDIST` or `B_CLITOP` are found
-   as globals in their own right.
+   as globals in their own right, and so are the ones around `C_LHANDID` and `C_LLIFTEDID`:
+   - `B_LTARGKIND`: the last target's kind (1 object, 2 ground, 3 static), at `C_LHANDID` + it.
+   - `B_LHAND`: the arm/disarm code reads the hands as `[hand*4 + table]` (hand 1 or 2), so the global it
+     names is the slot before the left hand. It is located as that table, and `B_LHAND` is the table + 4.
+     `B_RHAND` is always `B_LHAND` + 4.
+   - `B_LLIFTEDTYPE`: the type of the item on the cursor, read at `C_LLIFTEDID` minus it.
+   - `B_LLIFTEDKIND`: the flag that is 1 while an item is on the cursor, at `C_LLIFTEDID` + it.
+
+   A distance equal to what the getter already gives for 0 (`B_LTARGKIND` = `B_LTARGTILE` + 4,
+   `B_RHAND` = `B_LHAND` + 4) is written as 0 where the inherited table has 0.
+
+   The report also notes the calling convention of `E_MACROADDR`, which no field carries: the macro
+   executor of the 7.0.119.0 beta takes the macro table in `ecx` and the step index in `edx`, the older
+   ones read both from their globals. `uoevents.pas` loads both registers on every build, so nothing has
+   to change in the table; the note tells you which form a new build has.
 6. **Signatures.** For every usable value, the smallest window that matches exactly once and resolves to
    the value, with addresses, branch targets and stack offsets wildcarded.
 
@@ -271,6 +316,13 @@ Measured on the builds at hand:
 - **Across a compiler change** (the fixed-base 7.0.117.1 and the first beta, each migrated from the other
   alone): most fields come out right or are flagged as unsure. Hooks whose meaning changed with the
   compiler cannot be inferred; see [Limits](#limits).
+- **The betas, each from the knowledge base without itself** (7.0.117.31, 7.0.118.132, 7.0.119.0): every
+  `C_` / `E_` address equals what the runtime scan finds in it, and the seven distances around
+  `C_LHANDID` and `C_LLIFTEDID` equal the hand-verified values in `uoclidata.pas`. On 7.0.117.31 only
+  `C_MULTILIST` stays 0: its closest reference, the first beta, does not have it. `selftest` over the
+  three betas: 141 of 141 right. Then on the running 7.0.119.0 (logged in, next to vendors), `verify` and
+  `probe` rejected nothing and found `B_ITEMID` `$120` (317 objects, no RTTI) and `B_FINDREP` `$218`
+  (23 mobiles), the values the self-test had confirmed by hand.
 - **Speed.** Migrating the 7.0.117.31 beta (38,546 functions) against both knowledge-base builds takes
   28 seconds with an empty cache and 10 seconds with a warm one.
 
@@ -281,7 +333,7 @@ Measured on the builds at hand:
   form cannot be inferred. The report flags them, and the `E_` comments in `uoclidata.pas` say what each
   form needs. Do these [by hand](/developers/manual-derivation/).
 - **Layouts without a probe** stay inherited and are listed as such in the report: shop and bill,
-  `B_CHARSTATUS`, `B_FINDREP` and the stat-gump fields. The self-test exercises all of them (the shop
+  `B_CHARSTATUS` and the stat-gump fields. The self-test exercises all of them (the shop
   and bill in its opt-in vendor stage).
 - **Live checks need something to look at.** Many globals are empty until something happens (no enemy,
   nothing on the cursor, no popup). `verify` then has nothing to confirm and leaves the static status.
@@ -296,12 +348,12 @@ Measured on the builds at hand:
 | `euomig/pe.py` | PE reader: sections, imports, relocations, version resource, strings, class names. |
 | `euomig/disasm.py` | Disassembly (Capstone), function starts, operand helpers. |
 | `euomig/features.py` | Per-function fingerprints, hashed for the knowledge base. |
-| `euomig/tables.py` | Reads `uoclidata.pas` (milestones, `ModernBuilds`) the way `TCstDB.Update` resolves them. |
+| `euomig/tables.py` | Reads `uoclidata.pas` (milestones, `ModernBuilds`, `ScannerTable_Modern`) the way `TCstDB.Update` resolves them. |
 | `euomig/fields.py` | Field descriptors; the `B_` distances treated as fields. |
 | `euomig/match.py` | Function matching, global votes. |
 | `euomig/resolve.py` | Descriptors to ranked candidates, for one reference. |
 | `euomig/consensus.py` | All references to one result per field. |
-| `euomig/sigs.py`, `euomig/siggen.py` | The EUOUpdater signature format; the signature generator. |
+| `euomig/sigs.py`, `euomig/siggen.py` | The EUOUpdater signature format and the runtime scan, emulated on the exe; the signature generator. |
 | `euomig/conv.py` | Calling conventions to `F_` flags. |
 | `euomig/gumpfields.py` | The gump offsets `ScanGumps` reads, from the code that uses them. |
 | `euomig/live.py`, `euomig/oracles.py`, `euomig/probe.py` | Read-only process access, the `verify` checks, the `probe` searches. |

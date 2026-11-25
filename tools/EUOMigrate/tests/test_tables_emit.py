@@ -42,6 +42,21 @@ class Tables(unittest.TestCase):
         self.assertTrue(t['C_CHARPTR'])
         self.assertIsNone(self.u.exact_table('7.0.117.1', 0x12345678, True))
 
+    def test_runtime_scan_table(self):
+        """ScannerTable_Modern, read as TCstDB.ScanMemory walks it: every C_*/E_* field of the betas
+        (and B_SKILLDIST, a mode-4 distance), patterns whose joker byte never collides with a fixed one"""
+        sc = self.u.scanner_modern
+        self.assertGreaterEqual(len(sc), 100)
+        names = {e[0] for e in sc}
+        self.assertLessEqual(names, set(self.u.fields))
+        self.assertIn('C_ENEMYHITS', names)
+        self.assertIn('B_SKILLDIST', names)
+        self.assertEqual({e[3] for e in sc} - {1, 2, 3, 4}, set())
+        # the attack bar's line comes after the targeting bar's two: the last match decides
+        eh = [e for e in sc if e[0] == 'C_ENEMYHITS']
+        self.assertEqual(len(eh), 3)
+        self.assertTrue(eh[-1][1].hex().upper().endswith('C7814C01000002000000'))
+
 
 def fake(u, relocatable, values, statuses=None):
     statuses = statuses or {}
@@ -78,6 +93,14 @@ class Pascal(unittest.TestCase):
         self.assertIn('(Expr: E_OLDDIR; Val: $00000000)', s)
         self.assertIn('(Expr: E_REDIR; Val: $00000000)', s)        # its partner is not usable
         self.assertIn('event hook group is incomplete', s)
+
+    def test_report_notes(self):
+        c = fake(self.u, True, {'E_MACROADDR': 0x006A7510})
+        self.assertNotIn('## Calling conventions', EM.report_md(c))
+        c['notes'] = ['E_MACROADDR 006A7510: inputs ecx, edx, ret 0 -- a fastcall']
+        r = EM.report_md(c)
+        self.assertIn('## Calling conventions', r)
+        self.assertIn('- E_MACROADDR 006A7510: inputs ecx, edx', r)
 
     def test_fixed_base_delta(self):
         floor, idx = self.u.floor_state('7.0.29.97')

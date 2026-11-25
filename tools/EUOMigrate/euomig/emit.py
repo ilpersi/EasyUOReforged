@@ -5,6 +5,7 @@ candidates.json
   target      path, version, stamp, relocatable, sha256
   base        what uoclidata.pas gives the target today (floor milestone / modern layout)
   references  [{id, closeness, matched}]  closest first
+  notes       [text]: what the code says that no table field carries (conv.notes: calling conventions)
   fields      name -> {value, conf, status, how, alts: [[value, conf, how], ...], checks: [...]}
               status: accepted   C_/E_ value with conf >= MIN_CONF
                       candidate  best guess below that: verify it before use
@@ -126,7 +127,7 @@ def report_md(c):
         by.setdefault(e['status'], []).append(f)
     L.append('| status | fields |')
     L.append('|---|---|')
-    for s in ('verified', 'accepted', 'candidate', 'rejected', 'n/a', 'unused', 'inherited'):
+    for s in ('verified', 'probed', 'derived', 'accepted', 'candidate', 'rejected', 'n/a', 'unused', 'inherited'):
         if by.get(s):
             L.append('| %s | %d |' % (s, len(by[s])))
     L.append('')
@@ -158,6 +159,14 @@ def report_md(c):
         L.append('')
         for f, ch in checks:
             L.append('- %s: %s' % (f, ch))
+        L.append('')
+    if c.get('notes'):
+        L.append('## Calling conventions')
+        L.append('')
+        L.append('Read from the code; no table field carries them:')
+        L.append('')
+        for n in c['notes']:
+            L.append('- %s' % n)
         L.append('')
     L.append('## Layouts and flags')
     L.append('')

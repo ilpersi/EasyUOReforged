@@ -65,6 +65,39 @@ def scan(pe, sig, maxhits=4):
     return res
 
 
+def first_match(pe, pattern, joker):
+    """link-time address of the pattern's first occurrence in the code sections, or None"""
+    r = re.compile(b''.join(b'.' if b == joker else re.escape(bytes([b])) for b in pattern), re.S)
+    for s in pe.code_sections():
+        m = r.search(pe.section_bytes(s))
+        if m:
+            return pe.base + s.va + m.start()
+    return None
+
+
+def runtime_scan(pe, entries):
+    """TCstDB.ScanMemory over the exe file: each entry (field, pattern, joker, mode, add1, add2) in table
+    order, at its pattern's FIRST occurrence (SearchMemRange); every entry that matches overwrites its
+    field, so where several entries of a field match, the last one decides. Modes: 1 the address,
+    2 follow the rel32 there, 3 the dword there, then + add2; 4 the dword at +add1 minus the one at +add2
+    (a distance). -> {field: link-time value}"""
+    out = {}
+    for f, pattern, joker, mode, add1, add2 in entries:
+        pos = first_match(pe, pattern, joker)
+        if pos is None:
+            continue
+        a = (pos + add1) & 0xFFFFFFFF
+        if mode == 4:
+            out[f] = (pe.u32(a) - pe.u32((pos + add2) & 0xFFFFFFFF)) & 0xFFFFFFFF
+            continue
+        if mode == 2:
+            a = (a + pe.u32(a) + 4) & 0xFFFFFFFF
+        elif mode == 3:
+            a = pe.u32(a)
+        out[f] = (a + add2) & 0xFFFFFFFF
+    return out
+
+
 def scan_file(pe, sigs):
     """EUOUpdtr semantics: per name, the first line that matches exactly once wins"""
     out = {}

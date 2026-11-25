@@ -15,8 +15,13 @@ from .disasm import shape
 WIN = 12        # instructions kept on each side of a site
 
 # B_* offsets that are distances between two GLOBALS (how uovariables.pas uses them): the second
-# global is located like any other ("@B_X", a pseudo field), and B_X = sign * (it - base).
-# field: (base field, sign, the getter's default when the table value is 0)
+# global is located like any other ("@B_X", a pseudo field), and B_X = sign * (it - bias - base).
+# field: (base field, sign, the getter's default when the table value is 0[, bias])
+#   default  a number, None (no default), or (field, add): that field's effective value + add
+#            (TCstDB.BLTARGKIND: 0 means B_LTARGTILE + 4)
+#   bias     where the code really accesses it, relative to base + sign * offset: the arm/disarm macro
+#            reads the hands as [hand*4 + table] with hand 1 or 2, so the global the code names is the
+#            slot BEFORE the left hand (bias -4), not the left hand itself
 RELATIVE = {
     'B_SKILLDIST': ('C_SKILLSPOS', 1, None),
     'B_NEXTCX': ('C_NEXTCPOS', 1, 4),
@@ -31,8 +36,18 @@ RELATIVE = {
     'B_LTARGX': ('C_LHANDID', 1, None),
     'B_LSPELL': ('C_LHANDID', 1, 0x10),
     'B_LSKILL': ('C_LHANDID', 1, 0x14),
-    'B_RHAND': ('C_LHANDID', 1, 4),
+    'B_LTARGKIND': ('C_LHANDID', 1, ('B_LTARGTILE', 4)),
+    'B_LHAND': ('C_LHANDID', 1, 0, -4),
+    'B_LLIFTEDTYPE': ('C_LLIFTEDID', -1, None),     # uovariables.pas reads C_LLIFTEDID - B_LLIFTEDTYPE
+    'B_LLIFTEDKIND': ('C_LLIFTEDID', 1, None),
 }
+
+# B_* offsets that follow from another one: field -> (source, add). The hands are indexed by hand*4, so
+# the right hand is always the slot after the left one (TCstDB.BRHAND: 0 means B_LHAND + 4).
+FOLLOWS = {
+    'B_RHAND': ('B_LHAND', 4),
+}
+DEFAULTS = {'B_RHAND': ('B_LHAND', 4)}     # getter defaults of the FOLLOWS fields
 
 
 # Fields that are only a BASE: the runtime reads the members at fixed distances from it and never
@@ -44,13 +59,44 @@ RELATIVE = {
 ANCHOR = {'C_LHANDID': 0x0C}
 
 
+def spec(f):
+    """(base, sign, default, bias) of a RELATIVE field"""
+    r = RELATIVE[f]
+    return r[0], r[1], r[2], (r[3] if len(r) > 3 else 0)
+
+
+def getter_default(table, f):
+    """what the TCstDB getter uses when the table holds 0 for f (None: no default)"""
+    d = RELATIVE[f][2] if f in RELATIVE else DEFAULTS.get(f)
+    if isinstance(d, tuple):
+        other, add = d
+        return (relative_value(table, other) + add) & 0xFFFFFFFF
+    return d
+
+
 def relative_value(table, f):
     """the effective offset (the getter's default when the table holds 0)"""
-    base, sign, default = RELATIVE[f]
     v = table.get(f, 0)
-    if v == 0 and default is not None:
-        v = default
+    if v == 0:
+        d = getter_default(table, f) if (f in RELATIVE or f in DEFAULTS) else None
+        if d is not None:
+            v = d
     return v
+
+
+def pseudo_fields(table, in_image, is_code=lambda a: False):
+    """'@B_X' -> descriptor of the global each RELATIVE offset points at in this build"""
+    out = {}
+    for f in RELATIVE:
+        base, sign, default, bias = spec(f)
+        b = table.get(base, 0)
+        if not b:
+            continue
+        a = (b + sign * relative_value(table, f) + bias) & 0xFFFFFFFF
+        if a == b or not in_image(a) or is_code(a):
+            continue
+        out['@' + f] = {'kind': 'data', 'addr': a, 'value': a, 'rel': [f, base, sign, bias]}
+    return out
 
 
 def build(code, db, table, fields):
@@ -94,15 +140,7 @@ def build(code, db, table, fields):
         else:
             out[f] = {'kind': 'value', 'value': v}
     # pseudo fields for the global-relative offsets
-    for f, (base, sign, default) in RELATIVE.items():
-        b = table.get(base, 0)
-        off = relative_value(table, f)
-        if not b or not off:
-            continue
-        a = (b + sign * off) & 0xFFFFFFFF
-        if a == b or not pe.in_image(a) or pe.is_code(a):
-            continue
-        out['@' + f] = {'kind': 'data', 'addr': a, 'value': a, 'rel': [f, base, sign]}
+    out.update(pseudo_fields(table, pe.in_image, pe.is_code))
     # derived: a code field equal to the call target of a site field
     for f, d in out.items():
         if d['kind'] != 'func':

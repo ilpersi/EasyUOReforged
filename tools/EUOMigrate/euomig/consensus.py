@@ -13,6 +13,7 @@ layout of a relocatable one) until conv / probe / verify say otherwise.
 """
 import time
 
+from . import fields as FD
 from .match import Matcher
 from .resolve import Result, resolve, MIN_CONF
 from .sigs import scan
@@ -84,8 +85,12 @@ class Migration:
                 self.results[f] = Result(f, P.ref.table.get(f, 0), 0.0, 'copied from %s (not an address)' % P.ref.id)
                 continue
             pool = {}
+            left_out = []
             for run in self.runs:
                 w = run.closeness / top
+                if f in getattr(run.ref, 'superseded', {}):
+                    left_out.append('%s left out: %s' % (run.ref.id, run.ref.superseded[f]))
+                    continue
                 r = run.res.get(f)
                 if r is not None:
                     for v, c, h in r.candidates():
@@ -99,7 +104,7 @@ class Migration:
                     e[1].append('%s: signature' % run.ref.id)
             if not pool:
                 r = P.res.get(f)
-                self.results[f] = Result(f, None, 0.0, r.how if r else 'no candidates')
+                self.results[f] = Result(f, None, 0.0, '; '.join([r.how if r else 'no candidates'] + left_out))
                 continue
             # A fixed-base build sits between two known milestones. A candidate equal to what the
             # older one already has means the address did not move: independent corroboration
@@ -115,7 +120,7 @@ class Migration:
             s2 = scored[1][0] if len(scored) > 1 else 0.0
             conf = s1 * (s1 / (s1 + s2)) if s1 > 0 else 0.0
             alts = [(v, s * (s / (s + s1)) if s > 0 else 0.0, '; '.join(h)) for s, v, h in scored[1:5]]
-            self.results[f] = Result(f, v1, conf, '; '.join(h1), alts)
+            self.results[f] = Result(f, v1, conf, '; '.join(h1 + left_out), alts)
         # a field that IS "the target of the hooked call" is only as good as the hook site: the
         # same function found elsewhere (E_OLDDIR = __allmul) is no use if the hook moved
         for f, d in P.ref.fields.items():
@@ -136,15 +141,22 @@ class Migration:
         {B_X: (value, evidence)} for pairs where both ends are accepted"""
         out = {}
         for k, d in self.primary.ref.fields.items():
-            if not k.startswith('@'):
+            if not k.startswith('@') or d['rel'][0] not in FD.RELATIVE:
                 continue
-            f, base, sign = d['rel']
+            f, base, sign = d['rel'][:3]
+            bias = d['rel'][3] if len(d['rel']) > 3 else 0
             r, rb = self.results.get(k), self.results.get(base)
             if not (r and rb and r.value and rb.value) or min(r.conf, rb.conf) < MIN_CONF:
                 continue
-            v = (sign * (r.value - rb.value)) & 0xFFFFFFFF
-            out[f] = (v, '%s = %s %s $%X: the global at %08X (%s) is located like %s %08X' % (
-                f, base, '+' if sign > 0 else '-', v, r.value, r.how[:60], base, rb.value))
+            v = (sign * (r.value - bias - rb.value)) & 0xFFFFFFFF
+            at = (' (the code reads it as [index*4 + %08X])' % r.value) if bias else ''
+            out[f] = (v, '%s = %s %s $%X: the global at %08X%s (%s) is located like %s %08X' % (
+                f, base, '+' if sign > 0 else '-', v, r.value, at, r.how[:60], base, rb.value))
+        for f, (src, add) in FD.FOLLOWS.items():
+            if src in out:
+                v = (out[src][0] + add) & 0xFFFFFFFF
+                out[f] = (v, '%s = %s + %d = $%X: the client indexes the hands by hand*4, so the right one is '
+                             'the slot after the left one' % (f, src, add, v))
         return out
 
 

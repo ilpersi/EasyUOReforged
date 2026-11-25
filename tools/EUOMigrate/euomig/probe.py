@@ -6,13 +6,17 @@ client has: the player object (C_CHARPTR) with a human/elf/gargoyle body, a back
 with graphic 0E75h or 09B2h, a chain of gumps whose RTTI classes say "Gump", and the character
 name in the window title ("Ultima Online - <name> (<shard>)").
 
+An object is recognised by its vtable: an RTTI class where the build has RTTI, or else (7.0.119.0's game
+classes have none) a first dword pointing at a table of code pointers in the image's read-only data
+(oracles.object_kind); the gumps then also carry their $FEEDBEEF marker at +4.
+
 probe(ctx) -> {B_X: (value, evidence)} for what it could establish; nothing is guessed.
 """
 import ctypes
 import ctypes.wintypes as wt
 import struct
 
-from .oracles import stl_find
+from .oracles import stl_find, object_kind
 
 BODIES = {0x190, 0x191, 0x192, 0x193, 0x25D, 0x25E, 0x29A, 0x29B, 0x3DB, 0x3DF, 0x3E2}
 BACKPACKS = {0x0E75, 0x09B2}
@@ -56,12 +60,17 @@ class Probe:
         self.p = ctx.p
         self.found = {}
         self.notes = []
+        self._kind = {}
 
     def u32(self, a):
         return self.p.u32(a)
 
-    def has_rtti(self, obj):
-        return bool(obj) and self.c.cls_of_object(obj) is not None
+    def kind(self, obj):
+        """'rtti', 'vtable' (no RTTI) or None, cached per object"""
+        k = self._kind.get(obj, 0)
+        if k == 0:
+            k = self._kind[obj] = object_kind(self.c, obj)
+        return k
 
     # ---- objects ----------------------------------------------------------------------------
     def walk(self, start, idoff):
@@ -69,7 +78,7 @@ class Probe:
         out, seen, o = [], set(), start
         while o and o not in seen and len(out) < MAX_OBJ:
             seen.add(o)
-            if not self.has_rtti(o):
+            if not self.kind(o):
                 break
             s = self.u32(o + idoff)
             if s is None or not (0 < s < 0x80000000):
@@ -108,8 +117,10 @@ class Probe:
         if idoff is None or n < 5:
             self.notes.append('objects: no offset gives a consistent object list (best %d objects)' % n)
             return
-        self.found['B_ITEMID'] = (idoff, '%d objects chained by [obj+$%X+$C], all with serial and RTTI vtable, '
-                                         'containers inside the list' % (n, idoff))
+        rtti = sum(1 for o in objs if self.kind(o) == 'rtti')
+        vt = 'RTTI vtable' if rtti == n else 'vtable (no RTTI)' if not rtti else 'vtable (%d with RTTI)' % rtti
+        self.found['B_ITEMID'] = (idoff, '%d objects chained by [obj+$%X+$C], all with serial and %s, '
+                                         'containers inside the list' % (n, idoff, vt))
         self.player, self.idoff, self.objs = player, idoff, objs
         cont = {o: (self.u32(o + idoff + 4) or 0) for o in objs}
         children = [o for o in objs if cont[o] == player]
@@ -175,8 +186,8 @@ class Probe:
             chain, seen, g = [], set(), head
             while g and g not in seen and len(chain) < 300:
                 seen.add(g)
-                cls = self.c.cls_of_object(g)
-                if not cls or 'Gump' not in cls:
+                cls = self.gump_label(g)
+                if not cls:
                     break
                 chain.append(cls)
                 g = self.u32(g + off)
@@ -189,6 +200,45 @@ class Probe:
         self.found['B_CONTNEXT'] = (off, '%d gumps chained by +$%X: %s' % (
             n, off, ', '.join(c.replace('.?AV', '').replace('@@', '') for c in chain[:6])))
 
+
+    def gump_label(self, g):
+        """the class of a gump, or None when g is no gump: an RTTI class with 'Gump' in its name, or (no
+        RTTI) an object with a vtable and the $FEEDBEEF marker at +4, labelled by its name at [+8]"""
+        cls = self.c.cls_of_object(g) if g else None
+        if cls:
+            return cls if 'Gump' in cls else None
+        if self.kind(g) == 'vtable' and self.u32(g + 4) == 0xFEEDBEEF:
+            return self.text_at(self.u32(g + 8) or 0, 32)[0] or 'gump'
+        return None
+
+    # ---- notoriety (B_FINDREP) --------------------------------------------------------------
+    def findrep(self):
+        """the dword at id + B_FINDREP that holds every mobile's notoriety, 1 (innocent) to 7
+        (invulnerable): the offset where it lies in 1..7 on each mobile of the object list (serial below
+        $40000000). Mobiles with different notorieties (the player and a vendor) make it unique; with
+        all alike, more than one offset may fit, and then nothing is guessed."""
+        if not hasattr(self, 'idoff'):
+            return
+        mobs = [o for o in self.objs if (self.u32(o + self.idoff) or 0x40000000) < 0x40000000]
+        if len(mobs) < 2:
+            self.notes.append('notoriety: needs a mobile next to the player (stand near a vendor or an animal)')
+            return
+        fit = []
+        for off in range(0x100, 0x400, 4):
+            vals = [self.u32(o + self.idoff + off) for o in mobs]
+            if all(v is not None and 1 <= v <= 7 for v in vals):
+                fit.append((off, vals))
+        varied = [(off, vals) for off, vals in fit if len(set(vals)) > 1]
+        pick = varied if varied else fit
+        if len(pick) != 1:
+            self.notes.append('notoriety: %d offsets hold 1..7 on all %d mobiles (%s)%s' % (
+                len(pick), len(mobs), ' '.join('+$%X' % o for o, v in pick[:8]),
+                '' if varied else ': stand near a mobile of another notoriety (a vendor) and probe again'))
+            return
+        off, vals = pick[0]
+        player = self.u32(self.player + self.idoff + off)
+        self.found['B_FINDREP'] = (off, 'notoriety at id+$%X on all %d mobiles: player %d, values seen %s' % (
+            off, len(mobs), player, sorted(set(vals))))
 
     # ---- buff bar -------------------------------------------------------------------------
     def buff_entry(self, a):
@@ -459,6 +509,7 @@ def run(ctx, title=None, reopen=None):
     title = title if title is not None else window_title(ctx.p.pid)
     name, shard = name_and_shard(title)
     pr.objects()
+    pr.findrep()
     pr.statname(name)
     pr.gumps()
     pr.buffbar()

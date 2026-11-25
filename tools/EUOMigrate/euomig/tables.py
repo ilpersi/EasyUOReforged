@@ -11,6 +11,8 @@ UOCLIDATA = os.path.join(REPO, 'uo', 'uoclidata.pas')
 GOLDEN = os.path.join(REPO, 'tests', 'fixtures', 'uoclidata_golden.json')
 
 ENTRY = re.compile(r'\(\s*Expr:\s*(\w+)\s*;\s*Val:\s*\$([0-9A-Fa-f]+)\s*\)')
+SCAN_ENTRY = re.compile(r"\(\s*Joker:\s*\$([0-9A-Fa-f]+)\s*;\s*Unused:\s*\([^)]*\)\s*;\s*AddOffset1:\s*(-?\d+)\s*;"
+                        r"\s*Mode:\s*(\d)\s*;\s*AddOffset2:\s*(-?\d+)\s*;\s*Expr:\s*(\w+)\s*;\s*Pattern:\s*'([0-9A-Fa-f]+)'\s*\)")
 
 
 def _strip_comments(src):
@@ -40,6 +42,14 @@ class UoCliData:
         if mb:
             for st, lay, adr in re.findall(r'Stamp:\s*\$([0-9A-Fa-f]+)\s*;\s*Layout:\s*@?(\w+)\s*;\s*Addrs:\s*@?(\w+)', mb.group(1)):
                 self.modern.append((int(st, 16), lay, adr))
+        # the runtime scan of the relocatable builds (TCstDB.ScanMemory): (field, pattern, joker, mode,
+        # add1, add2) in table order
+        self.scanner_modern = []
+        st = re.search(r'ScannerTable_Modern\s*:\s*array\s*\[[^\]]*\]\s*of\s+TScannerEntry\s*=\s*\(', src)
+        if st:
+            end = re.compile(r'\n\s*\)\s*;').search(src, st.end())
+            for jk, a1, mode, a2, e, pat in SCAN_ENTRY.findall(src[st.end():end.start() if end else len(src)]):
+                self.scanner_modern.append((e, bytes.fromhex(pat), int(jk, 16), int(mode), int(a1), int(a2)))
         # the fields ApplyModernBuild zeroes: "if Expr in [A..B, C..D] then"
         am = re.search(r'procedure TCstDB\.ApplyModernBuild.*?if Expr in \[(.*?)\]', src, re.S)
         self.modern_reset = set()
@@ -100,16 +110,22 @@ class UoCliData:
     def modern_stamps(self):
         return [st for st, _, _ in self.modern]
 
-    def exact_table(self, ver, stamp, relocatable):
+    def exact_table(self, ver, stamp, relocatable, pe=None):
         """the verified table of exactly this build, or None. A fixed-base build needs its version
         in VersionIndex; a relocatable one its PE stamp in ModernBuilds (the version string does not
-        tell a modern build from the fixed-base one with the same number)."""
+        tell a modern build from the fixed-base one with the same number). With the exe's PE, a
+        relocatable build also gets what TCstDB.ScanMemory finds in it (ScannerTable_Modern): the
+        betas after the first list no C_*/E_* address at all, the scan provides every one."""
         if relocatable:
             if stamp not in self.modern_stamps():
                 return None
         elif not self.milestone_index(ver)[1]:
             return None
-        return self.resolve(ver, stamp=stamp, relocatable=relocatable)
+        t = self.resolve(ver, stamp=stamp, relocatable=relocatable)
+        if relocatable and pe is not None and self.scanner_modern:
+            from .sigs import runtime_scan
+            t.update(runtime_scan(pe, self.scanner_modern))
+        return t
 
     def floor_state(self, ver):
         """what TCstDB.Update gives an unknown fixed-base version today: the nearest older

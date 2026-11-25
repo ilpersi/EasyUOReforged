@@ -88,12 +88,14 @@ def cmd_fingerprint(a):
         nver = sum(1 for e in c['fields'].values() if e['status'] == 'verified')
         source = 'migrated by EUOMigrate (%d values verified live)' % nver
     else:
-        table = u.exact_table(t.version, t.stamp, t.relocatable)
+        table = u.exact_table(t.version, t.stamp, t.relocatable, pe=t.pe)
         if table is None:
             raise SystemExit('%s: uoclidata.pas has no verified table for this exact build -- migrate '
                              'it, verify it, then either add it to uoclidata.pas or fingerprint it '
                              'with --candidates out/<id>/candidates.json.' % t.label())
         source = 'uoclidata.pas'
+        if t.relocatable and u.scanner_modern:
+            source += ' + its runtime scan (ScannerTable_Modern)'
     # values uoclidata.pas cannot carry for this exact build (found by its runtime scan only, e.g. the
     # buff bar's C_CLILOC / C_BUFFTIMERS on a fixed-base client) but that were checked in the live client
     for item in a.set or ():
@@ -131,13 +133,14 @@ def cmd_migrate(a):
     c['derived'] = derived_of(mig)
     usable = {f: e['value'] for f, e in c['fields'].items() if e['status'] in EM.USABLE and e['value']}
     EM.apply_derived(c, CV.derive(t.code, usable), base)
+    c['notes'] = CV.notes(t.code, usable)
     EM.apply_derived(c, GF.derive(t.code, base), base)
-    rel = {}
-    for f, (v, how) in mig.relative_layout().items():
-        default = FD.RELATIVE[f][2]
-        if not base.get(f) and v == default:
-            v = 0                     # the getter's default already gives this distance
-        rel[f] = (v, how)
+    rel = mig.relative_layout()
+    state = dict(base)
+    state.update({f: v for f, (v, how) in rel.items()})
+    for f, (v, how) in list(rel.items()):
+        if not base.get(f) and v == FD.getter_default(dict(state, **{f: 0}), f):
+            rel[f] = (0, how)         # the getter's default already gives this distance
     EM.apply_derived(c, rel, base)
     out = os.path.join(a.out, t.id)
     EM.save_json(c, os.path.join(out, 'candidates.json'))
@@ -278,7 +281,7 @@ def cmd_selftest(a):
     targets = [Target(p, log=log) for p in a.exes]
     known = []
     for t in targets:
-        table = u.exact_table(t.version, t.stamp, t.relocatable)
+        table = u.exact_table(t.version, t.stamp, t.relocatable, pe=t.pe)
         if table is None:
             log('%s: no verified table, skipped' % t.label())
             continue

@@ -171,7 +171,27 @@ After the addresses come the `B_` / `F_` values read from the code (status `deri
 The first is a distance between two globals that changed since the older beta; the second a calling
 convention read from the function's entry code; the third an offset inside an object, read from the code
 that uses it. The four gump offsets [`ScanGumps`](/commands/scangumps/) needs (`B_GUMPART`, `B_GUMPMIN`,
-`B_GUMPSERIAL`, `B_GUMPTYPE`) are found this way on every build, fixed-base or relocatable. Last come the values **inherited** from the older
+`B_GUMPSERIAL`, `B_GUMPTYPE`) are found this way on every build, fixed-base or relocatable.
+
+The distances around `C_LHANDID` and `C_LLIFTEDID` are derived the same way. The 7.0.119.0 beta moved all
+of them, and the report reads them from its code:
+
+```text
+- B_LHAND = $00000024 (derived): B_LHAND = C_LHANDID + $24: the global at 00D78670 (the code reads it as [index*4 + 00D78670]) (...) is located like C_LHANDID 00D78650 (inherited value was $18)
+- B_RHAND = $00000028 (derived): B_RHAND = B_LHAND + 4 = $28: the client indexes the hands by hand*4, so the right one is the slot after the left one (inherited value was $1C)
+- B_LLIFTEDTYPE = $00000024 (derived): B_LLIFTEDTYPE = C_LLIFTEDID - $24: the global at 00DAAF28 (...) is located like C_LLIFTEDID 00DAAF4C (inherited value was $FFFFFFDC)
+```
+
+Calling conventions that no table field carries come in a section of their own. On that beta the macro
+executor became a fastcall, which `uoevents.pas` already handles on every build:
+
+```text
+## Calling conventions
+
+- E_MACROADDR 006A7510: inputs ecx, edx, ret 0 -- a fastcall: the macro table in ecx and the step index in edx (uoevents.pas MacroFastCode loads both)
+```
+
+Last come the values **inherited** from the older
 milestone or the shared modern layout. Nobody has checked the inherited ones for this build: `probe`
 checks some, the [self-test](https://github.com/ilpersi/EasyUOReforged/blob/main/tools/EUOSelfTest/README.md)
 the rest.
@@ -248,6 +268,14 @@ note: sysmsg: no system message yet
 - **note**: a probe that had nothing to work on. Here no system message had arrived yet: use a skill, or
   anything else that prints one, and run `probe` again.
 
+Stand near a vendor (or any mobile whose notoriety differs from yours) for `B_FINDREP`, the notoriety the
+`finditem` results carry: it is the dword that holds 1 to 7 on every mobile, and two different values tell
+it apart from its neighbours.
+
+The 7.0.119.0 beta has no class names (RTTI) for its game objects. There the probe recognises an object by
+its vtable alone, a table of code pointers in the exe's read-only data, and its `B_ITEMID` line ends in
+`all with serial and vtable (no RTTI)`. `verify` treats `C_CHARPTR` the same way.
+
 ## 6. Use the result
 
 Paste `uoclidata-snippet.pas` into `uo/uoclidata.pas`, as described in
@@ -258,6 +286,10 @@ Once the build is in `uoclidata.pas`, add it to the knowledge base:
 ```powershell
 python tools/EUOMigrate/euomigrate.py fingerprint "C:\Games\Ultima Online\client_beta.exe"
 ```
+
+For a relocatable build, `uoclidata.pas` lists only the `B_` values, since its addresses come from the
+runtime scan: `fingerprint` runs that scan over the exe to get them, the way `TCstDB.ScanMemory` does when
+EasyUO Reforged attaches to the client.
 
 Commit the new `tools/EUOMigrate/kb/<version>-<PE stamp>.json.gz`. The next migration then starts from this
 build, which is the closest relative of whatever comes next.
