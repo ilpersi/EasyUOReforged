@@ -54,7 +54,7 @@
 ; ============================================================================
 menu Reforge Mode 1.6
 ; this file's revision, in the report header: raise it with every change, so a report shows which copy ran
-set %st_rev 2026.11.18.4
+set %st_rev 2026.11.25.1
 
 ; ---------------------------------------------------------------------------
 ;  DEVELOPER SWITCHES (no game values here: the script finds or asks for them)
@@ -269,7 +269,9 @@ sub st_init
   set %st_hookwarned 0
   set %st_handswarned 0
   set %st_lastsum
-  set %st_forgot
+  set %st_pendn 0
+  set %st_me #CharID
+  set %st_elast N/A
   set %st_dbmsg
   set %st_have 0
   set %st_logged 0
@@ -487,12 +489,12 @@ sub st_run
   }
   set %st_done 0
   set %st_stagen 0
-  ; the runs row
+  ; the runs row; its charid is #CharID until the shard says who you are (st_whoami, first stage from 4 on)
+  set %st_me #CharID
   if %st_db = 1
   {
-    set %st_cid #CharID
     set %st_cv #CliVer
-    sql exec INSERT INTO runs(started, shard, charid, cliver, stages, last_stage, state) VALUES(#SysTime, %st_shard, %st_cid, %st_cv, %st_sel, 0, 'running')
+    sql exec INSERT INTO runs(started, shard, charid, cliver, stages, last_stage, state) VALUES(#SysTime, %st_shard, %st_me, %st_cv, %st_sel, 0, 'running')
     set %st_runid #SqlLastID
   }
   gosub st_report_open
@@ -734,11 +736,14 @@ sub st_info
   gosub st_rec INFO AUTO %st_x1 %st_x2 %st_x3
 return
 
-; a NOTE: a known difference or a setting explains %st_a (the caller puts the reason in %st_e)
+; a NOTE: a known difference or a setting explains %st_a (the caller puts the reason in %st_e). An %st_e
+; still the same as the line before's was not set for this one (2.14.open showed expected=-90, 2.13's): none
 sub st_note
   set %st_x1 %1
   set %st_x2 %2
   set %st_x3 %3
+  if %st_e = %st_elast
+    set %st_e none
   gosub st_rec NOTE AUTO %st_x1 %st_x2 %st_x3
 return
 
@@ -807,6 +812,8 @@ sub st_rec
     set %st_n_auto %st_n_auto + 1
   set %st_line - , #spc , [ , %st_rv , ]_ , %st_rid , _ , %st_rw , _[ , %st_rk , ]_observed= , %st_ro , _expected= , %st_re , _fields= , %st_rfd
   gosub st_emit
+  ; st_note tells an expected value left from this line from one set for its own
+  set %st_elast %st_e
   ; failures and blocked checks block what depends on them
   if %st_rv = FAIL || %st_rv = SKIP
   {
@@ -973,17 +980,42 @@ sub st_report_open
     set %st_line - , #spc , %st_dbmsg
     gosub st_emit
   }
-  ; clean-up rows an earlier run left and you chose to forget (or that belong to another shard)
-  set %st_t %st_opt_forgot , %st_forgot
-  str len %st_t
+  ; clean-up rows an earlier run left that the start did not put back (st_pending_cleanup): the ones still
+  ; open, then the ones closed without an undo (you forgot them, or nothing could undo them). One line each:
+  ; one line for all was cut at 80 characters and showed one row twice
+  if %st_pendn > 0
+  {
+    for %st_pi 1 %st_pendn
+    {
+      set %st_t %st_pend . %st_pi
+      set %st_line - , #spc , not_cleaned_up_by_an_earlier_run:_ , %st_t
+      gosub st_emit
+    }
+    set %st_pendn 0
+  }
+  str len %st_opt_forgot
   if #StrRes > 0 && %st_opt_forgot <> N/A
   {
-    set %st_in %st_t
-    gosub st_san
-    set %st_line - , #spc , not_cleaned_up_by_an_earlier_run:_ , %st_out
-    gosub st_emit
+    str count %st_opt_forgot |
+    set %st_fgn #StrRes
+    if %st_fgn > 0
+    {
+      for %st_pi 1 %st_fgn
+      {
+        str part %st_opt_forgot | %st_pi
+        set %st_line - , #spc , not_cleaned_up_by_an_earlier_run:_ , #StrRes
+        gosub st_emit
+      }
+    }
+    else
+    {
+      ; saved by an older copy of this script: one text
+      set %st_in %st_opt_forgot
+      gosub st_san
+      set %st_line - , #spc , not_cleaned_up_by_an_earlier_run:_ , %st_out
+      gosub st_emit
+    }
     set %st_opt_forgot
-    set %st_forgot
     if %st_db = 1
       sql delete %st_opt_forgot
   }
@@ -1084,6 +1116,10 @@ sub st_finish
       set %st_cr %st_clr . %st_ci
       set %st_ck2 %st_clk . %st_ci
       set %st_cd2 %st_cld . %st_ci
+      ; an old value taken over from the open row of an earlier run (st_cl_changed)
+      set %st_cf2 %st_clf . %st_ci
+      if %st_cf2 <> 0 && %st_cf2 <> N/A
+        set %st_co %st_co , _(left_by_run_ , %st_cf2 , )
       set %st_line - , #spc , %st_ck2 , _ , %st_ct , _[ , %st_cd2 , ]_old= , %st_co , _result= , %st_cr
       gosub st_emit
     }
@@ -2039,6 +2075,7 @@ sub st_c214
   set %st_a #BuffBarOpen
   if %st_a = N/A
   {
+    set %st_e -1_or_0
     gosub st_note 2.14.open BuffBarOpen_N/A:_no_buff_bar_layout_for_this_client %fx_buff
     return
   }
@@ -2246,6 +2283,19 @@ sub st_c307
     return
   set %st_old %st_g3 , / , %st_g4 , / , %st_g1 , / , %st_g2
   gosub st_cl_changed game_area cliwin
+  ; a crashed run left the game area changed: the clean-up puts back the area from before it (the row it
+  ; left), so .restore expects that one
+  if %st_cfrom <> 0
+  {
+    str part %st_cold / 1
+    set %st_g3 #StrRes
+    str part %st_cold / 2
+    set %st_g4 #StrRes
+    str part %st_cold / 3
+    set %st_g1 #StrRes
+    str part %st_cold / 4
+    set %st_g2 #StrRes
+  }
   st_rp_307:
   set #CliXRes 640
   set #CliYRes 480
@@ -2284,6 +2334,7 @@ sub st_c308
     return
   set %st_old #CliTitle
   gosub st_cl_changed window_title title
+  set %st_tiold %st_cold
   gosub st_token
   set %st_t1 EUO , #spc , SelfTest , #spc , %st_tok
   setuotitle %st_t1
@@ -2300,7 +2351,8 @@ sub st_c308
   gosub st_eq 3.08.var set_#CliTitle_is_read_back_by_getuotitle none
   gosub st_cl_restore window_title
   set %st_a #CliTitle
-  set %st_e %st_old
+  ; the title recorded: the one before a crashed run, when that run left it changed (st_cl_changed)
+  set %st_e %st_tiold
   gosub st_eq 3.08.restore the_title_is_back_as_it_was none
 return
 
@@ -2407,6 +2459,7 @@ sub st_c402
   else
   {
     set %st_a no_answer_to_ , %st_pfx , self_get_AccessLevel
+    set %st_e a_staff_level
     gosub st_note 4.02 no_answer:_wrong_prefix_or_not_staff;_staff_checks_are_skipped %fx_jour
   }
 return
@@ -2998,11 +3051,7 @@ sub st_c413
   set %st_e 23
   gosub st_eq 4.13.mana Mana_reads_23 %fx_stat
   ; back to full (the cleanup puts the stats themselves back)
-  set %st_t1 #MaxHits
-  set %st_t2 #MaxStam
-  set %st_t3 #MaxMana
-  gosub st_staff self set Hits %st_t1 Stam %st_t2 Mana %st_t3
-  waitfor #Hits = %st_t1 %st_tw3
+  gosub st_full Hits Stam Mana
 return
 
 ; a gold pile of 1234 made in the backpack: #Gold grows by exactly that, the pile is found
@@ -3162,6 +3211,17 @@ sub st_flagtest
   }
   set %st_old %st_fold
   gosub st_cl_changed %st_f2 staffset
+  ; the letter after the put-back: as it was, or as before a crashed run that left this value changed (the
+  ; old value is then the one of the row it left, st_cl_changed)
+  set %st_fbin in
+  if %st_fwant = in
+    set %st_fbin notin
+  if %st_cfrom <> 0
+  {
+    set %st_fbin notin
+    if %st_cold = true
+      set %st_fbin in
+  }
   gosub st_staff self set %st_f2 %st_fnew
   if %st_fwant = in
     waitfor %st_f3 in #CharStatus %st_tw3
@@ -3201,12 +3261,12 @@ sub st_flagtest
     gosub st_ok %st_fid C_comes_with_the_yellow_bar %fx_statusc
   }
   gosub st_cl_restore %st_f2
-  if %st_fwant = in
+  if %st_fbin = notin
     waitfor %st_f3 notin #CharStatus %st_tw3
   else
     waitfor %st_f3 in #CharStatus %st_tw3
   set %st_a #CharStatus
-  if %st_fwant = in
+  if %st_fbin = notin
     set %st_c %st_f3 notin #CharStatus
   else
     set %st_c %st_f3 in #CharStatus
@@ -4729,7 +4789,7 @@ sub st_c609
   wait 10
   exevent dropc #BackpackID 40 40
   wait 20
-  gosub st_newitem_end Gold_split
+  gosub st_newitem_end Gold_split split
   set %st_rest %st_g0 - 100
   if %st_newid = N/A
   {
@@ -5261,7 +5321,7 @@ sub st_c619
   set %st_a #MoveRes
   set %st_e ok
   gosub st_eq 6.19.ok moveitem_100_gold_into_a_bag_at_40_40 %fx_xdrag
-  gosub st_newitem_end Gold_rest
+  gosub st_newitem_end Gold_rest split
   set %st_grest %st_newid
   finditem %st_goldid CA_ , %st_mbag
   set %st_a #FindStack
@@ -5444,6 +5504,9 @@ sub st_c704
   set %st_l0 #SkillLock
   set %st_old %st_l0
   gosub st_cl_changed anat skilllock
+  ; the lock from before a crashed run, when that run left it changed: the one the clean-up puts back
+  if %st_cfrom <> 0
+    set %st_l0 %st_cold
   exevent skilllock anat locked
   chooseskill anat
   waitfor #SkillLock = locked %st_tw3
@@ -5661,8 +5724,7 @@ sub st_c708
   if %st_staffok = 1
   {
     wait 60
-    set %st_t #MaxHits
-    gosub st_staff self set Hits %st_t
+    gosub st_full Hits
   }
 return
 
@@ -6781,8 +6843,7 @@ sub st_c1201
   if %st_staffok = 1
   {
     gosub st_ensure_magery
-    set %st_t #MaxMana
-    gosub st_staff self set Mana %st_t
+    gosub st_full Mana
     gosub st_cancel_cursor
     ; Bless (has a timer) on yourself
     event macro 15 16
@@ -7046,6 +7107,11 @@ sub st_setup_once
   {
     gosub st_staff_probe
     set %st_staffprobed 1
+    ; the run's character as the shard knows it: a client table that reads #CharID wrong must not make
+    ; the next run take this run's clean-up rows for another character's (run 141 on 7.0.119.0 read YC)
+    gosub st_whoami
+    if %st_db = 1
+      sql exec UPDATE runs SET charid = %st_me WHERE id = %st_runid
   }
   if %st_spotdone = 0 && %st_staffok = 1
   {
@@ -7207,6 +7273,82 @@ sub st_staff_probe
   set %st_stafflvl #StrRes
   if %st_stafflvl <> Player && %st_stafflvl <> Counselor
     set %st_staffok 1
+return
+
+; who the character is, for the clean-up rows -> %st_me: the shard's own serial as an EasyUO ID when staff
+; commands work (a client table being tested can read #CharID wrong), else #CharID
+sub st_whoami
+  set %st_me #CharID
+  if %st_staffok = 0
+    return
+  gosub st_sget Serial
+  if %st_gok = 0
+    return
+  set %st_in %st_gn
+  gosub st_hex
+  set %st_in %st_out
+  gosub st_num2id
+  set %st_me %st_out
+return
+
+; gosub st_full Hits Stam Mana (any of them): back to the maximum with one [self set. The maximum is the
+; client's when it reads as one, else the shard's (HitsMax, StamMax, ManaMax; the shard keeps a value at
+; most its maximum). One still unknown is left as it is and listed in the CLEAN-UP section: never sent as
+; N/A (the client table being tested read #MaxHits N/A on 7.0.119.0, and [self set Hits N/A was sent)
+sub st_full
+  set %st_fu1 %1
+  set %st_fu2 %2
+  set %st_fu3 %3
+  set %st_fun %0
+  set %st_fuset
+  set %st_fucnt 0
+  set %st_fuh N/A
+  for %st_fui 1 %st_fun
+  {
+    set %st_fup %st_fu . %st_fui
+    set %st_fuv N/A
+    if %st_fup = Hits
+      set %st_fuv #MaxHits
+    if %st_fup = Stam
+      set %st_fuv #MaxStam
+    if %st_fup = Mana
+      set %st_fuv #MaxMana
+    set %st_fuok 0
+    if %st_fuv <> N/A
+    {
+      if ( %st_fuv >= 1 ) && ( %st_fuv <= 65000 )
+        set %st_fuok 1
+    }
+    if %st_fuok = 0
+    {
+      set %st_fum %st_fup , Max
+      gosub st_sget %st_fum
+      set %st_fuv %st_gn
+      if %st_gok = 1 && %st_fuv <> N/A
+        set %st_fuok 1
+    }
+    if %st_fuok = 1
+    {
+      if %st_fucnt > 0
+        set %st_fuset %st_fuset , #spc
+      set %st_fuset %st_fuset , %st_fup , #spc , %st_fuv
+      set %st_fucnt %st_fucnt + 1
+      if %st_fup = Hits
+        set %st_fuh %st_fuv
+    }
+    else
+    {
+      log %st_fup not set back to full: its maximum is unknown
+      gosub st_cl_note changed %st_fup full left_as_is:_its_maximum_is_unknown
+    }
+  }
+  if %st_fucnt = 0
+    return
+  gosub st_staff self set %st_fuset
+  if %st_fuh <> N/A
+    waitfor #Hits = %st_fuh %st_tw3
+  else
+    wait 10
 return
 
 ;  gosub st_sget Prop : [self get Prop -> %st_gok, %st_gv (all after "= "), %st_gn (its first word)
@@ -7475,9 +7617,16 @@ sub st_newitem_scan
 return
 
 ; the first object of %st_nit that was not there at st_newitem_begin -> %st_newid, recorded for the clean-up
-; as %1
+; as %1. None found: the script made it all the same (a table that reads the backpack wrong sees nothing
+; new), so it is listed for deleting by hand (st_cl_lost); %2 split: nothing was made, a pile was split
 sub st_newitem_end
   set %st_niwhat %1
+  set %st_nisplit 0
+  if %0 >= 2
+  {
+    if %2 = split
+      set %st_nisplit 1
+  }
   set %st_newid N/A
   set %st_nitry 0
   repeat
@@ -7498,6 +7647,8 @@ sub st_newitem_end
   until %st_newid <> N/A || %st_nitry > 12
   if %st_newid <> N/A
     gosub st_cl_created %st_newid %st_niwhat
+  if %st_newid = N/A && %st_nisplit = 0
+    gosub st_cl_lost %st_niwhat
 return
 
 ; a mobile made at your feet and held in place -> %st_newid
@@ -7588,8 +7739,7 @@ sub st_ensure_magery
     gosub st_newitem_begin * B
     gosub st_staff self addtopack BagOfReagents 20
     gosub st_newitem_end Reagents
-    set %st_t #MaxMana
-    gosub st_staff self set Mana %st_t
+    gosub st_full Mana
     set %st_canmage 1
     return
   }
@@ -7811,10 +7961,18 @@ return
 ;  In memory: %st_clk.i kind, %st_clt.i target, %st_cld.i detail, %st_clo.i old value,
 ;  %st_clx.i done (0/1), %st_clr.i result. In SQL: the cleanup table.
 
-; gosub st_cl_changed <target> <detail> with %st_old: written BEFORE the change
+; gosub st_cl_changed <target> <detail> with %st_old: written BEFORE the change. -> %st_cold, the old value
+; recorded (the one the clean-up puts back), and %st_cfrom, the earlier run it was taken from (0: none).
+; An open row an earlier run left for the same target, shard and character (it crashed, or its clean-up
+; failed or was put off) holds the value from before that run: this run takes it over and closes that row,
+; or it would record what the earlier run left as the old value (run 142 put RawStr back to the 77 of run
+; 141, not to its 100). An old value that is still unknown (N/A, empty) is not recorded: nothing could put
+; it back, and the CLEAN-UP section says so
 sub st_cl_changed
   set %st_c1 %1
   set %st_c2 %2
+  set %st_cold %st_old
+  set %st_cfrom 0
   if %st_cln > 0
   {
     for %st_ci 1 %st_cln
@@ -7825,15 +7983,51 @@ sub st_cl_changed
         return
     }
   }
+  if %st_db = 1
+  {
+    sql query SELECT c.old_value AS st_q_pold, c.run AS st_q_prun FROM cleanup c JOIN runs r ON r.id = c.run WHERE c.done = 0 AND c.kind = 'changed' AND c.target = %st_c1 AND c.detail = %st_c2 AND c.run <> %st_runid AND r.shard = %st_shard AND r.charid = %st_me ORDER BY c.rowid LIMIT 1
+    if #SqlCnt > 0
+    {
+      set %st_cold %st_q_pold
+      set %st_cfrom %st_q_prun
+      sql exec UPDATE cleanup SET done = 1 WHERE done = 0 AND kind = 'changed' AND target = %st_c1 AND detail = %st_c2 AND run <> %st_runid AND run IN (SELECT id FROM runs WHERE shard = %st_shard AND charid = %st_me)
+      log clean-up: %st_c1 takes the old value %st_cold left by run %st_cfrom
+    }
+  }
+  set %st_cuv %st_cold
+  set %st_cuk %st_c2
+  gosub st_cl_unknown
+  if %st_cunk = 1
+  {
+    log clean-up: %st_c1 not recorded, its old value is unknown
+    gosub st_cl_note changed %st_c1 %st_c2 not_recorded:_the_old_value_is_unknown_(check_it_by_hand)
+    return
+  }
   set %st_cln %st_cln + 1
   set %st_clk . %st_cln changed
   set %st_clt . %st_cln %st_c1
   set %st_cld . %st_cln %st_c2
-  set %st_clo . %st_cln %st_old
+  set %st_clo . %st_cln %st_cold
+  set %st_clf . %st_cln %st_cfrom
   set %st_clx . %st_cln 0
   set %st_clr . %st_cln not_restored
   if %st_db = 1
-    sql exec INSERT INTO cleanup(run, kind, target, detail, old_value, done) VALUES(%st_runid, 'changed', %st_c1, %st_c2, %st_old, 0)
+    sql exec INSERT INTO cleanup(run, kind, target, detail, old_value, done) VALUES(%st_runid, 'changed', %st_c1, %st_c2, %st_cold, 0)
+return
+
+; is the old value %st_cuv of a change of kind %st_cuk unknown? -> %st_cunk 1/0. N/A, empty or with an N/A
+; part (a position or game area read where nothing could be read); for hands N/A is an empty hand, a known
+; value. Not gosub parameters: an empty value would shift them
+sub st_cl_unknown
+  set %st_cunk 0
+  str len %st_cuv
+  if #StrRes = 0
+  {
+    set %st_cunk 1
+    return
+  }
+  if %st_cuk <> hands && N/A in %st_cuv
+    set %st_cunk 1
 return
 
 ; gosub st_cl_created <id> <what>: written right after finditem found it
@@ -7845,10 +8039,37 @@ sub st_cl_created
   set %st_clt . %st_cln %st_c1
   set %st_cld . %st_cln %st_c2
   set %st_clo . %st_cln N/A
+  set %st_clf . %st_cln 0
   set %st_clx . %st_cln 0
   set %st_clr . %st_cln not_deleted
   if %st_db = 1
     sql exec INSERT INTO cleanup(run, kind, target, detail, old_value, done) VALUES(%st_runid, 'created', %st_c1, %st_c2, NULL, 0)
+return
+
+; gosub st_cl_lost <what>: the script made it, but finditem saw nothing new, so there is no ID to delete. A row
+; with the target not_found keeps it listed (also at the next start, after a crash); its clean-up sends
+; nothing and tells you to delete it by hand
+sub st_cl_lost
+  set %st_c2 %1
+  log clean-up: %st_c2 was made but not found: delete it by hand
+  gosub st_cl_created not_found %st_c2
+return
+
+; a line of the CLEAN-UP section that is done already: nothing to undo later, so no row. %1 kind, %2 target,
+; %3 detail, %4 the result
+sub st_cl_note
+  set %st_cq1 %1
+  set %st_cq2 %2
+  set %st_cq3 %3
+  set %st_cq4 %4
+  set %st_cln %st_cln + 1
+  set %st_clk . %st_cln %st_cq1
+  set %st_clt . %st_cln %st_cq2
+  set %st_cld . %st_cln %st_cq3
+  set %st_clo . %st_cln unknown
+  set %st_clf . %st_cln 0
+  set %st_clx . %st_cln 1
+  set %st_clr . %st_cln %st_cq4
 return
 
 ; undoes the newest open entry for <target> now
@@ -7920,10 +8141,34 @@ sub st_cl_do
   }
 return
 
-; in: %st_uk kind, %st_ut target, %st_ud detail, %st_uo old value -> %st_uok 1/0, %st_umsg
+; in: %st_uk kind, %st_ut target, %st_ud detail, %st_uo old value -> %st_uok 1/0, %st_umsg, %st_uskip 1 when the
+; row is closed without an undo (nothing could undo it: the start-up clean-up lists it in the next report)
 sub st_cl_undo
   set %st_uok 0
+  set %st_uskip 0
   set %st_umsg FAILED
+  ; made, but never found: no ID to delete
+  if %st_uk = created && %st_ut = not_found
+  {
+    set %st_uok 1
+    set %st_uskip 1
+    set %st_umsg not_found:_delete_the_ , %st_ud , _by_hand
+    return
+  }
+  ; never send an old value that is unknown ([self set Hits N/A ...): close the row and say so
+  if %st_uk = changed
+  {
+    set %st_cuv %st_uo
+    set %st_cuk %st_ud
+    gosub st_cl_unknown
+    if %st_cunk = 1
+    {
+      set %st_uok 1
+      set %st_uskip 1
+      set %st_umsg not_restored:_the_old_value_is_unknown_(check_it_by_hand)
+      return
+    }
+  }
   if %st_uk = created
   {
     if %st_staffok = 0
@@ -8200,9 +8445,12 @@ sub st_startup
   gosub st_first_run
 return
 
-; rows an earlier run left in the clean-up table: list them, then undo or forget them (you choose)
+; rows an earlier run left in the clean-up table: list them, then undo or forget them (you choose). The rows
+; are copied into variables first: the undo runs queries of its own, and a row that fails or belongs to
+; another character must not keep the rows after it from being tried (run 142 took the newest open row
+; again on every pass, so it tried none of the others)
 sub st_pending_cleanup
-  sql query SELECT c.rowid AS st_q_rid, c.kind AS st_q_kind, c.target AS st_q_target, c.detail AS st_q_detail, c.old_value AS st_q_old, r.shard AS st_q_shard, r.charid AS st_q_char FROM cleanup c LEFT JOIN runs r ON r.id = c.run WHERE c.done = 0 ORDER BY c.rowid DESC
+  sql query SELECT c.rowid AS st_q_rid, c.run AS st_q_run, c.kind AS st_q_kind, c.target AS st_q_target, c.detail AS st_q_detail, c.old_value AS st_q_old, r.shard AS st_q_shard, r.charid AS st_q_char FROM cleanup c LEFT JOIN runs r ON r.id = c.run WHERE c.done = 0 ORDER BY c.rowid DESC
   set %st_pn #SqlCnt
   if %st_pn = 0
     return
@@ -8210,9 +8458,18 @@ sub st_pending_cleanup
   for %st_pi 1 %st_pn
   {
     sql row %st_pi
-    set %st_ptext %st_ptext , open:_ , %st_q_kind , _ , %st_q_target , _( , %st_q_detail , )_old= , %st_q_old , _shard= , %st_q_shard , _char= , %st_q_char , $
+    set %st_prr . %st_pi %st_q_rid
+    set %st_pru . %st_pi %st_q_run
+    set %st_prk . %st_pi %st_q_kind
+    set %st_prt . %st_pi %st_q_target
+    set %st_prd . %st_pi %st_q_detail
+    set %st_pro . %st_pi %st_q_old
+    set %st_prs . %st_pi %st_q_shard
+    set %st_prc . %st_pi %st_q_char
+    set %st_ptext %st_ptext , open:_run_ , %st_q_run , _ , %st_q_kind , _ , %st_q_target , _( , %st_q_detail , )_old= , %st_q_old , _shard= , %st_q_shard , _char= , %st_q_char , $
   }
   set %st_ptext %st_ptext , $Clean_up_now_needs_the_same_shard_and_character_(staff_commands_for_created_objects).
+    +$Later:_a_run_on_the_same_character_takes_over_these_old_values_and_puts_them_back_at_its_end.
   menu Clear
   menu Window Title EUO SelfTest - clean-up
   menu Window Size 560 330
@@ -8232,48 +8489,75 @@ sub st_pending_cleanup
     set %st_staff %st_opt_staff
     set %st_pfx %st_opt_pfx
     gosub st_staff_probe
-    sql query SELECT c.rowid AS st_q_rid, c.kind AS st_q_kind, c.target AS st_q_target, c.detail AS st_q_detail, c.old_value AS st_q_old, r.shard AS st_q_shard, r.charid AS st_q_char FROM cleanup c LEFT JOIN runs r ON r.id = c.run WHERE c.done = 0 ORDER BY c.rowid DESC
-    set %st_pn #SqlCnt
+    gosub st_whoami
     for %st_pi 1 %st_pn
     {
-      ; the rows are loaded again each time: the undo may run other queries
-      sql query SELECT c.rowid AS st_q_rid, c.kind AS st_q_kind, c.target AS st_q_target, c.detail AS st_q_detail, c.old_value AS st_q_old, r.shard AS st_q_shard, r.charid AS st_q_char FROM cleanup c LEFT JOIN runs r ON r.id = c.run WHERE c.done = 0 ORDER BY c.rowid DESC
-      if #SqlCnt >= 1
+      set %st_prid %st_prr . %st_pi
+      set %st_uk %st_prk . %st_pi
+      set %st_ut %st_prt . %st_pi
+      set %st_ud %st_prd . %st_pi
+      set %st_uo %st_pro . %st_pi
+      set %st_psh %st_prs . %st_pi
+      set %st_pch %st_prc . %st_pi
+      set %st_uskip 0
+      if %st_psh = %st_shard && %st_pch = %st_me
       {
-        sql row 1
-        set %st_rid %st_q_rid
-        if %st_q_shard = %st_shard && %st_q_char = #CharID
-        {
-          set %st_uk %st_q_kind
-          set %st_ut %st_q_target
-          set %st_ud %st_q_detail
-          set %st_uo %st_q_old
-          gosub st_cl_undo
-          log clean-up %st_uk %st_ut : %st_umsg
-        }
-        else
-          set %st_uok 2
-        ; done, or not for this shard/character: either way not offered again in this loop
-        if %st_uok = 1
-          sql exec UPDATE cleanup SET done = 1 WHERE rowid = %st_rid
-        else
-          set %st_forgot %st_forgot , not_cleaned:_ , %st_q_kind , _ , %st_q_target , /
+        gosub st_cl_undo
+        log clean-up %st_uk %st_ut : %st_umsg
       }
+      else
+      {
+        ; not this shard or character: not tried, and still open
+        set %st_uok 0
+        set %st_in %st_pch , _on_ , %st_psh
+        gosub st_san
+        set %st_umsg not_tried:_recorded_for_ , %st_out , _(you_are_ , %st_me , )
+      }
+      if %st_uok = 1
+        sql exec UPDATE cleanup SET done = 1 WHERE rowid = %st_prid
+      ; what was not put back goes into the next report's header, one line per row
+      if %st_uok <> 1
+        gosub st_pend_add %st_pi open
+      if %st_uok = 1 && %st_uskip = 1
+        gosub st_pend_add %st_pi save
     }
   }
   if %st_pb = cl_forget
   {
-    set %st_t
+    set %st_umsg forgotten_by_you
     for %st_pi 1 %st_pn
     {
-      sql row %st_pi
-      set %st_t %st_t , %st_q_kind , _ , %st_q_target , _old= , %st_q_old , /
+      gosub st_pend_add %st_pi save
     }
     sql exec UPDATE cleanup SET done = 1 WHERE done = 0
-    ; written into the next report, so nothing disappears silently
-    set %st_opt_forgot %st_opt_forgot , %st_t
-    sql save %st_opt_forgot
   }
+return
+
+; row %1 of st_pending_cleanup was not put back (%st_umsg says why): a header line of the next report.
+; %2 save: the row is closed (you forgot it, or nothing could undo it), so the line is saved with the
+; options (%st_opt_forgot) until a report has it; open: the row stays open and is listed at the next start
+sub st_pend_add
+  set %st_pk %1
+  set %st_pkeep %2
+  set %st_pt1 %st_pru . %st_pk
+  set %st_pt2 %st_prk . %st_pk
+  set %st_pt4 %st_prd . %st_pk
+  set %st_in %st_prt . %st_pk
+  gosub st_san
+  set %st_pt3 %st_out
+  set %st_in %st_pro . %st_pk
+  gosub st_san
+  set %st_pt5 %st_out
+  set %st_t run_ , %st_pt1 , _ , %st_pt2 , _ , %st_pt3 , _[ , %st_pt4 , ]_old= , %st_pt5 , _result= , %st_umsg
+  if %st_pkeep = save
+  {
+    set %st_opt_forgot %st_opt_forgot , %st_t , |
+    if %st_db = 1
+      sql save %st_opt_forgot
+    return
+  }
+  set %st_pendn %st_pendn + 1
+  set %st_pend . %st_pendn %st_t
 return
 
 ; the first run asks for each missing option

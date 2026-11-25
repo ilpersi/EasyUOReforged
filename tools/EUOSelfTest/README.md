@@ -64,7 +64,7 @@ connection was lost, or you logged out): every check after that would fail for t
 **Before the first event-hook stage** the panel warns that a wrong `E_` value can freeze or crash the client,
 and waits for you. Every report line is in the file the moment it is recorded, so a crash of the client
 loses nothing already checked; the database remembers the last finished stage, and the next start offers
-**Resume from stage N** and the clean-up of what the crashed run left.
+**Resume from stage N** and the clean-up of what the crashed run left (see [Clean-up after a crash](#clean-up-after-a-crash)).
 
 Never run: `event macro 20` (quit game), anything that logs out, closes or starts a client, `shutdown`,
 `terminate`, `uoXL new`, `send`. `uoXL swap` runs only when two clients are running (2.16).
@@ -215,13 +215,33 @@ offers no resume and no clean-up after a crash. The unattended dry run uses `:me
 
 | Table | Holds |
 |---|---|
-| `euo_vars` (`sql save` / `sql load`) | Options that are the same on every shard, named `%st_opt_...`: panel position, report folder, the stages last selected, the four opt-in stages, the speech pace and margin, and the clean-up rows you chose to forget (written into the next report, then cleared). |
+| `euo_vars` (`sql save` / `sql load`) | Options that are the same on every shard, named `%st_opt_...`: panel position, report folder, the stages last selected, the four opt-in stages, the speech pace and margin, and the clean-up rows closed without an undo (forgotten by you, or nothing could undo them: written into the next report, then cleared). |
 | `shards` | One row per `#Shard`: `staff` (0/1), `prefix`, the test spot `x`, `y`, `z`, `facet` (as `#CursKind`). |
-| `runs` | One row per run: `started` (`#SysTime`), `shard`, `charid`, `cliver`, `stages`, `last_stage`, `state` (`running`, `finished`, `stopped`). A row still `running` at the next start crashed. |
-| `cleanup` | What a run created or changed: `run`, `kind` (`created` / `changed`), `target`, `detail` (how to undo it), `old_value`, `done`. A changed value is written **before** the change, a created object right after `finditem` finds it. |
+| `runs` | One row per run: `started` (`#SysTime`), `shard`, `charid`, `cliver`, `stages`, `last_stage`, `state` (`running`, `finished`, `stopped`). A row still `running` at the next start crashed. `charid` is `#CharID` until the first stage from 4 on asks the shard (`[self get Serial`, as an EasyUO ID): a client table being tested can read `#CharID` wrong (run 141 on 7.0.119.0 read `YC` for `XC`), and the clean-up must still know whose rows they are. |
+| `cleanup` | What a run created or changed: `run`, `kind` (`created` / `changed`), `target`, `detail` (how to undo it), `old_value`, `done`. A changed value is written **before** the change, a created object right after `finditem` finds it. An object made but never found has the target `not_found`. |
 
-At start, open `cleanup` rows are listed with *Clean up now* (same shard and character), *Later* and
-*Forget them*. *Reset options* in *Settings* deletes the option rows and the shard rows, never open clean-up rows.
+*Reset options* in *Settings* deletes the option rows and the shard rows, never open clean-up rows.
+
+### Clean-up after a crash
+
+A run that crashed (or whose clean-up failed) leaves `cleanup` rows open (`done = 0`). At start they are
+listed with *Clean up now*, *Later* and *Forget them*:
+
+- **Clean up now** puts back every row of this shard and character, each on its own: a row that fails, or
+  belongs to another character, does not stop the others. Each row put back is marked done. Each one that
+  is not goes into the next report's header as a `not_cleaned_up_by_an_earlier_run:` line, with its old
+  value and why (`not_tried:_recorded_for_...`, `FAILED:...`); it stays open and is listed again next time.
+- **Later** leaves them open. A run on the same shard and character then **takes over** an open row's old
+  value when it changes the same thing, and closes that row: it puts back the value from before the crashed
+  run, not what that run left (run 142 put RawStr back to the crashed run's 77 instead of 100). The
+  CLEAN-UP line then says `old=100_(left_by_run_141)`. With several crashed runs, the oldest row wins.
+- **Forget them** closes them all and writes each into the next report's header (`forgotten_by_you`).
+
+A value that could not be read (`N/A`, empty) is never sent back (`[self set Hits N/A` was sent before):
+the change is not recorded, and the CLEAN-UP line says `not_recorded:_the_old_value_is_unknown`; an open
+row with such a value is closed with `not_restored:_the_old_value_is_unknown`. An object the script made
+but `finditem` never saw (a table that reads the backpack wrong) has no ID to delete: it is listed as
+`created_not_found_[Gold]`, `result=not_found:_delete_the_Gold_by_hand`, so you know what to delete.
 
 **The test spot** must be open ground with walkable tiles two steps east and two steps south: the walking
 checks use them, and check them first with `path can` (a blocked way is skipped, not failed). With staff
@@ -257,7 +277,10 @@ a check sees, the line says so or the check is a NOTE, not a FAIL.
 
 **Clean-up.** Everything the script made is deleted at the end and on Stop; everything it changed on the
 character (stats, skills, locks, war mode, position, the window, the title, what you held, a pet's name,
-the mount you rode, Protection, the buff bar) is put back. Bless runs out by itself. The report's **CLEAN-UP** section lists each with its result; anything that failed says so.
+the mount you rode, Protection, the buff bar) is put back. Bless runs out by itself. The report's **CLEAN-UP** section lists each with its result; anything that failed says so. Hits, stamina and mana go back to
+their maximum, the client's when it reads one, else the shard's (`HitsMax`, ...); one still unknown is left
+as it is, with a CLEAN-UP line `left_as_is:_its_maximum_is_unknown`. What a crashed run left: see
+[Clean-up after a crash](#clean-up-after-a-crash).
 
 ## Without staff commands
 
@@ -528,7 +551,12 @@ database, so a run that crashes leaves no clean-up rows behind: to keep them, ma
   variable (`%ST_ONLY` was `%st_only`).
 - Every check sub takes three words (`id what fields`) and reads `%st_a` (observed) and `%st_e` (expected):
   a value with spaces survives as one `gosub` parameter, but a `what` must not start with `#` (a word that
-  starts with `#` is read as a variable).
+  starts with `#` is read as a variable). Set `%st_e` before `st_note` too: a value left from the line before
+  is written as `none` (2.14.open once showed 2.13's `-90`).
+- Record a change with `st_cl_changed` before making it, and when a check puts it back at once and
+  compares, compare with `%st_cold` (the value recorded, maybe taken over from a crashed run), not with
+  what it read first. A pile split that may make nothing new calls `st_newitem_end <what> split`, so a
+  missing one is not listed as made.
 - An observed `N/A` never passes, except in `st_eqna` (a check that expects `N/A`).
 - A text the script searches the journal for comes from `st_token` and is never shown in the panel.
 - A condition for `st_ok` is set with `#true` / `#false` or a comparison: `set %st_c 1` reads as false.
