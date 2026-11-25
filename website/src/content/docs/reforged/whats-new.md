@@ -42,8 +42,8 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
   its buttons does, with checkboxes and text fields, and close its window. It finds the gump open now, so its
   new serial is always the one sent; [`#GumpReply`](/variables/gumpreply/) keeps the answer to send again and
   [`#GumpReplyRes`](/variables/gumpreplyres/) says whether it went out. It also records the answers you click by
-  hand, counted by [`#GumpReplyCnt`](/variables/gumpreplycnt/), from the first time a script reads one of these
-  variables: start the script, click once, read `#GumpReply`, and the script knows what to send.
+  hand, counted by [`#GumpReplyCnt`](/variables/gumpreplycnt/), from the moment the editor finds the client: click
+  once, read `#GumpReply`, and the script knows what to send.
 - **[`MoveItem`](/commands/moveitem/)**: move an item, or part of a stack, into a container in one line. It
   picks it up, drops it, waits, tries again when that is safe, and checks the client's item list (never the
   journal) to say in [`#MoveRes`](/variables/moveres/) whether it arrived, instead of a hand-written drag,

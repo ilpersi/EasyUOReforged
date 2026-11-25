@@ -12,7 +12,7 @@ What changes for script users in each release of EasyUO Reforged. New entries go
 
 ### Fixed
 
-- **`#GumpReply` now records your clicks without `#GumpReplyCnt`.** Clicks on a server gump were recorded only after a script had read `#GumpReplyCnt` or run `exevent GumpReply` since the client started, so a script that read only `#GumpReply` still saw `N/A` after your click. Reading `#GumpReply` in a script now starts the recording too, and so does `GetGumpReply` in `uo.dll`, which now also returns nil, not zeros, while nothing was recorded yet. A click made before any script started it is still not recorded: start the script first, then click. See [`#GumpReply`](https://ilpersi.github.io/EasyUOReforged/variables/gumpreply/).
+- **`#GumpReply` records your clicks with no script asking first.** Clicks on a server gump were recorded only after a script had read `#GumpReplyCnt` or run `exevent GumpReply` since the client started, so after opening a gump and clicking, `#GumpReply` still read `N/A`. The editor now starts the recording as soon as it finds the client (while no script is running), so you can click and then read `#GumpReply` in the variable list or a script. Under `EUOCli`, reading `#GumpReply` in a script now starts it too, and so does `GetGumpReply` in `uo.dll`, which also returns nil, not zeros, while nothing was recorded yet. A click made before the recording started is still lost. See [`#GumpReply`](https://ilpersi.github.io/EasyUOReforged/variables/gumpreply/).
 
 ## v26.11.23 - 2026-11-23
 

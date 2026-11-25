@@ -115,7 +115,8 @@ unit EuoInterpreter;
   Likewise EXEVENT GUMPREPLY plus the read-only #GumpReply, #GumpReplyRes and #GumpReplyCnt (indices
   143..145): answers a server gump the way a click on one of its buttons does (uogumpreply.pas). With
   the click hook on the client (installed by GUMPREPLY, or when the script itself reads #GumpReply or #GumpReplyCnt;
-  never by a host polling the variables from its own thread) they also follow the answers clicked by hand. EasyUO 1.5's ExEventProc
+  never by a host polling the variables from its own thread, though the editor calls InstallGumpHook itself
+  when it finds a client and no script runs) they also follow the answers clicked by hand. EasyUO 1.5's ExEventProc
   did nothing for a sub-command it did not know, so a line with it was a silent no-op before; no other
   sub-command changes.
   Likewise the new SEND forms GET, POST, PUT, DELETE and DOWNLOAD plus the read-only #SendRes, #SendCode
@@ -424,6 +425,11 @@ type
     // whether there were any. Safe from any thread. A queue nobody empties keeps its newest
     // LOG_QUEUE_MAX lines; the first line taken afterwards says how many were dropped.
     function     TakeLog(List : TStrings) : Boolean;
+    // Port addition (the editor): puts the gump-answer click hook on the selected client from the host's
+    // own thread, so #GumpReply and #GumpReplyCnt follow the clicks before any script asks. True when the
+    // hook is on. The caller makes sure no script of the process is running: the install goes through the
+    // event cave, which a running script uses too, and two writers there break it.
+    function     InstallGumpHook : Boolean;
     // The commands (upper- or lower-case names) that stop the run instead of running, setting
     // BlockedCmd and BlockedLine. nil or an empty list blocks nothing, which is the default.
     procedure    BlockCommands(Names : TStrings);
@@ -2615,6 +2621,20 @@ end;
 procedure TEuoInterpreter.RunStopped;
 begin
   if Logger.HasFiles then Logger.CloseFiles;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Under CS, as a script's read of #GumpReplyCnt is: the cave's wait (Delay) releases and retakes it.
+function TEuoInterpreter.InstallGumpHook : Boolean;
+var
+  HCnt : Cardinal;
+begin
+  CS.BeginWrite;
+  try
+    Result:=GumpHookRefresh(True,HCnt);
+  finally
+    CS.EndWrite;
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

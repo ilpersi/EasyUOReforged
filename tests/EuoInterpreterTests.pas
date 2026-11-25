@@ -43,6 +43,7 @@ type
     procedure TestScanGumpsIsASilentNoOpWithNoClient;
     procedure TestGumpVariablesReadNAWithNoClient;
     procedure TestGumpReplyIsASilentNoOpWithNoClient;
+    procedure TestInstallGumpHookWithNoClientDoesNothing;
     procedure TestBuffVariablesReadNAWithNoClient;
     procedure TestBuffAdditionsLeaveTheOriginalVariablesAlone;
     procedure TestPathVariablesBeforeAnyPathCommand;
@@ -385,6 +386,16 @@ begin
   AssertEquals('reached', Interp.GetVar('%x'));
   AssertEquals('N/A', Interp.GetVar('#GumpReply'));
   AssertEquals('N/A', Interp.GetVar('#GumpReplyRes'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// The editor calls InstallGumpHook on every client it finds; with none selected it does nothing, and
+// the gump variables keep their no-client values.
+procedure TEuoInterpreterTests.TestInstallGumpHookWithNoClientDoesNothing;
+begin
+  AssertFalse(Interp.InstallGumpHook);
+  AssertEquals('N/A', Interp.GetVar('#GumpReply'));
+  AssertEquals('0', Interp.GetVar('#GumpReplyCnt'));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

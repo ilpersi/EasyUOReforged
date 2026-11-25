@@ -24,7 +24,9 @@ sidebar:
   those two. Names are matched without their `#`. A pattern with a mistake in it, such as `[`, turns
   red and leaves the tree as it was; hover over the box for the reason. Esc clears the box. The values
   refresh a few times a second while a script runs, and the groups you leave open are open again the
-  next time you start the app.
+  next time you start the app. As soon as the app finds a client, while no script runs, it puts in the
+  small hook that records your clicks in server gumps, so [`#GumpReply`](/variables/gumpreply/) shows the
+  last one with no script asking.
 - **Title bar**: shows the version (`YY.MM.DD.<commit>`), also under *Help → About* and in
   [`#ReforgedVer`](/variables/reforgedver/).
 - **Status bar** (bottom), from left to right: the cursor's line and column in the editor; your character's

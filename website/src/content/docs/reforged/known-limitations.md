@@ -73,8 +73,9 @@ EasyUO for anything important, until you have checked that the scripts and featu
   that copy then stays unanswered on the server until you log out, which does no harm. Recording your own
   clicks ([`#GumpReplyCnt`](/variables/gumpreplycnt/)) puts a small hook into the client's send function; it was
   checked on `client.exe` 7.0.118.46 and `client_beta.exe` 7.0.118.132 and 7.0.119.0, and on another build it stays
-  off when the function does not start the way it expects. A click made before a script first read
-  [`#GumpReply`](/variables/gumpreply/) or `#GumpReplyCnt`, since the client started, is not recorded.
+  off when the function does not start the way it expects. The editor puts it in as soon as it finds the client,
+  whether or not a script uses it. A click made before that, or without the editor (under `EUOCli`) before a
+  script first read [`#GumpReply`](/variables/gumpreply/) or `#GumpReplyCnt`, is not recorded.
 - **Symbol fonts in menus.** A [`menu`](/commands/menu/) text, button or checkbox using a symbol font such
   as Wingdings only shows the intended glyphs if that exact font is installed. Otherwise Windows substitutes
   another font, as the original did.

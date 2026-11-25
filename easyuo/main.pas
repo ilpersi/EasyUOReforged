@@ -98,6 +98,7 @@ type
     procedure AddWatchAtCaret;
     procedure OutlineJump(Ed : TSynEdit; Line : Integer);
     procedure AddOutput(TabIdx : Integer; Lines : TStrings);
+    procedure TryGumpHooks;
     procedure FormatScript;
     procedure BuildComponents;
     function  AddMenu(Parent : TMenuItem; ATag : Integer; ACaption : String;
@@ -195,6 +196,7 @@ end;
 
 var
   DeniedWarned : Boolean = False;  // the access-denied notice is shown once per session
+  GumpHookTried: String = '|';     // port addition: '|window:process|' of each client TryGumpHooks tried
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -1355,6 +1357,37 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Port addition (the gump-answer hook): the click hook goes on each client a tab has selected as soon as
+// the editor finds it (the owner's choice), so #GumpReply and #GumpReplyCnt show the answers clicked by
+// hand with no script asking first; a click made before the hook is in is lost. Only while every tab is
+// stopped and its thread idle: the install goes through the client's event cave, which a running script
+// uses too. Nothing can start a script meanwhile: the cave's wait sleeps, it pumps no messages. Once per
+// client window and process: where the hook can't go in it is not tried again on every tick (a failed try
+// can leave a page behind in the client). A script's own read of #GumpReply still puts it on, should this
+// try have missed (a script was running when the client was found).
+procedure TMainForm.TryGumpHooks;
+var
+  Cnt : Integer;
+  Pid : DWORD;
+  Key : String;
+  Sel : TUOSel;
+begin
+  for Cnt:=0 to IH.Count-1 do
+    if (IH.Exec[Cnt].State<>STOP) or not IH.Exec[Cnt].Paused then Exit;
+  for Cnt:=0 to IH.Count-1 do
+  begin
+    Sel:=IH.Exec[Cnt].Parser.UOSel;
+    if (Sel.Nr=0) or (Sel.HWnd=0) then Continue;
+    Pid:=0;
+    GetWindowThreadProcessId(Sel.HWnd,@Pid);
+    Key:=IntToStr(Sel.HWnd)+':'+IntToStr(Pid)+'|';
+    if Pos('|'+Key,GumpHookTried)>0 then Continue;
+    GumpHookTried:=GumpHookTried+Key;
+    IH.Exec[Cnt].Parser.InstallGumpHook;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 procedure TMainForm.UpdateTimerTimer(Sender: TObject);
 var
   PL,PAU,
@@ -1425,6 +1458,9 @@ begin
       LogLines.Free;
     end;
   end;
+
+  // Port addition: the gump-answer hook on newly found clients (see TryGumpHooks).
+  TryGumpHooks;
 
   {***Update VarList***}
   if UpdateCnt mod 2=0 then VarTreeRefresh;

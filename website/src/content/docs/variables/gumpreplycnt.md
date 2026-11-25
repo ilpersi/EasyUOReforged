@@ -16,11 +16,11 @@ dll: GumpReplyCnt
 its buttons, and when [`exevent GumpReply`](/commands/exevent/gumpreply/) answers one. Compare it with the value
 you read before to know that an answer went out; [`#GumpReply`](/variables/gumpreply/) then holds that answer.
 
-The first time a script reads `#GumpReplyCnt` or [`#GumpReply`](/variables/gumpreply/), or runs
-`exevent GumpReply`, EasyUO Reforged puts a small hook into the client that records the answers. Clicks made
-before that are not counted. It stays until the client closes, and every later run, or another EasyUO
-Reforged, uses the same one, so the number keeps counting from where it was. Use the difference, not the
-number itself. The editor's variable list shows the number but never puts the hook in.
+EasyUO Reforged puts a small hook into the client that records the answers: the editor as soon as it finds the
+client, while no script is running, and a script the first time it reads `#GumpReplyCnt` or
+[`#GumpReply`](/variables/gumpreply/), or runs `exevent GumpReply`. Clicks made before that are not counted. It
+stays until the client closes, and every later run, or another EasyUO Reforged, uses the same one, so the
+number keeps counting from where it was. Use the difference, not the number itself.
 
 Without a client, or where the hook can't be put in, it counts the answers `exevent GumpReply` sent in this run.
 
