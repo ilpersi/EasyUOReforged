@@ -63,7 +63,7 @@ uses Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Types,
      SynMacroRecorder, SynEditHighlighter, SynEditKeyCmds, ShellApi,
      Registry, vartree, access, ReforgedVersion, insthandler, mainicons, eufoldsyn,
      eucomplete, eufinddlg, EuoScriptStack, EuoCallStackFormat, EuoBlocks, euoutput,
-     euoutline, euwatch;
+     euoutline, euwatch, eulayout;
 
 type
   TMainForm = class(TForm)
@@ -73,6 +73,10 @@ type
     FShares     : array[0..1] of Double;
     FShareSet   : array[0..1] of Boolean;
     procedure LayoutBottomPanel;
+    function  LayoutWidth : Integer;
+    function  LayoutHeight : Integer;
+    procedure RestoreLayout;
+    procedure SaveLayout;
     function  PartWidth(Part, Shown : Integer) : Integer;
     procedure BottomPanelResize(Sender: TObject);
     procedure PartSplitterMoved(Sender: TObject);
@@ -213,7 +217,7 @@ begin
   Width := 910;  // was 661: the toolbar's captions need the width for one row (860 before Discord)
   Height := 394; // was 381: the same editor height under the taller toolbar
   Caption := 'EasyUO Reforged ' + REFORGED_VERSION;
-  Position := poScreenCenter;
+  Position := poScreenCenter; // until the window was closed once: then RestoreLayout puts it back
   OnCloseQuery := FormCloseQuery;
 
   TempIcon := LoadAppIcon; // see mainicons.pas
@@ -695,6 +699,10 @@ begin
   Reg:=TRegistry.Create;
   Reg.OpenKey('\Software\EasyUO',True);
 
+  // Port addition: the window's size, place and maximized state and the panels' sizes, as they
+  // were left (SaveLayout). First, as the panels' limits below depend on the window's size.
+  RestoreLayout;
+
   // New addition (not present in the original app): restore the call-stack
   // panel's shown/hidden state. TRegistry.ReadBool raises on a missing value
   // (confirmed directly against fcl-registry's source -- it does not
@@ -756,8 +764,7 @@ end;
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
   if Assigned(FindDlg) then FindDlg.SaveSettings(Reg);       // new: Find history
-  Reg.WriteInteger('OutlineWidth',OutlinePanel.Width);       // port addition: the outline
-  Reg.WriteBool('OutlineSorted',Outline.Sorted);             //
+  SaveLayout;                                               // port addition: window and panels
   VarTreeFormClose;                                        // Finalize VarTree
   IH.Free;                                                  // Free instance handler
   Reg.Free;
@@ -1252,6 +1259,132 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Port addition: an integer value of the registry key, when it is there and is one. TRegistry's
+// ReadInteger raises on a missing value or one of another type (see FormCreate). WriteBool
+// writes an integer, so this reads those too.
+function RegInt(const Name : String; out V : Integer) : Boolean;
+begin
+  Result:=Reg.ValueExists(Name) and (Reg.GetDataType(Name)=rdInteger);
+  if Result then V:=Reg.ReadInteger(Name) else V:=0;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition: the client size the panels are laid out in. While a window that opens maximized
+// is not shown yet (FormCreate), ClientWidth and ClientHeight are still its restored size; the
+// work area of its screen is nearer what it will have.
+function TMainForm.LayoutWidth : Integer;
+var
+  R : TRect;
+begin
+  Result:=ClientWidth;
+  if (WindowState=wsMaximized) and not Showing then
+  begin
+    R:=Screen.MonitorFromRect(BoundsRect).WorkareaRect;
+    if R.Right-R.Left>Result then Result:=R.Right-R.Left;
+  end;
+end;
+
+function TMainForm.LayoutHeight : Integer;
+var
+  R : TRect;
+begin
+  Result:=ClientHeight;
+  if (WindowState=wsMaximized) and not Showing then
+  begin
+    R:=Screen.MonitorFromRect(BoundsRect).WorkareaRect;
+    if R.Bottom-R.Top>Result then Result:=R.Bottom-R.Top;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition: the window opens as SaveLayout left it: its size and place, maximized or not,
+// the variable panel's width, the bottom panel's height and the shares of it the user dragged
+// the call stack and the Watches panel to. FormCreate reads the rest (which panels are shown, the
+// outline's width and order) as it did before.
+//
+// The saved window is fitted to the work area of the screen it was on (EuoFitWindow), so it opens
+// whole after a change of screens; LCL's Width and Height leave out the frame and the menu, and
+// Left and Top are the frame's corner, so the work area is first made smaller by the frame. Saved
+// where no screen is now (one was unplugged), it opens centred on the main screen, as before.
+// SetRestoredBounds, not SetBounds: LCL learns the restored bounds only later, from an async call
+// that skips a window already maximized, and SaveLayout needs them.
+procedure TMainForm.RestoreLayout;
+var
+  L, T, W, H, V : Integer;
+  R, Frame      : TRect;
+  Work          : TRect;
+  Mon           : TMonitor;
+begin
+  if RegInt('WindowLeft',L) and RegInt('WindowTop',T) and RegInt('WindowWidth',W)
+     and RegInt('WindowHeight',H) then
+  begin
+    R:=Bounds(L,T,W,H);
+    Mon:=Screen.MonitorFromRect(R,mdNull);
+    if Assigned(Mon) then
+    begin
+      Work:=Mon.WorkareaRect;
+      Position:=poDesigned;
+    end
+    else Work:=Screen.WorkAreaRect; // poScreenCenter stays
+    Frame:=Rect(0,0,0,0);
+    AdjustWindowRectEx(Frame,WS_OVERLAPPEDWINDOW,True,0);
+    Dec(Work.Right,Frame.Right-Frame.Left);
+    Dec(Work.Bottom,Frame.Bottom-Frame.Top);
+    R:=EuoFitWindow(R,Work,400,300);
+    SetRestoredBounds(R.Left,R.Top,R.Right-R.Left,R.Bottom-R.Top,False);
+  end;
+  if RegInt('WindowMaximized',V) and (V<>0) then
+    WindowState:=wsMaximized;
+
+  if RegInt('VariablesWidth',V) then
+    VarPanel.Width:=EuoClampSize(V,80,LayoutWidth-200);
+  if RegInt('BottomHeight',V) then
+    BottomPanel.Height:=EuoClampSize(V,40,LayoutHeight-150);
+  if RegInt('CallStackShare',V) then FShareSet[0]:=EuoShareFromInt(V,FShares[0]);
+  if RegInt('WatchesShare',V) then FShareSet[1]:=EuoShareFromInt(V,FShares[1]);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition: the window and its panels as they are now, for RestoreLayout and FormCreate at
+// the next start. Which panels are shown is saved as it is at close too, so an Output panel a
+// script's log opened comes back (the menu toggles still save at once). A minimized window keeps
+// its restored bounds and leaves WindowMaximized as it was: what it was minimized from is not
+// known. A window started minimized (a script given on the command line) and never restored has
+// no restored bounds yet: under 100 pixels, they are not saved.
+procedure TMainForm.SaveLayout;
+const
+  ShareNames : array[0..1] of String = ('CallStackShare','WatchesShare');
+var
+  R   : TRect;
+  Cnt : Integer;
+begin
+  if WindowState=wsNormal then R:=BoundsRect
+  else R:=Bounds(RestoredLeft,RestoredTop,RestoredWidth,RestoredHeight);
+  if (R.Right-R.Left>=100) and (R.Bottom-R.Top>=100) then
+  begin
+    Reg.WriteInteger('WindowLeft',R.Left);
+    Reg.WriteInteger('WindowTop',R.Top);
+    Reg.WriteInteger('WindowWidth',R.Right-R.Left);
+    Reg.WriteInteger('WindowHeight',R.Bottom-R.Top);
+  end;
+  if WindowState<>wsMinimized then
+    Reg.WriteBool('WindowMaximized',WindowState=wsMaximized);
+
+  Reg.WriteBool('CallStackVisible',CallStackPanel1.Checked);
+  Reg.WriteBool('WatchesVisible',WatchesPanel1.Checked);
+  Reg.WriteBool('OutputVisible',OutputPanel1.Checked);
+  Reg.WriteBool('OutlineVisible',OutlinePanel1.Checked);
+
+  Reg.WriteInteger('VariablesWidth',VarPanel.Width);
+  Reg.WriteInteger('BottomHeight',BottomPanel.Height);
+  Reg.WriteInteger('OutlineWidth',OutlinePanel.Width);
+  Reg.WriteBool('OutlineSorted',Outline.Sorted);
+  for Cnt:=0 to 1 do
+    if FShareSet[Cnt] then Reg.WriteInteger(ShareNames[Cnt],EuoShareToInt(FShares[Cnt]))
+    else if Reg.ValueExists(ShareNames[Cnt]) then Reg.DeleteValue(ShareNames[Cnt]);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 // Port addition: shows or hides the outline. The splitter is put right of the panel each
 // time, as LayoutBottomPanel does: two alLeft controls made visible together can come up in
 // either order. The width stays between a sliver and half the window.
@@ -1259,8 +1392,8 @@ procedure TMainForm.ShowOutlinePanel(AVisible : Boolean);
 begin
   OutlinePanel1.Checked := AVisible;
   if OutlinePanel.Width < 80 then OutlinePanel.Width := 80;
-  if (ClientWidth > 160) and (OutlinePanel.Width > ClientWidth div 2) then
-    OutlinePanel.Width := ClientWidth div 2;
+  if (LayoutWidth > 160) and (OutlinePanel.Width > LayoutWidth div 2) then
+    OutlinePanel.Width := LayoutWidth div 2;
   OutlinePanel.Visible := AVisible;
   OutlineSplitter.Visible := AVisible;
   if AVisible then

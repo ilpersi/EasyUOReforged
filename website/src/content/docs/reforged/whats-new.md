@@ -180,6 +180,7 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
   and every variable the script uses, found by itself. At each step the variables that changed turn red, with the
   old value in their hint, as EasyUO 1.42's variable view did.
 - An Output panel that shows what scripts write with [`log`](/commands/log/).
+- The window opens as you left it: its size, place and maximized state, the panels shown and their sizes.
 - *Tools → Search Folders*: the folders where [`call`](/commands/call/) looks for a script and
   [`sql open`](/commands/sql/open/) for a database after `#CurPath`, such as a folder of library scripts, kept
   in a list like the one Windows has for `PATH`.

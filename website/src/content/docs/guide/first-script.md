@@ -36,6 +36,11 @@ sidebar:
   [`menu` system](/commands/menu/versions/) the tab's script runs, or ran last: `MENU 1.5`, `MENU 1.6`, with
   `(forced)` when the script set it with [`menu Reforge Mode`](/commands/menu/reforge/mode/).
 
+The window opens as you left it: its size and place, maximized or not, which panels are shown (the
+[outline](/guide/debugging/#the-outline), the call stack, the [Watches](/guide/debugging/#watches) and the
+[Output panel](/guide/debugging/#the-output-panel)) and how wide or tall each one is. A window left on a screen
+that is no longer connected opens in the middle of the main one, and one larger than the screen is made to fit.
+
 ## Run a script
 
 1. Make sure the UO client is running and your character is logged in.

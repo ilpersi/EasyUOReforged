@@ -84,6 +84,8 @@ from its first *Save As*.
 The call stack, the Watches panel and the Output panel share the bottom of the window, under the outline,
 the script and the variable inspector, in that order from left to right. Each one shown gets an equal part of
 the width; drag the bars between them to give one more room, and the bar above them to make them taller.
+Which of them are shown, their height and the parts you dragged them to come back the next time you start
+the app.
 
 ## The Output panel
 
@@ -98,7 +100,8 @@ halt
 
 The panel opens by itself, at the bottom of the window, at the first line a script logs. Each line has the time, and
 the tab's name when more than one tab is open. *Control → Show Output* shows or hides it and *Control → Clear
-Output* empties it. It keeps the newest 5000 lines.
+Output* empties it. It keeps the newest 5000 lines. When it is open as you close the app, it is open again
+the next time, empty.
 
 When the call stack or the [Watches panel](#watches) is shown too, they share the bottom of the window: the
 call stack on the left, then the watches, then the Output panel. Drag the bars between them to give one more
