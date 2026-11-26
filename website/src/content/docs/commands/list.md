@@ -1,13 +1,13 @@
 ---
 title: "List"
-description: "Named lists of values: add, insert, get, set, delete, count, search, sort, split a text into a list and join it back, merge, intersect and subtract lists. The answer goes to #ListRes."
+description: "Named lists of values: add, insert, get, set, delete, count, search, sort, split a text into a list and join it back, merge, intersect and subtract lists, fill a menu list box, combo box or memo and read it back. The answer goes to #ListRes."
 kind: command
 category: misc
 syntax: "list {operation} {list} [parameters...]"
 origin: reforged
 sets: ['#ListRes']
-related: ["#ListRes", "Str", "While", "For", "menu List", "menu Memo"]
-aliases: ["array", "arrays", "lists", "collection", "queue", "stack", "sort", "split", "join", "merge", "union", "intersect", "intersection", "subtract", "difference", "unique", "remove duplicates"]
+related: ["#ListRes", "Str", "While", "For", "menu List", "menu Combo", "menu Memo"]
+aliases: ["array", "arrays", "lists", "collection", "queue", "stack", "sort", "split", "join", "merge", "union", "intersect", "intersection", "subtract", "difference", "unique", "remove duplicates", "list box", "listbox", "combo box", "combobox", "fill list box"]
 ---
 
 `list` keeps as many named lists of values as a script needs: the item types to loot, the lines of a
@@ -32,9 +32,11 @@ at **1**, as in [`str`](/commands/str/) and [`#FindIndex`](/variables/findindex/
 | `list merge {new} {list} [list...] [keepduplicates]` | Makes `new` the values of all the lists, each once. | The count of `new`. |
 | `list intersect {new} {list} [list...]` | Makes `new` the values that are in every list, each once. | The count of `new`. |
 | `list subtract {new} {list} {other}` | Makes `new` the values of `list` that are not in `other`, each once. | The count of `new`. |
+| `list tomenu {list} {control}` | Empties the menu list box or combo box `control` and adds every value; a memo gets them as its lines (see [Lists in a menu](#lists-in-a-menu)). | How many values went in. |
+| `list frommenu {list} {control}` | Makes `list` the entries of the menu list box or combo box `control`, or the lines of a memo. | The new count. |
 
-A line with a missing name, position or value, a position outside the list, or another word after `list` sets
-`#ListRes` to `N/A` and changes nothing.
+A line with a missing name, position or value, a position outside the list, a menu control that is not a list
+box, combo box or memo, or another word after `list` sets `#ListRes` to `N/A` and changes nothing.
 
 ## Examples
 
@@ -235,22 +237,20 @@ halt
 
 ## Lists in a menu
 
-A list box numbers its entries from 1, as a list does, so `menu Get` gives the position of the chosen entry:
+`list tomenu` puts a list into a [list box](/commands/menu/list/), a [combo box](/commands/menu/combo/) or a
+[memo](/commands/menu/memo/) in one line: it empties a list box or combo box and adds every value, in order,
+and gives a memo the values as its lines. `list frommenu` goes the other way: it makes the list the entries of
+a list box or combo box, or the lines of a memo.
+
+A list box numbers its entries from 1, as a list does, so `menu Get` gives the position of the chosen entry and
+`list get` turns it back into the value:
 
 ```euo
 list add towns Britain Minoc Vesper
 menu Clear
 menu Window Size 200 160
 menu List Create townbox 10 10 180 100
-list count towns
-set %n #ListRes
-set %i 0
-while %i < %n
-{
-  set %i %i + 1
-  list get towns %i
-  menu List Add townbox #ListRes
-}
+list tomenu towns townbox
 menu Button ok 10 120 60 25 OK
 menu Show
 set #MenuButton N/A
@@ -262,25 +262,38 @@ display ok You chose #ListRes
 halt
 ```
 
-A [memo](/commands/menu/memo/) writes its line breaks as `$`, so `list join` fills one and `list split` reads it
-back, one value per line:
+A memo shows one value per line, and `list frommenu` reads back what the user typed, one value per line:
 
 ```euo
 list add notes Buy_reagents Repair_armor
-list join notes $
 menu Clear
 menu Window Size 300 200
-menu Memo notesbox 10 10 280 150 #ListRes
+menu Memo notesbox 10 10 280 150
 menu Button ok 10 165 60 25 OK
+list tomenu notes notesbox
 menu Show
 set #MenuButton N/A
 while #MenuButton <> ok
   wait 1
-menu Get notesbox
-list split notes #MenuRes $
+list frommenu notes notesbox
 display ok The memo has #ListRes lines
 halt
 ```
+
+- Both [`menu` logics](/commands/menu/versions/) have them. Under EasyUO 1.5's, a name reaches every list box,
+  combo box and memo with that name, as `menu List Add` and `menu Set` do, and `list frommenu` reads the first
+  of them; under 1.6's, only the control the name belongs to.
+- A name that is no list box, combo box or memo (an edit, a button, a control never made) sets `#ListRes` to
+  `N/A` and changes nothing: neither the control nor the list.
+- The values go in exactly as the list holds them, spaces and all; `menu List Add` drops the spaces at the start
+  and end of its text.
+- After `list tomenu` nothing is selected: [`menu List Select`](/commands/menu/list/) or `menu Combo Select`
+  selects an entry. `list frommenu` reads the entries, not the choice, which `menu Get` gives.
+- A `$` in a value stays a `$` in the memo and comes back as one, where `menu Memo` and `menu Set` turn `$` into a
+  line break and `menu Get` turns line breaks back into `$`. An empty line of the memo is an empty value, but a
+  line break at its end adds none. Word wrap doesn't change the lines.
+- An empty list (or one never made) empties the control, and `#ListRes` is `0`. An empty control gives an empty
+  list, which is forgotten, as a list with no values always is.
 
 ## What a list is
 

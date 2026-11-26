@@ -2092,6 +2092,15 @@ sub sec_menu
   menu List Clear lst1
   menu Get lst1
   gosub t_soft menu_list_clear_selects_nothing_Reforged #menures 0
+  ; list tomenu / frommenu [Reforged]: a list into the list box and back
+  list add allcmd_towns Britain Minoc Vesper
+  list tomenu allcmd_towns lst1
+  gosub t_eq list_tomenu_answers_the_count #listres 3
+  list frommenu allcmd_back lst1
+  list join allcmd_back _
+  gosub t_eq list_frommenu_reads_the_entries #listres Britain_Minoc_Vesper
+  list tomenu allcmd_towns ed1
+  gosub t_eq list_tomenu_on_an_edit_is_na #listres N/A
 
   ; ---- shapes (all 6 shape types, with line and fill styles) -----------------------------------------------
   for %st 1 6

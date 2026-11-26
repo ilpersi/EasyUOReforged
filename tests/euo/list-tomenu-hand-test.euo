@@ -1,0 +1,91 @@
+; list-tomenu-hand-test.euo -- hand test of LIST TOMENU / FROMMENU (EasyUO Reforged).
+; No client needed. Run it in the editor (Play). It runs under the 1.5 MENU logic; to run it under
+; the 1.6 logic, add this line at the very top and run it again:
+;   menu reforge mode 1.6
+; Every check logs PASS or FAIL to the Output panel; the last line gives the totals.
+;
+; A window opens with a list box, a combo box and a memo, each filled by one "list tomenu" line:
+;   - the list box and the combo box show Britain, Minoc, Sir Robin, with nothing selected;
+;   - the memo shows three lines: Buy reagents / Repair armor / Pay 5$ rent.
+; Pick "Minoc" in the list box and "Sir Robin" in the combo box, add a fourth line "ore" at the
+; end of the memo, then press OK. The script reads everything back.
+
+set %pass 0
+set %fail 0
+
+list add towns Britain Minoc Sir , #spc , Robin
+set %r1 Buy , #spc , reagents
+set %r2 Repair , #spc , armor
+set %r3 Pay , #spc , 5$ , #spc , rent
+list add notes %r1 %r2 %r3
+
+menu Clear
+menu Window Title list tomenu hand test
+menu Window Size 330 235
+menu List Create townbox 10 10 150 100
+menu Combo Create townpick 170 10 150
+menu Memo notesbox 10 120 310 75 this text goes
+menu Button ok 10 202 60 25 OK
+
+list tomenu towns townbox
+gosub check tomenu_list_box_count #ListRes 3
+list tomenu towns townpick
+gosub check tomenu_combo_box_count #ListRes 3
+list tomenu notes notesbox
+gosub check tomenu_memo_count #ListRes 3
+menu Get townbox
+gosub check nothing_selected_in_the_list_box #MenuRes 0
+menu Get townpick
+gosub check nothing_selected_in_the_combo_box #MenuRes 0
+list tomenu towns ok
+gosub check tomenu_on_a_button_is_NA #ListRes N/A
+
+menu Show
+log Pick Minoc in the list box and Sir Robin in the combo box, add a line "ore" at the end of the memo, then press OK.
+set #MenuButton N/A
+while #MenuButton = N/A
+  wait 1
+if #MenuButton <> ok
+{
+  log The window was closed without OK: nothing read back.
+  log list tomenu hand test: %pass passed, %fail failed
+  halt
+}
+
+menu Get townbox
+gosub check picked_in_the_list_box #MenuRes 2
+menu Get townpick
+gosub check picked_in_the_combo_box #MenuRes 3
+
+list frommenu back townbox
+gosub check frommenu_list_box_count #ListRes 3
+list get back 2
+gosub check frommenu_list_box_second #ListRes Minoc
+list get back 3
+str len #ListRes
+gosub check frommenu_keeps_the_space #StrRes 9
+
+list frommenu memo notesbox
+gosub check frommenu_memo_lines #ListRes 4
+list get memo 4
+gosub check frommenu_memo_new_line #ListRes ore
+list get memo 3
+str len #ListRes
+gosub check memo_line_keeps_its_dollar #StrRes 11
+
+menu Hide
+log list tomenu hand test: %pass passed, %fail failed
+halt
+
+sub check
+  if %2 = %3
+  {
+    set %pass %pass + 1
+    log PASS %1
+  }
+  else
+  {
+    set %fail %fail + 1
+    log FAIL %1 expected %3 got %2
+  }
+return

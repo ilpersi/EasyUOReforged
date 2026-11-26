@@ -70,6 +70,11 @@ unit EuoMenu;
     the script with an error, and clears the selection for one below -1. The
     combo box needs no guard: LCL's TComboBox already ignores an index outside
     its list, as CB_SETCURSEL did.
+  - Port addition, for the LIST command's TOMENU / FROMMENU (TEuoInterpreter.ListProc) and not called
+    by the MENU command: HasEntries, MemoFill and ReadEntries. They follow ComboListAdd's rules: a name
+    reaches every control so named, by ClassName, and only list boxes, combo boxes and memos count
+    (ReadEntries reads the first of them). Memo lines go through SetMemoValues/MemoValues
+    (EuoMenuCommon.pas), with no '$' decoding. No other method changes for them.
 
   Everything else -- every method name/signature, the Ctrls TStringList of
   UPPERCASE(name)->control pairs, the ClassName-string dispatch in Get/_Set/
@@ -131,6 +136,9 @@ type
     procedure   ComboListAdd(sName,Str : String);
     procedure   ComboListSelect(sName : String; Ind : Integer);
     procedure   ComboListClear(sName : String);
+    function    HasEntries(sName : String) : Boolean;              // port addition (LIST)
+    procedure   MemoFill(sName : String; Values : TStrings);       // port addition (LIST)
+    function    ReadEntries(sName : String; Values : TStrings) : Boolean;  // port addition (LIST)
     procedure   ShapeCreate(sName : String; X,Y,W,H,ST,LT,LW,LC,FT,FC : Integer);
     procedure   ImageCreate(sName : String; X,Y,W,H : Integer);
     procedure   ImagePos(sName : String; X,Y : Integer; W:Integer=-1;H:Integer=-1);
@@ -622,6 +630,75 @@ begin
       TComboBox(Obj).Tag:=-1;
     end;
   end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (LIST TOMENU / FROMMENU) -- not in the original, and not used by
+// the MENU command. Like ComboListAdd: every control of the name, by ClassName.
+
+// True when a list box, combo box or memo has this name.
+function TMenuObj.HasEntries(sName : String) : Boolean;
+var
+  Cnt : Integer;
+  Obj : TObject;
+begin
+  Result:=False;
+  sName:=UpperCase(sName);
+  for Cnt:=0 to Ctrls.Count-1 do
+    if Ctrls[Cnt]=sName then
+  begin
+    Obj:=Ctrls.Objects[Cnt];
+    if (Obj.ClassName='TListBox')or(Obj.ClassName='TComboBox')or
+      (Obj.ClassName='TMemo') then Exit(True);
+  end;
+end;
+
+// Every memo of this name shows Values, one per line.
+procedure TMenuObj.MemoFill(sName : String; Values : TStrings);
+var
+  Cnt : Integer;
+  Obj : TObject;
+begin
+  sName:=UpperCase(sName);
+  for Cnt:=0 to Ctrls.Count-1 do
+    if Ctrls[Cnt]=sName then
+  begin
+    Obj:=Ctrls.Objects[Cnt];
+    if Obj.ClassName='TMemo' then
+      SetMemoValues(TMemo(Obj),Values);
+  end;
+end;
+
+// The first list box, combo box or memo of this name: its entries, or its lines,
+// added to Values. False, adding nothing, when there is none.
+function TMenuObj.ReadEntries(sName : String; Values : TStrings) : Boolean;
+var
+  Cnt : Integer;
+  Obj : TObject;
+begin
+  Result:=True;
+  sName:=UpperCase(sName);
+  for Cnt:=0 to Ctrls.Count-1 do
+    if Ctrls[Cnt]=sName then
+  begin
+    Obj:=Ctrls.Objects[Cnt];
+    if Obj.ClassName='TListBox' then
+    begin
+      Values.AddStrings(TListBox(Obj).Items);
+      Exit;
+    end
+    else if Obj.ClassName='TComboBox' then
+    begin
+      Values.AddStrings(TComboBox(Obj).Items);
+      Exit;
+    end
+    else if Obj.ClassName='TMemo' then
+    begin
+      MemoValues(TMemo(Obj),Values);
+      Exit;
+    end;
+  end;
+  Result:=False;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

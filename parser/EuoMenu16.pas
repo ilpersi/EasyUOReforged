@@ -76,6 +76,12 @@ unit EuoMenu16;
   builds its canvas and reads scripts back through this unit: the registry (RegistryCount and
   RegistryName/Kind/Ctrl) and the property table (Menu16PropCount, Menu16PropRow). Nothing at
   runtime reads them, and they change nothing.
+
+  For the LIST command's TOMENU / FROMMENU (TEuoInterpreter.ListProc): ComboListClear and
+  ComboListAdd are public, and HasEntries, MemoFill and ReadEntries are Reforged additions that Run
+  never calls, so the golden values cannot see them. Like ComboListAdd they reach only the registered
+  control of the name, and count only list boxes, combo boxes and memos; memo lines go through
+  SetMemoValues/MemoValues (EuoMenuCommon.pas), with no "$" decoding.
 }
 
 {$mode delphi}{$H+}
@@ -174,9 +180,7 @@ type
                   const Str : String; Radio : Boolean);
     procedure   ComboCreate(const Name : String; X,Y,W : Integer);
     procedure   ListCreate(const Name : String; X,Y,W,H : Integer);
-    procedure   ComboListAdd(const Name, Str : String);
     procedure   ComboListSelect(const Name : String; Ind : Integer);
-    procedure   ComboListClear(const Name : String);
     procedure   ImageCreate(const Name : String; X,Y,W,H : Integer);
     function    FindImage(const Name : String; out Img : TImage) : Boolean;
     procedure   ShapeCreate(const Name : String; X,Y,W,H,ST,LW,LC,FC : Integer;
@@ -199,6 +203,12 @@ type
     function    RegistryName(Index : Integer) : String;
     function    RegistryKind(Index : Integer) : Integer;
     function    RegistryCtrl(Index : Integer) : TControl;
+    // LIST TOMENU / FROMMENU (see the header).
+    procedure   ComboListAdd(const Name, Str : String);
+    procedure   ComboListClear(const Name : String);
+    function    HasEntries(const Name : String) : Boolean;
+    procedure   MemoFill(const Name : String; Values : TStrings);
+    function    ReadEntries(const Name : String; Values : TStrings) : Boolean;
   end;
 
 function  Menu16PropCount : Integer;
@@ -1207,6 +1217,38 @@ begin
     TComboBox(C).Items.Clear;
     C.Tag:=-1;
   end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Reforged additions for LIST TOMENU / FROMMENU (see the header); Run never calls them. Like
+// ComboListAdd, only the registered control of the name.
+function TMenu16.HasEntries(const Name : String) : Boolean;
+var
+  C : TControl;
+begin
+  C:=FindCtrl(Name);
+  Result:=(C is TMemo) or (C is TListBox) or (C is TComboBox);
+end;
+
+procedure TMenu16.MemoFill(const Name : String; Values : TStrings);
+var
+  C : TControl;
+begin
+  C:=FindCtrl(Name);
+  if C is TMemo then SetMemoValues(TMemo(C),Values);
+end;
+
+// Its entries, or a memo's lines, added to Values; False, adding nothing, for any other control.
+function TMenu16.ReadEntries(const Name : String; Values : TStrings) : Boolean;
+var
+  C : TControl;
+begin
+  C:=FindCtrl(Name);
+  Result:=True;
+  if C is TMemo then MemoValues(TMemo(C),Values)
+  else if C is TListBox then Values.AddStrings(TListBox(C).Items)
+  else if C is TComboBox then Values.AddStrings(TComboBox(C).Items)
+  else Result:=False;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

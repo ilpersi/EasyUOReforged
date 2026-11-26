@@ -8,7 +8,7 @@ menuDiffers: true
 credits: ['scriptuo']
 syntax: "menu Memo {name} {x} {y} {width} {height} {text}"
 origin: reforged
-related: ["menu Edit", "menu Get", "menu SetProp", "#MenuRes"]
+related: ["menu Edit", "menu Get", "menu SetProp", "#MenuRes", "List"]
 aliases: ["multiline edit", "text area", "word wrap", "scroll bar"]
 ---
 
@@ -30,6 +30,10 @@ The field uses the current [`menu Font`](/commands/menu/font/name/) settings.
 
 [`menu Get`](/commands/menu/get/) returns the contents with the line breaks turned back into `$`, so the
 text can go straight into a `display` or another memo.
+
+`list tomenu {list} {name}` fills a memo with the values of a [`list`](/commands/list/), one per line, and
+`list frommenu {list} {name}` reads its lines back into a list (see
+[Lists in a menu](/commands/list/#lists-in-a-menu)).
 
 ## Example
 

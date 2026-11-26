@@ -146,7 +146,10 @@ unit EuoInterpreter;
   1-based, compared ignoring case. A line starting with it was a silent no-op before, and a sub or label
   called "list" keeps working. As with timers, Clear forgets the lists and ExitProc does not, so they survive
   the restart. GetListNames, GetListValues and SetListValues are for the editor's Watches panel and EUOCli;
-  no script reaches them.
+  no script reaches them. LIST TOMENU / FROMMENU fill a MENU list box, combo box or memo from a list and read
+  one back: like MENU lines they run on the main thread (TThread.Synchronize, CS released), through the
+  running MENU logic's own ComboListClear/ComboListAdd (and 1.5's ComboListSelect 0, so nothing stays selected)
+  and its HasEntries/MemoFill/ReadEntries (TListMenuJob).
 }
 
 {$mode delphi}{$H+}
@@ -1846,11 +1849,79 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Port addition (LIST TOMENU / FROMMENU): the part that touches MENU controls, run on the main thread
+// (see MenuProc for why) through the running MENU logic's own methods. A helper object rather than
+// interpreter fields, so TEuoInterpreter's layout stays as it is. Done: the name belongs to a list box,
+// combo box or memo, and the line did its work; otherwise nothing was touched.
+type
+  TListMenuJob = class(TObject)
+  public
+    Menu15 : TMenuObj;
+    Menu16 : TMenu16;        // nil under the 1.5 logic
+    Ctrl   : String;
+    ToMenu : Boolean;
+    Values : TStringList;    // TOMENU: the list's values; FROMMENU: the control's entries
+    Done   : Boolean;
+    constructor Create;
+    destructor  Destroy; override;
+    procedure   Run;
+  end;
+
+constructor TListMenuJob.Create;
+begin
+  inherited Create;
+  Values:=TStringList.Create;
+end;
+
+destructor TListMenuJob.Destroy;
+begin
+  Values.Free;
+  inherited;
+end;
+
+procedure TListMenuJob.Run;
+var
+  i : Integer;
+begin
+  if Menu16<>nil then
+  begin
+    if not ToMenu then
+    begin
+      Done:=Menu16.ReadEntries(Ctrl,Values);
+      Exit;
+    end;
+    Done:=Menu16.HasEntries(Ctrl);
+    if not Done then Exit;
+    Menu16.ComboListClear(Ctrl);
+    for i:=0 to Values.Count-1 do Menu16.ComboListAdd(Ctrl,Values[i]);
+    Menu16.MemoFill(Ctrl,Values);
+  end
+  else begin
+    if not ToMenu then
+    begin
+      Done:=Menu15.ReadEntries(Ctrl,Values);
+      Exit;
+    end;
+    Done:=Menu15.HasEntries(Ctrl);
+    if not Done then Exit;
+    Menu15.BurstBegin;   // as MenuProcSync does for MENU LIST ADD / CLEAR
+    Menu15.ComboListClear(Ctrl);
+    for i:=0 to Values.Count-1 do Menu15.ComboListAdd(Ctrl,Values[i]);
+    // MENU LIST SELECT 0: a list box whose window is not made yet (the menu not shown) keeps its
+    // selection through ComboListClear; TMenu16.ComboListClear already clears it.
+    Menu15.ComboListSelect(Ctrl,0);
+    Menu15.MemoFill(Ctrl,Values);
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 // Port addition. List {sub} {list} ...: the run's named lists (EuoLists.pas), each answer in #ListRes (the
 // reference is the site's commands/list.md). A line that changes a list answers with its count afterwards;
 // a missing name, an unknown word, a bad index or a missing value gives N/A and changes nothing. Every word
 // after the name is one value (ADD, INSERT). The separator of SPLIT and JOIN is their last word, so a last
-// ',' or '.' reaches them unglued (GlueWords leaves a last word alone).
+// ',' or '.' reaches them unglued (GlueWords leaves a last word alone). TOMENU and FROMMENU hop to the main
+// thread as MenuProc does; the values are copied while CS is held, because the editor may change a list
+// while it is released. A name that is no list box, combo box or memo gives N/A.
 procedure TEuoInterpreter.ListProc;
 var
   Sub   : String;
@@ -1863,6 +1934,7 @@ var
   Down  : Boolean;
   Keep  : Boolean;
   Src   : TStringList;
+  Job   : TListMenuJob;
 
   // Word W as a position: a whole number from 1 up.
   function ListIndex(W : Integer; out I : Integer) : Boolean;
@@ -1925,6 +1997,29 @@ begin
     else ListRes:=IntToStr(FLists.FindText(Name,ParList[3].Str,N));
   end
   else if Sub='CLONE' then ListRes:=IntToStr(FLists.Clone(Name,ParList[3].Str))
+  else if (Sub='TOMENU') or (Sub='FROMMENU') then
+  begin
+    if ParList.Count<>4 then Exit;
+    Job:=TListMenuJob.Create;
+    try
+      Job.Menu15:=MenuObj;
+      if FMenuLogic=mlMenu16 then Job.Menu16:=Menu16;
+      Job.Ctrl:=ParList[3].Str;
+      Job.ToMenu:=Sub='TOMENU';
+      if Job.ToMenu then FLists.Values(Name,Job.Values);
+      CS.EndWrite;
+      try
+        TThread.Synchronize(TThread.CurrentThread,Job.Run);
+      finally
+        CS.BeginWrite;
+      end;
+      if not Job.Done then Exit;
+      if not Job.ToMenu then FLists.SetValues(Name,Job.Values);
+      ListRes:=IntToStr(Job.Values.Count);
+    finally
+      Job.Free;
+    end;
+  end
   else if (Sub='MERGE') or (Sub='INTERSECT') then
   begin
     Last:=ParList.Count-1;

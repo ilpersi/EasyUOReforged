@@ -18,7 +18,8 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 - **[`List`](/commands/list/)**: real lists in the script language. `list add loot POF KUF` adds values,
   `list get`, `set`, `insert`, `delete` and `count` work on positions from 1, `list indexof` and `list find`
   search, `list sort` orders by number or as text, `list split` cuts a text such as a `#Property` into a list and
-  `list join` puts it back, and `list merge`, `list intersect` and `list subtract` build a new list from others.
+  `list join` puts it back, `list merge`, `list intersect` and `list subtract` build a new list from others, and
+  `list tomenu` / `list frommenu` fill a `menu` list box, combo box or memo from a list and read it back.
   The answers are in [`#ListRes`](/variables/listres/). Lists survive the restart at the end of a script, and
   the [Watches panel](/guide/debugging/#watches) shows them and edits their values. Before, scripts built
   variable names such as `%item . %i`.

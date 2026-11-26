@@ -7,7 +7,7 @@ menuLogic: ['1.5', '1.6']
 menuDiffers: true
 credits: ['scriptuo']
 syntax: "menu Combo Create {name} {x} {y} {width}\nmenu Combo Add {name} {text}\nmenu Combo Select {name} {number}\nmenu Combo Clear {name}"
-related: ["menu List", "menu Get"]
+related: ["menu List", "menu Get", "List"]
 aliases: ["combobox", "drop-down", "dropdown"]
 source: wiki
 ---
@@ -23,6 +23,9 @@ source: wiki
 
 [`menu Get`](/commands/menu/get/) returns the number of the selected entry, counting from 1, or `0` when
 nothing is selected.
+
+To fill a drop-down list from a [`list`](/commands/list/) in one line, use `list tomenu {list} {name}`;
+`list frommenu {list} {name}` reads its entries back (see [Lists in a menu](/commands/list/#lists-in-a-menu)).
 
 ## Example
 

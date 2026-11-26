@@ -296,6 +296,8 @@ halt                                   ; => %text = agapite/gold/iron/
 
 `list join ores /` gives the same text without the last `/`. `list indexof` and `list find` say where a value
 is (0 when it isn't); `list merge`, `list intersect` and `list subtract` build a new list from others.
+`list tomenu ores orebox` fills a `menu` list box, combo box or memo with the values in one line, and
+`list frommenu` reads one back (see [Lists in a menu](/commands/list/#lists-in-a-menu)).
 
 ## Time things and show progress
 

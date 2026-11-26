@@ -46,6 +46,7 @@ type
     procedure TestDump;
     procedure TestPauseEndsTheRun;
     procedure TestMenuScriptRuns;
+    procedure TestListToMenuRuns;
     procedure TestStdIn;
     procedure TestEuoPath;
     procedure TestClientThatIsNotThere;
@@ -471,6 +472,19 @@ begin
     'menu show','menu get ok','menu hide','log menu done','halt']);
   AssertEquals(CLI_OK,Run('run|'+FN+'|--timeout|20'));
   AssertEquals('[7] log: menu done',Output[1]);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoCliRunTests.TestListToMenuRuns;
+var
+  FN : String;
+begin
+  // LIST TOMENU / FROMMENU hop to the main thread as MENU does, from the script's own thread.
+  FN:=Script('lm.euo',['menu list create box 0 0 60 60','list add v a b c','list tomenu v box',
+    'log tomenu #ListRes','list frommenu w box','list join w _','log frommenu #ListRes','halt']);
+  AssertEquals(CLI_OK,Run('run|'+FN+'|--timeout|20'));
+  AssertEquals('[4] log: tomenu 3',Output[1]);
+  AssertEquals('[7] log: frommenu a_b_c',Output[2]);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

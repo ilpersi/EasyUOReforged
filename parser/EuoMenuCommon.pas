@@ -9,7 +9,9 @@ unit EuoMenuCommon;
   Since then the MENU IMAGE primitives (image setup, line/ellipse/rectangle/pix/floodfill/file)
   moved here too, as they were, with the deviations EuoMenu.pas's header documents for them
   (24 bpp bitmaps, TPicture instead of TOleGraphic); and ColorToVcl/ColorFromVcl, which the 1.6
-  logic needs because its properties read and write colours as Delphi 7 numbers.
+  logic needs because its properties read and write colours as Delphi 7 numbers. And, for the LIST
+  command's TOMENU / FROMMENU (TEuoInterpreter.ListProc), SetMemoValues/MemoValues, so both logics write
+  and read a memo's lines the same way.
 
   The one change made in the move: TEuoMenuForm no longer assigns its own OnClose. What closing
   the window means (#MenuButton becomes CLOSED in 1.5, the form's name in 1.6) belongs to the MENU
@@ -133,6 +135,13 @@ procedure MenuImageFile(Img : TImage; X,Y : Integer; const FN : String);
 // clBtnFace = -16777201) and $800000xx in LCL. Every other colour is the same in both.
 function  ColorToVcl(C : TColor) : Integer;
 function  ColorFromVcl(C : Integer) : TColor;
+
+// Port addition (LIST TOMENU / FROMMENU): a memo's lines as a list's values. SetMemoValues writes the
+// values joined by line breaks, with no "$" decoding (MENU SET's), so a "$" in a value stays one.
+// MemoValues adds the memo's lines to Values, read from its text (the window's text, not the wrapped
+// lines LCL's Lines gives with wordwrap on); a line break at the end adds no empty line.
+procedure SetMemoValues(M : TMemo; Values : TStrings);
+procedure MemoValues(M : TMemo; Values : TStrings);
 
 implementation
 
@@ -533,6 +542,34 @@ begin
   Result:=TColor(C);
   if (Cardinal(C) and $FFFFFF00)=$FF000000 then
     Result:=TColor($80000000 or (Cardinal(C) and $FF));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure SetMemoValues(M : TMemo; Values : TStrings);
+var
+  S   : String;
+  Cnt : Integer;
+begin
+  S:='';
+  for Cnt:=0 to Values.Count-1 do
+  begin
+    if Cnt>0 then S:=S+#13#10;
+    S:=S+Values[Cnt];
+  end;
+  M.Text:=S;
+end;
+
+procedure MemoValues(M : TMemo; Values : TStrings);
+var
+  Lines : TStringList;
+begin
+  Lines:=TStringList.Create;
+  try
+    Lines.Text:=M.Text;
+    Values.AddStrings(Lines);
+  finally
+    Lines.Free;
+  end;
 end;
 
 end.

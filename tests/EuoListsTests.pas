@@ -7,6 +7,9 @@ unit EuoListsTests;
     N/A cases, values with spaces, the separator as the last word, names built with '.' or from a variable,
     what must not change (a sub or label called list, EXIT, Clear), CALL sharing the lists, and the views
     the editor and EUOCli take (GetListNames, GetListValues, SetListValues, GetVarDump).
+  - TEuoListMenuTests: LIST TOMENU / FROMMENU under each MENU logic, read straight from the window's
+    controls: list box, combo box and memo, what a name reaches (every control so named in 1.5, the
+    registered one in 1.6), values kept exactly, and N/A for any other control.
 }
 
 {$mode delphi}{$H+}
@@ -14,7 +17,8 @@ unit EuoListsTests;
 interface
 
 uses
-  Classes, SysUtils, fpcunit, testregistry, EuoLists, EuoInterpreter;
+  Classes, SysUtils, Forms, Controls, StdCtrls, fpcunit, testregistry, EuoLists, EuoInterpreter,
+  EuoMenuSelect, EuoMenuCommon;
 
 type
   TEuoListsTests = class(TTestCase)
@@ -66,6 +70,36 @@ type
     procedure TestSubAndLabelCalledListStillWork;
     procedure TestHostViews;
     procedure TestVarDumpShowsLists;
+  end;
+
+  // The interpreter keeps its MENU objects private, so the window is found by its title among
+  // Screen's forms, and its controls are read from its Surface, in the order they were made.
+  TEuoListMenuTests = class(TTestCase)
+  private
+    Interp : TEuoInterpreter;
+    Title  : String;
+    procedure Run(Is16 : Boolean; const Script : String);
+    function  Window : TEuoMenuForm;
+    function  Nth(AClass : TClass; N : Integer) : TControl;
+    function  Entries(C : TControl) : String;
+    procedure CheckToMenu(Is16 : Boolean);
+    procedure CheckMemo(Is16 : Boolean);
+    procedure CheckFromMenu(Is16 : Boolean);
+    procedure CheckWrongControl(Is16 : Boolean);
+  protected
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure TestToMenu15;
+    procedure TestToMenu16;
+    procedure TestMemo15;
+    procedure TestMemo16;
+    procedure TestFromMenu15;
+    procedure TestFromMenu16;
+    procedure TestWrongControlIsNA15;
+    procedure TestWrongControlIsNA16;
+    procedure TestEveryControlOfTheName15;
+    procedure TestOnlyTheRegisteredControl16;
   end;
 
 implementation
@@ -436,6 +470,10 @@ begin
     'list merge r keepduplicates' + #13#10 + 'set %mergeOnlyKeep #ListRes' + #13#10 +
     'list subtract r keep' + #13#10 + 'set %subOne #ListRes' + #13#10 +
     'list subtract r keep a b' + #13#10 + 'set %subThree #ListRes' + #13#10 +
+    'list tomenu keep' + #13#10 + 'set %toNoCtrl #ListRes' + #13#10 +
+    'list tomenu keep box more' + #13#10 + 'set %toMore #ListRes' + #13#10 +
+    'list frommenu keep' + #13#10 + 'set %fromNoCtrl #ListRes' + #13#10 +
+    'list frommenu keep box more' + #13#10 + 'set %fromMore #ListRes' + #13#10 +
     'list count keep' + #13#10 + 'set %count #ListRes' + #13#10 +
     'halt');
   AssertEquals('N/A',Interp.GetVar('%alone'));
@@ -452,6 +490,10 @@ begin
   AssertEquals('N/A',Interp.GetVar('%mergeOnlyKeep'));
   AssertEquals('N/A',Interp.GetVar('%subOne'));
   AssertEquals('N/A',Interp.GetVar('%subThree'));
+  AssertEquals('N/A',Interp.GetVar('%toNoCtrl'));
+  AssertEquals('N/A',Interp.GetVar('%toMore'));
+  AssertEquals('N/A',Interp.GetVar('%fromNoCtrl'));
+  AssertEquals('N/A',Interp.GetVar('%fromMore'));
   AssertEquals('nothing changed the list','1',Interp.GetVar('%count'));
 end;
 
@@ -683,7 +725,276 @@ begin
   AssertTrue('the variables are still there',Pos('%A: 1',D)>0);
 end;
 
+////////////////////////////////////////////////////////////////////////////////
+/// TEuoListMenuTests //////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+procedure TEuoListMenuTests.SetUp;
+begin
+  Application.Initialize;
+  Interp:=TEuoInterpreter.Create(0);
+  Title:='EuoListMenuTests'+IntToStr(GetProcessID)+'_'+TestName;
+end;
+
+procedure TEuoListMenuTests.TearDown;
+begin
+  Interp.Free;
+end;
+
+// Runs Script under the 1.5 or the 1.6 MENU logic, in a window called Title. The script ends by
+// setting %end to reached.
+procedure TEuoListMenuTests.Run(Is16 : Boolean; const Script : String);
+var
+  Head : String;
+  Cnt  : Integer;
+begin
+  if Is16 then Head:='menu reforge mode 1.6' + #13#10 else Head:='';
+  Interp.ScrList.Scr.Text:=Head + 'menu Window Title ' + Title + #13#10 + Script;
+  Interp.Clear;
+  if Is16 then AssertTrue('the script runs under the 1.6 logic',Interp.MenuLogic=mlMenu16)
+  else AssertTrue('the script runs under the 1.5 logic',Interp.MenuLogic=mlMenu15);
+  Interp.NextLine:=0;
+  Interp.ResInt:=RES_OK;
+  Cnt:=0;
+  while (Interp.ResInt<>RES_STOP) and (Interp.ResInt<>RES_CLOSE) and (Cnt<500) do
+  begin
+    Interp.PlayLine;
+    Inc(Cnt);
+  end;
+  AssertEquals('the script reaches its end','reached',Interp.GetVar('%end'));
+end;
+
+function TEuoListMenuTests.Window : TEuoMenuForm;
+var
+  i : Integer;
+begin
+  for i:=0 to Screen.CustomFormCount-1 do
+    if (Screen.CustomForms[i] is TEuoMenuForm) and (Screen.CustomForms[i].Caption=Title) then
+      Exit(TEuoMenuForm(Screen.CustomForms[i]));
+  Result:=nil;
+  Fail('no MENU window called '+Title);
+end;
+
+// The N-th (from 0) control on the window that is an AClass, in the order they were made.
+function TEuoListMenuTests.Nth(AClass : TClass; N : Integer) : TControl;
+var
+  W : TEuoMenuForm;
+  i : Integer;
+begin
+  W:=Window;
+  for i:=0 to W.Surface.ControlCount-1 do
+    if W.Surface.Controls[i].InheritsFrom(AClass) then
+    begin
+      if N=0 then Exit(W.Surface.Controls[i]);
+      Dec(N);
+    end;
+  Result:=nil;
+  Fail('the window has no such '+AClass.ClassName);
+end;
+
+// A list or combo box's entries, or a memo's lines, joined by '|'.
+function TEuoListMenuTests.Entries(C : TControl) : String;
+var
+  L : TStrings;
+  i : Integer;
+begin
+  if C is TMemo then Exit(StringReplace(TMemo(C).Text,#13#10,'|',[rfReplaceAll]));
+  if C is TListBox then L:=TListBox(C).Items else L:=TComboBox(C).Items;
+  Result:='';
+  for i:=0 to L.Count-1 do
+  begin
+    if i>0 then Result:=Result+'|';
+    Result:=Result+L[i];
+  end;
+end;
+
+procedure TEuoListMenuTests.CheckToMenu(Is16 : Boolean);
+begin
+  Run(Is16,
+    'menu List Create townbox 0 0 100 100' + #13#10 +
+    'menu List Add townbox old' + #13#10 +
+    'menu List Select townbox 1' + #13#10 +
+    'menu Combo Create pick 0 110 100' + #13#10 +
+    'menu Combo Add pick old' + #13#10 +
+    'menu Combo Select pick 1' + #13#10 +
+    'menu Combo Create other 0 140 100' + #13#10 +
+    'menu Combo Add other x' + #13#10 +
+    'list add towns Britain Sir , #SPC , Robin' + #13#10 +
+    'list tomenu towns townbox' + #13#10 + 'set %res #ListRes' + #13#10 +
+    'list tomenu towns pick' + #13#10 + 'set %res2 #ListRes' + #13#10 +
+    'menu Get townbox' + #13#10 + 'set %sel #MenuRes' + #13#10 +
+    'menu Get pick' + #13#10 + 'set %sel2 #MenuRes' + #13#10 +
+    'list tomenu never other' + #13#10 + 'set %empty #ListRes' + #13#10 +
+    'set %end reached' + #13#10 + 'halt');
+  AssertEquals('#ListRes: the values that went in','2',Interp.GetVar('%res'));
+  AssertEquals('2',Interp.GetVar('%res2'));
+  AssertEquals('the list box holds the values, exactly','Britain|Sir Robin',Entries(Nth(TListBox,0)));
+  AssertEquals('the combo box too','Britain|Sir Robin',Entries(Nth(TComboBox,0)));
+  AssertEquals('nothing is selected in the list box','0',Interp.GetVar('%sel'));
+  AssertEquals('nothing is selected in the combo box','0',Interp.GetVar('%sel2'));
+  AssertEquals('a list never made empties the control','0',Interp.GetVar('%empty'));
+  AssertEquals('',Entries(Nth(TComboBox,1)));
+end;
+
+procedure TEuoListMenuTests.CheckMemo(Is16 : Boolean);
+begin
+  Run(Is16,
+    'menu Memo notes 0 0 100 100 old$text' + #13#10 +
+    'list add n first x$y last' + #13#10 +
+    'list tomenu n notes' + #13#10 + 'set %res #ListRes' + #13#10 +
+    'menu Get notes' + #13#10 + 'set %got #MenuRes' + #13#10 +
+    'list frommenu back notes' + #13#10 + 'set %back #ListRes' + #13#10 +
+    'list get back 2' + #13#10 + 'set %second #ListRes' + #13#10 +
+    'set %end reached' + #13#10 + 'halt');
+  AssertEquals('3',Interp.GetVar('%res'));
+  AssertEquals('one value per line, a $ kept','first|x$y|last',Entries(Nth(TMemo,0)));
+  AssertEquals('menu Get folds the lines to $','first$x$y$last',Interp.GetVar('%got'));
+  AssertEquals('3',Interp.GetVar('%back'));
+  AssertEquals('frommenu keeps the value with a $ whole','x$y',Interp.GetVar('%second'));
+end;
+
+procedure TEuoListMenuTests.CheckFromMenu(Is16 : Boolean);
+begin
+  Run(Is16,
+    'menu List Create box 0 0 50 50' + #13#10 +
+    'menu List Add box one' + #13#10 +
+    'menu List Add box two words' + #13#10 +
+    'menu List Select box 2' + #13#10 +
+    'menu Combo Create pick 0 60 50' + #13#10 +
+    'menu Combo Add pick red' + #13#10 +
+    'menu Memo notes 0 90 100 50 a' + #13#10 +
+    'menu Set notes a$$b$' + #13#10 +
+    'list add keep x' + #13#10 +
+    'list frommenu keep box' + #13#10 + 'set %res #ListRes' + #13#10 +
+    'list join keep _' + #13#10 + 'set %box #ListRes' + #13#10 +
+    'menu Get box' + #13#10 + 'set %sel #MenuRes' + #13#10 +
+    'list frommenu c pick' + #13#10 + 'set %c #ListRes' + #13#10 +
+    'list frommenu m notes' + #13#10 + 'set %m #ListRes' + #13#10 +
+    'list join m _' + #13#10 + 'set %mj #ListRes' + #13#10 +
+    'menu List Clear box' + #13#10 +
+    'list frommenu keep box' + #13#10 + 'set %empty #ListRes' + #13#10 +
+    'list count keep' + #13#10 + 'set %gone #ListRes' + #13#10 +
+    'set %end reached' + #13#10 + 'halt');
+  AssertEquals('the entries replace the list','2',Interp.GetVar('%res'));
+  AssertEquals('one_two words',Interp.GetVar('%box'));
+  AssertEquals('reading leaves the selection alone','2',Interp.GetVar('%sel'));
+  AssertEquals('1',Interp.GetVar('%c'));
+  AssertEquals('a memo''s lines: an empty one kept, none after the last line break','3',Interp.GetVar('%m'));
+  AssertEquals('a__b',Interp.GetVar('%mj'));
+  AssertEquals('an empty control gives 0','0',Interp.GetVar('%empty'));
+  AssertEquals('and the list is gone','0',Interp.GetVar('%gone'));
+end;
+
+procedure TEuoListMenuTests.CheckWrongControl(Is16 : Boolean);
+begin
+  Run(Is16,
+    'menu Edit ed 0 0 50 text' + #13#10 +
+    'menu Check chk 0 30 50 20 1 c' + #13#10 +
+    'menu Text lbl 0 60 label' + #13#10 +
+    'menu Button btn 0 90 50 20 B' + #13#10 +
+    'list add v a b' + #13#10 +
+    'list add keep x' + #13#10 +
+    'list tomenu v ed' + #13#10 + 'set %ed #ListRes' + #13#10 +
+    'list tomenu v chk' + #13#10 + 'set %chk #ListRes' + #13#10 +
+    'list tomenu v lbl' + #13#10 + 'set %lbl #ListRes' + #13#10 +
+    'list tomenu v btn' + #13#10 + 'set %btn #ListRes' + #13#10 +
+    'list tomenu v nothing' + #13#10 + 'set %none #ListRes' + #13#10 +
+    'list frommenu keep ed' + #13#10 + 'set %fed #ListRes' + #13#10 +
+    'list frommenu keep nothing' + #13#10 + 'set %fnone #ListRes' + #13#10 +
+    'list count keep' + #13#10 + 'set %kept #ListRes' + #13#10 +
+    'menu Get ed' + #13#10 + 'set %edtext #MenuRes' + #13#10 +
+    'menu Get chk' + #13#10 + 'set %chkstate #MenuRes' + #13#10 +
+    'set %end reached' + #13#10 + 'halt');
+  AssertEquals('an edit','N/A',Interp.GetVar('%ed'));
+  AssertEquals('a check box','N/A',Interp.GetVar('%chk'));
+  AssertEquals('a text','N/A',Interp.GetVar('%lbl'));
+  AssertEquals('a button','N/A',Interp.GetVar('%btn'));
+  AssertEquals('no control','N/A',Interp.GetVar('%none'));
+  AssertEquals('frommenu, an edit','N/A',Interp.GetVar('%fed'));
+  AssertEquals('frommenu, no control','N/A',Interp.GetVar('%fnone'));
+  AssertEquals('the list is kept','1',Interp.GetVar('%kept'));
+  AssertEquals('the edit is untouched','text',Interp.GetVar('%edtext'));
+  AssertEquals('the check box is untouched','-1',Interp.GetVar('%chkstate'));
+  AssertEquals('the text is untouched','label',TLabel(Nth(TLabel,0)).Caption);
+end;
+
+procedure TEuoListMenuTests.TestToMenu15;
+begin
+  CheckToMenu(False);
+end;
+
+procedure TEuoListMenuTests.TestToMenu16;
+begin
+  CheckToMenu(True);
+end;
+
+procedure TEuoListMenuTests.TestMemo15;
+begin
+  CheckMemo(False);
+end;
+
+procedure TEuoListMenuTests.TestMemo16;
+begin
+  CheckMemo(True);
+end;
+
+procedure TEuoListMenuTests.TestFromMenu15;
+begin
+  CheckFromMenu(False);
+end;
+
+procedure TEuoListMenuTests.TestFromMenu16;
+begin
+  CheckFromMenu(True);
+end;
+
+procedure TEuoListMenuTests.TestWrongControlIsNA15;
+begin
+  CheckWrongControl(False);
+end;
+
+procedure TEuoListMenuTests.TestWrongControlIsNA16;
+begin
+  CheckWrongControl(True);
+end;
+
+// Under 1.5 a name reaches every control so named, as MENU LIST ADD and MENU SET do; frommenu
+// reads the first list box, combo box or memo of the name.
+procedure TEuoListMenuTests.TestEveryControlOfTheName15;
+begin
+  Run(False,
+    'menu Edit box 0 0 50 keep' + #13#10 +
+    'menu List Create box 0 30 50 50' + #13#10 +
+    'menu List Create box 60 30 50 50' + #13#10 +
+    'menu Memo box 0 90 50 50 old' + #13#10 +
+    'list add v a b' + #13#10 +
+    'list tomenu v box' + #13#10 + 'set %res #ListRes' + #13#10 +
+    'list frommenu back box' + #13#10 + 'list join back _' + #13#10 + 'set %back #ListRes' + #13#10 +
+    'set %end reached' + #13#10 + 'halt');
+  AssertEquals('2',Interp.GetVar('%res'));
+  AssertEquals('the first list box','a|b',Entries(Nth(TListBox,0)));
+  AssertEquals('the second list box','a|b',Entries(Nth(TListBox,1)));
+  AssertEquals('the memo','a|b',Entries(Nth(TMemo,0)));
+  AssertEquals('the edit of that name is untouched','keep',TEdit(Nth(TEdit,0)).Text);
+  AssertEquals('frommenu skips the edit','a_b',Interp.GetVar('%back'));
+end;
+
+// Under 1.6 only the control registered under the name: a second one of the same name was refused.
+procedure TEuoListMenuTests.TestOnlyTheRegisteredControl16;
+begin
+  Run(True,
+    'menu List Create box 0 0 50 50' + #13#10 +
+    'menu List Create box 60 0 50 50' + #13#10 +
+    'list add v a b' + #13#10 +
+    'list tomenu v box' + #13#10 + 'set %res #ListRes' + #13#10 +
+    'set %end reached' + #13#10 + 'halt');
+  AssertEquals('2',Interp.GetVar('%res'));
+  AssertEquals('the registered list box','a|b',Entries(Nth(TListBox,0)));
+  AssertEquals('the refused one is untouched','',Entries(Nth(TListBox,1)));
+end;
+
 initialization
   RegisterTest(TEuoListsTests);
   RegisterTest(TEuoListScriptTests);
+  RegisterTest(TEuoListMenuTests);
 end.

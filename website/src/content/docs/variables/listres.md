@@ -14,16 +14,17 @@ aliases: ["list result", "array result"]
 
 | Line | `#ListRes` |
 |---|---|
-| `list add`, `insert`, `set`, `delete`, `clone`, `sort`, `split` | How many values the list has afterwards. |
+| `list add`, `insert`, `set`, `delete`, `clone`, `sort`, `split`, `frommenu` | How many values the list has afterwards. |
 | `list merge`, `intersect`, `subtract` | How many values the new list has. |
+| `list tomenu` | How many values went into the menu control. |
 | `list clear` | `0`. |
 | `list count` | How many values the list has; `0` for a list never made. |
 | `list get` | The value at that position. |
 | `list indexof`, `list find` | The position found, or `0`. |
 | `list join` | The values joined into one text. |
 
-It is `N/A` before the first `list` line of a run, and after a line with a missing or wrong word, which changes
-nothing. A value can be the text `N/A` too, so to know whether a position exists, compare it with
+It is `N/A` before the first `list` line of a run, and after a line with a missing or wrong word, or with a menu
+control that is not a list box, combo box or memo; such a line changes nothing. A value can be the text `N/A` too, so to know whether a position exists, compare it with
 `list count`.
 
 A value with spaces keeps them in `#ListRes`, as [`#Property`](/variables/property/) does, and a later line that
