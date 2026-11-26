@@ -15,6 +15,13 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 
 ## New commands and variables
 
+- **[`List`](/commands/list/)**: real lists in the script language. `list add loot POF KUF` adds values,
+  `list get`, `set`, `insert`, `delete` and `count` work on positions from 1, `list indexof` and `list find`
+  search, `list sort` orders by number or as text, `list split` cuts a text such as a `#Property` into a list and
+  `list join` puts it back, and `list merge`, `list intersect` and `list subtract` build a new list from others.
+  The answers are in [`#ListRes`](/variables/listres/). Lists survive the restart at the end of a script, and
+  the [Watches panel](/guide/debugging/#watches) shows them and edits their values. Before, scripts built
+  variable names such as `%item . %i`.
 - **[`Timer`](/commands/timer/)**: named timers, as many as a script needs. `timer start save 30s` starts one,
   `timer due`, `timer left` and `timer elapsed` say whether it is due, how long is left and how long it has run, in
   [`#TimerRes`](/variables/timerres/), instead of deadlines built by hand on `#SCnt`, which any `set #SCnt` moves.

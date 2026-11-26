@@ -14,7 +14,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, StdCtrls, Grids, fpcunit, testregistry, mdtypes, mdmodel,
-  mdinspector;
+  mdinspector, eulinesdialog;
 
 type
   TMenuDesignerInspectorTests = class(TTestCase)

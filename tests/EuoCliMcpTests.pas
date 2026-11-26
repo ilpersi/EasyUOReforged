@@ -722,6 +722,12 @@ begin
   AssertEquals('what its commands put into #variables too','5',R.Objects['vars'].Get('#StrRes',''));
   R:=Tool('euo_vars','{"all":true}');
   AssertEquals('every variable the script made','7',R.Objects['vars'].Get('%COUNT',''));
+  AssertTrue('no lists, no field',R.IndexOfName('lists')<0);
+  Tool('euo_run','{'+Scr(['list add loot iron gold','set %count 1','halt'])+'}');
+  R:=Tool('euo_vars','{"all":true}');
+  AssertEquals('the run''s lists, as arrays','iron',R.Objects['lists'].Arrays['loot'].Strings[0]);
+  AssertEquals(2,R.Objects['lists'].Arrays['loot'].Count);
+  AssertTrue('the dump''s list lines are not variables',R.Objects['vars'].IndexOfName('list loot (2)')<0);
   Tool('euo_vars','{"names":["%count"],"client":0}');
   AssertTrue('with a client named, it is not the run that is read',IsError);
 end;

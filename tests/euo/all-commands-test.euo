@@ -1547,6 +1547,66 @@ sub sec_misc
   timer start
   gosub t_eq timer_without_a_name #timerres N/A
 
+  ; ---- list  [Reforged]  (#listRes: a count, a value, an index or the joined text) -----------
+  list clear allcmd_ores
+  list count allcmd_ores
+  gosub t_eq list_never_made_is_empty #listres 0
+  list add allcmd_ores iron gold agapite
+  gosub t_eq list_add_answers_the_count #listres 3
+  list get allcmd_ores 2
+  gosub t_eq list_get_is_1_based #listres gold
+  list get allcmd_ores 4
+  gosub t_eq list_get_outside_is_na #listres N/A
+  list insert allcmd_ores 1 copper
+  gosub t_eq list_insert_at_1 #listres 4
+  list set allcmd_ores 4 verite
+  list join allcmd_ores _
+  gosub t_eq list_set_and_join #listres copper_iron_gold_verite
+  list indexof allcmd_ores GOLD
+  gosub t_eq list_indexof_ignores_case #listres 3
+  list find allcmd_ores er
+  gosub t_eq list_find_contains #listres 1
+  list find allcmd_ores er 2
+  gosub t_eq list_find_from #listres 4
+  list delete allcmd_ores 1
+  gosub t_eq list_delete #listres 3
+  list sort allcmd_ores
+  list join allcmd_ores ,
+  gosub t_eq list_sort_as_text_join_with_a_last_comma #listres gold,iron,verite
+  list split allcmd_nums 10,9,100 ,
+  gosub t_eq list_split_with_a_last_comma #listres 3
+  list sort allcmd_nums
+  list join allcmd_nums _
+  gosub t_eq list_sort_numbers_by_number #listres 9_10_100
+  list sort allcmd_nums down
+  list get allcmd_nums 1
+  gosub t_eq list_sort_down #listres 100
+  list clone allcmd_copy allcmd_nums
+  gosub t_eq list_clone #listres 3
+  list add allcmd_more 9 7 IRON
+  list merge allcmd_all allcmd_nums allcmd_more allcmd_ores
+  gosub t_eq list_merge_drops_repeats #listres 7
+  list merge allcmd_all allcmd_nums allcmd_more keepduplicates
+  gosub t_eq list_merge_keepduplicates #listres 6
+  list intersect allcmd_both allcmd_nums allcmd_more
+  list join allcmd_both _
+  gosub t_eq list_intersect #listres 9
+  list subtract allcmd_left allcmd_nums allcmd_more
+  list join allcmd_left _
+  gosub t_eq list_subtract #listres 100_10
+  list count allcmd_nums
+  gosub t_eq list_set_operations_leave_their_inputs #listres 3
+  set %r Sir , #spc , Robin
+  list add allcmd_names %r
+  gosub t_eq list_value_with_a_space_is_one_value #listres 1
+  list get allcmd_names 1
+  str len #listres
+  gosub t_eq list_value_keeps_its_space #strres 9
+  list frob allcmd_names
+  gosub t_eq list_unknown_word #listres N/A
+  list clear allcmd_names
+  gosub t_eq list_clear #listres 0
+
   ; ---- log  [Reforged]  (a line for whoever runs the script: the Output panel, or EUOCli) -------
   ; Nothing a script can read changes; the three lines show in the Output panel.
   set %r before

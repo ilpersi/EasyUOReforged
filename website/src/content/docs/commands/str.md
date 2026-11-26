@@ -82,7 +82,8 @@ or is empty, the result is the text unchanged.
 ### Split (Reforged)
 
 `str part` takes one field out of a text. Use it with `for` and `str count` to go through all of them: a text has one
-field more than it has separators.
+field more than it has separators. [`list split`](/commands/list/#splitting-and-joining) cuts the whole text into
+a list in one line, and `list join` puts it back.
 
 ```euo
 set %list iron_gold_agapite

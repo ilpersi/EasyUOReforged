@@ -17,6 +17,7 @@
 #   path X              commands\path\x.md
 #   logfile X           commands\logfile\x.md
 #   str X               mentioned on commands\str.md (one page documents every str operation)
+#   timer / list X      mentioned on commands\timer.md, commands\list.md (one page each)
 #   uo.dll members      dll\name.md - checked only once the dll\ section exists
 #
 # Every ```euo example on the site must be a whole script that runs as pasted: see "The examples" below.
@@ -97,6 +98,8 @@ $strText = if (Test-Page 'commands/str') { $pages['commands/str'].Text } else { 
 foreach ($e in $names.Str)       { Need "str $e"       ($strText -match "(?i)\bstr\s+$e\b") }
 $timerText = if (Test-Page 'commands/timer') { $pages['commands/timer'].Text } else { '' }
 foreach ($e in $names.Timer)     { Need "timer $e"     ($timerText -match "(?i)\btimer\s+$e\b") }
+$listText = if (Test-Page 'commands/list') { $pages['commands/list'].Text } else { '' }
+foreach ($e in $names.List)      { Need "list $e"      ($listText -match "(?i)\blist\s+$e\b") }
 $sendText = if (Test-Page 'commands/send') { $pages['commands/send'].Text } else { '' }
 foreach ($e in $names.Send)      { Need "send $e"      ($sendText -match "(?i)\bsend\s+(?:\[debug\])?$e\b") }
 $dllOn = Test-Path (Join-Path $Docs 'dll')
@@ -287,7 +290,7 @@ if ($hlOnly.Count -gt 0) { Write-Host "Warning: highlighted, but the interpreter
 $complFamilies = [ordered]@{
   EVENT = $names.Events; EXEVENT = $names.ExEvents; MENU = $names.Menu
   NAMESPACE = $names.NameSpace; STR = $names.Str; SQL = $names.Sql; PATH = $names.Path
-  LOGFILE = $names.LogFile; SEND = $names.Send; TIMER = $names.Timer
+  LOGFILE = $names.LogFile; SEND = $names.Send; TIMER = $names.Timer; LIST = $names.List
 }
 $notOffered = @(); $offeredOnly = @()
 foreach ($cmd in $complFamilies.Keys) {

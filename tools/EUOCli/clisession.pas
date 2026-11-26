@@ -129,6 +129,9 @@ type
     function  ElapsedMs : QWord;
     function  ClientSkips : Cardinal;
     function  GetVar(const Name : String) : String;
+    // The run's lists (the LIST command) as {name: [values]}, or nil when it has none: a report leaves
+    // the field out then, so a run without lists reports exactly what it did before lists existed.
+    function  ListsJson : TJSONObject;
     property  Exec : TExecutor read FExec;
     property  Host : TRunHost read FHost;
     property  Options : TRunOptions read FOpt;
@@ -642,6 +645,35 @@ function TRunSession.GetVar(const Name : String) : String;
 begin
   if FExec=nil then Exit('');
   Result:=FExec.GetVar(Name);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function TRunSession.ListsJson : TJSONObject;
+var
+  Names, Values : TStringList;
+  Arr           : TJSONArray;
+  i, j          : Integer;
+begin
+  Result:=nil;
+  if FExec=nil then Exit;
+  Names:=TStringList.Create;
+  Values:=TStringList.Create;
+  try
+    FExec.Parser.GetListNames(Names);
+    if Names.Count=0 then Exit;
+    Result:=TJSONObject.Create;
+    for i:=0 to Names.Count-1 do
+    begin
+      Values.Clear;
+      FExec.Parser.GetListValues(Names[i],Values);
+      Arr:=TJSONArray.Create;
+      for j:=0 to Values.Count-1 do Arr.Add(Values[j]);
+      Result.Add(Names[i],Arr);
+    end;
+  finally
+    Values.Free;
+    Names.Free;
+  end;
 end;
 
 end.

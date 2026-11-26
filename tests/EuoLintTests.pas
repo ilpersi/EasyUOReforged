@@ -229,6 +229,9 @@ begin
   AssertEquals('unknown-subcommand@1',Warn(['str repalce %a b c','halt']));
   AssertEquals('unknown-subcommand@1',Warn(['sql select 1','halt']));
   AssertEquals('event sleep is not implemented','unknown-subcommand@1',Warn(['event sleep 100','halt']));
+  AssertEquals('unknown-subcommand@1',Warn(['list frob loot x','halt']));
+  AssertEquals('',Warn(['list add loot a b','list merge all loot more keepduplicates','list sort loot down',
+    'list subtract left loot more','halt']));
   AssertEquals('',Warn(['event Macro 17 0','exevent drag %id 1','str len abc','namespace push',
     'sql open :memory:','path stop','menu clear','menu font size 10','halt']));
   AssertEquals('other commands take anything','',Warn(['display nosuchword','wait 5','halt']));

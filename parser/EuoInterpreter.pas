@@ -142,6 +142,11 @@ unit EuoInterpreter;
   tests, which set its clock.
   Likewise the STR operations DECIMAL, DATE, CLOCK, DATETIME and DURATION (EuoStrOps.pas), added to
   StrProc the way REPLACE and the others were.
+  Likewise the LIST command plus the read-only #ListRes (index 151): named lists of values (EuoLists.pas),
+  1-based, compared ignoring case. A line starting with it was a silent no-op before, and a sub or label
+  called "list" keeps working. As with timers, Clear forgets the lists and ExitProc does not, so they survive
+  the restart. GetListNames, GetListValues and SetListValues are for the editor's Watches panel and EUOCli;
+  no script reaches them.
 }
 
 {$mode delphi}{$H+}
@@ -154,7 +159,7 @@ uses
   EuoScriptWords,
   uotypes, access, ReforgedVersion, uoselector, uovariables, uocommands, uoevents, EuoLock,
   EuoSql, walkrules, walkmap, pathplan, walklive, pathwalk, EuoJournalSearch, EuoStrOps, EuoItemMove,
-  EuoGumps, uogumpreply, EuoLogFile, EuoHttp, EuoSearchPath, EuoTimers;
+  EuoGumps, uogumpreply, EuoLogFile, EuoHttp, EuoSearchPath, EuoTimers, EuoLists;
 
 const
   RES_OK    = 0;
@@ -252,6 +257,8 @@ type
     FSearchPathLock: TEuoLock;           // its own lock: the editor changes SearchPath while a script runs
     FTimers      : TEuoTimers;         // port addition (TIMER)
     TimerRes     : String;             //   #TimerRes
+    FLists       : TEuoLists;          // port addition (LIST)
+    ListRes      : String;             //   #ListRes
 
     procedure    LogProc;
     procedure    QueueLog(const Text : String; Line : Integer);
@@ -326,6 +333,7 @@ type
     procedure    WaitProc;
     procedure    WaitForProc;
     procedure    TimerProc;
+    procedure    ListProc;
     procedure    SqlProc;
     procedure    PathProc;
     procedure    PathReset;
@@ -411,6 +419,12 @@ type
     // now ('%A', upper-case as stored) and of the ! variables of the current namespace ('!A').
     // Read-only, like GetVarDump.
     procedure    GetUserVarNames(List : TStrings);
+    // Port additions (LIST, for the editor's Watches panel and EUOCli): the run's lists, names as first
+    // spelled (A-Z), a list's values, and replacing a list's values (none forgets it), each under the lock
+    // a script line holds, so safe while the script runs. No script reaches them.
+    procedure    GetListNames(List : TStrings);
+    procedure    GetListValues(const Name : String; Values : TStrings);
+    procedure    SetListValues(const Name : String; Values : TStrings);
   public
     // Port additions for hosts (docs\agent-support.md phase 3). See the unit header.
     // How often the main script started over in this run: an EXIT, or the end of the script,
@@ -636,7 +650,7 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 const
-  VarNamesR : Array[0..150] of String = (
+  VarNamesR : Array[0..151] of String = (
     'CliCnt','CliNr','Time','Date','SysTime','Random','OSVer','CharPosX',
     'CharPosY','CharPosZ','CharID','CharGhost','CharStatus','CharDir',
     'CharName','Sex','Str','MaxWeight','Dex','Int','Hits','MaxHits',
@@ -678,7 +692,9 @@ const
     // Port additions (the new SEND forms): indices 147..149.
     'SendRes','SendCode','SendReply',
     // Port addition (TIMER): index 150.
-    'TimerRes');
+    'TimerRes',
+    // Port addition (LIST): index 151.
+    'ListRes');
 
   VarNamesRW : Array[0..34] of String = (
     'SCnt','SCnt2','LShard','ContPosX','ContPosY','NextCPosX','NextCPosY',
@@ -780,6 +796,8 @@ begin
   FSearchPathLock:=TEuoLock.Create;
   FTimers:=TEuoTimers.Create;   // port addition (TIMER)
   TimerRes:='N/A';
+  FLists:=TEuoLists.Create;     // port addition (LIST)
+  ListRes:='N/A';
   Restarts:=0;
   BlockedCmd:='';
   BlockedLine:=-1;
@@ -817,6 +835,7 @@ begin
   FLogLock.Free;
   FSearchPathLock.Free;
   FTimers.Free;
+  FLists.Free;
   inherited Free;
 end;
 
@@ -861,6 +880,8 @@ begin
   SendReply:='N/A';
   FTimers.Clear;    // port addition (TIMER): a new run starts with no timers
   TimerRes:='N/A';
+  FLists.Clear;     // port addition (LIST): and with no lists
+  ListRes:='N/A';
   Restarts:=0;      // port additions for hosts: a new run has not restarted or been blocked.
   BlockedCmd:='';   // (What LOG queued stays: the host has not read it yet.)
   BlockedLine:=-1;
@@ -1238,6 +1259,8 @@ begin
     149: Result:=            SendReply     ;
     // Port addition (TIMER).
     150: Result:=            TimerRes      ;
+    // Port addition (LIST).
+    151: Result:=            ListRes       ;
     500: Result:=IntToStr   (GetTickCount div 1000 - SCntBase);
     501: Result:=IntToStr   (GetTickCount div 100 - SCnt2Base);
     525: Result:=            _Result       ;
@@ -1620,6 +1643,13 @@ begin
   for Cnt:=0 to List.Count-1 do
     Result:=Result+'!G~'+List[Cnt]+': '+Vars.NSGlobal.GetVar(List[Cnt])+#13#10;
 
+  // Port addition (LIST): each list on a line of its own, its values separated by ' | '.
+  List.Clear;
+  FLists.Names(List);
+  for Cnt:=0 to List.Count-1 do
+    Result:=Result+'list '+List[Cnt]+' ('+IntToStr(FLists.Count(List[Cnt]))+'): '+
+      FLists.Join(List[Cnt],' | ')+#13#10;
+
   Delete(Result,Length(Result)-1,2);
   List.Free;
 
@@ -1694,6 +1724,7 @@ begin
   CmdRegistry.Register('Log',LogProc);         // port addition
   CmdRegistry.Register('LogFile',LogFileProc); // port addition
   CmdRegistry.Register('Timer',TimerProc);     // port addition
+  CmdRegistry.Register('List',ListProc);       // port addition
 
   // Cmd2 -- client-dependent (RequiresClient=True).
   CmdRegistry.Register('Key',KeyProc,True);
@@ -1812,6 +1843,121 @@ begin
   begin
     if FTimers.Stop(Name) then TimerRes:='-1' else TimerRes:='0';
   end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition. List {sub} {list} ...: the run's named lists (EuoLists.pas), each answer in #ListRes (the
+// reference is the site's commands/list.md). A line that changes a list answers with its count afterwards;
+// a missing name, an unknown word, a bad index or a missing value gives N/A and changes nothing. Every word
+// after the name is one value (ADD, INSERT). The separator of SPLIT and JOIN is their last word, so a last
+// ',' or '.' reaches them unglued (GlueWords leaves a last word alone).
+procedure TEuoInterpreter.ListProc;
+var
+  Sub   : String;
+  Name  : String;
+  Opt   : String;
+  Value : String;
+  N, i  : Integer;
+  Last  : Integer;
+  Mode  : TEuoListSort;
+  Down  : Boolean;
+  Keep  : Boolean;
+  Src   : TStringList;
+
+  // Word W as a position: a whole number from 1 up.
+  function ListIndex(W : Integer; out I : Integer) : Boolean;
+  begin
+    Result:=ParList[W].IntValid and (ParList[W].Int>=1) and (ParList[W].Int<=High(Integer));
+    if Result then I:=ParList[W].Int else I:=0;
+  end;
+
+begin
+  ListRes:='N/A';
+  if ParList.Count<3 then Exit;
+  Sub:=ParList[1].StrU;
+  Name:=ParList[2].Str;
+  N:=0;
+  if Sub='COUNT' then ListRes:=IntToStr(FLists.Count(Name))
+  else if Sub='CLEAR' then
+  begin
+    FLists.Forget(Name);
+    ListRes:='0';
+  end
+  else if Sub='JOIN' then
+  begin
+    if ParList.Count>3 then ListRes:=FLists.Join(Name,ParList[3].Str)
+    else ListRes:=FLists.Join(Name,'');
+  end
+  else if Sub='SORT' then
+  begin
+    Mode:=lsAuto;
+    Down:=False;
+    for i:=3 to ParList.Count-1 do
+    begin
+      Opt:=ParList[i].StrU;
+      if Opt='TEXT' then Mode:=lsText
+      else if Opt='NUMBER' then Mode:=lsNumber
+      else if Opt='DOWN' then Down:=True
+      else Exit;
+    end;
+    ListRes:=IntToStr(FLists.Sort(Name,Mode,Down));
+  end
+  else if ParList.Count<4 then Exit
+  else if Sub='ADD' then
+  begin
+    for i:=3 to ParList.Count-1 do N:=FLists.Add(Name,ParList[i].Str);
+    ListRes:=IntToStr(N);
+  end
+  else if Sub='GET' then
+  begin
+    if ListIndex(3,N) and FLists.Get(Name,N,Value) then ListRes:=Value;
+  end
+  else if Sub='DELETE' then
+  begin
+    if ListIndex(3,N) and FLists.Delete(Name,N) then ListRes:=IntToStr(FLists.Count(Name));
+  end
+  else if (Sub='INDEXOF') or (Sub='FIND') then
+  begin
+    N:=1;
+    if ParList.Count>4 then
+      if not ListIndex(4,N) then Exit;
+    if Sub='INDEXOF' then ListRes:=IntToStr(FLists.IndexOf(Name,ParList[3].Str,N))
+    else ListRes:=IntToStr(FLists.FindText(Name,ParList[3].Str,N));
+  end
+  else if Sub='CLONE' then ListRes:=IntToStr(FLists.Clone(Name,ParList[3].Str))
+  else if (Sub='MERGE') or (Sub='INTERSECT') then
+  begin
+    Last:=ParList.Count-1;
+    Keep:=(Sub='MERGE') and (ParList[Last].StrU='KEEPDUPLICATES');
+    if Keep then Dec(Last);
+    if Last<3 then Exit;
+    Src:=TStringList.Create;
+    try
+      for i:=3 to Last do Src.Add(ParList[i].Str);
+      if Sub='MERGE' then ListRes:=IntToStr(FLists.Merge(Name,Src,Keep))
+      else ListRes:=IntToStr(FLists.Intersect(Name,Src));
+    finally
+      Src.Free;
+    end;
+  end
+  else if ParList.Count<5 then Exit
+  else if Sub='INSERT' then
+  begin
+    if not ListIndex(3,N) or (N>FLists.Count(Name)+1) then Exit;
+    for i:=4 to ParList.Count-1 do FLists.Insert(Name,N+i-4,ParList[i].Str);
+    ListRes:=IntToStr(FLists.Count(Name));
+  end
+  else if Sub='SET' then
+  begin
+    if ListIndex(3,N) and FLists.SetValue(Name,N,ParList[4].Str) then ListRes:=IntToStr(FLists.Count(Name));
+  end
+  else if ParList.Count<>5 then Exit
+  else if Sub='SPLIT' then
+  begin
+    N:=FLists.Split(Name,ParList[3].Str,ParList[4].Str);
+    if N>=0 then ListRes:=IntToStr(N);
+  end
+  else if Sub='SUBTRACT' then ListRes:=IntToStr(FLists.Subtract(Name,ParList[3].Str,ParList[4].Str));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2731,6 +2877,38 @@ begin
       if Tmp[Cnt]<>'' then List.Add('!'+Tmp[Cnt]);
   finally
     Tmp.Free;
+    CS.EndWrite;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port additions (LIST): the views the Watches panel and EUOCli take of the run's lists.
+procedure TEuoInterpreter.GetListNames(List : TStrings);
+begin
+  CS.BeginWrite;
+  try
+    FLists.Names(List);
+  finally
+    CS.EndWrite;
+  end;
+end;
+
+procedure TEuoInterpreter.GetListValues(const Name : String; Values : TStrings);
+begin
+  CS.BeginWrite;
+  try
+    FLists.Values(Name,Values);
+  finally
+    CS.EndWrite;
+  end;
+end;
+
+procedure TEuoInterpreter.SetListValues(const Name : String; Values : TStrings);
+begin
+  CS.BeginWrite;
+  try
+    FLists.SetValues(Name,Values);
+  finally
     CS.EndWrite;
   end;
 end;

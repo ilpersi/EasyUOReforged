@@ -65,6 +65,7 @@
       <word value="IGNORECONT"/>
       <word value="IGNOREITEM"/>
       <word value="KEY"/>
+      <word value="LIST"/>
       <word value="LOG"/>
       <word value="LOGFILE"/>
       <word value="MENU"/>
@@ -192,6 +193,7 @@
       <word value="#JINDEX"/>
       <word value="#JOURNAL"/>
       <word value="#LHANDID"/>
+      <word value="#LISTRES"/>
       <word value="#LLIFTEDID"/>
       <word value="#LLIFTEDKIND"/>
       <word value="#LLIFTEDTYPE"/>

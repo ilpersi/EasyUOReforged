@@ -87,7 +87,7 @@ may be meant. A note is information about the whole script.
 |---|---|
 | `unknown-command` | A line whose first word is not a [command](/commands/), a label or a brace. EasyUO skips the line. |
 | `unknown-variable` | A `#name` that is not a [variable](/variables/). It reads `N/A`. |
-| `unknown-subcommand` | `event`, `exevent`, `menu`, `namespace`, `str`, `sql` or `path` followed by a word that is not one of its sub-commands. The line does nothing. |
+| `unknown-subcommand` | `event`, `exevent`, `menu`, `namespace`, `str`, `sql`, `path`, `logfile`, `send`, `timer` or `list` followed by a word that is not one of its sub-commands. The line does nothing. |
 | `glued-words` | In a command that calculates (`set`, `if`, `while`, `until`, `return`, `waitfor`): words with no space between them, such as `(%a`, `1)`, `%a=1`, `%b+1`, `!%a`. |
 | `brace-on-header-line` | A `{` at the end of an `if`, `for`, `while` or `sub` line. It is read as a parameter, not as a block. |
 | `stray-brace` | A `{` line that doesn't directly follow its command, for example after a blank line. Its block always runs. |
@@ -225,7 +225,7 @@ EUOCli run <script.euo> [--client <n>] [--timeout <seconds>] [--json] [--trace]
 | `--timeout <seconds>` | Stop the script after this many seconds. Default: `60`. `0`: never. |
 | `--json` | Print one JSON object per line instead of text. |
 | `--trace` | Print every line before it runs, up to 5000 lines. |
-| `--dump <variables>` | Print these variables when the run ends: `--dump %a,%b,#FindCnt`. |
+| `--dump <variables>` | Print these variables when the run ends: `--dump %a,%b,#FindCnt`. The run's [lists](/commands/list/), if it made any, are printed after them, as `list loot = iron \| gold`. |
 | `--answer <button>` | Answer `display` boxes that have this button with it: `ok`, `yes`, `no` or `cancel`. |
 | `--show-display` | Open the real message boxes and wait for a click. |
 | `--allow <commands>` | Run these although they are blocked: `--allow execute,send`. `logfile` lets [`logfile open`](/commands/logfile/open/) and [`send download`](/commands/send/) write outside the folder of `EUOCli.exe`. |
@@ -286,7 +286,7 @@ With `--json` every event is one line holding one object, so a program can read 
 | `display` | `line`, `buttons`, `text`, `answer`: a `display` box and how it was answered. |
 | `line` | `line`, `text`, `depth`: with `--trace`, a line about to run; `depth` is above 0 inside a called script. |
 | `menu` | `text`: a notice about the [MENU system](/commands/menu/versions/) the script needs. |
-| `end` | `reason`, `detail`, `line` (the last line that ran), `exitCode`, `elapsedMs`, `client`, `clientLinesSkipped`, `vars` (what `--dump` asked for). |
+| `end` | `reason`, `detail`, `line` (the last line that ran), `exitCode`, `elapsedMs`, `client`, `clientLinesSkipped`, `vars` (what `--dump` asked for), and `lists` when the run made [lists](/commands/list/): `{"loot": ["iron", "gold"]}`. |
 
 ## Read variables
 
@@ -411,7 +411,7 @@ can follow, pause, step through line by line and stop, as you do in the editor.
 | `euo_pause`, `euo_continue` | Pause the run; let it run on, to its end, the next breakpoint or a line. |
 | `euo_step` | Runs one line of a paused script: over a `gosub`, into it, or out of the sub. |
 | `euo_breakpoint` | Sets or removes a breakpoint, with a condition if wanted, as [in the editor](/guide/debugging/#breakpoints-and-stepping). |
-| `euo_vars` | Reads variables: the script's own `%` and `!` variables and what its commands filled, or `#variables` from a client. |
+| `euo_vars` | Reads variables: the script's own `%` and `!` variables and what its commands filled, or `#variables` from a client. With `all`, also the run's [lists](/commands/list/), as `lists`. |
 | `euo_clients` | What [`EUOCli clients`](#list-the-clients) lists. |
 | `euo_docs` | What [`EUOCli docs`](#look-up-the-documentation) prints. |
 

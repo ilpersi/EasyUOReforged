@@ -72,19 +72,19 @@ uses
 // vocabulary -- see this unit's header comment -- no reason to also risk a
 // second, independent copy for completion).
 const
-  CommandKeywords : array[0..64] of String = (
+  CommandKeywords : array[0..65] of String = (
     'BREAK', 'CALL', 'CHOOSESKILL', 'CLICK', 'CMPPIX', 'CONTINUE', 'CONTPOS',
     'DELETEJOURNAL', 'DELETEVAR', 'DISPLAY', 'ELSE', 'EVENT', 'EXECUTE',
     'EXEVENT', 'EXIT', 'FINDITEM', 'FINDJOURNAL', 'FOR', 'GETSHOPINFO', 'GETUOTITLE',
     'GOSUB', 'GOTO', 'HALT', 'HIDEITEM', 'IF', 'IGNORECONT', 'IGNOREITEM',
-    'KEY', 'LOG', 'LOGFILE', 'MENU', 'MOVE', 'MOVEITEM', 'MSG', 'NAMESPACE', 'NEXTCPOS', 'ONHOTKEY',
+    'KEY', 'LIST', 'LOG', 'LOGFILE', 'MENU', 'MOVE', 'MOVEITEM', 'MSG', 'NAMESPACE', 'NEXTCPOS', 'ONHOTKEY',
     'PATH', 'PAUSE', 'REPEAT', 'RETURN', 'SAVEPIX', 'SCANBUFFS', 'SCANGUMPS', 'SCANJOURNAL', 'SEND', 'SET',
     'SETSHOPITEM', 'SETUOTITLE', 'SHUTDOWN', 'SLEEP', 'SOUND', 'SQL', 'STOP',
     'STR', 'SUB', 'TARGET', 'TERMINATE', 'TILE', 'TIMER', 'UNTIL', 'UOXL', 'WAIT',
     'WAITFOR', 'WHILE'
   );
 
-  SystemKeywords : array[0..182] of String = (
+  SystemKeywords : array[0..183] of String = (
     '#AR', '#BACKPACKID', '#BUFFBAROPEN', '#BUFFCLILOC', '#BUFFCNT', '#BUFFDESC', '#BUFFID',
     '#BUFFINDEX', '#BUFFNAME', '#BUFFTIME', '#CHARDIR', '#CHARGHOST', '#CHARID', '#CHARNAME',
     '#CHARPOSX', '#CHARPOSY', '#CHARPOSZ', '#CHARSTATUS', '#CLICNT',
@@ -100,7 +100,7 @@ const
     '#GUMPART', '#GUMPCNT', '#GUMPINDEX', '#GUMPKIND', '#GUMPMIN', '#GUMPNAME', '#GUMPOBJID',
     '#GUMPPOSX', '#GUMPPOSY', '#GUMPREPLY', '#GUMPREPLYCNT', '#GUMPREPLYRES', '#GUMPSERIAL', '#GUMPSIZEX', '#GUMPSIZEY', '#GUMPTYPEID',
     '#HITS', '#INT', '#JCOLOR', '#JFOUND', '#JINDEX', '#JOURNAL', '#LHANDID',
-    '#LLIFTEDID', '#LLIFTEDKIND', '#LLIFTEDTYPE', '#LOBJECTID',
+    '#LISTRES', '#LLIFTEDID', '#LLIFTEDKIND', '#LLIFTEDTYPE', '#LOBJECTID',
     '#LOBJECTTYPE', '#LOGRES', '#LPC', '#LSHARD', '#LSKILL', '#LSPELL', '#LTARGETID',
     '#LTARGETKIND', '#LTARGETTILE', '#LTARGETX', '#LTARGETY', '#LTARGETZ',
     '#LUCK', '#MANA', '#MAXDMG', '#MAXFOL', '#MAXHITS', '#MAXMANA',

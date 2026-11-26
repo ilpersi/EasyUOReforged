@@ -156,7 +156,11 @@ halt                            ; => %text = abcdef
   the whole script, so a sub that calls another sub loses its own. Copy them first.
 - Numbers are whole numbers. `$1A` is hexadecimal. Text counts as `0` in arithmetic.
 - `%a , %b` joins two values into one word. `%item . %i` builds a variable name: with `%i` holding `2` it
-  reads `%item2`. That is how scripts make lists.
+  reads `%item2`. That is how EasyUO 1.5 scripts make lists; in Reforged, use [`list`](/commands/list/):
+  `list add loot %id`, then `list get loot %i`, positions from 1, the answer in `#ListRes`.
+- A list's name is a plain word: `list add loot x`. `list add %loot x` adds to the list named by `%loot`'s
+  value, and while `%loot` is not set, to a list called `N/A`. Every word after the name is one value, so a
+  value with spaces comes from a variable or is glued with `, #spc ,`.
 - Numbers are whole numbers, so a decimal is written from tenths or hundredths: `str decimal 953 1` gives `95.3`.
   Seconds become `1:02:05` with `str duration`, `#Time` and `#Date` become `14:30:05` and `2026-11-22` with
   `str clock` and `str date` (see [str](/commands/str/#time-and-numbers-reforged)).

@@ -39,13 +39,17 @@ variable to a text window you can copy, which is handy for bug reports.
 
 The Watches panel, at the bottom of the window, follows the variables of the script in the current tab. It is
 shown when the editor starts; *Control → Show Watches* hides it or shows it again, and the editor remembers
-which. It has two parts:
+which. It has two parts, and a third while the script has lists:
 
 - **Watches**: the variables you chose, in the order you added them.
 - **Script variables**: every variable the script uses, found by itself. They are the `%`, `!`, `*` and `#`
   variables written in the script (outside comments), plus the ones the run made without their name written
   anywhere, such as `%list3` from `set %list . %i x`. They are listed `%` first, then `!`, `*` and `#`, each in
   A-Z order. `#true`, `#false`, `#spc`, `#smc` and `#dot` never change and are left out.
+- **Lists**: each [list](/commands/list/) of the run, with its count and values: `3: iron | gold | agapite`.
+  A double-click, **Enter** or *Edit Values…* on its right-click menu opens its values, one per line; change,
+  add or remove lines and press OK, and the script goes on with the new values. It works while the script
+  runs or is paused. Empty lines at the end are dropped, and no lines at all forgets the list.
 
 **Adding a watch:**
 

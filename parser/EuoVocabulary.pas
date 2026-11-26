@@ -12,7 +12,7 @@ unit EuoVocabulary;
   STATLOCK's stats from uoevents.pas's ExEv_StatLock), plus the MENU words only the 1.6 logic
   has (TMenu16.Run and its property table in EuoMenu16.pas) and MENU REFORGE's settings.
   tests\tools\CheckDocsCoverage.ps1 fails when the first-level words here (what may follow
-  EVENT, EXEVENT, MENU, NAMESPACE, STR, SQL, PATH, LOGFILE, SEND, TIMER) and the interpreter's drift apart; the
+  EVENT, EXEVENT, MENU, NAMESPACE, STR, SQL, PATH, LOGFILE, SEND, TIMER, LIST) and the interpreter's drift apart; the
   deeper rows are not read off the source, so nothing checks them. SEND's HTTPPOST stands for every
   word that contains it (the interpreter tests it with Pos: DEBUGHTTPPOST, HTTPPOST8080, ...).
 
@@ -30,7 +30,7 @@ const
   // 'KEY=WORDS': the words that may follow KEY, the words before them on the line
   // ('MENU FONT=...' is what may follow "menu font"). A '*' in KEY stands for any one word
   // (a skill name, a namespace pattern).
-  EuoSubCommands : array[0..46] of String = (
+  EuoSubCommands : array[0..48] of String = (
     'DISPLAY=OK OKCANCEL YESNO YESNOCANCEL',
     'EVENT=CONTTOP DRAG EXMSG MACRO PATHFIND PROPERTY SKILLLOCK STATBAR SYSMESSAGE',
     'EVENT SKILLLOCK *=DOWN LOCKED UP',
@@ -40,6 +40,8 @@ const
     'EXEVENT STATLOCK *=DOWN LOCKED UP',
     'IGNORECONT=RESET',
     'IGNOREITEM=RESET',
+    'LIST=ADD CLEAR CLONE COUNT DELETE FIND GET INDEXOF INSERT INTERSECT JOIN MERGE SET SORT SPLIT SUBTRACT',
+    'LIST SORT *=DOWN NUMBER TEXT',
     'LOGFILE=CLOSE DEBUG ERROR INFO LEVEL OPEN SET WARNING WRITE',
     'LOGFILE LEVEL=DEBUG ERROR INFO OFF WARNING',
     'LOGFILE OPEN * *=APPEND NEW',

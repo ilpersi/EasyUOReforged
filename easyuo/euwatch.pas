@@ -32,6 +32,13 @@ unit euwatch;
     (win32wscustomlistview.inc).
   - Right-click menu: Add Watch..., Watch (a script variable), Remove Watch, Clear Watches, Copy Name,
     Copy Value, Set Value... Keys: Insert adds, Delete removes, Enter or a double click sets the value.
+  - Lists (the LIST command): while the run has any, a grey "Lists" row (with how many) and one row per
+    list follow the script variables (TEuoInterpreter.GetListNames). A list row's value is its count and
+    values, "3: iron | gold | agapite", cut at ListSummaryMax characters; it turns red like a variable,
+    through the same TEuoVarChanges keyed ListKeyPrefix+name (a space, which no variable name holds).
+    Enter, a double click or Edit Values... opens the MENU designer's lines dialog (eulinesdialog.pas):
+    one value per line, and OK replaces the run's list (TEuoInterpreter.SetListValues) at any time, as
+    Set Value does for a variable; empty lines at the end are dropped, and no lines forgets the list.
   - It holds the editor with FreeNotification, so closing a tab never leaves it a dead pointer; the
     tab's executor is freed together with its editor, so it is dropped at the same time.
 }
@@ -47,7 +54,7 @@ uses
 type
   TEuoWatchesChanged = procedure(Ed : TSynEdit) of object;
 
-  TEuoWatchRowKind = (wrkHeader, wrkWatch, wrkScript);
+  TEuoWatchRowKind = (wrkHeader, wrkWatch, wrkScript, wrkList);
 
   // One editor's watches, and what the panel keeps for it. Owned by the editor.
   TEuoWatchState = class(TComponent)
@@ -70,7 +77,7 @@ type
     FList      : TListView;
     FMenu      : TPopupMenu;
     FAddItem, FWatchItem, FRemoveItem, FClearItem,
-    FCopyNameItem, FCopyValueItem, FSetItem : TMenuItem;
+    FCopyNameItem, FCopyValueItem, FSetItem, FEditItem : TMenuItem;
     FEd        : TSynEdit;
     FExec      : TExecutor;
     FSysNames  : TStringList;    // the interpreter's '#' names, without '#'
@@ -101,6 +108,8 @@ type
     procedure CopyNameClick(Sender : TObject);
     procedure CopyValueClick(Sender : TObject);
     procedure SetClick(Sender : TObject);
+    procedure EditListClick(Sender : TObject);
+    function  ListSummary(const Name : String) : String;
   protected
     procedure Notification(AComponent : TComponent; Operation : TOperation); override;
   public
@@ -128,6 +137,10 @@ type
     function  RowText(Row : Integer) : String;     // what the Name column shows
     function  RowChanged(Row : Integer; out Old : String) : Boolean;
     function  RowHint(Row : Integer) : String;
+    // The name the change logic knows row Row by: the variable, or ListKeyPrefix+name for a list.
+    function  RowKey(Row : Integer) : String;
+    // Replaces the values of the list of row Row in the tab's run, as Edit Values does after OK.
+    procedure SetRowList(Row : Integer; Values : TStrings);
     property List   : TListView read FList;
     property Editor : TSynEdit read FEd;
     property OnWatchesChanged : TEuoWatchesChanged read FOnWatchesChanged write FOnWatchesChanged;
@@ -142,11 +155,13 @@ procedure SaveWatches(Ed : TSynEdit; const Path : String);
 const
   WatchesKey      = '\Software\EasyUO Reforged\Watches';
   WatchQuietPolls = 2;   // polls (200 ms each) the text stays the same before a rescan
+  ListKeyPrefix   = 'list ';
+  ListSummaryMax  = 200;
 
 implementation
 
 uses
-  Registry, Clipbrd, Dialogs, EuoScriptWords;
+  Registry, Clipbrd, Dialogs, EuoScriptWords, eulinesdialog;
 
 ////////////////////////////////////////////////////////////////////////////////
 constructor TEuoWatchState.Create(AOwner : TComponent);
@@ -272,6 +287,7 @@ begin
   FCopyNameItem:=AddItem('Copy &Name',CopyNameClick);
   FCopyValueItem:=AddItem('Copy &Value',CopyValueClick);
   FSetItem:=AddItem('&Set Value...',SetClick);
+  FEditItem:=AddItem('&Edit Values...',EditListClick);
 
   FList:=TListView.Create(Self);
   FList.Parent:=AParent;
@@ -418,6 +434,8 @@ var
   Item     : TListItem;
   Text     : String;
   Grow     : Boolean;
+  Lists    : TStringList;
+  Key      : String;
 
   procedure AddRow(Kind : TEuoWatchRowKind; const Name, Header : String; const Detail : String = '');
   begin
@@ -443,6 +461,7 @@ begin
   Names:=TStringList.Create;
   Values:=TStringList.Create;
   Details:=TStringList.Create;
+  Lists:=TStringList.Create;
   try
     if FExec<>nil then FExec.Parser.GetUserVarNames(Runtime);
     EuoMergeVarNames(St.Written,Runtime,Script);
@@ -457,6 +476,13 @@ begin
     AddRow(wrkHeader,'','Script variables',IntToStr(Script.Count));
     for Cnt:=0 to Script.Count-1 do
       AddRow(wrkScript,Script[Cnt],'');
+    if FExec<>nil then FExec.Parser.GetListNames(Lists);
+    if Lists.Count>0 then
+    begin
+      AddRow(wrkHeader,'','Lists',IntToStr(Lists.Count));
+      for Cnt:=0 to Lists.Count-1 do
+        AddRow(wrkList,Lists[Cnt],'');
+    end;
 
     // values, each variable read once; a grey row shows its detail
     FValues.Clear;
@@ -467,15 +493,17 @@ begin
         FValues.Add(Details[Cnt]);
         Continue;
       end;
-      i:=IndexOfText(Names,FNames[Cnt]);
+      Key:=RowKey(Cnt);
+      i:=IndexOfText(Names,Key);
       if i>=0 then
       begin
         FValues.Add(Values[i]);
         Continue;
       end;
-      if FExec<>nil then Text:=FExec.GetVar(FNames[Cnt])
-      else Text:=EuoUnsetValue;
-      Names.Add(FNames[Cnt]);
+      if FExec=nil then Text:=EuoUnsetValue
+      else if RowKind(Cnt)=wrkList then Text:=ListSummary(FNames[Cnt])
+      else Text:=FExec.GetVar(FNames[Cnt]);
+      Names.Add(Key);
       Values.Add(Text);
       FValues.Add(Text);
     end;
@@ -502,6 +530,7 @@ begin
         St.Changes.ClearChanges;
     end;
   finally
+    Lists.Free;
     Details.Free;
     Values.Free;
     Names.Free;
@@ -586,7 +615,13 @@ begin
   Old:='';
   Result:=False;
   if (FEd=nil) or (Row<0) or (Row>=FNames.Count) or (RowKind(Row)=wrkHeader) then Exit;
-  Result:=State.Changes.IsChanged(FNames[Row],Old);
+  Result:=State.Changes.IsChanged(RowKey(Row),Old);
+end;
+
+function TEuoWatchView.RowKey(Row : Integer) : String;
+begin
+  if RowKind(Row)=wrkList then Result:=ListKeyPrefix+FNames[Row]
+  else Result:=FNames[Row];
 end;
 
 function TEuoWatchView.RowHint(Row : Integer) : String;
@@ -596,7 +631,35 @@ begin
   Result:='';
   if (Row<0) or (Row>=FNames.Count) or (RowKind(Row)=wrkHeader) then Exit;
   if RowChanged(Row,Old) then Result:='Was: '+Old+LineEnding+'Now: '+FValues[Row]
+  else if RowKind(Row)=wrkList then Result:='List '+FNames[Row]+': '+FValues[Row]+LineEnding+
+    'Enter or a double click edits its values.'
   else Result:=FNames[Row]+': '+FValues[Row];
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// A list row's value: "3: iron | gold | agapite", cut at ListSummaryMax characters.
+function TEuoWatchView.ListSummary(const Name : String) : String;
+var
+  V   : TStringList;
+  Cnt : Integer;
+begin
+  V:=TStringList.Create;
+  try
+    FExec.Parser.GetListValues(Name,V);
+    Result:=IntToStr(V.Count)+':';
+    for Cnt:=0 to V.Count-1 do
+    begin
+      if Cnt>0 then Result:=Result+' |';
+      Result:=Result+' '+V[Cnt];
+      if Length(Result)>ListSummaryMax then
+      begin
+        Result:=Copy(Result,1,ListSummaryMax)+#$E2#$80#$A6;   // UTF-8 ellipsis
+        Break;
+      end;
+    end;
+  finally
+    V.Free;
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -677,9 +740,28 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 procedure TEuoWatchView.SetRowValue(Row : Integer; const Value : String);
 begin
-  if (FExec=nil) or (FEd=nil) or (Row<0) or (Row>=FNames.Count) or (RowKind(Row)=wrkHeader) then Exit;
+  if (FExec=nil) or (FEd=nil) or (Row<0) or (Row>=FNames.Count) or (RowKind(Row) in [wrkHeader,wrkList]) then
+    Exit;
   FExec.SetVar(FNames[Row],Value);
   State.Changes.Remember(FNames[Row],FExec.GetVar(FNames[Row]));
+  ShowRows;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure TEuoWatchView.SetRowList(Row : Integer; Values : TStrings);
+var
+  L : TStringList;
+begin
+  if (FExec=nil) or (FEd=nil) or (Row<0) or (Row>=FNames.Count) or (RowKind(Row)<>wrkList) then Exit;
+  L:=TStringList.Create;
+  try
+    L.Assign(Values);
+    while (L.Count>0) and (L[L.Count-1]='') do L.Delete(L.Count-1);
+    FExec.Parser.SetListValues(FNames[Row],L);
+  finally
+    L.Free;
+  end;
+  State.Changes.Remember(RowKey(Row),ListSummary(FNames[Row]));
   ShowRows;
 end;
 
@@ -768,7 +850,10 @@ begin
   FClearItem.Enabled:=(FEd<>nil) and (State.Watches.Count>0);
   FCopyNameItem.Enabled:=Kind<>wrkHeader;
   FCopyValueItem.Enabled:=Kind<>wrkHeader;
+  FSetItem.Visible:=Kind<>wrkList;
   FSetItem.Enabled:=(Kind<>wrkHeader) and (FExec<>nil);
+  FEditItem.Visible:=Kind=wrkList;
+  FEditItem.Enabled:=(Kind=wrkList) and (FExec<>nil);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -827,8 +912,39 @@ var
 begin
   Row:=SelectedRow;
   if (Row<0) or (RowKind(Row)=wrkHeader) or (FExec=nil) then Exit;
+  if RowKind(Row)=wrkList then
+  begin
+    EditListClick(Sender);
+    Exit;
+  end;
   S:=FValues[Row];
   if InputQuery('Set Variable',FNames[Row]+':',S) then SetRowValue(Row,S);
+end;
+
+procedure TEuoWatchView.EditListClick(Sender : TObject);
+var
+  Row  : Integer;
+  Name : String;
+  L    : TStringList;
+begin
+  Row:=SelectedRow;
+  if (Row<0) or (RowKind(Row)<>wrkList) or (FExec=nil) then Exit;
+  Name:=FNames[Row];
+  L:=TStringList.Create;
+  try
+    FExec.Parser.GetListValues(Name,L);
+    if not EditLines('Values of list '+Name,'One value per line, in order.',L) then Exit;
+    // the rows may have moved while the dialog was open: find the list's row again
+    Row:=FNames.Count-1;
+    while (Row>=0) and not ((RowKind(Row)=wrkList) and (CompareText(FNames[Row],Name)=0)) do Dec(Row);
+    if Row>=0 then SetRowList(Row,L)
+    else begin
+      FExec.Parser.SetListValues(Name,L);   // the script forgot it meanwhile: it comes back
+      ShowRows;
+    end;
+  finally
+    L.Free;
+  end;
 end;
 
 end.

@@ -78,7 +78,8 @@ Joining works on any word, even command names: `h , a , l , t` is `halt`.
 ### Building variable names with `.`
 
 `.` works from right to left: the right side is replaced by its value first, then glued to the left word, and
-the result is read as a variable. That builds variable names from other values, a little like arrays:
+the result is read as a variable. That builds variable names from other values, a little like arrays
+(EasyUO Reforged has real ones: [`list`](/commands/list/)):
 
 ```euo
 set %a 3

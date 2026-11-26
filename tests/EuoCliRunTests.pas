@@ -425,6 +425,25 @@ begin
   Ev:=Events;
   try
     AssertEquals('5',EventOf(Ev,'end').Objects['vars'].Get('%a',''));
+    AssertTrue('a run without lists has no lists field',EventOf(Ev,'end').IndexOfName('lists')<0);
+  finally
+    FreeEvents(Ev);
+  end;
+
+  // The run's lists (the LIST command) come at the end, as arrays, and as lines in plain text.
+  FN:=Script('l.euo',['list add loot iron gold','set %w two , #spc , words','list add other %w','halt']);
+  AssertEquals(CLI_OK,Run('run|'+FN));
+  AssertEquals('list loot = iron | gold',Output[Output.Count-2]);
+  AssertEquals('list other = two words',Output[Output.Count-1]);
+  AssertEquals(CLI_OK,Run('run|'+FN+'|--json'));
+  Ev:=Events;
+  try
+    with EventOf(Ev,'end').Objects['lists'] do
+    begin
+      AssertEquals(2,Arrays['loot'].Count);
+      AssertEquals('gold',Arrays['loot'].Strings[1]);
+      AssertEquals('two words',Arrays['other'].Strings[0]);
+    end;
   finally
     FreeEvents(Ev);
   end;

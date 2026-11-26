@@ -82,7 +82,7 @@ const
     (Place: 'tests/euo/all-commands-test.euo'; Rule: 'unknown-variable';
      Why: 'tests that an unknown #variable, and #strmax of the old keyword list, read N/A'),
     (Place: 'tests/euo/all-commands-test.euo'; Rule: 'unknown-subcommand';
-     Why: 'tests that event sleep is accepted and does nothing'),
+     Why: 'tests that event sleep is accepted and does nothing, and that an unknown list word gives N/A'),
     (Place: 'tests/euo/call-helper.euo'; Rule: 'missing-sub';
      Why: 'tests that a called script cannot gosub a sub of the script that called it')
   );

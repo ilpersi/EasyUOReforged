@@ -88,6 +88,20 @@ uses
   Windows, Forms, EuoInterpreter, EuoExecutor, scriptfile, clicheck, clisession;
 
 ////////////////////////////////////////////////////////////////////////////////
+// The strings of a JSON array joined by Sep (the plain report's line for a list).
+function JoinJsonStrings(A : TJSONArray; const Sep : String) : String;
+var
+  i : Integer;
+begin
+  Result:='';
+  for i:=0 to A.Count-1 do
+  begin
+    if i>0 then Result:=Result+Sep;
+    Result:=Result+A.Strings[i];
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 procedure Emit(Output : TStrings; const Line : String);
 begin
   if Assigned(CliOnLine) then CliOnLine(Line)
@@ -209,6 +223,7 @@ var
   NoClient   : Boolean;
   Obj        : TJSONObject;
   VarsObj    : TJSONObject;
+  ListsObj   : TJSONObject;
   Arr        : TJSONArray;
   Plain      : String;
 
@@ -388,6 +403,8 @@ begin
       Obj.Add('client',Opt.ClientNr);
       Obj.Add('clientLinesSkipped',Int64(Session.ClientSkips));
       Obj.Add('vars',VarsObj);
+      ListsObj:=Session.ListsJson;   // nil, and no field, when the run made no lists
+      if ListsObj<>nil then Obj.Add('lists',ListsObj);
       if Json then Emit(Output,OneLineJson(Obj))
       else begin
         Plain:='ended: '+Session.Reason;
@@ -401,6 +418,9 @@ begin
           Emit(Output,IntToStr(Session.ClientSkips)+' lines were skipped because their command needs a client');
         for i:=0 to Dump.Count-1 do
           Emit(Output,Dump[i]+' = '+VarsObj.Get(Dump[i],''));
+        if ListsObj<>nil then
+          for i:=0 to ListsObj.Count-1 do
+            Emit(Output,'list '+ListsObj.Names[i]+' = '+JoinJsonStrings(TJSONArray(ListsObj.Items[i]),' | '));
       end;
     finally
       Obj.Free;

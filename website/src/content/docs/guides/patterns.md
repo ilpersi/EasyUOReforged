@@ -270,6 +270,33 @@ set %length #StrRes                 ; => %length = 4
 halt
 ```
 
+## Keep a list
+
+In EasyUO Reforged, [`list`](/commands/list/) holds as many values as a script needs, under one name, in
+place of numbered variables (`%item1`, `%item2`, ...). Positions start at 1; each answer is in
+[`#ListRes`](/variables/listres/), and a line that changes a list answers with its count. Count the list before
+a loop, and use `while`, which does nothing for an empty list (`for %i 1 0` runs twice).
+
+```euo
+list split ores iron_gold_IRON_agapite _
+list merge ores ores                   ; the repeats go: iron gold agapite
+list sort ores
+list count ores
+set %n #ListRes
+set %i 0
+set %text
+while %i < %n
+{
+  set %i %i + 1
+  list get ores %i
+  set %text %text , #ListRes , /
+}
+halt                                   ; => %text = agapite/gold/iron/
+```
+
+`list join ores /` gives the same text without the last `/`. `list indexof` and `list find` say where a value
+is (0 when it isn't); `list merge`, `list intersect` and `list subtract` build a new list from others.
+
 ## Time things and show progress
 
 In EasyUO Reforged, a [`timer`](/commands/timer/) does what deadlines built on `#SCnt` did: give up after a

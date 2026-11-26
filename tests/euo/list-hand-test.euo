@@ -1,0 +1,73 @@
+; list-hand-test.euo -- hand test of the LIST command (EasyUO Reforged).
+; No client needed. Run it in the editor (Play, or step with F7/F8 and watch the Watches panel's
+; "Lists" section) or with:  EUOCli run tests\euo\list-hand-test.euo
+; Every check logs PASS or FAIL to the Output panel; the last line gives the totals.
+;
+; In the editor, it pauses twice (pause): at each pause look at the Watches panel:
+;   1st pause: a grey "Lists" row with 3, and rows ores, people, types.
+;              Double-click "ores", add a line "mithril" at the end, press OK, then Play.
+;   2nd pause: the ores row is red (it changed since the 1st pause) and ends with "| mithril"
+;              (the script reads it back: "ores_edited" logs PASS only if you added it).
+
+set %pass 0
+set %fail 0
+
+list add ores iron gold agapite
+gosub check add_counts #ListRes 3
+list get ores 2
+gosub check get_is_1_based #ListRes gold
+list insert ores 1 copper
+list set ores 4 verite
+list join ores _
+gosub check insert_set_join #ListRes copper_iron_gold_verite
+list indexof ores GOLD
+gosub check indexof_ignores_case #ListRes 3
+list find ores er 2
+gosub check find_from #ListRes 4
+
+set %csv Sir , #spc , Robin,Lady , #spc , Ann,Tim
+list split people %csv ,
+gosub check split_last_comma #ListRes 3
+list get people 2
+set %who #ListRes
+str len %who
+gosub check value_keeps_its_space #StrRes 8
+
+list add types POF KUF pof EEF
+list merge types types
+gosub check merge_into_itself_drops_repeats #ListRes 3
+
+log Pause 1: look at the Watches panel's Lists rows, edit "ores" (add mithril), then Play.
+pause
+
+list count ores
+set %n #ListRes
+list get ores %n
+gosub check ores_edited #ListRes mithril
+
+list sort ores down text
+list get ores 1
+set %first #ListRes
+log ores sorted down as text starts with %first
+log Pause 2: the ores row should be red now. Play to finish.
+pause
+
+list clear ores
+list count ores
+gosub check clear_forgets #ListRes 0
+
+log list hand test: %pass passed, %fail failed
+halt
+
+sub check
+  if %2 = %3
+  {
+    set %pass %pass + 1
+    log PASS %1
+  }
+  else
+  {
+    set %fail %fail + 1
+    log FAIL %1 expected %3 got %2
+  }
+return
