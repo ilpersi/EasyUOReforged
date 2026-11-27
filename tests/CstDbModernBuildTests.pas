@@ -16,7 +16,7 @@ interface
 
 uses
   Classes, SysUtils, Windows, fpcunit, testregistry, uoclidata, access, uoselector, uovariables,
-  uoevents, uocommands, walkrules, walklive, uogumpreply;
+  uoevents, uocommands, walkrules, walklive, uogumpreply, uoprops;
 
 type
   // A TUOCmd that reads the fake client process instead of requiring a selected client window:
@@ -49,6 +49,7 @@ type
     function  CaveSteps(N : Integer; Fast : Boolean) : String;
     function  CavePath(X,Y : Cardinal; Z : Integer) : String;
     function  CaveProp(ID : Cardinal; First : Boolean) : String;
+    function  CaveReq(const IDs : array of Cardinal; From, Count : Integer) : String;
     function  CaveGumpReply(Gump, VTable, Dtor : Cardinal; const Packet : String) : String;
     function  CaveSendHook(Page, Func : Cardinal; const Orig : String) : String;
     function  CaveSendHookInstall(Func, Page : Cardinal; N : Integer) : String;
@@ -114,6 +115,12 @@ type
     procedure TestStepInfoCaveCallsEachEntry;
     procedure TestPropertyCaveBranchesToTheRequest;
     procedure TestPathfindCaveLayout;
+    // item properties (scanprops, port addition)
+    procedure TestPropRequestCaveCallsOnlyTheRequestFastcall;
+    procedure TestPropRequestCaveCallsOnlyTheRequestCdecl;
+    procedure TestPropCacheIsFoundByScanningOnFixedBase;
+    procedure TestPropCacheIsFoundByScanningOnModern;
+    procedure TestPropCacheEntriesAreReadFromTheClientsMemory;
     // buff bar (port addition)
     procedure TestModernLayoutHasTheBuffBarConstants;
     procedure TestBuffBarIsReadFromTheClientsMemory;
@@ -210,6 +217,8 @@ function TCaveEvent.CaveBlockCdecl(X,Y,Z,W,H : Integer) : String; begin Result:=
 function TCaveEvent.CaveSteps(N : Integer; Fast : Boolean) : String; begin Result:=StepInfoCode(N,Fast); end;
 function TCaveEvent.CavePath(X,Y : Cardinal; Z : Integer) : String; begin Result:=PathfindFastCode(X,Y,Z); end;
 function TCaveEvent.CaveProp(ID : Cardinal; First : Boolean) : String; begin Result:=PropFastCode(ID,First); end;
+function TCaveEvent.CaveReq(const IDs : array of Cardinal; From, Count : Integer) : String;
+begin Result:=PropReqCode(IDs,From,Count); end;
 function TCaveEvent.CaveGumpReply(Gump, VTable, Dtor : Cardinal; const Packet : String) : String;
 begin Result:=GumpReplyCode(Gump,VTable,Dtor,Packet); end;
 function TCaveEvent.CaveSendHook(Page, Func : Cardinal; const Orig : String) : String;
@@ -1084,6 +1093,172 @@ begin
   P:=Pos(#132#192#116, Later);
   Eq('later passes: REQUEST is just the ret', Length(Later)-1, Rel8(Later,P+2));
   Eq('...which is a ret', $C3, Bt(Later,Length(Later)-1));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// scanprops' request pass on a relocated build: per item `mov ecx,id; call request`, nothing else, then
+// the done protocol; a full pass stays below the $F00 limit of the header page.
+procedure TCstDbModernBuildTests.TestPropRequestCaveCallsOnlyTheRequestFastcall;
+var
+  C   : String;
+  IDs : array of Cardinal;
+  K   : Integer;
+begin
+  OpenCave;
+  SetLength(IDs, PROP_REQ_CHUNK + 5);
+  for K:=0 to High(IDs) do IDs[K]:=$40000100+Cardinal(K);
+  C:=Ev.CaveReq(IDs, 2, 3);
+  Eq('three calls and the end', 3*10+9, Length(C));
+  for K:=0 to 2 do
+  begin
+    Eq('mov ecx', $B9, Bt(C,K*10));
+    Eq('the item', IDs[2+K], Dw(C,K*10+1));
+    Eq('call opcode', $E8, Bt(C,K*10+5));
+    Eq('the request', Sel.CstDB.EITEMREQADDR, CallTarget(C,K*10+5));
+  end;
+  Eq('xor eax,eax', $31, Bt(C,30));
+  Eq('mov [result],ax', $A3, Bt(C,33));
+  Eq('...the result word', CaveBase-4, Dw(C,34));
+  Eq('ret', $C3, Bt(C,Length(C)-1));
+  C:=Ev.CaveReq(IDs, 0, PROP_REQ_CHUNK);
+  AssertTrue('a full pass ends below IMAGEBASE+$F00', CaveBase+$20+Cardinal(Length(C))<=CaveBase-$600+$F00);
+end;
+
+// The fixed-base clients' request is cdecl: `push id; call request; add esp,4`.
+procedure TCstDbModernBuildTests.TestPropRequestCaveCallsOnlyTheRequestCdecl;
+var
+  C   : String;
+  IDs : array of Cardinal;
+  K   : Integer;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader(KnownStamp, $0000);                       // no DYNAMIC_BASE
+  PutBytes($5AFC6D, [$E8]);
+  Sel:=TUOSel.Create;
+  Sel.CstDB.Update('7.0.117.1', PHnd);
+  AssertFalse('fixed-base', Sel.CstDB.ISMODERN);
+  AssertTrue('the request address is known', Sel.CstDB.EITEMREQADDR<>0);
+  Vr:=TUOVar.Create(Sel);
+  Ev:=TCaveEvent.Create(Sel, Vr, nil);
+  Ev.CavePrepare(CaveBase);
+  SetLength(IDs, PROP_REQ_CHUNK);
+  for K:=0 to High(IDs) do IDs[K]:=$40000200+Cardinal(K);
+  C:=Ev.CaveReq(IDs, 0, 2);
+  Eq('two calls and the end', 2*13+9, Length(C));
+  for K:=0 to 1 do
+  begin
+    Eq('push imm32', $68, Bt(C,K*13));
+    Eq('the item', IDs[K], Dw(C,K*13+1));
+    Eq('the request', Sel.CstDB.EITEMREQADDR, CallTarget(C,K*13+5));
+    Eq('add esp,4', $04C483, Bt(C,K*13+10) or (Bt(C,K*13+11) shl 8) or (Bt(C,K*13+12) shl 16));
+  end;
+  Eq('ret', $C3, Bt(C,Length(C)-1));
+  C:=Ev.CaveReq(IDs, 0, PROP_REQ_CHUNK);
+  AssertTrue('a full pass ends below IMAGEBASE+$F00', CaveBase+$20+Cardinal(Length(C))<=CaveBase-$600+$F00);
+end;
+
+// C_PROPCACHE comes from the name builder's `mov ecx,CACHE` (fixed-base), with the entry layout of
+// every fixed-base build: line list at +4, state byte at +$10.
+procedure TCstDbModernBuildTests.TestPropCacheIsFoundByScanningOnFixedBase;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader(KnownStamp, $0000);
+  PutBytes($5AFC6D, [$E8]);
+  PutBytes($43F2A9, [$8D,$4C,$24,$14,$51,$33,$ED,$B9,$04,$F0,$75,$00,$89,$6C,$24,$44,$89,$44,$24,$18,$E8]);
+  Cst.Update('7.0.117.1', PHnd);
+  Eq('C_PROPCACHE', $0075F004, Cst.PROPCACHE);
+  Eq('B_PROPLIST', 4, Cst.BPROPLIST);
+  Eq('B_PROPSTATE', $10, Cst.BPROPSTATE);
+end;
+
+// ... and on a relocated build from the code next to the property check, with that layout: list at
+// +0, state byte at +$C.
+procedure TCstDbModernBuildTests.TestPropCacheIsFoundByScanningOnModern;
+begin
+  if not Ready then Ignore(Why);
+  WriteHeader(KnownStamp, $8140, $2000);
+  PutBytes($57C6F9, [$E8]);
+  PutBytes($401100, [$8B,$30,$3B,$35,$D8,$8F,$2F,$02,$0F,$84,$C2,$00,$00,$00,$83,$7E,$14,$00,$0F,$84]);
+  Cst.Update('7.0.117.1', PHnd);
+  Eq('C_PROPCACHE', $022F8FD8, Cst.PROPCACHE);
+  Eq('B_PROPLIST', 0, Cst.BPROPLIST);
+  Eq('B_PROPSTATE', $C, Cst.BPROPSTATE);
+end;
+
+// The cache read the way the beta keeps it: map object -> head; entries with a line list at +0 and the
+// state byte at +$C. Fetched, announced, a list that doesn't lead back, an empty node, a missing item.
+procedure TCstDbModernBuildTests.TestPropCacheEntriesAreReadFromTheClientsMemory;
+const
+  Heap  = $02000000;                 // Heap, declared further down
+  G     = Heap + $9000;          // the map object (head pointer first)
+  PH    = Heap + $9010;          // its head node
+  EntA  = Heap + $9200;
+  EntB  = Heap + $9300;
+  EntC  = Heap + $9400;
+var
+  L    : TPropLines;
+  Raw  : RawByteString;
+  Fmt  : TPropFormatter;
+begin
+  if not Ready then Ignore(Why);
+  // the scan finds the map at G (written before OpenBuffWorld's Update)
+  PutBytes($401100, [$8B,$30,$3B,$35, Byte(G), Byte(G shr 8), Byte(G shr 16), Byte(G shr 24),
+                     $0F,$84,$C2,$00,$00,$00,$83,$7E,$14,$00,$0F,$84]);
+  OpenBuffWorld(KnownStamp);
+  Eq('C_PROPCACHE', G, Sel.CstDB.PROPCACHE);
+  AssertTrue('supported', Cmd.PropSupported);
+
+  PutDWord(G, PH);
+  PutDWord(PH + 4, Heap + $9100);                                    // root
+  PutNode(Heap + $9100, Heap + $9120, Heap + $9140, $40000002, EntB);
+  PutNode(Heap + $9120, PH, PH, $40000001, EntA);
+  PutNode(Heap + $9140, PH, Heap + $9160, $40000003, EntC);
+  PutNode(Heap + $9160, PH, PH, $40000004, 0);                       // a node with no entry
+  // A: fetched, two lines (Bless; its description with three arguments)
+  PutDWord(EntA, EntA + $40);                                            // list head node
+  PutDWord(EntA + $40, EntA + $50);                                      // -> first line node
+  PutDWord(EntA + $50, EntA + $60);
+  PutDWord(EntA + $50 + 8, EntA + $80);
+  PutDWord(EntA + $60, EntA + $40);                                      // last -> head
+  PutDWord(EntA + $60 + 8, EntA + $90);
+  PutDWord(EntA + $80, 1075847);
+  PutDWord(EntA + $90, 1075848);
+  PutDWord(EntA + $94, EntA + $A0);
+  PutWide(EntA + $A0, '11'#9'12'#9'13');
+  // B: announced (state 4), no lines yet
+  PutDWord(EntB, EntB + $40);
+  PutDWord(EntB + $40, EntB + $40);
+  PutBytes(EntB + $C, [4]);
+  // C: a list that runs into a null link
+  PutDWord(EntC, EntC + $40);
+  PutDWord(EntC + $40, EntC + $50);
+  PutDWord(EntC + $50, 0);
+  PutDWord(EntC + $50 + 8, EntA + $80);
+
+  AssertTrue('A fetched', Cmd.ReadPropEntry($40000001, L)=pesFetched);
+  Eq('A: two lines', 2, Length(L));
+  Eq('A: first cliloc', 1075847, L[0].Cl);
+  AssertEquals('A: no arguments', '', String(L[0].Args));
+  Eq('A: second cliloc', 1075848, L[1].Cl);
+  AssertTrue('A: its arguments', L[1].Args='11'#9'12'#9'13');
+  AssertTrue('B announced', Cmd.ReadPropEntry($40000002, L)=pesAnnounced);
+  Eq('B: no lines', 0, Length(L));
+  AssertTrue('C: broken list = no entry', Cmd.ReadPropEntry($40000003, L)=pesNone);
+  AssertTrue('D: empty node = no entry', Cmd.ReadPropEntry($40000004, L)=pesNone);
+  AssertTrue('a missing item', Cmd.ReadPropEntry($40000099, L)=pesNone);
+
+  Eq('cliloc text found', 2, Cmd.ClilocRaw(1075847, Raw));
+  AssertEquals('...its bytes', 'Bless', String(Raw));
+  Eq('no such cliloc', 0, Cmd.ClilocRaw(1, Raw));
+
+  Cmd.ReadPropEntry($40000001, L);
+  Fmt:=TPropFormatter.Create(@Cmd.ClilocRaw, False);
+  try
+    // GetFormStr turns only <BR> into a line break: the template's lower-case <br> goes like any tag.
+    AssertEquals('A as #Property', 'Bless$+11% Strength.+12% Dexterity.+13% Intelligence.$', Fmt.PropertyText(L));
+  finally
+    Fmt.Free;
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

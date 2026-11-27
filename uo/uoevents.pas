@@ -100,6 +100,7 @@ type
     function     StepInfoCode(N : Integer; Fast : Boolean) : String;
     function     PathfindFastCode(X,Y : Cardinal; Z : Integer) : String;
     function     PropFastCode(ID : Cardinal; FirstPass : Boolean) : String;
+    function     PropReqCode(const IDs : array of Cardinal; From, Count : Integer) : String;
     function     NewMessageObject(Obj : Cardinal; Font, Color, TextAddr : Cardinal; Gate : Boolean) : String;
     function     DragFastCode(Item, Amount : Cardinal) : String;
     function     MacroFastCode(Par1, Par2 : Cardinal) : String;
@@ -114,6 +115,9 @@ type
     destructor   Destroy; override;
     procedure    ExMsg(ID,Font,Color : Cardinal; Msg : String);
     procedure    EvProperty(ID : Cardinal);
+    // Port addition (scanprops): ask the server for these items' tooltips through the client's own
+    // request call (E_ITEMREQADDR), PROP_REQ_CHUNK items per cave pass. False when not one was asked.
+    function     RequestProps(const IDs : array of Cardinal) : Boolean;
     procedure    Pathfind(X,Y : Cardinal; Z : Integer);
     procedure    Drag(ID : Cardinal);
     procedure    SysMessage(Msg : String; Col : Cardinal);
@@ -144,6 +148,12 @@ type
     // learn whether the drag was sent for its item.
     property     LastDragID : Cardinal read DragID write DragID;
   end;
+
+// Port addition (scanprops): items per request pass. A pass is 13 bytes per item on the fixed-base
+// clients (10 on the relocated ones) plus 9, so 150 end below IMAGEBASE+$DC8, clear of the $F00 limit
+// BlockInfo / StepInfo keep to.
+const
+  PROP_REQ_CHUNK = 150;
 
 // Port additions (the gump-answer hook), client-free so the test suite pins them.
 const
@@ -408,6 +418,34 @@ begin
     s:=s+CallRel(Cst.EITEMREQADDR,BaseAddr+$20+Length(s));  // call RequestProperties(ecx)
   end;
   Result:=s+#195;                                           // ret   (result stays "not processed")
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (scanprops): one pass of tooltip requests, Count items of IDs from From on. Only the
+// client's request call, as EvProperty's caves make it: it queues the ID for the client's batch
+// request to the server and changes nothing else (no string objects, no item state). cdecl on the
+// fixed-base clients, fastcall on the relocated ones (FPROPFAST).
+function TUOEvent.PropReqCode(const IDs : array of Cardinal; From, Count : Integer) : String;
+var
+  I : Integer;
+  s : String;
+begin
+  s:='';
+  for I:=From to From+Count-1 do
+    if Cst.FPROPFAST=1 then
+    begin
+      s:=s+#185+NumStr(IDs[I],4,True);                        // mov  ecx, ID
+      s:=s+CallRel(Cst.EITEMREQADDR,BaseAddr+$20+Length(s));  // call RequestProperties(ecx)
+    end
+    else begin
+      s:=s+#104+NumStr(IDs[I],4,True);                        // push ID
+      s:=s+CallRel(Cst.EITEMREQADDR,BaseAddr+$20+Length(s));  // call RequestProperties
+      s:=s+#131#196#4;                                        // add  esp, 4
+    end;
+  Result:=s+
+     #49#192+                                                 // xor  eax, eax
+     #102#163+NumStr(BaseAddr-4,4,True)+                      // mov  [result], ax   (0 = done)
+     #195;                                                    // ret
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -837,6 +875,42 @@ begin
 
     WriteMem(UOSel.HProc,BaseAddr+$20,@sBuf[1],Length(sBuf));
     WriteMem(UOSel.HProc,BaseAddr-4,#2#0#1#0,4);        // Start Event!
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (scanprops). Each pass runs on the client's next main-loop pass, like every event; a
+// pass the client doesn't run within 3 s (a frozen client) ends the requests.
+function TUOEvent.RequestProps(const IDs : array of Cardinal) : Boolean;
+var
+  Done  : Integer;
+  N     : Integer;
+  Wait  : Integer;
+  sBuf  : String;
+  Flag  : Word;
+begin
+  Result:=False;
+  if Length(IDs)=0 then Exit;
+  if (Cst.EITEMREQADDR=0) or (Cst.EREDIR=0) then Exit;    // unknown for this build
+  InitEvents;
+  Done:=0;
+  while Done<Length(IDs) do
+  begin
+    N:=Length(IDs)-Done;
+    if N>PROP_REQ_CHUNK then N:=PROP_REQ_CHUNK;
+    sBuf:=PropReqCode(IDs,Done,N);
+    WriteMem(UOSel.HProc,BaseAddr+$20,@sBuf[1],Length(sBuf));
+    WriteMem(UOSel.HProc,BaseAddr-4,#2#0#1#0,4);            // Start Event!
+    Wait:=0;
+    repeat
+      if not Delay(10) then Exit;
+      Inc(Wait,10);
+      Flag:=$FFFF;
+      ReadMem(UOSel.HProc,BaseAddr-4,@Flag,2);
+    until (Flag=0) or (Wait>=3000);
+    if Flag<>0 then Exit;
+    Result:=True;
+    Inc(Done,N);
   end;
 end;
 

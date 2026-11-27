@@ -27,6 +27,14 @@ EasyUO for anything important, until you have checked that the scripts and featu
 
 ## Known gaps
 
+- **[`ScanProps`](/commands/scanprops/)** puts the tooltip text together itself, from the client's cache, the way
+  `client.exe` 7.0.108.0 and newer and the betas do. Its text can differ from `event property`'s in three cases:
+  words the client's swear filter would mask in player-written text show unmasked; a non-English client set to
+  show English tooltips gives the client language's text; and older clients (7.0.29.97 and 7.0.45.89, for one,
+  don't capitalise a word after `>`) can show small differences.
+- **`event property`** leaves two small text buffers in the client's memory each time it runs, as in EasyUO 1.5:
+  the client function it calls makes new copies of the name and property text, and nothing frees them. Many
+  thousands of calls add up to megabytes. [`ScanProps`](/commands/scanprops/) makes no such copies.
 - **Client versions.** EasyUO Reforged knows the classic client (`client.exe`) from 2.0.0 up to 7.0.117.1,
   and four builds of `client_beta.exe` (7.0.117.1, 7.0.117.31, 7.0.118.132 and 7.0.119.0). A newer client needs its memory offsets
   added first; see [Add a new client](/developers/adding-a-client/).

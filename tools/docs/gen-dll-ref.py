@@ -131,11 +131,15 @@ METHODS = {
         ('y', 'number', 'Y position.'), ('z', 'number', 'Height.'), ('stack', 'number', 'How many in the stack; 0 for characters.'),
         ('notoriety', 'number', 'As `#FindRep`.'), ('colour', 'number', 'Colour (hue).'),
         ('layer', 'number', 'The layer a character wears it in, as `#FindLayer` (21 backpack, 25 mount, …); 0 when '
-         'nobody wears it.')],
+         'nobody wears it.'),
+        ('property', 'string', 'Only after `ScanProps` stored the item: its tooltip text, as `#FindProp` '
+         "(`name$line$…$`). Missing for an item `ScanProps` didn't store.")],
         'Reads one item of the filtered list, like the `#Find…` variables after `finditem`.',
-        ['FindItem', '#FindID', '#FindLayer', 'dll:ScanItems', 'dll:FilterItems'],
-        'The 11th value, `layer`, is new in EasyUO Reforged; the first ten are those of EasyUO 1.5, in the same order. '
-        'The layer numbers are listed on [`#FindLayer`](/variables/findlayer/).'),
+        ['FindItem', '#FindID', '#FindLayer', '#FindProp', 'dll:ScanItems', 'dll:FilterItems', 'dll:ScanProps'],
+        'The 11th value, `layer`, and the 12th, `property`, are new in EasyUO Reforged; the first ten are those of EasyUO '
+        '1.5, in the same order. The layer numbers are listed on [`#FindLayer`](/variables/findlayer/). The 12th value '
+        'is there only for an item the last `ScanProps` stored, so a program that never calls `ScanProps` gets eleven '
+        'values, as before.'),
     'GetJournal': ([('n', 'index')], [('text', 'string', 'The line.'), ('colour', 'number', 'Its colour.')],
         'Reads one journal line of the list `ScanJournal` made: 0 is the newest.', ['ScanJournal', '#Journal', 'dll:ScanJournal'], None),
     'GetPath': ([('nn', 'x y'), ('nnn', 'x y z'), ('nnnnnnn', 'x y z fromx fromy fromz facet')],
@@ -231,6 +235,13 @@ METHODS = {
         'Lists the open gump windows, front to back, like `scangumps`. `filter` is the same text the script takes, for '
         "example `'T_JHEIIPI'` or `'A_YE'`. Read them with `GetGump`.",
         ['ScanGumps', 'dll:GetGump'], None),
+    'ScanProps': ([('', '')], [],
+        'Reads the property tooltip of every item of the filtered list (what `ScanItems` and `FilterItems` left), like '
+        "`scanprops` after `finditem`, from the client's tooltip cache in one go. Items the cache has no tooltip for "
+        "yet are asked for and waited for. `GetItem` then returns each stored item's text as its 12th value.",
+        ['ScanProps', '#FindProp', 'dll:GetItem', 'dll:Property'],
+        "The text has `#Property`'s format, one byte per letter like `Property`'s strings. See "
+        '[`scanprops`](/commands/scanprops/) for what it reads and how it can differ from `Property`.'),
     'ScanItems': ([('', ''), ('b', 'visibleonly')], [('count', 'number', 'How many items.')],
         'Makes a fresh list of the items and characters the client knows, like the first step of `finditem`. Default: '
         'visible ones only; with `visibleonly` false, hidden ones too (the `A` filter). Narrow it with `FilterItems`, '

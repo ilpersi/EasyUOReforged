@@ -15,6 +15,12 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 
 ## New commands and variables
 
+- **[`ScanProps`](/commands/scanprops/)**: the property tooltips of every item a `finditem` found, read in one
+  go from the client's own tooltip cache. Then [`#FindProp`](/variables/findprop/) follows `#FindIndex` like
+  `#FindID`, in `#Property`'s format. Items whose tooltip the client hasn't fetched yet are asked for all at once
+  and waited for while the answers come. Before, a script ran one `event property` per item, which waits for the
+  client each time. uo.dll has it as [`ScanProps`](/dll/scanprops/), and [`GetItem`](/dll/getitem/) returns the
+  text as a 12th value.
 - **[`List`](/commands/list/)**: real lists in the script language. `list add loot POF KUF` adds values,
   `list get`, `set`, `insert`, `delete` and `count` work on positions from 1, `list indexof` and `list find`
   search, `list sort` orders by number or as text, `list split` cuts a text such as a `#Property` into a list and

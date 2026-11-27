@@ -314,6 +314,42 @@ def o_cliloc(c, v):
     return 'weak', 'tree at %08X, none of the probe cliloc numbers %s in it' % (head, list(CLILOC_PROBES))
 
 
+def o_propcache(c, v):
+    """C_PROPCACHE: the tooltip cache, a std::map<serial, entry*>; an entry keeps a state byte (0 or 4) at
+    +B_PROPSTATE and a std::list of {cliloc, args} lines at +B_PROPLIST"""
+    hoff, koff = c.v.get('B_STLHEAD'), c.v.get('B_CLILOCKEY')
+    loff, soff = c.v.get('B_PROPLIST'), c.v.get('B_PROPSTATE')
+    if hoff is None or not koff or loff is None or not soff:
+        return o_ptr_or_null(c, v)
+    head = c.p.u32((c.at(v) + hoff) & 0xFFFFFFFF)
+    if not head:
+        return 'fail', 'no tree head at +$%X' % hoff
+    nodes = stl_nodes(c.p, head, koff, limit=4096)
+    if nodes is None:
+        return 'fail', 'head %08X is not a consistent std::map tree' % head
+    if not nodes:
+        return 'weak', 'an empty cache (no tooltip seen yet)'
+    good = 0
+    for node, key in nodes[:64]:
+        ent = c.p.u32(node + koff + 4)
+        if not ent:
+            continue
+        st = c.p.u8(ent + soff)
+        if st not in (0, 4):
+            return 'fail', 'entry of %08X has state %s at +$%X' % (key & 0xFFFFFFFF, st, soff)
+        lst = c.p.u32(ent + loff)
+        first = c.p.u32(lst) if lst else None
+        if first and first != lst:
+            line = c.p.u32(first + 8)
+            cl = c.p.u32(line) if line else None
+            if cl is None or not 500000 <= cl < 3000000:
+                return 'fail', 'entry of %08X: its first line has no cliloc number' % (key & 0xFFFFFFFF)
+            good += 1
+    if good:
+        return 'pass', '%d entries, %d with lines read (state +$%X, list +$%X)' % (len(nodes), good, soff, loff)
+    return 'weak', '%d entries, none with lines yet' % len(nodes)
+
+
 def o_bufftimers(c, v):
     """C_BUFFTIMERS: the buff-timer map (key = timer id, a double at node+$28 = seconds left)"""
     hoff = c.v.get('B_STLHEAD')
@@ -372,6 +408,7 @@ ORACLES = {
     'C_CLILOGGED': o_small(0, 1, 1), 'C_CURSORKIND': o_small(0, 255, 1),
     'C_SYSMSG': o_ptr_or_null, 'C_JOURNALPTR': o_ptr_or_null, 'C_ENEMYHITS': o_ptr_or_null,
     'C_CLILOC': o_cliloc, 'C_BUFFTIMERS': o_bufftimers, 'E_SENDECX': o_ptr_or_null,
+    'C_PROPCACHE': o_propcache,
     'E_REDIR': o_tick_site,
     'E_MSGFLAGA': o_flag(1), 'E_MSGFLAGB': o_flag(4),
     'C_CHARDIR': o_dir,

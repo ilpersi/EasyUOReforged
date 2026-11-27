@@ -150,6 +150,11 @@ unit EuoInterpreter;
   one back: like MENU lines they run on the main thread (TThread.Synchronize, CS released), through the
   running MENU logic's own ComboListClear/ComboListAdd (and 1.5's ComboListSelect 0, so nothing stays selected)
   and its HasEntries/MemoFill/ReadEntries (TListMenuJob).
+  Likewise the SCANPROPS command plus the read-only #FindProp (index 152): the tooltip text of every item
+  of the last FINDITEM, read from the client's property cache in one go (uoprops.pas, uopropscan.pas),
+  kept by item ID; #FindProp shows the stored text of the current #FindID in #Property's format (N/A when
+  that ID was not scanned). A line starting with it was a silent no-op before. #Property, #FindIndex and
+  the #Find... values are untouched. Clear forgets the stored texts.
 }
 
 {$mode delphi}{$H+}
@@ -162,7 +167,8 @@ uses
   EuoScriptWords,
   uotypes, access, ReforgedVersion, uoselector, uovariables, uocommands, uoevents, EuoLock,
   EuoSql, walkrules, walkmap, pathplan, walklive, pathwalk, EuoJournalSearch, EuoStrOps, EuoItemMove,
-  EuoGumps, uogumpreply, EuoLogFile, EuoHttp, EuoSearchPath, EuoTimers, EuoLists, EuoTextEncoding;
+  EuoGumps, uogumpreply, EuoLogFile, EuoHttp, EuoSearchPath, EuoTimers, EuoLists, EuoTextEncoding,
+  uoprops, uopropscan;
 
 const
   RES_OK    = 0;
@@ -262,6 +268,7 @@ type
     TimerRes     : String;             //   #TimerRes
     FLists       : TEuoLists;          // port addition (LIST)
     ListRes      : String;             //   #ListRes
+    FProps       : TPropStore;         // port addition (SCANPROPS): #FindProp texts by item ID
 
     procedure    LogProc;
     procedure    QueueLog(const Text : String; Line : Integer);
@@ -369,6 +376,7 @@ type
     procedure    MoveItemProc;
     procedure    ScanBuffsProc;
     procedure    ScanGumpsProc;
+    procedure    ScanPropsProc;
     procedure    NextCPosProc;
     procedure    ChooseSkillProc;
     procedure    ContPosProc;
@@ -654,7 +662,7 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 const
-  VarNamesR : Array[0..151] of String = (
+  VarNamesR : Array[0..152] of String = (
     'CliCnt','CliNr','Time','Date','SysTime','Random','OSVer','CharPosX',
     'CharPosY','CharPosZ','CharID','CharGhost','CharStatus','CharDir',
     'CharName','Sex','Str','MaxWeight','Dex','Int','Hits','MaxHits',
@@ -698,7 +706,9 @@ const
     // Port addition (TIMER): index 150.
     'TimerRes',
     // Port addition (LIST): index 151.
-    'ListRes');
+    'ListRes',
+    // Port addition (SCANPROPS): index 152.
+    'FindProp');
 
   VarNamesRW : Array[0..34] of String = (
     'SCnt','SCnt2','LShard','ContPosX','ContPosY','NextCPosX','NextCPosY',
@@ -801,6 +811,7 @@ begin
   FTimers:=TEuoTimers.Create;   // port addition (TIMER)
   TimerRes:='N/A';
   FLists:=TEuoLists.Create;     // port addition (LIST)
+  FProps:=TPropStore.Create;    // port addition (SCANPROPS)
   ListRes:='N/A';
   Restarts:=0;
   BlockedCmd:='';
@@ -840,6 +851,7 @@ begin
   FSearchPathLock.Free;
   FTimers.Free;
   FLists.Free;
+  FProps.Free;
   inherited Free;
 end;
 
@@ -886,6 +898,7 @@ begin
   TimerRes:='N/A';
   FLists.Clear;     // port addition (LIST): and with no lists
   ListRes:='N/A';
+  FProps.Clear;     // port addition (SCANPROPS): and with no stored tooltip texts
   Restarts:=0;      // port additions for hosts: a new run has not restarted or been blocked.
   BlockedCmd:='';   // (What LOG queued stays: the host has not read it yet.)
   BlockedLine:=-1;
@@ -1177,6 +1190,7 @@ var
   Found: Boolean;
   MID, MType : Cardinal;   // port addition: the mount (#MountID, #MountType)
   HCnt : Cardinal;         // port addition: the click hook's count (#GumpReply, #GumpReplyCnt)
+  PropTxt : String;        // port addition: #FindProp's stored text
 label Leave;
 begin
   CS.BeginWrite;
@@ -1488,6 +1502,10 @@ begin
     140: VarRes:=GumpFieldText(GumpRes,GumpValid,gfObjID ,Result);
     141: VarRes:=GumpFieldText(GumpRes,GumpValid,gfSerial,Result);
     142: VarRes:=GumpFieldText(GumpRes,GumpValid,gfTypeID,Result);
+    // Port addition (SCANPROPS): the current item's text from the last ScanProps, N/A when it wasn't
+    // scanned. Stored as #Property is read (one byte per letter), so it comes in as UTF-8 the same way.
+    152: if Self.FProps.TryGetValue(ItemRes.ItemID,PropTxt) then Result:=Latin1ToUtf8(PropTxt)
+         else VarRes:=False;
     502: Result:=IntToStr   (LShard       );
     503: Result:=IntToStr   (ContPosX     );
     504: Result:=IntToStr   (ContPosY     );
@@ -1748,6 +1766,7 @@ begin
   CmdRegistry.Register('MoveItem',MoveItemProc,True);         // port addition
   CmdRegistry.Register('ScanBuffs',ScanBuffsProc,True);   // port addition
   CmdRegistry.Register('ScanGumps',ScanGumpsProc,True);   // port addition
+  CmdRegistry.Register('ScanProps',ScanPropsProc,True);   // port addition
   CmdRegistry.Register('DeleteJournal',DeleteJournalProc,True);
   CmdRegistry.Register('HideItem',HideItemProc,True);
   CmdRegistry.Register('SetUOTitle',SetUOTitleProc,True);
@@ -5358,6 +5377,15 @@ end;
 // buffs with that icon id), the first one selected; #BuffIndex walks the snapshot like
 // #FindIndex walks FindItem's. Reads nothing but client memory; on a client whose layout is not
 // known (or with the buff window closed) the snapshot is empty and #BuffCnt is 0.
+// Port addition. SCANPROPS: the tooltip text of every item the last FINDITEM found, from the client's
+// property cache (uopropscan.pas), for #FindProp. Items the cache can't answer yet are asked for in one
+// go and waited for while answers keep coming; see uoprops.PropScan.
+procedure TEuoInterpreter.ScanPropsProc;
+begin
+  ScanItemProps(UOCmd,EventObj,UOSel.CstDB,Delay,FProps);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
 procedure TEuoInterpreter.ScanBuffsProc;
 var
   Filter : Int64;

@@ -6,7 +6,7 @@ category: result
 access: ro
 type: string
 needsClient: true
-related: ["event Property"]
+related: ["event Property", "ScanProps", "#FindProp"]
 aliases: ["tooltip", "item properties"]
 changed: true
 source: wiki

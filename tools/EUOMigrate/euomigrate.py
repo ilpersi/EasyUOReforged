@@ -34,6 +34,7 @@ from euomig import fields as FD                  # noqa: E402
 from euomig import siggen as SG                  # noqa: E402
 from euomig import conv as CV                    # noqa: E402
 from euomig import gumpfields as GF              # noqa: E402
+from euomig import propfields as PF              # noqa: E402
 from euomig.consensus import migrate             # noqa: E402
 from euomig.tables import UoCliData              # noqa: E402
 from euomig.target import Target                 # noqa: E402
@@ -135,6 +136,7 @@ def cmd_migrate(a):
     EM.apply_derived(c, CV.derive(t.code, usable), base)
     c['notes'] = CV.notes(t.code, usable)
     EM.apply_derived(c, GF.derive(t.code, base), base)
+    EM.apply_derived(c, PF.derive(t.code, dict(base, **usable)), base)
     rel = mig.relative_layout()
     state = dict(base)
     state.update({f: v for f, (v, how) in rel.items()})

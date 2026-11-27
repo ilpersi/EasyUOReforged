@@ -79,6 +79,9 @@ python tools/EUOMigrate/euomigrate.py probe  tools/EUOMigrate/out/<id>/candidate
   - `C_CLILOC` must lead to the client's cliloc table: a known number (1075847, "Bless") must resolve to text.
   - `C_BUFFTIMERS` must be a consistent `std::map` whose nodes hold plausible timer ids and seconds
     (an empty map is only `weak`: apply a timed buff such as Bless and verify again).
+  - `C_PROPCACHE` (scanprops' tooltip cache) must be a consistent `std::map` whose entries have a state
+    byte of 0 or 4 at `B_PROPSTATE` and a line list at `B_PROPLIST` leading to cliloc numbers (an empty
+    cache is only `weak`: hover over a few items and verify again).
 
   A value that fails is replaced by its first runner-up that does not fail, or is marked `rejected`.
 - **`probe`** finds the layout offsets by searching for the offset that makes one of the client's
@@ -131,7 +134,7 @@ To finish:
 |---|---|---|
 | `accepted` | static evidence above confidence 0.50 | the value |
 | `verified` | passed its oracle / probe in the running client | the value |
-| `derived` | read from the code: `F_*` conventions, `B_*` distances between two globals (the hands, last-target kind, lifted type and flag among them), the `B_GUMP*` offsets | the value |
+| `derived` | read from the code: `F_*` conventions, `B_*` distances between two globals (the hands, last-target kind, lifted type and flag among them), the `B_GUMP*` and `B_PROP*` offsets | the value |
 | `probed` | layout offset found in the running client, different from before | the value |
 | `candidate` | best guess below the threshold, not verified | **0**, with the guess in a comment |
 | `rejected` | failed its oracle, no runner-up passed | **0** |
@@ -212,6 +215,12 @@ groups** go to 0 together when one member is not usable:
      (checked against the status gump's `$2A6C`); `B_GUMPMIN` from the bring-to-front code, which tests
      the flag and then takes the size from `B_CONTSIZEX` or 8 bytes further. Two different answers give
      no value rather than a guess.
+   - The tooltip cache entry offsets `scanprops` reads come from code shapes too (`propfields.py`), in the
+     functions that name `C_PROPCACHE`: `B_PROPSTATE` from `cmp byte [entry+X], 4` (the "announced, not
+     fetched" test); `B_PROPLIST` from the name builder loading the entry's list head and its first node
+     (fixed-base), or from the betas' `E_ITEMCHECKADDR`, which returns the list's size, the dword after its
+     head. Both checked on 7.0.29.97, 7.0.45.89, 7.0.108.0, 7.0.117.33, 7.0.118.46 and the betas 7.0.117.31,
+     7.0.118.132, 7.0.119.0 (docs/property-cache-analysis.md).
 6. **Signatures** (`siggen.py`). These wildcard in-image operands, rel32 targets and ebp/esp
    displacements, with a joker byte per pattern. A window is kept only if it is the smallest one that
    matches exactly once and resolves to the value.
@@ -289,6 +298,7 @@ euomig/sigs.py       EUOUpdtr signature format: parse, scan; the runtime scan (T
 euomig/siggen.py     signature generator, strings file, ScannerTable rows
 euomig/conv.py       calling conventions -> F_* flags, B_PATHPROLOGUE
 euomig/gumpfields.py gump object offsets from code shapes -> B_GUMPART, B_GUMPMIN, B_GUMPSERIAL, B_GUMPTYPE
+euomig/propfields.py tooltip cache entry offsets from code shapes -> B_PROPSTATE, B_PROPLIST
 euomig/live.py       read-only process access (32-bit client from 64-bit Python), thread stacks
 euomig/oracles.py    per-field live checks
 euomig/probe.py      live layout probes (objects recognised by RTTI or, without it, by a vtable)

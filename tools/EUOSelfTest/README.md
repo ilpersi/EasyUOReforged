@@ -148,6 +148,7 @@ Never run: `event macro 20` (quit game), anything that logs out, closes or start
 | 5.23 | exevent GumpReply button 1 (deletes the two daggers) |
 | 5.24 | Your own click is recorded (#GumpReplyCnt): the panel asks you to click a button in the game, then Pass; SKIP in an unattended run |
 | 5.25 | Letters with accents in the client's texts: event SysMessage with "Città", read back by #SysMsg, findjournal and #Journal; str len counts the letter as one |
+| 5.26 | scanprops: #FindProp equals event Property for each backpack item (20 at most), #Property untouched, N/A after an empty finditem |
 | 6.01 | target and a skill's cursor |
 | 6.02 | Writing #TargCurs installs a target handler |
 | 6.03 | Test weapon made through the target cursor |
@@ -167,6 +168,7 @@ Never run: `event macro 20` (quit game), anything that logs out, closes or start
 | 6.17 | event Property of an item |
 | 6.18 | exevent PopUp |
 | 6.19 | moveitem |
+| 6.20 | scanprops on the test weapon: #FindProp equals event Property |
 | 7.01 | Macro 6: war and peace |
 | 7.02 | Macro 14: last skill |
 | 7.03 | Macros 15 and 16: spells |

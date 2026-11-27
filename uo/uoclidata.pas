@@ -102,6 +102,11 @@ type
     // B_STLHEAD for where the tree head sits relative to it). Both are found by signature scan only;
     // zero on a build the scanner could not resolve, in which case the buff bar is unsupported.
     C_CLILOC,C_BUFFTIMERS,
+    // Item properties (scanprops): C_PROPCACHE is the client's tooltip cache, a std::map<serial,entry*>
+    // OBJECT (its tree head at +B_STLHEAD, nodes laid out like the cliloc map's: key at +B_CLILOCKEY,
+    // entry pointer after it). Found by signature scan only; zero where the scan finds nothing, and
+    // scanprops then reads every item with the event property path. docs/property-cache-analysis.md.
+    C_PROPCACHE,
     // House pieces for the pathfinder's live overlay (TUOCmd.PathLiveObjects): where a client keeps
     // the walls and floors of the player houses it has drawn. C_MULTILIST: the global holding the
     // first piece of the modern builds' list of drawn house pieces (next at B_MULTINEXT; X/Y/Z at
@@ -153,6 +158,12 @@ type
     // the pointer itself, 4 where the old STL puts a proxy in front). B_CLILOCKEY: offset of the key
     // in a cliloc map node; the text pointer follows it. All zero on builds without a verified layout.
     B_BUFFVEC,B_BUFFSIZE,B_STLHEAD,B_CLILOCKEY,
+    // Item properties (scanprops, see C_PROPCACHE): inside a cache entry, B_PROPLIST is the offset of
+    // its std::list of tooltip lines (list head node pointer; a list node keeps next at +0 and the
+    // line pointer at +8, a line its cliloc at +0 and its argument text pointer at +4) and
+    // B_PROPSTATE the offset of its state byte (4 = the server announced a tooltip the client hasn't
+    // fetched yet). Zero on builds without a verified layout.
+    B_PROPLIST,B_PROPSTATE,
     // House pieces (see C_MULTILIST): the next pointer in that list, the next pointer in a grid cell,
     // the grid's size, and a static object's owner (its house). B_MULTINEXT is zero on builds without
     // the list. The three grid values answer the fixed-base layout when zero ($18, 64, $A4): the
@@ -324,6 +335,7 @@ type
     function    SKILLSPOS       : Cardinal;
     function    CLILOC          : Cardinal;
     function    BUFFTIMERS      : Cardinal;
+    function    PROPCACHE       : Cardinal;
     function    MULTILIST       : Cardinal;
     function    WORLDGRID       : Cardinal;
     function    STATICVT        : Cardinal;
@@ -421,6 +433,8 @@ type
     function    BBUFFSIZE       : Cardinal;
     function    BSTLHEAD        : Cardinal;
     function    BCLILOCKEY      : Cardinal;
+    function    BPROPLIST       : Cardinal;
+    function    BPROPSTATE      : Cardinal;
     function    BMULTINEXT      : Cardinal;
     function    BGRIDNEXT       : Cardinal;
     function    BGRIDSIZE       : Cardinal;
@@ -4906,11 +4920,17 @@ SysVarMS139 : array[0..31] of TSysVarList = (
 // (2013) and checked live on client.exe. This alone enables nothing: ScanBuffs also needs C_CLILOC and
 // C_BUFFTIMERS, which only the signature scan provides (ScannerTable_Post6062) -- a build whose code
 // does not match stays unsupported.
-SysVarMS140 : array[0..63] of TSysVarList = (
+SysVarMS140 : array[0..65] of TSysVarList = (
   (Expr: B_BUFFSIZE; Val: $000001B0),
   (Expr: B_BUFFVEC; Val: $000000D0),
   (Expr: B_CLILOCKEY; Val: $0000000C),
   (Expr: B_STLHEAD; Val: $00000004),
+  // Item properties (scanprops): a tooltip cache entry keeps its line list at +4 and its state byte
+  // at +$10, read in 7.0.4.3, 7.0.29.97, 7.0.45.89, 7.0.108.0, 7.0.117.33 and 7.0.118.46 (the property
+  // check E_ITEMCHECKADDR answers `cmp byte [entry+$10],4`; docs/property-cache-analysis.md). Like
+  // the buff bar rows, this enables nothing until the scan finds C_PROPCACHE.
+  (Expr: B_PROPLIST; Val: $00000004),
+  (Expr: B_PROPSTATE; Val: $00000010),
   (Expr: B_BILLFIRST; Val: $000000BC),
   (Expr: B_CHARSTATUS; Val: $00000020),
   (Expr: B_CONTITEM; Val: $00000038),
@@ -5487,7 +5507,7 @@ const
   // C_TARGETCNT has no entry here (and never has) -- not covered by any scan string in
   // the file at all, and every known version's own milestone data also carries $00000000
   // for it, consistent with it being vestigial (see milestone 1's own comment).
-  ScannerTable_Post6062 : array[0..42] of TScannerEntry = (
+  ScannerTable_Post6062 : array[0..43] of TScannerEntry = (
     (Joker: $11; Unused: (0,0,0); AddOffset1: 0; Mode: 1; AddOffset2: 0;
      Expr: C_BLOCKINFO; Pattern: 'B820180000E8'),
     // NOT reused from the scan-string file -- that pattern is already known not to match
@@ -5563,6 +5583,13 @@ const
      Pattern: '0F94C0568B74240CC74424040000000050518B0D1111111156E8111111118BC65E59C3'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 5; Mode: 3; AddOffset2: 0; Expr: C_BUFFTIMERS;
      Pattern: '8B500852B911111111E811111111E811111111578BCE8BE8'),
+    // C_PROPCACHE (scanprops): in the tooltip NAME builder, `lea ecx,[esp+14h]; push ecx; xor ebp,ebp;
+    // mov ecx,CACHE; ...; call operator[]` -- the operand is the cache map object. One hit in every
+    // fixed-base client tried: 7.0.4.3 $702F64, 7.0.29.97 $717B04, 7.0.45.89 $736704, 7.0.108.0 $75C804,
+    // 7.0.117.33 and 7.0.118.46 $75F004 (docs/property-cache-analysis.md). The formatter scanprops
+    // copies is 7.0.108.0's and newer; the owner chose to apply it to the older builds too.
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 8; Mode: 3; AddOffset2: 0; Expr: C_PROPCACHE;
+     Pattern: '8D4C24145133EDB911111111896C244489442418E8'),
     // House pieces (the pathfinder), added 2026-10-27. Each is unique in client.exe (7.0.117.1) and
     // resolves to the address read live.
     // C_WORLDGRID: a grid cell lookup, `cell = (y and 63) shl 6 + (x and 63); mov esi,[cell*4+GRID];
@@ -5627,7 +5654,7 @@ const
 // +$C0 in the one stamped $6AD6CEB3). The scan derives it from the skills gump's code (see
 // ScannerTable_Modern); 0 until it does, so the with-bonuses value then repeats the base value
 // instead of reading some other array.
-SysVarModernLayout : array[0..43] of TSysVarList = (
+SysVarModernLayout : array[0..45] of TSysVarList = (
   (Expr: B_POS;       Val: $00000048),   // kind=$44, X=$48, Y=$4A, Z=$4C
   (Expr: B_ITEMTYPE;  Val: $00000070),
   (Expr: B_ITEMSTACK; Val: $00000076),   // type+6 as on every older build; hue (stack+2) = $78 seen live
@@ -5684,6 +5711,12 @@ SysVarModernLayout : array[0..43] of TSysVarList = (
   (Expr: B_BUFFSIZE;  Val: $000001B0),
   (Expr: B_STLHEAD;   Val: $00000000),
   (Expr: B_CLILOCKEY; Val: $00000010),
+  // Item properties (scanprops): the tooltip cache is the same kind of map (head at +0, key at +$10,
+  // entry pointer at +$14); an entry keeps its line list at +0 (its size at +4, which is what this
+  // build's E_ITEMCHECKADDR returns) and its state byte at +$C (4 = announced, set at $425870 and
+  // tested at $4257B0 in 7.0.119.0). Read in the betas 7.0.117.31, 7.0.118.132 and 7.0.119.0.
+  (Expr: B_PROPLIST;  Val: $00000000),
+  (Expr: B_PROPSTATE; Val: $0000000C),
   // House pieces: the list C_MULTILIST heads (scanned) is doubly linked through +$9C (next) and +$A0
   // (previous), read in the beta stamped $6AD6CEB3 (add $59A970, remove $5A1F00); the pieces have the
   // item layout (B_POS, B_ITEMTYPE). The scan pattern spells out +$9C and +$A0, so a build that moved
@@ -5984,7 +6017,7 @@ ModernBuilds : array[0..3] of TModernBuild = (
 // of a field match, the LAST one's result is kept (ScanMemory overwrites, EUO Updtr replaces its
 // line): a $6AD6CEB3 pattern for a function that changed sits before the older beta's, so that one
 // still decides on that beta.
-ScannerTable_Modern : array[0..104] of TScannerEntry = (
+ScannerTable_Modern : array[0..105] of TScannerEntry = (
     // E_REDIR
     (Joker: $11; Unused: (0,0,0); AddOffset1: 12; Mode: 1; AddOffset2: 0; Expr: E_REDIR;
      Pattern: '6A0068E8030000FF75C86A00E8111111118BF0B85917B7D1F765C4'),
@@ -6270,6 +6303,11 @@ ScannerTable_Modern : array[0..104] of TScannerEntry = (
      Pattern: 'C7451100000000B8111111118B15111111118B72088A0E3A08'),
     (Joker: $11; Unused: (0,0,0); AddOffset1: 7; Mode: 3; AddOffset2: 0; Expr: C_CLILOC;
      Pattern: '566A008BF18B0D111111115256E8111111118BC65EC3'),
+    // C_PROPCACHE (scanprops): next to the property check, `mov esi,[found node]; cmp esi,[CACHE];
+    // je; cmp dword [esi+14h],0; je` -- the operand is the cache map object (its head pointer first).
+    // One hit in each beta: 7.0.117.31 $20AA594, 7.0.118.132 $21195C4, 7.0.119.0 $22F8FD8.
+    (Joker: $11; Unused: (0,0,0); AddOffset1: 4; Mode: 3; AddOffset2: 0; Expr: C_PROPCACHE;
+     Pattern: '8B303B35111111110F8411111111837E14000F84'),
     // C_BUFFTIMERS: in CBuffIconsGump::GetToolTipString, `mov eax,[timer map head]` just before the
     // truncated time-left value is formatted
     (Joker: $11; Unused: (0,0,0); AddOffset1: 1; Mode: 3; AddOffset2: 0; Expr: C_BUFFTIMERS;
@@ -6574,6 +6612,7 @@ function TCstDB.SKILLCAPS : Cardinal; begin CS.BeginRead; try Result:=Rebase(Val
 function TCstDB.SKILLLOCK : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_SKILLLOCK]); finally CS.EndRead; end; end;
 function TCstDB.SKILLSPOS : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_SKILLSPOS]); finally CS.EndRead; end; end;
 function TCstDB.CLILOC : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_CLILOC]); finally CS.EndRead; end; end;
+function TCstDB.PROPCACHE : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_PROPCACHE]); finally CS.EndRead; end; end;
 function TCstDB.BUFFTIMERS : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_BUFFTIMERS]); finally CS.EndRead; end; end;
 function TCstDB.MULTILIST : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_MULTILIST]); finally CS.EndRead; end; end;
 function TCstDB.WORLDGRID : Cardinal; begin CS.BeginRead; try Result:=Rebase(Values[C_WORLDGRID]); finally CS.EndRead; end; end;
@@ -6676,6 +6715,8 @@ function TCstDB.BBUFFVEC : Cardinal; begin CS.BeginRead; try Result:=Values[B_BU
 function TCstDB.BBUFFSIZE : Cardinal; begin CS.BeginRead; try Result:=Values[B_BUFFSIZE]; finally CS.EndRead; end; end;
 function TCstDB.BSTLHEAD : Cardinal; begin CS.BeginRead; try Result:=Values[B_STLHEAD]; finally CS.EndRead; end; end;
 function TCstDB.BCLILOCKEY : Cardinal; begin CS.BeginRead; try Result:=Values[B_CLILOCKEY]; finally CS.EndRead; end; end;
+function TCstDB.BPROPLIST : Cardinal; begin CS.BeginRead; try Result:=Values[B_PROPLIST]; finally CS.EndRead; end; end;
+function TCstDB.BPROPSTATE : Cardinal; begin CS.BeginRead; try Result:=Values[B_PROPSTATE]; finally CS.EndRead; end; end;
 function TCstDB.BMULTINEXT : Cardinal; begin CS.BeginRead; try Result:=Values[B_MULTINEXT]; finally CS.EndRead; end; end;
 // The fixed-base grid layout when zero: the layout the C_WORLDGRID / C_STATICVT patterns spell out
 // (see TConstantNames), the same way BPOS answers $24.

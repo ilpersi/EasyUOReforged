@@ -137,6 +137,7 @@ var
    '#FINDKIND'#13#10+
    '#FINDLAYER'#13#10+
    '#FINDMOD'#13#10+
+   '#FINDPROP'#13#10+
    '#FINDREP'#13#10+
    '#FINDSTACK'#13#10+
    '#FINDTYPE'#13#10+

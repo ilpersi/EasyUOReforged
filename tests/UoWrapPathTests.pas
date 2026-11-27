@@ -37,6 +37,7 @@ type
     procedure TestPathPackedLayout;
     procedure TestMountAndLayerAnswerZeroWithoutAClient;
     procedure TestGumpMethodsWithoutAClient;
+    procedure TestScanPropsWithoutAClient;
     procedure TestGetGumpPushesNilForWhatAScriptReadsNA;
   end;
 
@@ -252,6 +253,20 @@ begin
   AssertEquals('GetGump needs the index', ERR_WRONGPAR, Call('GetGump', []));
   AssertEquals('GetCont still found', RES_OK, Call('GetCont', [0]));
   AssertEquals('ScanBuffs still found', RES_OK, Call('ScanBuffs', []));
+  AssertEquals('ScanItems still found', RES_OK, Call('ScanItems', []));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// ScanProps (071) takes nothing and answers nothing; without a client it stores nothing, so GetItem still
+// pushes its eleven values. The rows around it are still found.
+procedure TUoWrapPathTests.TestScanPropsWithoutAClient;
+begin
+  AssertEquals('ScanProps', RES_OK, Call('ScanProps', []));
+  AssertEquals('nothing returned', 0, W.Stack.GetTop);
+  AssertEquals('ScanProps takes no argument', ERR_WRONGPAR, Call('ScanProps', [1]));
+  AssertEquals('GetItem', RES_OK, Call('GetItem', [0]));
+  AssertEquals('still eleven values', 11, W.Stack.GetTop);
+  AssertEquals('ScanJournal still found', RES_OK, Call('ScanJournal', [0]));
   AssertEquals('ScanItems still found', RES_OK, Call('ScanItems', []));
 end;
 

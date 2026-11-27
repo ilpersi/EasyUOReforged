@@ -46,13 +46,20 @@ unit uowrap;
   answer sent through this handle (type ID, button, switches, texts), or nil; with the click hook on the
   client (GumpReply, GetGumpReply and GumpReplyCnt put it there), the last one recorded, clicks by hand included. The
   read-only property GumpReplyCnt (code 258) counts them: the hook's count, or this handle's answers.
+
+  Port addition (not in the original): UOTbl's method 071, ScanProps, the script's SCANPROPS
+  (uoprops.pas, uopropscan.pas): the tooltip text of every item of the handle's current filter (what
+  ScanItems / FilterItems left, as a script's FINDITEM), read from the client's property cache. After it,
+  GetItem pushes a 12th value for an item it stored, the text in #Property's format ('name$line$...$',
+  one byte per letter as Property's strings); a caller that never calls ScanProps gets the 11 values it
+  always did.
 }
 
 {$mode delphi}{$H+}
 
 interface
 uses Windows, SysUtils, access, uotypes, stack, tables, uoselector,
-     uovariables, uocommands, uoevents, walkrules, pathplan, uogumpreply;
+     uovariables, uocommands, uoevents, walkrules, pathplan, uogumpreply, uoprops, uopropscan;
 
 type
   TUOWrap      = class(TObject)
@@ -67,6 +74,7 @@ type
     HasReply    : Boolean;           // ... once there is one
     ReplyCnt    : Cardinal;          // answers sent through this handle
     HookSeen    : Int64;             // the hook's count when LastReply was taken from it
+    Props       : TPropStore;        // port addition (ScanProps): tooltip texts by item ID
     function    HookRefresh(Install : Boolean; out Count : Cardinal) : Boolean;
     function    MGet(Name : String) : Integer;
     function    MSet(Name : String) : Integer;
@@ -129,7 +137,7 @@ const
 ////////////////////////////////////////////////////////////////////////////////
 
 var
-  UOTbl : array[0..178] of TItem = (
+  UOTbl : array[0..179] of TItem = (
     (N: 'AR'          ;T: RO ;C: 206 ;P: 'n'        ),
     (N: 'BackpackID'  ;T: RO ;C: 224 ;P: 'n'        ),
     (N: 'BlockInfo'   ;T: ME ;C: 041 ;P: 'nnnnn'    ),
@@ -289,6 +297,7 @@ var
     (N: 'ScanItems'   ;T: ME ;C: 023 ;P: 'b'        ),
      (N:'ScanItems'   ;T: ME ;C: 044 ;P: ''         ),
     (N: 'ScanJournal' ;T: ME ;C: 026 ;P: 'n'        ),
+    (N: 'ScanProps'   ;T: ME ;C: 071 ;P: ''         ),    // port addition (SCANPROPS)
     (N: 'SetShop'     ;T: ME ;C: 035 ;P: 'nn'       ),
     (N: 'Sex'         ;T: RO ;C: 243 ;P: 'n'        ),
     (N: 'Shard'       ;T: RO ;C: 218 ;P: 's'        ),
@@ -483,6 +492,7 @@ var
   GByType, GByArt : Boolean;
   GReply          : TGumpReply;   // port addition (GumpReply)
   GCnt            : Cardinal;
+  PropTxt         : String;       // port addition (ScanProps)
 
   // Port addition (the pathfinder): the facet a rule applies to, the character's when the call
   // gives none (stack position Index is past the top), 0 without a client.
@@ -571,6 +581,8 @@ begin
            // ten, the layer a mobile wears the item in, 0 when nobody wears it.
            if ItemRes.ItemLayer>0 then PushInteger(ItemRes.ItemLayer)
            else PushInteger(0);
+           // Port addition (ScanProps): a 12th value, the item's tooltip text, when ScanProps stored it.
+           if Self.Props.TryGetValue(ItemRes.ItemID,PropTxt) then PushStrVal(PChar(PropTxt));
          end;
     025: HideItem(GetInteger(3));
     026: begin
@@ -799,6 +811,7 @@ begin
            end
            else PushNil;
          end;
+    071: ScanItemProps(Self.UOCmd,Self.UOEvent,Self.UOSel.CstDB,MDelay,Self.Props);   // ScanProps
     -01: Result:=ERR_NOTFOUND;
     -02: Result:=ERR_WRONGPAR;
     else Result:=ERR_GENERIC;
@@ -874,6 +887,7 @@ begin
   UOVar:=TUOVar.Create(UOSel);
   UOCmd:=TUOCmd.Create(UOSel,UOVar,MDelay);
   UOEvent:=TUOEvent.Create(UOSel,UOVar,MDelay);
+  Props:=TPropStore.Create;
   DelayProc:=nil;
 end;
 
@@ -898,6 +912,7 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 procedure TUOWrap.Free;
 begin
+  Props.Free;
   UOEvent.Free;
   UOCmd.Free;
   UOVar.Free;

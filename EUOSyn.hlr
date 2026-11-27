@@ -82,6 +82,7 @@
       <word value="SCANBUFFS"/>
       <word value="SCANGUMPS"/>
       <word value="SCANJOURNAL"/>
+      <word value="SCANPROPS"/>
       <word value="SEND"/>
       <word value="SET"/>
       <word value="SETSHOPITEM"/>
@@ -162,6 +163,7 @@
       <word value="#FINDINDEX"/>
       <word value="#FINDKIND"/>
       <word value="#FINDMOD"/>
+      <word value="#FINDPROP"/>
       <word value="#FINDREP"/>
       <word value="#FINDSTACK"/>
       <word value="#FINDTYPE"/>

@@ -94,6 +94,12 @@ C40484C0740955E8                       ; 11; +08; CB; +00; {ITEMREQADDR}
 // by CBuffIconsGump::GetToolTipString just before it looks the icon's timer id up.
 8B500852B911111111E811111111E811111111578BCE8BE8 ; 11; +05; C ; +00; {BUFFTIMERS}
 0F94C0568B74240CC74424040000000050518B0D1111111156E8111111118BC65E59C3 ; 11; +20; C ; +00; {CLILOC}
+
+// ---- Item properties (scanprops) ---------------------------------------------------------------------------
+// {PROPCACHE}: the client's tooltip cache, a std::map<serial,entry*> OBJECT (tree head at +4), loaded into ecx by the
+// tooltip name builder before it looks the item up. One hit in 7.0.4.3, 7.0.29.97, 7.0.45.89, 7.0.108.0 ($0075C804),
+// 7.0.117.33 and 7.0.118.46 ($0075F004). Without it scanprops reads every item with the event property path.
+8D4C24145133EDB911111111896C244489442418E8 ; 11; +08; C ; +00; {PROPCACHE}
 // {BUFFVEC_CHECK} is a diagnostic like {SYSMSGSTR_CHECK}, not a value for uoclidata.pas: B_* layout constants cannot be
 // scanned. It reads, from the CBuffIconsGump constructor, the offset of the icon vector's begin pointer inside the gump
 // (the constructor zeroes begin/end/capacity right after each other). $000000D0 -> B_BUFFVEC=$D0 as in client.exe and the

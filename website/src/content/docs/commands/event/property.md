@@ -6,7 +6,7 @@ category: event
 syntax: "event Property {id}"
 needsClient: true
 sets: ["#Property"]
-related: ["FindItem", "#Property"]
+related: ["FindItem", "#Property", "ScanProps", "#FindProp"]
 aliases: ["tooltip", "item properties"]
 dll: Property
 source: wiki

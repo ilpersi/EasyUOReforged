@@ -89,7 +89,7 @@ unit uocommands;
 interface
 uses Windows, SysUtils, Messages, Classes, Registry, access, EuoSortedList,
      uotypes, uovariables, uoselector, uoclidata, tiles, walkrules, walkmap, pathplan, walklive,
-     pathwalk;
+     pathwalk, uoprops;
 
 type
   TSkillEntry   = record
@@ -196,6 +196,7 @@ type
     procedure   RefreshFilter;
     function    ReadU32(Addr : Cardinal) : Cardinal;
     function    ReadText(Addr : Cardinal; MaxLen : Integer) : String;
+    function    ReadWideText(Addr : Cardinal; MaxChars : Integer) : UnicodeString;
     function    FindGumpByName(const GumpName : String) : Cardinal;
     function    StlFind(Head : Cardinal; Key : Integer; KeyOff : Cardinal) : Cardinal;
     function    BuffTimerLeft(TimerID : Integer) : Integer;
@@ -312,6 +313,14 @@ type
     procedure   BuffSelect(Pos : Cardinal);
     procedure   BuffRefresh;
     function    ClilocText(ID : Cardinal) : String;
+    // Port additions (ITEM PROPERTIES, scanprops; docs/property-cache-analysis.md). FilterIDs: the IDs
+    // the last FilterItems kept (a finditem's results, ignored items already left out), in order;
+    // ItemRes and the filter are untouched. ReadPropEntry: what the client's tooltip cache holds for
+    // an item. ClilocRaw: a cliloc's text as the client keeps it (0 none, 1 no text, 2 Text).
+    function    FilterIDs : TPropIDs;
+    function    PropSupported : Boolean;
+    function    ReadPropEntry(ID : Cardinal; out Lines : TPropLines) : TPropEntryState;
+    function    ClilocRaw(ID : Integer; out Text : RawByteString) : Integer;
     function    BuffTimeNow : Integer;
     function    BuffAvailable : Boolean;
     function    BuffBarOpen : Boolean;
@@ -954,6 +963,134 @@ begin
   Node:=StlFind(ReadU32(Mgr+Cst.BSTLHEAD),Integer(ID),Cst.BCLILOCKEY);
   if Node=0 then Exit;
   Result:=ReadText(ReadU32(Node+Cst.BCLILOCKEY+4),4096);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// ITEM PROPERTIES (port addition, scanprops). The client's tooltip cache is a std::map<serial,entry*>
+// laid out like the cliloc map: its head at C_PROPCACHE+B_STLHEAD, a node's key at +B_CLILOCKEY and
+// the entry pointer after it. An entry keeps a std::list of lines at +B_PROPLIST (the list's head
+// node; a node keeps next at +0 and the line at +8) and a state byte at +B_PROPSTATE (4 = the server
+// announced a tooltip the client hasn't fetched); a line is {cliloc, wchar_t* args}. The client changes
+// the map while it is read, so every walk is bounded, and a list that doesn't lead back to its head
+// counts as no entry (the item then goes the event property way).
+const
+  PROP_MAX_LINES = 64;           // a tooltip line list longer than this is a read that went wrong
+  PROP_ARGS_MAX  = 4096;         // characters of one line's arguments
+
+function TUOCmd.ReadWideText(Addr : Cardinal; MaxChars : Integer) : UnicodeString;
+var
+  Buf   : array[0..127] of WideChar;
+  Chunk : Integer;
+  I,L   : Integer;
+begin
+  Result:='';
+  if Addr=0 then Exit;
+  while Length(Result)<MaxChars do
+  begin
+    Chunk:=Integer(($1000-(Addr and $FFF)) div 2);
+    if Chunk>Length(Buf) then Chunk:=Length(Buf);
+    if Chunk<1 then Chunk:=1;                  // a character across a page end
+    RWV(Read,Addr,@Buf[0],Chunk*2);
+    I:=0;
+    while (I<Chunk) and (Buf[I]<>#0) do Inc(I);
+    if I>0 then
+    begin
+      L:=Length(Result);
+      SetLength(Result,L+I);
+      System.Move(Buf[0],Result[L+1],I*2);
+    end;
+    if I<Chunk then Break;
+    Inc(Addr,Chunk*2);
+  end;
+  if Length(Result)>MaxChars then SetLength(Result,MaxChars);
+end;
+
+function TUOCmd.FilterIDs : TPropIDs;
+var
+  I : Integer;
+begin
+  SetLength(Result,FilterList.Count);
+  for I:=0 to FilterList.Count-1 do
+    Result[I]:=TItemRes(FilterList[I]^).ItemID;
+end;
+
+function TUOCmd.PropSupported : Boolean;
+begin
+  Result:=ClientAttached and (Cst.PROPCACHE<>0) and (Cst.CLILOC<>0) and (Cst.BCLILOCKEY<>0) and
+          (Cst.BPROPSTATE<>0);
+end;
+
+function TUOCmd.ReadPropEntry(ID : Cardinal; out Lines : TPropLines) : TPropEntryState;
+var
+  Node  : Cardinal;
+  Ent   : Cardinal;
+  Head  : Cardinal;
+  Nd    : Cardinal;
+  St    : Byte;
+  Link  : array[0..2] of Cardinal;     // next, previous, line
+  Line  : array[0..1] of Cardinal;     // cliloc, arguments
+  N     : Integer;
+begin
+  Result:=pesNone;
+  SetLength(Lines,0);
+  if not PropSupported then Exit;
+  Node:=StlFind(ReadU32(Cst.PROPCACHE+Cst.BSTLHEAD),Integer(ID),Cst.BCLILOCKEY);
+  if Node=0 then Exit;
+  Ent:=ReadU32(Node+Cst.BCLILOCKEY+4);
+  if Ent=0 then Exit;                          // the fixed-base clients' lookups leave empty nodes
+  St:=0;
+  RWV(Read,Ent+Cst.BPROPSTATE,@St,1);
+  Head:=ReadU32(Ent+Cst.BPROPLIST);
+  N:=0;
+  if Head<>0 then
+  begin
+    Nd:=ReadU32(Head);
+    while Nd<>Head do
+    begin
+      if (Nd=0) or (N>=PROP_MAX_LINES) then
+      begin
+        SetLength(Lines,0);
+        Exit;
+      end;
+      RWV(Read,Nd,@Link[0],SizeOf(Link));
+      if Link[2]=0 then
+      begin
+        SetLength(Lines,0);
+        Exit;
+      end;
+      RWV(Read,Link[2],@Line[0],SizeOf(Line));
+      SetLength(Lines,N+1);
+      Lines[N].Cl:=Integer(Line[0]);
+      Lines[N].Args:=ReadWideText(Line[1],PROP_ARGS_MAX);
+      Inc(N);
+      Nd:=Link[0];
+    end;
+  end;
+  if St=4 then Result:=pesAnnounced          // the lines (if any) are the previous tooltip's
+  else if N>0 then Result:=pesFetched;
+end;
+
+function TUOCmd.ClilocRaw(ID : Integer; out Text : RawByteString) : Integer;
+var
+  Mgr  : Cardinal;
+  Node : Cardinal;
+  P    : Cardinal;
+begin
+  Result:=0;
+  Text:='';
+  if (Cst.CLILOC=0) or (Cst.BCLILOCKEY=0) then Exit;
+  Mgr:=ReadU32(Cst.CLILOC);
+  if Mgr=0 then Exit;
+  Node:=StlFind(ReadU32(Mgr+Cst.BSTLHEAD),ID,Cst.BCLILOCKEY);
+  if Node=0 then Exit;
+  P:=ReadU32(Node+Cst.BCLILOCKEY+4);
+  if P=0 then
+  begin
+    Result:=1;
+    Exit;
+  end;
+  Text:=ReadText(P,$10000);
+  Result:=2;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

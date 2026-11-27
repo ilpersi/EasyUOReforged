@@ -41,6 +41,7 @@ type
     procedure TestClientGatedCommandIsSilentNoOpWithNoClient;
     procedure TestScanBuffsIsASilentNoOpWithNoClient;
     procedure TestScanGumpsIsASilentNoOpWithNoClient;
+    procedure TestScanPropsIsASilentNoOpWithNoClient;
     procedure TestGumpVariablesReadNAWithNoClient;
     procedure TestGumpReplyIsASilentNoOpWithNoClient;
     procedure TestInstallGumpHookWithNoClientDoesNothing;
@@ -347,6 +348,24 @@ begin
     'SET %x reached' + #13#10 +
     'HALT');
   AssertEquals('reached', Interp.GetVar('%x'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// ScanProps is a port addition: client-gated like FINDITEM, a silent no-op without a client. #FindProp
+// reads N/A then, and #Property and the #Find variables keep their meaning. What it reads with a client
+// is in UoPropsTests (the logic) and CstDbModernBuildTests (the cache).
+procedure TEuoInterpreterTests.TestScanPropsIsASilentNoOpWithNoClient;
+begin
+  PlayScript(
+    'FINDITEM *' + #13#10 +
+    'SCANPROPS' + #13#10 +
+    'scanprops' + #13#10 +
+    'SET %x reached' + #13#10 +
+    'HALT');
+  AssertEquals('reached', Interp.GetVar('%x'));
+  AssertEquals('#FindProp', 'N/A', Interp.GetVar('#FindProp'));
+  AssertEquals('#FindCnt', 'N/A', Interp.GetVar('#FindCnt'));
+  AssertEquals('#ListRes is still the name before it', 'N/A', Interp.GetVar('#ListRes'));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

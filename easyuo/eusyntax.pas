@@ -72,19 +72,19 @@ uses
 // vocabulary -- see this unit's header comment -- no reason to also risk a
 // second, independent copy for completion).
 const
-  CommandKeywords : array[0..65] of String = (
+  CommandKeywords : array[0..66] of String = (
     'BREAK', 'CALL', 'CHOOSESKILL', 'CLICK', 'CMPPIX', 'CONTINUE', 'CONTPOS',
     'DELETEJOURNAL', 'DELETEVAR', 'DISPLAY', 'ELSE', 'EVENT', 'EXECUTE',
     'EXEVENT', 'EXIT', 'FINDITEM', 'FINDJOURNAL', 'FOR', 'GETSHOPINFO', 'GETUOTITLE',
     'GOSUB', 'GOTO', 'HALT', 'HIDEITEM', 'IF', 'IGNORECONT', 'IGNOREITEM',
     'KEY', 'LIST', 'LOG', 'LOGFILE', 'MENU', 'MOVE', 'MOVEITEM', 'MSG', 'NAMESPACE', 'NEXTCPOS', 'ONHOTKEY',
-    'PATH', 'PAUSE', 'REPEAT', 'RETURN', 'SAVEPIX', 'SCANBUFFS', 'SCANGUMPS', 'SCANJOURNAL', 'SEND', 'SET',
+    'PATH', 'PAUSE', 'REPEAT', 'RETURN', 'SAVEPIX', 'SCANBUFFS', 'SCANGUMPS', 'SCANJOURNAL', 'SCANPROPS', 'SEND', 'SET',
     'SETSHOPITEM', 'SETUOTITLE', 'SHUTDOWN', 'SLEEP', 'SOUND', 'SQL', 'STOP',
     'STR', 'SUB', 'TARGET', 'TERMINATE', 'TILE', 'TIMER', 'UNTIL', 'UOXL', 'WAIT',
     'WAITFOR', 'WHILE'
   );
 
-  SystemKeywords : array[0..183] of String = (
+  SystemKeywords : array[0..184] of String = (
     '#AR', '#BACKPACKID', '#BUFFBAROPEN', '#BUFFCLILOC', '#BUFFCNT', '#BUFFDESC', '#BUFFID',
     '#BUFFINDEX', '#BUFFNAME', '#BUFFTIME', '#CHARDIR', '#CHARGHOST', '#CHARID', '#CHARNAME',
     '#CHARPOSX', '#CHARPOSY', '#CHARPOSZ', '#CHARSTATUS', '#CLICNT',
@@ -94,7 +94,7 @@ const
     '#CR', '#CURPATH', '#CURSKIND', '#CURSORX', '#CURSORY', '#DATE',
     '#DEX', '#DISPRES', '#DOT', '#ENEMYHITS', '#ENEMYID', '#ER', '#EUOVER',
     '#FALSE', '#FINDBAGID', '#FINDCNT', '#FINDCOL', '#FINDDIST', '#FINDID',
-    '#FINDINDEX', '#FINDKIND', '#FINDLAYER', '#FINDMOD', '#FINDREP', '#FINDSTACK',
+    '#FINDINDEX', '#FINDKIND', '#FINDLAYER', '#FINDMOD', '#FINDPROP', '#FINDREP', '#FINDSTACK',
     '#FINDTYPE', '#FINDX', '#FINDY', '#FINDZ', '#FOLLOWERS', '#FR',
     '#GOLD',
     '#GUMPART', '#GUMPCNT', '#GUMPINDEX', '#GUMPKIND', '#GUMPMIN', '#GUMPNAME', '#GUMPOBJID',

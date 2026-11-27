@@ -23,7 +23,7 @@ uses
   EuoCliMcpTests, EuoCliInitTests, ClientArchiverTests, EuoItemMoveTests, EuoGumpsTests, GumpReplyTests,
   EuoLogFileTests, EuoOutlineTests, EuoOutlineViewTests, EuoHttpTests, EuoVarUsageTests,
   EuoWatchViewTests, EuoSearchPathTests, EuoTimersTests, EuoListsTests, EuoLayoutTests,
-  EuoTextEncodingTests;
+  EuoTextEncodingTests, UoPropsTests;
 
 type
   TEasyUOTestRunner = class(TTestRunner)

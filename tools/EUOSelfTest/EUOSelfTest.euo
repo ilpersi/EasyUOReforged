@@ -54,7 +54,7 @@
 ; ============================================================================
 menu Reforge Mode 1.6
 ; this file's revision, in the report header: raise it with every change, so a report shows which copy ran
-set %st_rev 2026.11.25.2
+set %st_rev 2026.11.27.1
 
 ; ---------------------------------------------------------------------------
 ;  DEVELOPER SWITCHES (no game values here: the script finds or asks for them)
@@ -226,6 +226,7 @@ sub st_init
   set %fx_sysm E_REDIR/E_OLDDIR/E_SYSMSGADDR/E_NEWOBJ/E_MSGGATE/E_MSGFLAGA/E_MSGFLAGB
   set %fx_exmsg E_REDIR/E_OLDDIR/E_EXMSGADDR/E_NEWOBJ/E_MSGGATE/E_MSGFLAGA/E_MSGFLAGB/C_CHARPTR/B_ITEMID
   set %fx_prop E_REDIR/E_OLDDIR/E_ITEMPROPID/E_ITEMNAMEADDR/E_ITEMPROPADDR/E_ITEMCHECKADDR/E_ITEMREQADDR/F_EVPROPERTY/F_PROPFAST/B_PROPFLAG
+  set %fx_scanprops C_PROPCACHE/B_PROPLIST/B_PROPSTATE/C_CLILOC/B_STLHEAD/B_CLILOCKEY/E_ITEMREQADDR
   set %fx_pf E_REDIR/E_OLDDIR/E_PATHFINDADDR/E_PATHFINDMID/F_PATHFINDVER/B_PATHPROLOGUE/B_POS
   set %fx_drag E_REDIR/E_OLDDIR/E_DRAGADDR/F_DRAGFASTCALL/C_CHARPTR/B_ITEMID/B_ITEMSTACK
   set %fx_conttop E_REDIR/E_OLDDIR/E_CONTTOP
@@ -291,8 +292,8 @@ sub st_counts
   set %st_cnt2 16
   set %st_cnt3 9
   set %st_cnt4 18
-  set %st_cnt5 24
-  set %st_cnt6 19
+  set %st_cnt5 26
+  set %st_cnt6 20
   set %st_cnt7 15
   set %st_cnt8 6
   set %st_cnt9 3
@@ -3371,6 +3372,7 @@ sub st_s5
   gosub st_c523
   gosub st_c524
   gosub st_c525
+  gosub st_c526
 return
 
 ; event SysMessage: #SysMsg, the journal and #JColor all show the text
@@ -4370,6 +4372,50 @@ sub st_c525
   gosub st_ok 5.25.len str_len_counts_the_accented_letter_as_one none
 return
 
+; scanprops: #FindProp equals event Property's #Property for the backpack's items (20 at most), #Property
+; stays as it was, and #FindProp reads N/A once a finditem found nothing
+sub st_c526
+  gosub st_case 5.26 scanprops_and_#FindProp
+  if %st_run = 0
+    return
+  gosub st_need 1.04
+  event property #BackpackID
+  set %st_p0 #Property
+  finditem * C_ , #BackpackID
+  set %st_n #FindCnt
+  if %st_n < 1
+  {
+    gosub st_skip 5.26 scanprops the_backpack_is_empty
+    return
+  }
+  if %st_n > 20
+    set %st_n 20
+  scanprops
+  set %st_a #Property
+  set %st_e %st_p0
+  gosub st_eq 5.26.prop scanprops_leaves_#Property_as_it_was %fx_scanprops
+  set %st_bad 0
+  set %st_badid none
+  for #FindIndex 1 %st_n
+  {
+    set %st_fp #FindProp
+    event property #FindID
+    if %st_fp <> #Property
+    {
+      set %st_bad %st_bad + 1
+      set %st_badid #FindID
+    }
+  }
+  set %st_a %st_bad , _of_ , %st_n , _differ_last_ , %st_badid
+  set %st_c %st_bad = 0
+  set %st_e none_differ
+  gosub st_ok 5.26.same FindProp_equals_event_Property_for_each_backpack_item %fx_scanprops
+  finditem ZZZZZQ C_ , #BackpackID
+  set %st_a #FindProp
+  set %st_e N/A
+  gosub st_eqna 5.26.none FindProp_reads_N/A_after_a_finditem_that_found_nothing %fx_scanprops
+return
+
 ; ###########################################################################
 ;  STAGE 6  event hook: targeting and items
 ; ###########################################################################
@@ -4398,6 +4444,32 @@ sub st_s6
   gosub st_c617
   gosub st_c618
   gosub st_c619
+  gosub st_c620
+return
+
+; scanprops on the test weapon: #FindProp is event Property's text
+sub st_c620
+  gosub st_case 6.20 scanprops_on_a_test_item
+  if %st_run = 0
+    return
+  gosub st_ensure_dagger
+  if %st_dagger = N/A
+  {
+    gosub st_skip 6.20 scanprops no_test_weapon
+    return
+  }
+  finditem %st_dagger
+  if #FindCnt < 1
+  {
+    gosub st_skip 6.20 scanprops the_test_weapon_is_not_found
+    return
+  }
+  scanprops
+  set %st_fp #FindProp
+  event property %st_dagger
+  set %st_a %st_fp
+  set %st_e #Property
+  gosub st_eq 6.20.same FindProp_of_the_test_weapon_equals_event_Property %fx_scanprops
 return
 
 ; target returns at once with a cursor up and waits its timeout without; macros 13 and 14 use a skill

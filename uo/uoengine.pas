@@ -10,7 +10,7 @@ interface
 uses
   uoclidata, stack, tables, wearables, tiles, uopfile, uoscanver, uoselector, 
   uovariables, uocommands, uoevents, uodef, uowrap, walkrules, walkmap, 
-  pathplan, walklive, pathwalk, uogumpreply;
+  pathplan, walklive, pathwalk, uogumpreply, uoprops, uopropscan;
 
 implementation
 

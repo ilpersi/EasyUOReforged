@@ -15,7 +15,7 @@
         <CompilerPath Value="$(CompPath)"/>
       </Other>
     </CompilerOptions>
-    <Files Count="19">
+    <Files Count="21">
       <Item1>
         <Filename Value="uoclidata.pas"/>
         <UnitName Value="uoclidata"/>
@@ -92,6 +92,14 @@
         <Filename Value="uogumpreply.pas"/>
         <UnitName Value="uogumpreply"/>
       </Item19>
+      <Item20>
+        <Filename Value="uoprops.pas"/>
+        <UnitName Value="uoprops"/>
+      </Item20>
+      <Item21>
+        <Filename Value="uopropscan.pas"/>
+        <UnitName Value="uopropscan"/>
+      </Item21>
     </Files>
     <i18n>
       <EnableI18N LFM="False"/>

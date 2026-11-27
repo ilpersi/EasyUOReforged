@@ -245,6 +245,11 @@ C74511FFFFFFFFEB1133F6C74511FFFFFFFFEB110FBE05111111118B0D11111111 ; 11; +29; C 
 C7451100000000B8111111118B15111111118B72088A0E3A08 ; 11; +14; C ; +00; {CLILOC}
 566A008BF18B0D111111115256E8111111118BC65EC3 ; 11; +07; C ; +00; {CLILOC}
 
+// Item properties (scanprops). The tooltip cache map object (its head pointer first), next to the property check:
+// mov esi,[found node]; cmp esi,[CACHE]; je; cmp dword [esi+14h],0; je. 7.0.117.31 $020AA594, 7.0.118.132 $021195C4,
+// 7.0.119.0 $022F8FD8.
+8B303B35111111110F8411111111837E14000F84 ; 11; +04; C ; +00; {PROPCACHE}
+
 // Buff bar (ScanBuffs). Global holding the head node of the buff-timer std::map, read in CBuffIconsGump::GetToolTipString
 // just before the truncated time-left value is formatted.
 A111111111C645FC2E8B4DA03BC8740B ; 11; +01; C ; +00; {BUFFTIMERS}

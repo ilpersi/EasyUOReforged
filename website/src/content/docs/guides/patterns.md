@@ -77,6 +77,26 @@ if #FindCnt > 0
 halt
 ```
 
+## Read the properties of many items
+
+[`scanprops`](/commands/scanprops/) reads the tooltips of every match at once; then
+[`#FindProp`](/variables/findprop/) follows `#FindIndex` like `#FindID`. It is much faster than an
+[`event property`](/commands/event/property/) per item, which waits for the client each time.
+
+```euo
+finditem * C_ , #BackpackID
+scanprops
+if #FindCnt > 0
+{
+  for #FindIndex 1 #FindCnt
+  {
+    if Exceptional in #FindProp
+      log #FindID is exceptional
+  }
+}
+halt
+```
+
 ## Target something
 
 Wait for the target cursor with [`target`](/commands/target/), check that it came, say what to target and run
