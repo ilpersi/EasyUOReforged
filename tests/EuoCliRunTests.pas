@@ -497,10 +497,10 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-// A client text (#Property, the journal) holds an accented letter as its one Latin-1 byte. A
-// script from standard input keeps its bytes, so it stands in for one here, with no client.
-// The run's own text keeps the byte; EUOCli.lpr prints everything through EuoUtf8Text, so
-// what a UTF-8 reader gets (PowerShell, an agent over MCP) is the letter, not U+FFFD.
+// A script from standard input that is not UTF-8 (here Windows-1252: "è" is the byte E8, "°" B0)
+// is read as Windows-1252, as a script file is (EuoTextEncoding.ScriptTextToUtf8, 2026-11-27;
+// before, stdin kept its bytes). So the run's own text is UTF-8, and what a UTF-8 reader gets
+// (PowerShell, an agent over MCP) is the letter, not U+FFFD.
 procedure TEuoCliRunTests.TestLatin1TextPrintsAsUtf8;
 var
   List : TList;
@@ -508,14 +508,17 @@ var
   Obj  : TJSONData;
 begin
   AssertEquals(CLI_OK,Run('run|-','log Spada '#$E8' 5'#$B0+LineEnding+'halt'+LineEnding));
-  AssertEquals('Reforged''s own text is unchanged','[1] log: Spada '#$E8' 5'#$B0,Output[1]);
+  AssertEquals('the run''s text is UTF-8','[1] log: Spada '#$C3#$A8' 5'#$C2#$B0,Output[1]);
   Line:=EuoUtf8Text(Output[1]);
   AssertEquals('printed as UTF-8','[1] log: Spada '#$C3#$A8' 5'#$C2#$B0,Line);
+
+  AssertEquals(CLI_OK,Run('run|-','log Spada '#$C3#$A8+LineEnding+'halt'+LineEnding));
+  AssertEquals('UTF-8 stdin stays as it is','[1] log: Spada '#$C3#$A8,Output[1]);
 
   AssertEquals(CLI_OK,Run('run|-|--json','log Spada '#$E8' 5'#$B0+LineEnding+'halt'+LineEnding));
   List:=Events;
   try
-    AssertEquals('Reforged''s own text is unchanged','Spada '#$E8' 5'#$B0,
+    AssertEquals('the run''s text is UTF-8','Spada '#$C3#$A8' 5'#$C2#$B0,
       String(EventOf(List,'log').Get('text','')));
   finally
     FreeEvents(List);

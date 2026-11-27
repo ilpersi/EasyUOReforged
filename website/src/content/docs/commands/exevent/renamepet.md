@@ -8,6 +8,7 @@ needsClient: true
 related: ["FindItem"]
 aliases: ["rename pet"]
 dll: RenamePet
+changed: true
 source: wiki
 ---
 
@@ -23,3 +24,9 @@ if #FindCnt > 0
   exevent RenamePet #FindID Buttercup
 halt
 ```
+
+## Reforged notes
+
+- The name goes to the server as one byte per letter (Latin-1, which is how the server reads it), converted from the
+  script's UTF-8 text. Any other letter arrives as `?`. See
+  [Letters with accents](/language/variables/#letters-with-accents).

@@ -7,6 +7,7 @@ syntax: "setuotitle {title}"
 needsClient: true
 related: ["GetUOTitle", "#CliTitle"]
 aliases: ["window title", "rename window"]
+changed: true
 source: wiki
 ---
 
@@ -24,3 +25,9 @@ for display") if they overwrite your title.
 setuotitle Mule - #CharName
 halt
 ```
+
+## Reforged notes
+
+- The title is set through Windows' Unicode call from the script's UTF-8 text, so every letter shows as itself.
+  EasyUO 1.5 used the Windows code page, where a letter outside it showed as `?`. See
+  [Letters with accents](/language/variables/#letters-with-accents).

@@ -78,6 +78,7 @@ type
 
     procedure TestStrCommandLenUpperLowerLeftRightMid;
     procedure TestStrOriginalOperationsUnchanged;
+    procedure TestStrCountsLetters;
     procedure TestStrReplace;
     procedure TestStrReplaceWithNothing;
     procedure TestStrReplaceMissingParametersAndGlue;
@@ -906,6 +907,56 @@ begin
   AssertEquals('N/A', Interp.GetVar('%noText'));
   AssertEquals('N/A', Interp.GetVar('%noCount'));
   AssertEquals('N/A', Interp.GetVar('%unknown'));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// STR counts letters (EuoTextEncoding, 2026-11-27): in UTF-8 "è" is two bytes, ’ three and an
+// emoji four, and each is one position, as "è" was in EasyUO 1.5. A byte that is not UTF-8 is one
+// letter, so one-byte text counts as before.
+procedure TEuoInterpreterTests.TestStrCountsLetters;
+const
+  E = #$C3#$A8;              // è
+  Q = #$E2#$80#$99;          // ’
+  F = #$F0#$9F#$98#$80;      // an emoji
+begin
+  PlayScript(
+    'STR LEN M'+E+'rlin' + #13#10 + 'SET %len #StrRes' + #13#10 +
+    'STR POS M'+E+'rlin r' + #13#10 + 'SET %pos #StrRes' + #13#10 +
+    'STR POS M'+E+'rlin RL' + #13#10 + 'SET %posCase #StrRes' + #13#10 +
+    'STR LEFT M'+E+'rlin 2' + #13#10 + 'SET %left #StrRes' + #13#10 +
+    'STR RIGHT M'+E+'rlin 5' + #13#10 + 'SET %right #StrRes' + #13#10 +
+    'STR MID M'+E+'rlin 3 3' + #13#10 + 'SET %mid #StrRes' + #13#10 +
+    'STR DEL M'+E+'rlin 2 1' + #13#10 + 'SET %del #StrRes' + #13#10 +
+    'STR INS M'+E+'rlin x 3' + #13#10 + 'SET %ins #StrRes' + #13#10 +
+    'STR COUNT '+E+'a'+E+'a'+E+' '+E + #13#10 + 'SET %count #StrRes' + #13#10 +
+    'STR POS '+E+'a'+E+'a'+E+' '+E+' 2' + #13#10 + 'SET %posN #StrRes' + #13#10 +
+    'STR LEN a'+Q+'b' + #13#10 + 'SET %len3 #StrRes' + #13#10 +
+    'STR MID a'+Q+'b 2 1' + #13#10 + 'SET %mid3 #StrRes' + #13#10 +
+    'STR LEN x'+F+'y' + #13#10 + 'SET %len4 #StrRes' + #13#10 +
+    'STR LEFT x'+F+'y 2' + #13#10 + 'SET %left4 #StrRes' + #13#10 +
+    'STR TRIM '+E+E+'ab'+E+' '+E + #13#10 + 'SET %trim #StrRes' + #13#10 +
+    'STR TRIM '#$C3#$A9'x'#$C3#$A9' '+E + #13#10 + 'SET %trimOther #StrRes' + #13#10 +
+    'STR LEN a'#$E8'b' + #13#10 + 'SET %lenByte #StrRes' + #13#10 +
+    'STR LEFT a'#$E8'b 2' + #13#10 + 'SET %leftByte #StrRes' + #13#10 +
+    'HALT');
+  AssertEquals('len','6',Interp.GetVar('%len'));
+  AssertEquals('pos','3',Interp.GetVar('%pos'));
+  AssertEquals('pos ignores case','3',Interp.GetVar('%posCase'));
+  AssertEquals('left','M'+E,Interp.GetVar('%left'));
+  AssertEquals('right',E+'rlin',Interp.GetVar('%right'));
+  AssertEquals('mid','rli',Interp.GetVar('%mid'));
+  AssertEquals('del','Mrlin',Interp.GetVar('%del'));
+  AssertEquals('ins','M'+E+'xrlin',Interp.GetVar('%ins'));
+  AssertEquals('count','3',Interp.GetVar('%count'));
+  AssertEquals('pos of the 2nd','3',Interp.GetVar('%posN'));
+  AssertEquals('a 3-byte letter','3',Interp.GetVar('%len3'));
+  AssertEquals('mid of a 3-byte letter',Q,Interp.GetVar('%mid3'));
+  AssertEquals('a 4-byte letter','3',Interp.GetVar('%len4'));
+  AssertEquals('left with a 4-byte letter','x'+F,Interp.GetVar('%left4'));
+  AssertEquals('trim whole letters','ab',Interp.GetVar('%trim'));
+  AssertEquals('trim never cuts another letter',#$C3#$A9'x'#$C3#$A9,Interp.GetVar('%trimOther'));
+  AssertEquals('a byte that is not UTF-8 is one letter','3',Interp.GetVar('%lenByte'));
+  AssertEquals('left with such a byte','a'#$E8,Interp.GetVar('%leftByte'));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -9,6 +9,7 @@ needsClient: true
 related: ["#CharID", "#Shard"]
 aliases: ["name", "character name"]
 dll: CharName
+changed: true
 source: wiki
 ---
 
@@ -23,3 +24,9 @@ If it reads `N/A`, open the status window once, by hand or with `event Macro 8 2
 display ok My name is #CharName
 halt
 ```
+
+## Reforged notes
+
+- Its text is UTF-8, as all of a script's text in Reforged: a letter with an accent matches the same letter written
+  in the script, and [`str`](/commands/str/) counts it as one letter, as in EasyUO 1.5. See
+  [Letters with accents](/language/variables/#letters-with-accents).

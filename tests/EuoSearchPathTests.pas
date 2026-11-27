@@ -38,6 +38,7 @@ type
     procedure TestSqlExtensions;
     procedure TestEnvFoldersComeBetweenTheTwoLists;
     procedure TestCallUsesTheFolders;
+    procedure TestCallReadsWindows1252AsUtf8;
   end;
 
 implementation
@@ -360,6 +361,49 @@ begin
     Interp.SearchPathLast:='';
     SetEnv('');
     AssertEquals('none',CallOf(Tag+'both'));
+  finally
+    Interp.Free;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// A sub-script saved as Windows-1252 ("è" is the byte E8) is read as the editor reads it, so its
+// "è" is the UTF-8 C3 A8 a literal in the calling script holds (EuoTextEncoding, 2026-11-27; CALL
+// used to keep the file's bytes). A UTF-8 file stays as it is.
+procedure TEuoSearchPathTests.TestCallReadsWindows1252AsUtf8;
+var
+  Interp : TEuoInterpreter;
+  Tag    : String;
+
+  procedure Play(const Script : String);
+  var
+    Cnt : Integer;
+  begin
+    Interp.ScrList.Scr.Text:=Script;
+    Interp.NextLine:=0;
+    Interp.ResInt:=RES_OK;
+    Cnt:=0;
+    while (Interp.ResInt<>RES_STOP) and (Interp.ResInt<>RES_CLOSE) and (Cnt<200) do
+    begin
+      Interp.PlayLine;
+      Inc(Cnt);
+    end;
+  end;
+
+begin
+  Tag:='enc'+IntToStr(GetProcessID);
+  MakeFile('a\'+Tag+'ansi.euo','set %ansi '#$E8+LineEnding+'exit');
+  MakeFile('a\'+Tag+'utf8.euo','set %utf8 '#$C3#$A8+LineEnding+'exit');
+
+  Interp:=TEuoInterpreter.Create(0);
+  try
+    Interp.SearchPath:=Dir+'a';
+    Play('set %lit '#$C3#$A8+LineEnding+'call '+Tag+'ansi'+LineEnding+'call '+Tag+'utf8'+LineEnding+
+         'str len %ansi'+LineEnding+'set %len #strres'+LineEnding+'halt');
+    AssertEquals('the literal',#$C3#$A8,Interp.GetVar('%lit'));
+    AssertEquals('the Windows-1252 file''s è is UTF-8',Interp.GetVar('%lit'),Interp.GetVar('%ansi'));
+    AssertEquals('the UTF-8 file''s è stays',Interp.GetVar('%lit'),Interp.GetVar('%utf8'));
+    AssertEquals('one letter','1',Interp.GetVar('%len'));
   finally
     Interp.Free;
   end;

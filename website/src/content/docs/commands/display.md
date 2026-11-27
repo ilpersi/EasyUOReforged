@@ -39,3 +39,5 @@ halt
 
 - The message box's title is *Reforged Message* instead of EasyUO 1.5's *EUO Message*. The buttons, the
   text and `#DispRes` are unchanged. A program that looks for the box by its title has to look for the new one.
+- The box shows every letter of the message: Reforged opens the Unicode message box with the script's UTF-8 text.
+  See [Letters with accents](/language/variables/#letters-with-accents).

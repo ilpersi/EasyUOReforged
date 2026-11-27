@@ -129,3 +129,6 @@ halt
   in `EUOPATH` and, under `EUOCli`, in the `--euopath` folders. `#CurPath` is still searched first and in
   full, so a script that worked before loads the same file.
 - A `call` whose file was missing did nothing before. If the file is now in a search folder, it runs.
+- A file that is not UTF-8, such as an old script saved in the Windows encoding, is read as Windows-1252, as the
+  editor reads it, so its letters with accents match the calling script's. See
+  [Letters with accents](/language/variables/#letters-with-accents).

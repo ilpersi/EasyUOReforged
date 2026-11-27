@@ -9,7 +9,7 @@ unit scriptfile;
 {$mode delphi}{$H+}
 
 interface
-uses SysUtils, Classes, LazUTF8, LConvEncoding;
+uses SysUtils, Classes, EuoTextEncoding;
 
 function LoadScriptFileAsUTF8(const FN : String) : String;
 
@@ -46,8 +46,9 @@ begin
     FS.Free;
   end;
 
-  if FindInvalidUTF8Codepoint(PChar(Result),Length(Result))>=0 then
-    Result:=CP1252ToUTF8(Result);
+  // The rule lives in EuoTextEncoding since 2026-11-27, so CALL and EUOCli's stdin read text
+  // the same way.
+  Result:=ScriptTextToUtf8(Result);
 end;
 
 end.

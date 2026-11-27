@@ -17,6 +17,10 @@ unit euoutput;
   EuoUtf8Text makes the text valid UTF-8 for showing or printing; the panel's lines go through
   it (EuoOutputLine) and so does everything EUOCli.lpr writes. The script's own text is never
   changed: variables and comparisons keep their bytes.
+
+  Since the interpreter converts client text to UTF-8 (EuoTextEncoding, 2026-11-27) nearly
+  everything arrives here as UTF-8 already; this stays for what still may not (a SEND reply, an
+  SQL value an older run stored).
 }
 
 {$mode delphi}{$H+}
@@ -47,38 +51,8 @@ procedure EuoAppendOutput(Dest, NewLines : TStrings; MaxLines : Integer = OUTPUT
 
 implementation
 
-////////////////////////////////////////////////////////////////////////////////
-// The length of the well-formed UTF-8 sequence that starts at S[i] (RFC 3629: no overlong
-// forms, no UTF-16 surrogates, nothing above U+10FFFF), or 0 when none starts there.
-// LazUTF8's UTF8CodepointStrictSize accepts the overlong and surrogate forms, which a UTF-8
-// reader then rejects, so it is not used here.
-function Utf8SeqLen(const S : String; i : Integer) : Integer;
-var
-  B0, B1 : Byte;
-  Left   : Integer;
-
-  function Cont(K : Integer) : Boolean;
-  begin
-    Result:=(K<Left) and ((Byte(S[i+K]) and $C0)=$80);
-  end;
-
-begin
-  B0:=Byte(S[i]);
-  if B0<$80 then Exit(1);
-  Result:=0;
-  Left:=Length(S)-i+1;
-  if Left<2 then Exit;
-  B1:=Byte(S[i+1]);
-  case B0 of
-    $C2..$DF          : if Cont(1) then Result:=2;
-    $E0               : if (B1>=$A0) and (B1<=$BF) and Cont(2) then Result:=3;
-    $E1..$EC,$EE,$EF  : if Cont(1) and Cont(2) then Result:=3;
-    $ED               : if (B1>=$80) and (B1<=$9F) and Cont(2) then Result:=3;
-    $F0               : if (B1>=$90) and (B1<=$BF) and Cont(2) and Cont(3) then Result:=4;
-    $F1..$F3          : if Cont(1) and Cont(2) and Cont(3) then Result:=4;
-    $F4               : if (B1>=$80) and (B1<=$8F) and Cont(2) and Cont(3) then Result:=4;
-  end;
-end;
+uses
+  EuoTextEncoding;   // Utf8SeqLen, the strict UTF-8 scanner STR's letters use too
 
 ////////////////////////////////////////////////////////////////////////////////
 function EuoUtf8Text(const S : String) : String;

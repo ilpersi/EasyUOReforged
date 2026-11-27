@@ -147,6 +147,7 @@ Never run: `event macro 20` (quit game), anything that logs out, closes or start
 | 5.22 | exevent GumpReply with no such gump |
 | 5.23 | exevent GumpReply button 1 (deletes the two daggers) |
 | 5.24 | Your own click is recorded (#GumpReplyCnt): the panel asks you to click a button in the game, then Pass; SKIP in an unattended run |
+| 5.25 | Letters with accents in the client's texts: event SysMessage with "Città", read back by #SysMsg, findjournal and #Journal; str len counts the letter as one |
 | 6.01 | target and a skill's cursor |
 | 6.02 | Writing #TargCurs installs a target handler |
 | 6.03 | Test weapon made through the target cursor |

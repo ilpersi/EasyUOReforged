@@ -8,6 +8,7 @@ needsClient: true
 related: ["event ExMsg", "#SysMsgCol", "Display"]
 aliases: ["system message", "show message"]
 dll: SysMessage
+changed: true
 source: wiki
 ---
 
@@ -26,3 +27,9 @@ known, it does nothing.
 event SysMessage Your character name is #CharName
 halt
 ```
+
+## Reforged notes
+
+- The client takes one byte per letter here, so the script's UTF-8 text is sent as Latin-1, which is what EasyUO 1.5
+  sent for Western European letters. Any other letter arrives as `?`. See
+  [Letters with accents](/language/variables/#letters-with-accents).

@@ -15,7 +15,7 @@
         <CompilerPath Value="$(CompPath)"/>
       </Other>
     </CompilerOptions>
-    <Files Count="33">
+    <Files Count="34">
       <Item1>
         <Filename Value="EuoConversion.pas"/>
         <UnitName Value="EuoConversion"/>
@@ -148,6 +148,10 @@
         <Filename Value="EuoLists.pas"/>
         <UnitName Value="EuoLists"/>
       </Item33>
+      <Item34>
+        <Filename Value="EuoTextEncoding.pas"/>
+        <UnitName Value="EuoTextEncoding"/>
+      </Item34>
     </Files>
     <i18n>
       <EnableI18N LFM="False"/>

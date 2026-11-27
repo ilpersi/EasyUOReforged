@@ -39,12 +39,19 @@ unit EuoExpression;
     ("broken bar" in the source file's original codepage) -- NOT the ASCII string
     "||" a second time. Written here as Chr(166)+Chr(166) to remove any doubt
     about source-file byte encoding surviving the port, per the migration plan.
+    Port addition (2026-11-27): Reforged's script text is UTF-8, where "¦" is the two
+    bytes C2 A6, so "¦¦" in the editor or an EUOCli file is #$C2#$A6#$C2#$A6. That form
+    is accepted too (BROKEN_BAR_OR_UTF8); the one-byte form stays for raw text.
 }
 
 {$mode delphi}{$H+}
 
 interface
 uses EuoTokens;
+
+const
+  // "¦¦" written in UTF-8 (each "¦" is C2 A6), the || alias as the editor saves it.
+  BROKEN_BAR_OR_UTF8 = #$C2#$A6#$C2#$A6;
 
 // Evaluates ParList starting at token index FP through the end of the list (or up
 // to the next unconsumed ')' the caller is responsible for having balanced),
@@ -233,7 +240,8 @@ begin
     begin
       Inc(Cnt);
 
-      if (ParList[Cnt].StrU='||') or (ParList[Cnt].StrU=Chr(166)+Chr(166)) then
+      if (ParList[Cnt].StrU='||') or (ParList[Cnt].StrU=Chr(166)+Chr(166)) or
+         (ParList[Cnt].StrU=BROKEN_BAR_OR_UTF8) then
         ParList[Cnt+1].Int:=ParList[Cnt-1].Int or ParList[Cnt+1].Int
       else Continue;
 

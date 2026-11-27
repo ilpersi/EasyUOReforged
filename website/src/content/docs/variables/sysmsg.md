@@ -9,6 +9,7 @@ needsClient: true
 related: ["#Journal", "ScanJournal"]
 aliases: ["system message"]
 dll: SysMsg
+changed: true
 source: wiki
 ---
 
@@ -22,3 +23,9 @@ if too_far_away in #SysMsg
   display ok Move closer.
 halt
 ```
+
+## Reforged notes
+
+- Its text is UTF-8, as all of a script's text in Reforged: a letter with an accent matches the same letter written
+  in the script, and [`str`](/commands/str/) counts it as one letter, as in EasyUO 1.5. See
+  [Letters with accents](/language/variables/#letters-with-accents).

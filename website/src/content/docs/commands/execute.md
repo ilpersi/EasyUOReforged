@@ -6,6 +6,7 @@ category: misc
 syntax: "execute {file} [arguments...]"
 related: ["Call", "Send", "Shutdown", "LogFile"]
 aliases: ["run program", "open file", "start"]
+changed: true
 source: wiki
 ---
 
@@ -50,3 +51,9 @@ logfile open notes C:\EasyUO\log.txt
 logfile write notes %task #CharPosX #CharPosY
 halt
 ```
+
+## Reforged notes
+
+- The program and its parameters go to Windows as Unicode, decoded from the script's UTF-8 text, so a path or a text
+  with any letter works. EasyUO 1.5 passed them in the Windows code page. See
+  [Letters with accents](/language/variables/#letters-with-accents).

@@ -8,6 +8,7 @@ needsClient: true
 sets: ["#StrRes"]
 related: ["SetUOTitle", "#CliTitle"]
 aliases: ["window title"]
+changed: true
 source: wiki
 ---
 
@@ -21,3 +22,9 @@ getuotitle
 display ok The window is called #StrRes
 halt
 ```
+
+## Reforged notes
+
+- The title is read through Windows' Unicode call, in UTF-8, so every letter of it reads as itself. EasyUO 1.5 used
+  the Windows code page, where a letter outside it read as `?`. See
+  [Letters with accents](/language/variables/#letters-with-accents).

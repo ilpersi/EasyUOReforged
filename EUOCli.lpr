@@ -5,10 +5,11 @@ program EUOCli;
   agents (docs\agent-support.md). A console program: it reads its arguments and standard
   input, hands them to tools\EUOCli\climain.pas and prints what comes back, as UTF-8 bytes
   whatever the console's code page is, so that a program reading its output gets the same
-  text on every machine. A script's text is not all UTF-8: the client's texts (#Property, the
-  journal, #SysMsg) keep one byte per letter, so WriteStdOut passes everything it writes through
-  easyuo\euoutput.pas's EuoUtf8Text, which the editor's Output panel uses too. Without it an
-  accented letter went out as a byte a UTF-8 reader replaces with U+FFFD.
+  text on every machine. A script's text is UTF-8 (the interpreter converts the client's texts
+  as it reads them, parser\EuoTextEncoding.pas), but not every text is sure to be (a SEND reply),
+  so WriteStdOut passes everything it writes through easyuo\euoutput.pas's EuoUtf8Text, which
+  the editor's Output panel uses too. Without it such a letter would go out as a byte a UTF-8
+  reader replaces with U+FFFD.
 
   `Interfaces` is in the uses clause because the interpreter this program creates links the
   MENU command's LCL controls (as tests\RunTests.lpr does); no window is ever made here.

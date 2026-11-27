@@ -16,6 +16,8 @@ unit EuoStrOps;
     such field. A separator at either end or a doubled one makes an empty field, so a text always
     has STR COUNT + 1 fields. An empty separator finds nothing, so the text is its only field.
   - StrTrimChars: Text without any character of Chars at either end. Empty Chars strips nothing.
+    A character is a letter (EuoTextEncoding, 2026-11-27): "é" in Chars strips "é", and never half
+    of another letter that shares a byte with it.
 
   Port addition (STR URLENCODE, JSONESCAPE), for the data SEND's new forms carry. Both work on bytes,
   so a UTF-8 text stays UTF-8, and neither cares about case:
@@ -42,7 +44,7 @@ unit EuoStrOps;
 interface
 
 uses
-  SysUtils, StrUtils, DateUtils;
+  SysUtils, StrUtils, DateUtils, EuoTextEncoding;
 
 const
   STR_NO_FIELD     = 'N/A';
@@ -142,16 +144,42 @@ var
   CharsU : String;
   First  : Integer;
   Last   : Integer;
+  TL, CL : TLetterStarts;
+
+  // Letter K (0-based) of TextU is one of CharsU's letters.
+  function IsTrimmed(K : Integer) : Boolean;
+  var
+    i     : Integer;
+    Ltr   : String;
+  begin
+    Ltr:=Copy(TextU,TL[K],TL[K+1]-TL[K]);
+    for i:=0 to High(CL)-1 do
+      if Copy(CharsU,CL[i],CL[i+1]-CL[i])=Ltr then Exit(True);
+    Result:=False;
+  end;
+
 begin
   TextU:=UpperCase(Text);
   CharsU:=UpperCase(Chars);
 
-  First:=1;
-  Last:=Length(Text);
-  while (First<=Last) and (Pos(TextU[First],CharsU)>0) do Inc(First);
-  while (Last>=First) and (Pos(TextU[Last],CharsU)>0) do Dec(Last);
+  if IsAsciiText(Text) then
+  begin
+    // One byte per letter: the original byte loop, exactly.
+    First:=1;
+    Last:=Length(Text);
+    while (First<=Last) and (Pos(TextU[First],CharsU)>0) do Inc(First);
+    while (Last>=First) and (Pos(TextU[Last],CharsU)>0) do Dec(Last);
+    Result:=Copy(Text,First,Last-First+1);
+    Exit;
+  end;
 
-  Result:=Copy(Text,First,Last-First+1);
+  TL:=LetterStarts(TextU);
+  CL:=LetterStarts(CharsU);
+  First:=0;
+  Last:=High(TL)-1;
+  while (First<=Last) and IsTrimmed(First) do Inc(First);
+  while (Last>=First) and IsTrimmed(Last) do Dec(Last);
+  Result:=Copy(Text,TL[First],TL[Last+1]-TL[First]);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

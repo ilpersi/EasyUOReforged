@@ -143,7 +143,7 @@ put it there.
 
 | Unit | What it holds |
 |---|---|
-| `EUOCli.lpr` | Reads the arguments and standard input, prints what comes back as UTF-8 bytes, ends the process. Nothing else. Everything it prints goes through `easyuo/euoutput.pas`'s `EuoUtf8Text`, as the editor's Output panel does: client texts keep one byte per letter, and that turns them into UTF-8. |
+| `EUOCli.lpr` | Reads the arguments and standard input, prints what comes back as UTF-8 bytes, ends the process. Nothing else. Everything it prints goes through `easyuo/euoutput.pas`'s `EuoUtf8Text`, as the editor's Output panel does: the interpreter's text is UTF-8 (client texts are converted as they are read, `parser/EuoTextEncoding.pas`), and anything that still is not (a `send` reply) is read as Windows-1252. |
 | `tools/EUOCli/climain.pas` | `RunCli`: takes the command line apart and calls the command's unit. `help` and `version`. |
 | `clicheck.pas` | `check`: runs `TEuoLinter` and prints its findings as text or JSON. |
 | `clisession.pas` | `TRunSession`: one run of a script on a `TExecutor`, with its rules. |

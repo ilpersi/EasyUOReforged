@@ -162,7 +162,7 @@ uses
   EuoScriptWords,
   uotypes, access, ReforgedVersion, uoselector, uovariables, uocommands, uoevents, EuoLock,
   EuoSql, walkrules, walkmap, pathplan, walklive, pathwalk, EuoJournalSearch, EuoStrOps, EuoItemMove,
-  EuoGumps, uogumpreply, EuoLogFile, EuoHttp, EuoSearchPath, EuoTimers, EuoLists;
+  EuoGumps, uogumpreply, EuoLogFile, EuoHttp, EuoSearchPath, EuoTimers, EuoLists, EuoTextEncoding;
 
 const
   RES_OK    = 0;
@@ -365,6 +365,7 @@ type
     procedure    DeleteJournalProc;
     procedure    ScanJournalProc;
     procedure    FindJournalProc;
+    function     JournalEntryUtf8(Index : Cardinal; out Txt : String; out Col : Cardinal) : Boolean;
     procedure    MoveItemProc;
     procedure    ScanBuffsProc;
     procedure    ScanGumpsProc;
@@ -1286,7 +1287,9 @@ begin
     011: if CharGhost then Result:='yes' else Result:='no';
     012: Result:=            CharStatus    ;
     013: Result:=IntToStr   (CharDir      );
-    014: Result:={UScore}   (CharName     );
+    // Port change (EuoTextEncoding): the client's texts keep one byte per letter (Latin-1); a script's
+    // text is UTF-8, so they come in as UTF-8 too. Here and at 040, 056, 075, 084, 098.
+    014: Result:=Latin1ToUtf8(CharName    );
     015: Result:=IntToStr   (Sex          );
     016: Result:=IntToStr   (Str          );
     017: Result:=IntToStr   (MaxWeight    );
@@ -1312,7 +1315,7 @@ begin
     037: Result:=IntToStr   (MaxDmg       );
     038: Result:=IntToStr   (MinDmg       );
     039: Result:=IntToStr   (TP           );
-    040: Result:={UScore}   (Shard        );
+    040: Result:=Latin1ToUtf8(Shard       );
     041: begin
            GetCont(0);
            Result:=IntToStr(ContSizeX)+'_'+IntToStr(ContSizeY);
@@ -1346,7 +1349,7 @@ begin
     053: Result:=CardToSys26(LLiftedID    );
     054: Result:=CardToSys26(LLiftedType  );
     055: Result:=IntToStr   (LLiftedKind  );
-    056: Result:=UScore     (SysMsg       );
+    056: Result:=UScore     (Latin1ToUtf8(SysMsg));
     057: begin
            GetSkill(SkillStr);
            if SkillBool then Result:=IntToStr(SkillReal)
@@ -1388,7 +1391,7 @@ begin
          end;
     074: Result:=IntToStr   (PixCol       );
     075: begin
-           Result:=UScore   (JournalStr   );
+           Result:=UScore   (Latin1ToUtf8(JournalStr));
            VarRes:=Result<>'';
          end;
     076: Result:=IntToStr   (JournalCol   );
@@ -1398,7 +1401,7 @@ begin
     081: Result:=CardToSys26(ShopID       );
     082: Result:=IntToStr   (ShopMax      );
     083: Result:=IntToStr   (ShopPrice    );
-    084: Result:=UScore     (ShopName     );
+    084: Result:=UScore     (Latin1ToUtf8(ShopName));
     085: Result:=IntToStr   (TileCount    );
     086: Result:=IntToStr   (TileType     );
     087: Result:=IntToStr   (TileZ        );
@@ -1409,9 +1412,9 @@ begin
            Result:=IntToStr (JIndex       );
          end;
     098: begin
-           Result:=EventObj.PropStr1+'$';
+           Result:=Latin1ToUtf8(EventObj.PropStr1)+'$';
            if EventObj.PropStr2<>'' then
-             Result:=Result+EventObj.PropStr2+'$';
+             Result:=Result+Latin1ToUtf8(EventObj.PropStr2)+'$';
            Result:=ReplaceStr(Result,#13#10,'$');
          end;
     101: Result:=CardToSys26(BackpackID   );
@@ -1509,7 +1512,7 @@ begin
     523: Result:=IntToStr   (FindInd      );
     524: Result:=IntToStr(FindModX)+'_'+IntToStr(FindModY);
     531: Result:=IntToStr   (SysMsgCol    );
-    532: Result:=CliTitle;
+    532: Result:=StdCmd.GetCliTitle(UOSel.HWnd);   // port change: the Unicode title, as UTF-8
     533: begin
            BuffRefresh;
            Result:=IntToStr(BuffPos);
@@ -1609,7 +1612,7 @@ begin
            LPC      :=i;
     530: CommObj.SendHeader:=Value;
     531: SysMsgCol:=i;
-    532: CliTitle:=Value;
+    532: StdCmd.SetCliTitle(UOSel.HWnd,Value);   // port change: UTF-8 text, Unicode title
     533: begin
            BuffSelect(i);
          end;
@@ -2420,6 +2423,10 @@ begin
 
   ScrList.AddCall(NextLine,sBuf);
   ScrList.Scr.LoadFromFile(sBuf);
+  // Port addition (EuoTextEncoding): a file that is not UTF-8 is read as Windows-1252, as the
+  // editor reads it, so its literals match the script's other texts.
+  if not IsAsciiText(ScrList.Scr.Text) then
+    ScrList.Scr.Text:=ScriptTextToUtf8(ScrList.Scr.Text);
   NextLine:=0;
 
   SetVar('%0',IntToStr(ParList.Count-2));
@@ -3507,6 +3514,11 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Port change (EuoTextEncoding, 2026-11-27): LEN, POS, LEFT, RIGHT, COUNT, MID, INS and DEL count
+// letters, not bytes: the 1.5 code below, line for line, with LetterCount, LetterPos, LetterCopy,
+// LetterInsert and LetterDelete in place of Length, Pos, Copy, Insert and Delete. 1.5 held one byte
+// per letter, Reforged's text is UTF-8, so a byte count made "è" two positions and could cut it in
+// half. Text without a byte from $80 up gives exactly the old results (the RTL routines themselves).
 procedure TEuoInterpreter.StrProc;
 var
   Cnt1 : Integer;
@@ -3517,7 +3529,7 @@ begin
   if ParList.Count<3 then Exit;
 
   if ParList[1].StrU='LEN' then
-    StrRes:=IntToStr(Length(ParList[2].Str));
+    StrRes:=IntToStr(LetterCount(ParList[2].Str));
   if ParList[1].StrU='LOWER' then
     StrRes:=LowerCase(ParList[2].Str);
   if ParList[1].StrU='UPPER' then
@@ -3554,18 +3566,18 @@ begin
   if ParList.Count<4 then Exit;
 
   if ParList[1].StrU='POS' then
-    StrRes:=IntToStr(Pos(ParList[3].StrU,ParList[2].StrU));
+    StrRes:=IntToStr(LetterPos(ParList[3].StrU,ParList[2].StrU));
   if ParList[1].StrU='LEFT' then
     if ParList[3].CardValid then
-      StrRes:=Copy(ParList[2].Str,1,ParList[3].Int);
+      StrRes:=LetterCopy(ParList[2].Str,1,ParList[3].Int);
   if ParList[1].StrU='RIGHT' then
     if ParList[3].CardValid then
-      StrRes:=Copy(ParList[2].Str,Length(ParList[2].Str)-ParList[3].Int+1,$7FFFFFFF);
+      StrRes:=LetterCopy(ParList[2].Str,LetterCount(ParList[2].Str)-ParList[3].Int+1,$7FFFFFFF);
   Cnt1:=0;
   if ParList[1].StrU='COUNT' then
   repeat
-    Cnt2:=Pos(ParList[3].StrU,ParList[2].StrU);
-    Delete(ParList[2].StrU,1,Cnt2-1+Length(ParList[3].StrU));
+    Cnt2:=LetterPos(ParList[3].StrU,ParList[2].StrU);
+    LetterDelete(ParList[2].StrU,1,Cnt2-1+LetterCount(ParList[3].StrU));
     StrRes:=IntToStr(Cnt1);
     Inc(Cnt1);
   until Cnt2<1;
@@ -3598,29 +3610,29 @@ begin
       StrRes:=StrField(ParList[2].Str,ParList[3].Str,ParList[4].Int);
   if ParList[1].StrU='MID' then
     if ParList[3].CardValid and ParList[4].CardValid then
-      StrRes:=Copy(ParList[2].Str,ParList[3].Int,ParList[4].Int);
+      StrRes:=LetterCopy(ParList[2].Str,ParList[3].Int,ParList[4].Int);
   if ParList[1].StrU='INS' then
     if ParList[4].CardValid then
   begin
     StrRes:=ParList[2].Str;
-    Insert(ParList[3].Str,StrRes,ParList[4].Int);
+    LetterInsert(ParList[3].Str,StrRes,ParList[4].Int);
   end;
   if ParList[1].StrU='DEL' then
     if ParList[3].CardValid and ParList[4].CardValid then
   begin
     StrRes:=ParList[2].Str;
-    Delete(StrRes,ParList[3].Int,ParList[4].Int);
+    LetterDelete(StrRes,ParList[3].Int,ParList[4].Int);
   end;
   Cnt1:=0;
   if ParList[1].StrU='POS' then
     if (ParList[4].CardValid)and(ParList[4].Int<1000) then
   for Cnt3:=1 to ParList[4].Int do
   begin
-    Cnt2:=Pos(ParList[3].StrU,ParList[2].StrU)-1;
+    Cnt2:=LetterPos(ParList[3].StrU,ParList[2].StrU)-1;
     if Cnt2<0 then Cnt1:=0;
-    Delete(ParList[2].StrU,1,Cnt2+Length(ParList[3].StrU));
+    LetterDelete(ParList[2].StrU,1,Cnt2+LetterCount(ParList[3].StrU));
     StrRes:=IntToStr(Cnt1+Cnt2+1);
-    Cnt1:=Cnt1+Cnt2+Length(ParList[3].StrU);
+    Cnt1:=Cnt1+Cnt2+LetterCount(ParList[3].StrU);
   end;
 end;
 
@@ -4885,7 +4897,8 @@ begin
 
   if ParList[1].StrU='RENAMEPET' then
   begin
-    EventObj.ExEv_RenamePet(Sys26ToCard(ParList[2].Str),ParList[3].Str);
+    // Port change (EuoTextEncoding): the name field of the packet is Latin-1 (ModernUO reads it so).
+    EventObj.ExEv_RenamePet(Sys26ToCard(ParList[2].Str),Utf8ToLatin1(ParList[3].Str));
   end;
 
   if ParList[1].StrU='EQUIP' then
@@ -4911,8 +4924,10 @@ begin
   if ParList[1].StrU='DRAG' then
     EventObj.Drag(Sys26ToCard(ParList[2].Str));
 
+  // Port change (EuoTextEncoding): SYSMESSAGE and EXMSG hand the client 8-bit text, so the
+  // script's UTF-8 goes in as one byte per letter (Latin-1), as 1.5's text did.
   if ParList[1].StrU='SYSMESSAGE' then
-    EventObj.SysMessage(GetParStr(2),SysMsgCol);
+    EventObj.SysMessage(Utf8ToLatin1(GetParStr(2)),SysMsgCol);
 
   if ParList[1].StrU='MACRO' then
     if ParList[2].CardValid then
@@ -4955,7 +4970,7 @@ begin
   if ParList[1].StrU='EXMSG' then
     if ParList[3].CardValid and ParList[4].CardValid then
       EventObj.ExMsg(Sys26ToCard(ParList[2].Str),ParList[3].Int,
-        ParList[4].Int,ReplaceStr(GetParStr(5),'$',#13#10));
+        ParList[4].Int,Utf8ToLatin1(ReplaceStr(GetParStr(5),'$',#13#10)));
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -5200,7 +5215,7 @@ begin
     PausedMs:=0;
     repeat
       UpdateJournal;
-      Found:=JournalSearch(Since,JIndex,DJournal,UOCmd.JournalEntry,ColorAny,Color,Texts);
+      Found:=JournalSearch(Since,JIndex,DJournal,JournalEntryUtf8,ColorAny,Color,Texts);
       if Found>0 then Break;
       if GetTickCount64-Start-PausedMs>=QWord(Ticks)*50 then Break;
 
@@ -5215,6 +5230,15 @@ begin
     UOCmd.GetJournal(JIndex-Found);
   end
   else UOCmd.GetJournal(High(Cardinal));   // past the end: clears #Journal and #JColor
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (EuoTextEncoding): a journal line as FINDJOURNAL compares it, in UTF-8 like the
+// script's texts and like #Journal reads it.
+function TEuoInterpreter.JournalEntryUtf8(Index : Cardinal; out Txt : String; out Col : Cardinal) : Boolean;
+begin
+  Result:=UOCmd.JournalEntry(Index,Txt,Col);
+  Txt:=Latin1ToUtf8(Txt);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -5471,7 +5495,9 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 procedure TEuoInterpreter.MsgProc;
 begin
-  UOCmd.Msg(ReplaceStr(GetParStr(1),'$',#13));
+  // Port change (EuoTextEncoding): typed from UTF-8 with PostMessageW (was UOCmd.Msg, which posts
+  // each byte; uo.dll keeps that one).
+  StdCmd.TypeText(UOSel.HWnd,ReplaceStr(GetParStr(1),'$',#13));
   StdCmd.Wait(1*50,0);
 end;
 

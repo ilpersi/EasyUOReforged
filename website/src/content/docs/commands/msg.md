@@ -8,6 +8,7 @@ needsClient: true
 related: ["event Macro", "Key", "event SysMessage"]
 aliases: ["say", "type text", "speak"]
 dll: Msg
+changed: true
 source: wiki
 ---
 
@@ -109,3 +110,9 @@ return
 - To pace staff commands too, say them through the sub: `gosub say_paced [set_Str_100`.
 - [`str replace`](/commands/str/#replace-reforged) is new in EasyUO Reforged. For EasyUO 1.5, drop the
   `str replace` line and its `set`, and set `%say_text` before the `gosub`: `set %say_text Hello , #spc , there`.
+
+## Reforged notes
+
+- The text is typed from the script's UTF-8 text, one character at a time through Windows' Unicode call, so every
+  letter arrives as itself. EasyUO 1.5 typed the Windows code page's letters only. See
+  [Letters with accents](/language/variables/#letters-with-accents).

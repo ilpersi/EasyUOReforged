@@ -116,6 +116,12 @@ Reforged**, and the [command](/commands/) and [variable](/variables/) lists can 
 
 ## Changed behaviour
 
+- **Letters with accents** in a script match the same letters in the client's texts (`#Property`, `#Journal`,
+  `#SysMsg`, `#CharName`, `#Shard`, `#ShopItemName`, `#CliTitle`), and [`str`](/commands/str/) counts a letter
+  as one position however it is stored. Before, a script's `è` never equalled the client's `è`, and `str len`
+  of `è` was 2. Text sent to the client (`msg`, `setuotitle`, `event SysMessage`, …) and shown by `display`
+  keeps its letters too, and `call` reads an old Windows-encoded sub-script as the editor does. With plain
+  English text nothing changes. See [Letters with accents](/language/variables/#letters-with-accents).
 - **[`Call`](/commands/call/)** looks for a file it doesn't find in [`#CurPath`](/variables/curpath/) in more
   folders: the list of *Tools → Search Folders*, the `EUOPATH` environment variable and, under `EUOCli`, the
   `--euopath` folders. `#CurPath` is still searched first and in full, so a script loads the same file as

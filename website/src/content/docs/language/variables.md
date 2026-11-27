@@ -39,6 +39,41 @@ halt
 - Use a variable anywhere in a line and its value is put in its place before the command runs. The one
   exception is the variable [`set`](/commands/set/) and [`for`](/commands/for/) assign to.
 
+### Letters with accents
+
+A letter with an accent in a script is the same letter in what the script reads from the client:
+[`#Property`](/variables/property/), [`#Journal`](/variables/journal/), [`#SysMsg`](/variables/sysmsg/),
+[`#CharName`](/variables/charname/), [`#Shard`](/variables/shard/),
+[`#ShopItemName`](/variables/shopitemname/) and [`#CliTitle`](/variables/clititle/). So `in`, `=`,
+[`findjournal`](/commands/findjournal/) and [`waitfor`](/commands/waitfor/) find it, and
+[`str`](/commands/str/) counts it as one letter:
+
+```euo
+event Property #FindID
+if Qualità in #Property
+  display ok The item lists its quality.
+halt
+```
+
+```euo
+str len Qualità
+set %n #StrRes                 ; => %n = 7
+str right Qualità 1
+set %last #StrRes              ; => %last = à
+halt
+```
+
+- Text a script sends to the client keeps its letters too: [`msg`](/commands/msg/),
+  [`setuotitle`](/commands/setuotitle/) and [`execute`](/commands/execute/) send every letter.
+  [`event SysMessage`](/commands/event/sysmessage/), [`event ExMsg`](/commands/event/exmsg/) and
+  [`exevent RenamePet`](/commands/exevent/renamepet/) send one byte per letter, so a letter outside Western
+  European (`ł`, `ж`, `’`) arrives as `?`.
+- The client itself keeps only Western European letters in `#Property`, `#Journal` and `#SysMsg`: any other
+  letter (`ł`, `’`, `…`) reads as a different character there, as it did in EasyUO 1.5.
+- A sub-script saved in the old Windows encoding instead of UTF-8 is read by [`call`](/commands/call/) as the
+  editor reads it, so its letters match too.
+- [uo.dll](/dll/) is unchanged: its texts keep one byte per letter, as in EasyUO 1.5.
+
 ## Standard variables: `%`
 
 Standard variables are the everyday kind. They belong to the running script and are shared with scripts it

@@ -15,7 +15,8 @@ unit EuoStdCommands;
   compiling for real). Three genuine FPC-vs-Delphi differences, confirmed against
   FPC's actual RTL/package source, not guessed:
   - ShellExecuteEx(@Info) is ambiguous between FPC's A/W overloads for this
-    pointer type; called as the explicit ShellExecuteExA entry point instead.
+    pointer type; called as the explicit ShellExecuteExA entry point instead
+    (ShellExecuteExW since 2026-11-27, see Execute).
   - hTokenHandle must be THandle (8 bytes on Win64), not Cardinal (4 bytes) --
     OpenProcessToken's var out-parameter is handle-width. Same bug class as
     Phase 1's access.pas RPM/WPM finding.
@@ -63,6 +64,7 @@ type
     function    Display(Wnd : Cardinal; Str : String; MsgType : String; Dollar : Boolean = True) : String;
     function    GetCliTitle(Wnd : Cardinal) : String;
     procedure   SetCliTitle(Wnd : Cardinal; Title : String);
+    procedure   TypeText(Wnd : Cardinal; const Text : String);   // port addition (MSG)
   end;
 
 implementation
@@ -127,19 +129,27 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Port change (EuoTextEncoding, 2026-11-27): the script's text is UTF-8, so the Unicode entry
+// point, with the file and parameters decoded from UTF-8 (was ShellExecuteExA with the bytes as
+// they were, which Windows read as its ANSI code page).
 function TStdCmd.Execute(App,Par : String; Show : Boolean; TimeOut : Cardinal = 0) : Boolean;
 var
-  Info   : ShellExecuteInfoA;
+  Info   : ShellExecuteInfoW;
+  WApp   : UnicodeString;
+  WPar   : UnicodeString;
 begin
-  Info.cbSize:=SizeOf(ShellExecuteInfoA);
+  WApp:=UTF8Decode(App);
+  WPar:=UTF8Decode(Par);
+  FillChar(Info,SizeOf(Info),0);
+  Info.cbSize:=SizeOf(ShellExecuteInfoW);
   Info.fMask:=SEE_MASK_DOENVSUBST or SEE_MASK_NOCLOSEPROCESS;
   Info.Wnd:=0;
   Info.lpVerb:='open';
-  Info.lpFile:=PChar(App);
-  Info.lpParameters:=PChar(Par);
-  Info.lpDirectory:='';
+  Info.lpFile:=PWideChar(WApp);
+  Info.lpParameters:=PWideChar(WPar);
+  Info.lpDirectory:=nil;
   Info.nShow:=SW_SHOW*Byte(Show)+SW_HIDE*Byte(not Show);
-  ShellExecuteExA(@Info);   // explicit -A entry point: plain ShellExecuteEx is
+  ShellExecuteExW(@Info);   // explicit -W entry point: plain ShellExecuteEx is
                             // ambiguous between the A/W overloads under FPC
 
   Result:=Info.hInstApp>32;
@@ -197,6 +207,8 @@ end;
 function TStdCmd.Display(Wnd : Cardinal; Str : String; MsgType : String; Dollar : Boolean = True) : String;
 var
   MBType : Cardinal;
+  WStr   : UnicodeString;
+  WCap   : UnicodeString;
 begin
   MsgType:=UpperCase(MsgType);
   MBType:=MB_OK;
@@ -215,7 +227,11 @@ begin
     Exit;
   end;
 
-  MBType:=MessageBox(Wnd,PChar(Str),DISPLAY_CAPTION,MB_SETFOREGROUND+{MB_TOPMOST+}MBType);
+  // Port change (EuoTextEncoding): the Unicode box, the text decoded from UTF-8 (MessageBox was
+  // MessageBoxA, which showed a UTF-8 "è" as "Ã¨").
+  WStr:=UTF8Decode(Str);
+  WCap:=DISPLAY_CAPTION;
+  MBType:=MessageBoxW(Wnd,PWideChar(WStr),PWideChar(WCap),MB_SETFOREGROUND+{MB_TOPMOST+}MBType);
   //MB_TOPMOST will only work if executed in the EUO window thread!
   //But because of the sync all other threads who use display get blocked
   //until the very last display message disappears!!!!!!!!!!
@@ -230,17 +246,44 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Port change (EuoTextEncoding, 2026-11-27): the title through the Unicode calls, as UTF-8 like
+// the script's text (were GetWindowTextA/SetWindowTextA, the bytes read as the ANSI code page).
+// GETUOTITLE, SETUOTITLE and #CliTitle all come here; uo.dll keeps its own (TUOVar.CliTitle).
 function TStdCmd.GetCliTitle(Wnd : Cardinal) : String;
+var
+  W : UnicodeString;
+  N : Integer;
 begin
-  SetLength(Result,255);
-  GetWindowText(Wnd,@Result[1],255);
-  Result:=PChar(@Result[1]);
+  Result:='';
+  N:=GetWindowTextLengthW(Wnd);
+  if N<=0 then Exit;
+  SetLength(W,N+1);
+  N:=GetWindowTextW(Wnd,PWideChar(W),N+1);
+  SetLength(W,N);
+  Result:=UTF8Encode(W);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
 procedure TStdCmd.SetCliTitle(Wnd : Cardinal; Title : String);
+var
+  W : UnicodeString;
 begin
-  SetWindowText(Wnd,PChar(Title));
+  W:=UTF8Decode(Title);
+  SetWindowTextW(Wnd,PWideChar(W));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// Port addition (EuoTextEncoding): MSG's typing, as the original TUOCmd.Msg did it (one WM_CHAR
+// per character, posted), but from UTF-8 and through PostMessageW, so every letter arrives as
+// itself (TUOCmd.Msg posted each byte with PostMessageA; uo.dll still uses it).
+procedure TStdCmd.TypeText(Wnd : Cardinal; const Text : String);
+var
+  W : UnicodeString;
+  i : Integer;
+begin
+  W:=UTF8Decode(Text);
+  for i:=1 to Length(W) do
+    PostMessageW(Wnd,WM_CHAR,WPARAM(Ord(W[i])),0);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

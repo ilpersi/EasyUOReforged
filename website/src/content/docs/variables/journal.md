@@ -8,6 +8,7 @@ type: string
 needsClient: true
 related: ["ScanJournal", "FindJournal", "#JIndex", "#JColor", "#SysMsg"]
 aliases: ["journal line", "chat"]
+changed: true
 source: wiki
 ---
 
@@ -28,3 +29,9 @@ halt
 ```
 
 See [`scanjournal`](/commands/scanjournal/) for a loop that never misses a line.
+
+## Reforged notes
+
+- Its text is UTF-8, as all of a script's text in Reforged: a letter with an accent matches the same letter written
+  in the script, and [`str`](/commands/str/) counts it as one letter, as in EasyUO 1.5. See
+  [Letters with accents](/language/variables/#letters-with-accents).

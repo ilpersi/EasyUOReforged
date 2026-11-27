@@ -8,6 +8,7 @@ type: string
 needsClient: true
 related: ["event Property"]
 aliases: ["tooltip", "item properties"]
+changed: true
 source: wiki
 ---
 
@@ -25,3 +26,9 @@ if Blessed in #Property
   display ok It is blessed.
 halt
 ```
+
+## Reforged notes
+
+- Its text is UTF-8, as all of a script's text in Reforged: a letter with an accent matches the same letter written
+  in the script, and [`str`](/commands/str/) counts it as one letter, as in EasyUO 1.5. See
+  [Letters with accents](/language/variables/#letters-with-accents).

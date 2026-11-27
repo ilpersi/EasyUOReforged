@@ -85,7 +85,7 @@ function ListClients : TJSONObject;
 implementation
 
 uses
-  Windows, Forms, EuoInterpreter, EuoExecutor, scriptfile, clicheck, clisession;
+  Windows, Forms, EuoInterpreter, EuoExecutor, EuoTextEncoding, scriptfile, clicheck, clisession;
 
 ////////////////////////////////////////////////////////////////////////////////
 // The strings of a JSON array joined by Sep (the plain report's line for a list).
@@ -322,7 +322,7 @@ begin
 
     if FileName='-' then
     begin
-      Script:=StdInText;
+      Script:=ScriptTextToUtf8(StdInText);   // as a file is read (LoadScriptFileAsUTF8)
       FileName:='<stdin>';
     end
     else begin

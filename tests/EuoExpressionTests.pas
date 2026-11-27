@@ -36,6 +36,7 @@ type
     procedure TestBitwiseAnd;
     procedure TestBitwiseOrAsciiSpelling;
     procedure TestBitwiseOrByteSequenceSpelling;
+    procedure TestBitwiseOrUtf8BrokenBarSpelling;
     procedure TestUnaryNotIsBitwiseNotOnMinusOneZero;
     procedure TestUnaryNotOnNonBooleanIsRawBitwiseNot;
     procedure TestUnaryAbs;
@@ -213,6 +214,15 @@ begin
   // ASCII string "||" typed twice -- confirmed against the actual source bytes.
   Tok(['0', Chr(166)+Chr(166), '-1']);
   AssertEquals(Int64(-1), EvalInt);
+end;
+
+procedure TEuoExpressionTests.TestBitwiseOrUtf8BrokenBarSpelling;
+begin
+  // The same "¦¦" as the editor saves it: UTF-8, each "¦" the two bytes C2 A6.
+  Tok(['0', #$C2#$A6#$C2#$A6, '-1']);
+  AssertEquals(Int64(-1), EvalInt);
+  Tok(['0', #$C2#$A6#$C2#$A6, '0']);
+  AssertEquals(Int64(0), EvalInt);
 end;
 
 procedure TEuoExpressionTests.TestUnaryNotIsBitwiseNotOnMinusOneZero;

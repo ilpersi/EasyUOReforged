@@ -2351,6 +2351,12 @@ sub st_c308
   set %st_a #StrRes
   set %st_e %st_t2
   gosub st_eq 3.08.var set_#CliTitle_is_read_back_by_getuotitle none
+  set %st_t3 EUO , #spc , Città , #spc , %st_tok
+  setuotitle %st_t3
+  wait 5
+  set %st_a #CliTitle
+  set %st_e %st_t3
+  gosub st_eq 3.08.accent a_title_with_an_accented_letter_reads_back_the_same none
   gosub st_cl_restore window_title
   set %st_a #CliTitle
   ; the title recorded: the one before a crashed run, when that run left it changed (st_cl_changed)
@@ -3364,6 +3370,7 @@ sub st_s5
   gosub st_c522
   gosub st_c523
   gosub st_c524
+  gosub st_c525
 return
 
 ; event SysMessage: #SysMsg, the journal and #JColor all show the text
@@ -4328,6 +4335,39 @@ sub st_c524
     set %st_a #GumpReply
     gosub st_info 5.24.reply what_your_click_sent %fx_hook2
   }
+return
+
+; letters with accents: event SysMessage with a word that has one ("Città"); #SysMsg, findjournal and #Journal
+; give back the same letters the script wrote, and str len counts the accented letter as one
+sub st_c525
+  gosub st_case 5.25 Letters_with_accents_in_the_client's_texts
+  if %st_run = 0
+    return
+  gosub st_token
+  set %st_acc %st_tok , Città
+  set %st_j0 #JIndex
+  event sysmessage %st_acc
+  waitfor %st_acc in #SysMsg %st_tw3
+  set %st_a #SysMsg
+  set %st_c %st_acc in %st_a
+  set %st_e contains_the_accented_word_sent
+  set %st_f %fx_sysm , / , %fx_sysmsg
+  gosub st_ok 5.25.sysmsg SysMsg_holds_the_letters_the_script_wrote %st_f
+  findjournal %st_j0 * %st_tw3 %st_acc
+  set %st_a #JFound
+  set %st_c #JFound > 0
+  set %st_e found
+  gosub st_ok 5.25.find findjournal_finds_the_accented_word %fx_jour
+  set %st_a #Journal
+  set %st_c %st_acc in %st_a
+  set %st_e contains_the_accented_word_sent
+  gosub st_ok 5.25.journal Journal_holds_the_same_letters %fx_jour
+  str len %st_tok
+  set %st_e #StrRes + 5
+  str len %st_acc
+  set %st_a #StrRes
+  set %st_c %st_a = %st_e
+  gosub st_ok 5.25.len str_len_counts_the_accented_letter_as_one none
 return
 
 ; ###########################################################################

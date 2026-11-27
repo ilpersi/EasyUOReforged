@@ -332,4 +332,7 @@ and give `N/A`. To cut a text at a comma, use `str pos %s ,` followed by `str le
 
 - `str replace`, `str part`, `str trim`, `str join`, `str concat`, `str urlencode` and `str jsonescape` are new. In
   EasyUO 1.5 these words did nothing but set `#StrRes` to `N/A`, as any unknown operation still does.
+- Lengths and positions count letters: `str len Mèrlin` is `6` and `str left Mèrlin 2` is `Mè`, as in EasyUO 1.5.
+  Reforged stores text as UTF-8, where `è` takes two bytes, and counted those bytes before. `urlencode` and
+  `jsonescape` work on the bytes, as they must. See [Letters with accents](/language/variables/#letters-with-accents).
 - The other operations are unchanged.

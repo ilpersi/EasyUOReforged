@@ -166,6 +166,11 @@ halt                            ; => %text = abcdef
   `str clock` and `str date` (see [str](/commands/str/#time-and-numbers-reforged)).
 - `set #SCnt 0` moves every deadline the script built on `#SCnt` (`set %t #SCnt + 5`). For deadlines,
   "every 30 seconds" and stopwatches, use [`timer`](/commands/timer/): nothing else moves it.
+- Letters with accents can be written as they are: `if Città in #Property` finds it, and so do `#Journal`,
+  `#SysMsg`, `#CharName`, `#Shard`, `#ShopItemName` and `#CliTitle` (`getuotitle`, `setuotitle`). `str` counts
+  `à` as one letter. A letter outside Western European (`ł`, `’`) reads as a different character in the client's
+  texts, so match the part of the word without it (see
+  [Letters with accents](/language/variables/#letters-with-accents)).
 
 ```euo
 set %a %never                   ; => %a = N/A

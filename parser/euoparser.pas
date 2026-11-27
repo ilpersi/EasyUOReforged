@@ -14,7 +14,7 @@ uses
   EuoCallStackFormat, EuoExecutor, EuoSql, EuoBlocks, EuoScriptWords, 
   EuoJumpTarget, EuoJournalSearch, EuoStrOps, EuoVocabulary, EuoLint, 
   EuoItemMove, EuoGumps, EuoLogFile, EuoOutline, EuoHttp, EuoVarUsage, 
-  EuoSearchPath, EuoTimers, EuoLists;
+  EuoSearchPath, EuoTimers, EuoLists, EuoTextEncoding;
 
 implementation
 

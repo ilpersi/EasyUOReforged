@@ -8,6 +8,7 @@ type: string
 needsClient: true
 related: ["GetShopInfo", "#ShopItemPrice", "#ShopItemID"]
 aliases: ["shop item name"]
+changed: true
 source: wiki
 ---
 
@@ -21,3 +22,9 @@ getshopinfo
 display ok #ShopItemName costs #ShopItemPrice gold - #ShopItemMax available
 halt
 ```
+
+## Reforged notes
+
+- Its text is UTF-8, as all of a script's text in Reforged: a letter with an accent matches the same letter written
+  in the script, and [`str`](/commands/str/) counts it as one letter, as in EasyUO 1.5. See
+  [Letters with accents](/language/variables/#letters-with-accents).
