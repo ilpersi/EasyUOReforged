@@ -13,7 +13,7 @@ unit EuoCliRunTests;
 interface
 
 uses
-  Classes, SysUtils, fpcunit, testregistry, fpjson, jsonparser, climain, clicheck, clirun;
+  Classes, SysUtils, fpcunit, testregistry, fpjson, jsonparser, climain, clicheck, clirun, euoutput;
 
 type
   TEuoCliRunTests = class(TTestCase)
@@ -48,6 +48,7 @@ type
     procedure TestMenuScriptRuns;
     procedure TestListToMenuRuns;
     procedure TestStdIn;
+    procedure TestLatin1TextPrintsAsUtf8;
     procedure TestEuoPath;
     procedure TestClientThatIsNotThere;
     procedure TestRunUsageErrors;
@@ -493,6 +494,40 @@ begin
   AssertEquals(CLI_OK,Run('run|-','log from stdin'+LineEnding+'halt'+LineEnding));
   AssertEquals('running <stdin> without a client (commands that need one are skipped)',Output[0]);
   AssertEquals('[1] log: from stdin',Output[1]);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// A client text (#Property, the journal) holds an accented letter as its one Latin-1 byte. A
+// script from standard input keeps its bytes, so it stands in for one here, with no client.
+// The run's own text keeps the byte; EUOCli.lpr prints everything through EuoUtf8Text, so
+// what a UTF-8 reader gets (PowerShell, an agent over MCP) is the letter, not U+FFFD.
+procedure TEuoCliRunTests.TestLatin1TextPrintsAsUtf8;
+var
+  List : TList;
+  Line : String;
+  Obj  : TJSONData;
+begin
+  AssertEquals(CLI_OK,Run('run|-','log Spada '#$E8' 5'#$B0+LineEnding+'halt'+LineEnding));
+  AssertEquals('Reforged''s own text is unchanged','[1] log: Spada '#$E8' 5'#$B0,Output[1]);
+  Line:=EuoUtf8Text(Output[1]);
+  AssertEquals('printed as UTF-8','[1] log: Spada '#$C3#$A8' 5'#$C2#$B0,Line);
+
+  AssertEquals(CLI_OK,Run('run|-|--json','log Spada '#$E8' 5'#$B0+LineEnding+'halt'+LineEnding));
+  List:=Events;
+  try
+    AssertEquals('Reforged''s own text is unchanged','Spada '#$E8' 5'#$B0,
+      String(EventOf(List,'log').Get('text','')));
+  finally
+    FreeEvents(List);
+  end;
+  Line:=EuoUtf8Text(Output[1]);
+  Obj:=GetJSON(Line);
+  try
+    AssertEquals('a JSON reader gets the letters','Spada '#$C3#$A8' 5'#$C2#$B0,
+      String(TJSONObject(Obj).Get('text','')));
+  finally
+    Obj.Free;
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

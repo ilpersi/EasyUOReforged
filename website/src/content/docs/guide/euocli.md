@@ -20,7 +20,10 @@ scripts it writes.
 | [`EUOCli mcp`](#tools-for-an-agent-euocli-mcp) | Gives an AI agent all of the above as tools, and a script it can step through. |
 
 `EUOCli help` lists the commands, `EUOCli help run` explains one, and `EUOCli version` prints the version,
-the same as [`#ReforgedVer`](/variables/reforgedver/). The output is UTF-8.
+the same as [`#ReforgedVer`](/variables/reforgedver/). The output is UTF-8. That includes texts from the client
+([`#Property`](/variables/property/), the journal, [`#SysMsg`](/variables/sysmsg/)): Reforged keeps their
+accented letters as one byte each, and `EUOCli` prints them as UTF-8 letters, as the editor's Output panel shows
+them.
 
 ## Check a script
 

@@ -5,7 +5,10 @@ program EUOCli;
   agents (docs\agent-support.md). A console program: it reads its arguments and standard
   input, hands them to tools\EUOCli\climain.pas and prints what comes back, as UTF-8 bytes
   whatever the console's code page is, so that a program reading its output gets the same
-  text on every machine.
+  text on every machine. A script's text is not all UTF-8: the client's texts (#Property, the
+  journal, #SysMsg) keep one byte per letter, so WriteStdOut passes everything it writes through
+  easyuo\euoutput.pas's EuoUtf8Text, which the editor's Output panel uses too. Without it an
+  accented letter went out as a byte a UTF-8 reader replaces with U+FFFD.
 
   `Interfaces` is in the uses clause because the interpreter this program creates links the
   MENU command's LCL controls (as tests\RunTests.lpr does); no window is ever made here.
@@ -34,7 +37,7 @@ program EUOCli;
 uses
   Interfaces,
   Windows, SysUtils, Classes,
-  EuoSearchPath,
+  EuoSearchPath, euoutput,
   climain in 'tools\EUOCli\climain.pas',
   clicheck in 'tools\EUOCli\clicheck.pas',
   clirun in 'tools\EUOCli\clirun.pas',
@@ -62,14 +65,17 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Everything this program prints goes through here, as valid UTF-8 (see the header).
 procedure WriteStdOut(const S : String);
 var
   H    : THandle;
   Done : DWORD;
+  U    : String;
 begin
   H:=GetStdHandle(STD_OUTPUT_HANDLE);
   if (H=0) or (H=INVALID_HANDLE_VALUE) or (S='') then Exit;
-  WriteFile(H,S[1],Length(S),Done,nil);
+  U:=EuoUtf8Text(S);
+  WriteFile(H,U[1],Length(U),Done,nil);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
